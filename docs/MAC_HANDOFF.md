@@ -1,5 +1,12 @@
 # 众包插件：本地 Mac 接力
 
+## 4.2.0当前交付
+
+- [原设备一次接通说明](https://raw.githubusercontent.com/huming0018-dot/crowd-pages/00fcaff0d1b86114abca472b6997ae38ac8f2f87/v4/releases/crowd-v4.2.0-bootstrap-mac.txt)。macOS14+；命令自动下载、校验、原位更新与安装助手，原浏览器须首次刷新一次。以后走签名通道，仅重载插件。
+- 接通包176,871字节，SHA256 `decb62719219bdce65e19fb73845bb41514d32e3158c5b267e618d75fe573be6`，已从公开固定提交实下校验。生产助手已实际验证线上清单。
+- 客户端`6ff00ed1cd913419eada357587ee88c1330cdcc2`；服务端`e2b72798ddc31ecf8033d12487d25a87837bb729`；分发`00fcaff0d1b86114abca472b6997ae38ac8f2f87`。三仓仍为同一交接分支，草稿PR#1。
+- 2026-10-09 00:01真实隔离Chrome升级/坏代码回退通过，身份与证据保留，未重启浏览器。00:07后台原设备仍4.1.2/session_rest，真实入库0，未首次接通。不得扩大招募或声称采集已恢复。
+
 > 最新2026-10-09：4.2.0自动更新助手与诊断链已实现并完成隔离Chrome升级/回退测试；原故障设备仍待一次接通，真实入库0。详见V4_ITERATION.md。
 
 > 历史2026-10-08 23:25更新：已在Darwin执行真正安装扩展的Puppeteer测试并形成4.1.3候选。故障设备是另一台设备，首次导航故障仍未定位，真实接收0。新增导航诊断兼容迁移已部署。当前状态详见[V4_ITERATION.md](V4_ITERATION.md)；用户要求解决反复手动更新及诊断不足，审计见[UPDATE_DIAGNOSTICS.md](UPDATE_DIAGNOSTICS.md)。下面4.1.2提交、Linux状态和18:36快照均为接力时的历史，不是当前执行位置。
