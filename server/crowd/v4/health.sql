@@ -21,5 +21,7 @@ select jsonb_build_object(
    'next_task_retry',(select min(available_at) from crowd_v4.tasks where status='open' and available_at>now()),
    'task_states',(select jsonb_object_agg(status,n) from (select status,count(*) n from crowd_v4.tasks group by status) t),
    'diagnostics',(select jsonb_agg(jsonb_build_object('version',state->>'version','error',state->>'error',
-      'phase',state->>'phase','updated_at',updated_at,'stale',updated_at<now()-interval '10 minutes')) from crowd_v4.diagnostics where enabled))
+      'phase',state->>'phase','nav_stage',state->>'nav_stage','nav_error',state->>'nav_error',
+      'previous_nav_stage',state->>'prev_nav_stage','previous_nav_error',state->>'prev_nav_error',
+      'page_failures',state->'page_failures','last_tick_age_s',state->'last_tick_age_s','next_in_s',state->'next_in_s','updated_at',updated_at,'stale',updated_at<now()-interval '10 minutes')) from crowd_v4.diagnostics where enabled))
 ) as health;
