@@ -3,14 +3,15 @@
 ## 4.2.0当前交付
 
 - 2026-10-09 00:24原设备已回传4.2.0、更新助手current；首次接通已确认。00:26用户指出仅2条测试不应再次休息，已按授权仅清除该测试身份的session_rest，未改每日计数/全局策略。00:29服务端迁移`20261008162901_crowd_v4_idle_session_rest`修复已空闲30分钟仍重新休息的问题，旧逻辑失败/新逻辑通过；权限未扩大。
-- 00:29收到enabled=true，仍保留客户端此前next_at至00:30:28。这是客户端旧期限缓存，不是服务端仍在限制；真实搜索和入库仍待观察。后续必须读取新诊断，不能将原首页nav_complete当采集成功。
+- 00:29收到enabled=true，客户端仍保留此前next_at至00:30:28。00:30:41实际搜索已获准（今日search=1），出现tab_created/update_accepted/nav_started，但document_kind=blank、pending_kind=platform一直没有commit；00:33:11记录navigation_timeout并停止，00:33:59快照enabled=false/error=navigation_uncommitted。真实入库仍0。前面打开首页的nav_complete不能当采集成功。
+- 00:32本机真实安装4.2.0、隔离未登录Chrome、相同任务地址实跑，搜索页commit并出现login_required；不能代替原设备验收。已询问原设备将故障标签切到前台是否能载入，尚未收到该测试结果。不要重复要求解压安装或让用户反复继续消耗搜索预算。
 
 - [原设备一次接通说明](https://raw.githubusercontent.com/huming0018-dot/crowd-pages/00fcaff0d1b86114abca472b6997ae38ac8f2f87/v4/releases/crowd-v4.2.0-bootstrap-mac.txt)。macOS14+；命令自动下载、校验、原位更新与安装助手，原浏览器须首次刷新一次。以后走签名通道，仅重载插件。
 - 接通包176,871字节，SHA256 `decb62719219bdce65e19fb73845bb41514d32e3158c5b267e618d75fe573be6`，已从公开固定提交实下校验。生产助手已实际验证线上清单。
 - 客户端`6ff00ed1cd913419eada357587ee88c1330cdcc2`；服务端`e2b72798ddc31ecf8033d12487d25a87837bb729`；分发`00fcaff0d1b86114abca472b6997ae38ac8f2f87`。三仓仍为同一交接分支，草稿PR#1。
 - 2026-10-09 00:01真实隔离Chrome升级/坏代码回退通过，身份与证据保留，未重启浏览器。00:07后台原设备仍4.1.2/session_rest，真实入库0，未首次接通。不得扩大招募或声称采集已恢复。
 
-> 最新2026-10-09：原设备4.2.0和助手current已确认，真实入库仍0。已按用户测试要求清除误触发的休息并部署空闲恢复修复，正观察真实搜索。详见V4_ITERATION.md。
+> 最新2026-10-09 00:34：原设备4.2.0和助手current已确认，休息误拦截已修复；搜索再次出现导航未提交并停止，真实入库0。等待原设备前台切换对照结果。
 
 > 历史2026-10-08 23:25更新：已在Darwin执行真正安装扩展的Puppeteer测试并形成4.1.3候选。故障设备是另一台设备，首次导航故障仍未定位，真实接收0。新增导航诊断兼容迁移已部署。当前状态详见[V4_ITERATION.md](V4_ITERATION.md)；用户要求解决反复手动更新及诊断不足，审计见[UPDATE_DIAGNOSTICS.md](UPDATE_DIAGNOSTICS.md)。下面4.1.2提交、Linux状态和18:36快照均为接力时的历史，不是当前执行位置。
 
