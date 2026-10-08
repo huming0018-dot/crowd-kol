@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url);
 if(!process.env.CROWD_TEST_TOOLS) throw new Error('Set CROWD_TEST_TOOLS to the existing development tools directory');
 const {PGlite}=require(path.join(process.env.CROWD_TEST_TOOLS,'node_modules/@electric-sql/pglite'));
@@ -11,12 +12,13 @@ await db.exec(`create role anon;create role authenticated;create role service_ro
 create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
 create table crowd_v4.participants(user_id uuid primary key,status text,consent text);
 insert into crowd_v4.participants values('${user}','approved','crowd-public-v4'),('${other}','approved','crowd-public-v4');`);
-const migrations=path.resolve(new URL('../supabase/migrations/',import.meta.url).pathname);
+const migrations=fileURLToPath(new URL('../supabase/migrations/',import.meta.url));
 const migration=fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_diagnostics.sql'));
 await db.exec(fs.readFileSync(path.join(migrations,migration),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_diagnostics.sql'))),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_login_diagnostics.sql'))),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_recovery.sql'))),'utf8'));
+await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_commit.sql'))),'utf8'));
 async function call(uid,action,revision,state=null) {
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid||'']);
   return (await db.query('select public.crowd_v4_diagnostics($1,$2,$3::jsonb) as result',[action,revision,state===null?null:JSON.stringify(state)])).rows[0].result;
@@ -37,6 +39,8 @@ const recovery={...navigation,prev_nav_stage:'started',prev_nav_error:null,prev_
 await call(user,'report',1,recovery);
 assert.deepEqual((await db.query('select state from crowd_v4.diagnostics')).rows[0].state,recovery);
 for(const invalid of [{prev_nav_stage:null},{prev_nav_error:'PRIVATE_URL'},{prev_nav_age_s:86401},{page_failures:4},{page_failures:null},{next_in_s:'1'},{last_tick_age_s:-1},{previous_url:'private'}])await assert.rejects(call(user,'report',1,{...recovery,...invalid}),/invalid_diagnostics/);
+for(const error of ['navigation_failed','navigation_uncommitted'])await call(user,'report',1,{...recovery,error,document_kind:'blank',pending_kind:'platform'});
+for(const invalid of [{document_kind:null},{document_kind:'https://secret.test'},{pending_kind:null},{pending_kind:'COOKIE'},{frame_url:'private'}])await assert.rejects(call(user,'report',1,{...recovery,...invalid}),/invalid_diagnostics/);
 await call(user,'report',1,snapshot); // Already-installed 4.0.1 remains compatible.
 
 assert.equal((await db.query('select count(*)::int as n from crowd_v4.diagnostics')).rows[0].n,1,'only the latest snapshot is kept');

@@ -42,6 +42,7 @@ python3 v4/build_trial.py --source /private/crowd-extension.zip \
 v4.1.0同时修改客户端与SQL，原RPC名与参数兼容旧客户端，新增观察与主页RPC。观察迁移在前，别名迁移在后。`functions/` 是需要可信配置渲染的模板，不可直接部署占位符。
 4.1.1追加已部署的 `20261008093900_crowd_v4_login_diagnostics`，兼容新旧客户端错误码，权限不变。
 4.1.2追加已部署的 `20261008103535_crowd_v4_navigation_recovery`，允许上一轮导航摘要与固定调度计数；仍只保存一条当前状态，关闭诊断清除。
+4.1.3追加已部署的 `20261008152415_crowd_v4_navigation_commit`，仅增加空白/待提交文档枚举与固定导航失败码，旧客户端兼容。
 应用后核对函数定义、权限、数据库 advisors 和 `server/crowd/v4/health.sql`。
 
 ## 4. Mac 更新与验收
