@@ -15,6 +15,7 @@ const migrations=path.resolve(new URL('../supabase/migrations/',import.meta.url)
 const migration=fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_diagnostics.sql'));
 await db.exec(fs.readFileSync(path.join(migrations,migration),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_diagnostics.sql'))),'utf8'));
+await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_login_diagnostics.sql'))),'utf8'));
 async function call(uid,action,revision,state=null) {
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid||'']);
   return (await db.query('select public.crowd_v4_diagnostics($1,$2,$3::jsonb) as result',[action,revision,state===null?null:JSON.stringify(state)])).rows[0].result;
@@ -24,6 +25,8 @@ await assert.rejects(call(null,'enable',1),/login_required/);
 await assert.rejects(call(user,'report',1,snapshot),/stale_diagnostics/);
 await call(user,'enable',1);await call(user,'report',1,snapshot);
 await call(user,'report',1,{...snapshot,links:1});
+for(const error of ['user_login','backend_login_required','login_required']) await call(user,'report',1,{...snapshot,error});
+await assert.rejects(call(user,'report',1,{...snapshot,gate:'user_login'}),/invalid_diagnostics/);
 const navigation={...snapshot,version:'4.0.3',error:'page_loading',nav_stage:'failed',nav_error:'ERR_NAME_NOT_RESOLVED',nav_age_s:4,probe_status:'no_receiver'};
 await call(user,'report',1,navigation);
 assert.deepEqual((await db.query('select state from crowd_v4.diagnostics')).rows[0].state,navigation);
