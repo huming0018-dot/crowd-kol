@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url);
 const {PGlite}=require(path.join(process.env.CROWD_TEST_TOOLS,'node_modules/@electric-sql/pglite'));
 const db=new PGlite();
 const users=['00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002'];
-const migrations=path.resolve(new URL('../supabase/migrations/',import.meta.url).pathname);
+const migrations=fileURLToPath(new URL('../supabase/migrations/',import.meta.url));
 try {
  await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;
  create table auth.users(id uuid primary key);
@@ -14,6 +15,7 @@ try {
  create function auth.role() returns text language sql as $$select current_setting('request.jwt.claim.role',true)$$;
  grant usage on schema auth to authenticated,service_role;grant execute on function auth.uid(),auth.role() to authenticated,service_role;`);
  for(const suffix of ['20261006145016_crowd_v4.sql','_crowd_v4_diagnostics.sql','_crowd_v4_navigation_diagnostics.sql','_crowd_v4_safety.sql','_crowd_v4_receipt_recovery.sql','_crowd_v4_task_scheduling.sql','_crowd_v4_observations.sql','_crowd_v4_relevance_aliases.sql','_crowd_v4_login_diagnostics.sql','_crowd_v4_navigation_recovery.sql']) await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith(suffix))),'utf8'));
+ if(!process.env.CROWD_TEST_BEFORE_IDLE_FIX) await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_idle_session_rest.sql'))),'utf8'));
  for(const u of users){await db.query('insert into auth.users values($1)',[u]);await db.query("insert into crowd_v4.participants(user_id,status,consent) values($1,'approved','crowd-public-v4')",[u]);}
  async function call(u,action='control',note=null,task=1){
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[u]);
@@ -51,9 +53,15 @@ try {
  assert.equal((await call(users[0],'search')).reason,'action_budget');
  await db.exec("update crowd_v4.safety set day=(now() at time zone 'Asia/Shanghai')::date-1");
  assert.equal((await call(users[0],'search')).allowed,true,'Shanghai day rollover resets attempts');
- await db.exec("update crowd_v4.safety set next_action=now(),session_count=20");
+ await db.exec("update crowd_v4.safety set next_action=now()-interval '3 hours',session_started=now()-interval '4 hours',session_count=9");
+ const rested=await call(users[0],'scroll');assert.equal(rested.allowed,true,'hours already idle must not trigger another 30-minute rest');
+ assert.equal(rested.session_count,1);assert.equal(rested.counts.search,1,'idle recovery preserves daily counts');
+ await db.exec("update crowd_v4.safety set next_action=now()-interval '29 minutes',session_started=now()-interval '40 minutes',session_count=3");
+ assert.equal((await call(users[0],'scroll')).reason,'session_rest','less than 30 minutes idle still requires rest');
+ await db.exec("update crowd_v4.safety set cooldown_until=now()-interval '1 second',next_action=now(),session_count=20");
  const rest=await call(users[0],'scroll');assert.equal(rest.reason,'session_rest');assert.ok(rest.wait_ms>=1799000);
  const risk=await call(users[0],'rate_limit');assert.equal(risk.reason,'rate_limit');assert.ok(risk.wait_ms>=86399000);
+ await db.exec("update crowd_v4.safety set next_action=now()-interval '3 hours',session_started=now()-interval '4 hours',session_count=9");
  // Fetching control or using a different task does not clear a hard cooldown.
  assert.equal((await call(users[0],'search')).reason,'rate_limit');
  assert.equal((await call(users[0])).reason,'rate_limit');
