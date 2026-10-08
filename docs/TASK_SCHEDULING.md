@@ -1,4 +1,6 @@
-# 任务分配：Kimi 两个代码形态与 v4.0.7
+# 任务分配：Kimi 两个代码形态与 v4
+
+v4.0.8沿用4.0.7服务端任务协议；新增客户端到期唤醒与评论无进展停止，见[当前状态](V4_ITERATION.md)。
 
 核对日期：2026-10-08。依据是 crowd-pages 提交81eed9e中的 `crowd-extension-latest.zip`（manifest 3.4.14、`src/background_v3414.js`），以及线上 `public.crowd_fetch_tasks` 的完整定义；同时对照 crawler-extension 提交5b9e327（manifest标签1.0.0）的完整JS代码。数字只用于标识输入，不判断先后。v4依据 canonical 客户端与 `crowd_v4_task_scheduling` 迁移。
 
