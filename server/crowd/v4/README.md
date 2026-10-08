@@ -1,13 +1,9 @@
-# v4 backend source
+# v4 服务端
 
-This isolated authenticated protocol coexists with the legacy public.crowd_* lane.
-See ../../../docs/V4_ITERATION.md from the repository root: docs/V4_ITERATION.md.
-Historical migrations are imported byte-for-byte from china-travel-food 82cafb7;
-IMPORTED_FROM.json records the import. Never replay applied migrations on production.
-Apply only new migrations, then verify RPC grants and execute health.sql read-only.
+认证后的独立协议与原生产 public.crowd_* 共存。统一状态见 [V4_ITERATION.md](../../../docs/V4_ITERATION.md)，步骤见 [DEPLOY.md](../../../docs/DEPLOY.md)。
 
-20261008021710_crowd_v4_receipt_recovery was deployed on 2026-10-08.
-No legacy ledger/rating/settlement or KOL tables are modified.
-Tests use isolated PGlite; real participant identities/records are never synthesized.
-The Edge source templates are retained from 4.0.5 and still require the existing
-trusted configuration-rendering step before deployment; this iteration changes SQL only.
+`supabase/migrations` 是迁移真源；只应用未部署的增量。IMPORTED_FROM.json仅记录一次性导入来源，不能从旧主项目反向覆盖当前源码。
+任务机制见 [TASK_SCHEDULING.md](../../../docs/TASK_SCHEDULING.md)。health.sql只读区分两条链路，并展示任务可用/延期和诊断新鲜度。
+
+测试使用隔离PGlite，另有客户端Chromium固定页面端到端回归；不在生产创建合成参与者或证据。
+Edge函数源码仍需要可信配置渲染，不得直接部署包含占位符的模板。本次兼容更新只修改SQL。
