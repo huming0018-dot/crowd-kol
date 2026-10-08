@@ -3,6 +3,8 @@
 > 写给下一个接手的 agent：先读 `README.md`（仓库地图），再读本文件。
 > 本文件只讲**当前状态、凭据、健康检查、未闭环事项、别再踩的坑**。
 
+> **2026-10-08 接续入口**：[V4_ITERATION.md](V4_ITERATION.md) 记录权威仓路径、协议隔离、v4.0.6修复、实际测试和部署。下文3台/174+条等均是原日期快照，不能当作v4产量；实时核对用 `server/crowd/v4/health.sql`。
+
 ---
 
 ## 1. 系统是什么
@@ -19,7 +21,7 @@
 | 仓 | canonical | 同步方向 |
 |---|---|---|
 | `huming0018-dot/crowd-kol` | 服务端 SQL/脚本 + KOL 子系统 + 设计文档 | → 服务器 / 主项目 |
-| `huming0018-dot/crowd-extension` | 扩展源码（v1.0，ponytail 精简版） | → 发布通道 |
+| `huming0018-dot/crawler-extension` | 扩展源码（v1.0，ponytail 精简版） | → 发布通道 |
 | `huming0018-dot/crowd-pages` | 分发页 + 安装产物（GitHub Pages + Releases） | → 公网 |
 | `huming0018-dot/china-travel-food` | 食品图鉴主项目 + 运行环境 | 部署终点 |
 

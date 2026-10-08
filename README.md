@@ -3,12 +3,14 @@
 > 单一事实源（canonical）：众包采集系统的**服务端**与 **KOL 采集子系统**的协作主仓。
 > 本仓是协作入口；代码真源按「仓库地图」分仓管理，杜绝多点漂移。
 
+> 2026-10-08：新增隔离的 v4.0.6 迭代，服务端真源为 `server/crowd/v4`；原生产、v4、KOL 分别核对。先读 [v4迭代与实况](docs/V4_ITERATION.md)。根目录 v1.0 与 Pages 3.4.14 不是同一版本快照。
+
 ## 仓库地图（什么代码以哪个仓为准）
 
 | 仓 | 内容 | 地位 |
 |---|---|---|
 | **本仓 crowd-kol** | 众包服务端（SQL 迁移链 / 播报 / 评分 / 结算 cron）+ KOL 子系统（路由/监控/身份/评级/回灌 + 精选池 + 库迁移） | **canonical** |
-| [crawler-extension](https://github.com/huming0018-dot/crowd-extension) | 浏览器扩展（Chrome MV3 / Firefox 双形态，v1.0） | 扩展 canonical |
+| [crawler-extension](https://github.com/huming0018-dot/crawler-extension) | 浏览器扩展（Chrome MV3 / Firefox 双形态，v1.0） | 扩展 canonical |
 | [crowd-pages](https://github.com/huming0018-dot/crowd-pages) | 分发面（安装页/提交页/状态页/owner 评价页 + GitHub Pages 托管 + 安装产物 Releases） | 分发 canonical |
 | [china-travel-food](https://github.com/huming0018-dot/china-travel-food) | 食品图鉴主项目（主库 score_diner、KOL 运行环境、食物 DB） | 主项目（本仓的 KOL 与 crowd cron 部署到这里/对应服务器运行） |
 
