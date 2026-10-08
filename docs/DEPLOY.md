@@ -21,6 +21,7 @@ node v4/tests/run.cjs
 python3 v4/build.py --output /private/crowd-extension.zip
 
 # 在 crowd-kol 根目录
+CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/observations-db.mjs
 CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/scheduling-db.mjs
 CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/safety-db.mjs
 CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/recovery-db.mjs
@@ -38,7 +39,7 @@ python3 v4/build_trial.py --source /private/crowd-extension.zip \
 
 先查 Supabase 项目 `bdwrhshgdeghgyzwpxnl` 的迁移历史，只应用尚未部署的 canonical 增量。
 已部署基线禁止重跑；`server/crowd/sql` 的旧链路文件也不是一个已验证的全新建库脚本。
-v4 本次只改 SQL，RPC 名与参数兼容旧客户端。`functions/` 是需要可信配置渲染的模板，不可直接部署占位符。
+v4.1.0同时修改客户端与SQL，原RPC名与参数兼容旧客户端，新增观察与主页RPC。观察迁移在前，别名迁移在后。`functions/` 是需要可信配置渲染的模板，不可直接部署占位符。
 应用后核对函数定义、权限、数据库 advisors 和 `server/crowd/v4/health.sql`。
 
 ## 4. Mac 更新与验收

@@ -11,7 +11,7 @@ try {
  create function auth.role() returns text language sql as $$select current_setting('request.jwt.claim.role',true)$$;
  grant usage on schema auth to authenticated;grant execute on function auth.uid(),auth.role() to authenticated;`);
  const dir=new URL('../supabase/migrations/',import.meta.url);
- for(const suffix of ['20261006145016_crowd_v4.sql','_crowd_v4_diagnostics.sql','_crowd_v4_navigation_diagnostics.sql','_crowd_v4_view_count.sql','_crowd_v4_safety.sql','_crowd_v4_receipt_recovery.sql','_crowd_v4_task_scheduling.sql'])await db.exec(fs.readFileSync(new URL(fs.readdirSync(dir).find(n=>n.endsWith(suffix)),dir),'utf8'));
+ for(const suffix of ['20261006145016_crowd_v4.sql','_crowd_v4_diagnostics.sql','_crowd_v4_navigation_diagnostics.sql','_crowd_v4_view_count.sql','_crowd_v4_safety.sql','_crowd_v4_receipt_recovery.sql','_crowd_v4_task_scheduling.sql','_crowd_v4_observations.sql','_crowd_v4_relevance_aliases.sql'])await db.exec(fs.readFileSync(new URL(fs.readdirSync(dir).find(n=>n.endsWith(suffix)),dir),'utf8'));
  for(const u of users){await db.query('insert into auth.users values($1)',[u]);await db.query("insert into crowd_v4.participants(user_id,status,consent) values($1,'approved','crowd-public-v4')",[u]);}
  async function call(user,sql,args=[]){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user]);await db.exec('set role authenticated');try{return (await db.query(sql,args)).rows[0].r;}finally{await db.exec('reset role');}}
  const claim=(u=users[0],id=null)=>call(u,'select public.crowd_v4_claim($1) as r',[id]);

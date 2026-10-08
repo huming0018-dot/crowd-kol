@@ -6,6 +6,11 @@ select jsonb_build_object(
    'accepted',(select count(*) from public.crowd_proofs where gate_status='accepted'),
    'accepted_24h',(select count(*) from public.crowd_proofs where gate_status='accepted' and coalesce(accepted_at,created_at)>=now()-interval '24 hours'),
    'paused',(select value from public.crowd_config where key='global_pause')),
+ 'observations',jsonb_build_object(
+   'notes',(select count(*) from crowd_observation.notes),
+   'authors',(select count(*) from crowd_observation.authors),
+   'snapshots',(select jsonb_object_agg(kind,n) from (select kind,count(*) n from crowd_observation.snapshots group by kind) q),
+   'recent_submissions',(select jsonb_agg(q) from (select task_id,error,parser_version,title_chars,body_chars,anchor_terms,updated_at from crowd_observation.submission_status order by updated_at desc limit 10) q)),
  'v4',jsonb_build_object(
    'received',(select count(*) from crowd_v4.proofs),
    'verified',(select count(*) from crowd_v4.proofs where status='verified'),
