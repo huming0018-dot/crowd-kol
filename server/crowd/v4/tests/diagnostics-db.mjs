@@ -19,6 +19,7 @@ await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).fi
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_login_diagnostics.sql'))),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_recovery.sql'))),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_commit.sql'))),'utf8'));
+await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_trace_updates.sql'))),'utf8'));
 async function call(uid,action,revision,state=null) {
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid||'']);
   return (await db.query('select public.crowd_v4_diagnostics($1,$2,$3::jsonb) as result',[action,revision,state===null?null:JSON.stringify(state)])).rows[0].result;
@@ -41,6 +42,10 @@ assert.deepEqual((await db.query('select state from crowd_v4.diagnostics')).rows
 for(const invalid of [{prev_nav_stage:null},{prev_nav_error:'PRIVATE_URL'},{prev_nav_age_s:86401},{page_failures:4},{page_failures:null},{next_in_s:'1'},{last_tick_age_s:-1},{previous_url:'private'}])await assert.rejects(call(user,'report',1,{...recovery,...invalid}),/invalid_diagnostics/);
 for(const error of ['navigation_failed','navigation_uncommitted'])await call(user,'report',1,{...recovery,error,document_kind:'blank',pending_kind:'platform'});
 for(const invalid of [{document_kind:null},{document_kind:'https://secret.test'},{pending_kind:null},{pending_kind:'COOKIE'},{frame_url:'private'}])await assert.rejects(call(user,'report',1,{...recovery,...invalid}),/invalid_diagnostics/);
+const event={id:'12345678-1234-4234-8234-123456789012',stage:'nav_committed',at:1791475200};
+await call(user,'report',1,{...snapshot,trace:Array.from({length:24},()=>event),update_state:'applied'});
+for(const trace of [null,{},Array.from({length:25},()=>event),[{...event,url:'private'}],[{...event,id:'private-url'}],[{...event,stage:'eval'}],[{...event,at:4102444801}],[{...event,at:'1'}]])await assert.rejects(call(user,'report',1,{...snapshot,trace}),/invalid_diagnostics/);
+await assert.rejects(call(user,'report',1,{...snapshot,update_state:'private'}),/invalid_diagnostics/);
 await call(user,'report',1,snapshot); // Already-installed 4.0.1 remains compatible.
 
 assert.equal((await db.query('select count(*)::int as n from crowd_v4.diagnostics')).rows[0].n,1,'only the latest snapshot is kept');

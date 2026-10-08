@@ -6,7 +6,7 @@
 
 | 范围 | 当前事实 |
 |---|---|
-| 本次候选 | v4.1.3，crawler-extension/v4；manifest/core/构建worker/release.json一致 |
+| 本次候选 | v4.2.0，crawler-extension/v4；manifest/core/构建worker/release.json一致 |
 | v4 后端 | crowd-kol/server/crowd/v4；兼容调度迁移 `20261008033028_crowd_v4_task_scheduling` 已部署 |
 | 试点分发 | crowd-pages/v4；保留原身份、扩展ID与2条/日试点；公开更新包不含邀请，不扩大招募 |
 | Kimi公开源码 | crawler-extension根目录，manifest标签1.0.0；不能据标签断言较旧 |
@@ -15,6 +15,16 @@
 
 三仓延续分支名仍是 `codex/v4.0.6-handoff`；这是分支名，不是当前版本号。原始导入清单IMPORTED_FROM.json只用于来源审计。
 Kimi两形态已实际逐文件比对：6/9 JS的AST一致，其余三文件差异人工核对，并用固定输入验证普通采集预过滤与风控顺序。根1.0保留精简，不把3.4.14盲目覆盖回去。
+
+## v4.2.0自动更新与诊断（2026-10-09）
+
+实现一次接通的Mac更新助手，后续每小时检查Ed25519签名通道；完整包/文件校验、拒绝降级和权限变化、原子切换、加载版本与摘要握手、导入失败回退。原身份、证据、同意、停止状态不变，只reload插件。恢复LaunchAgent每5分钟只做未确认更新检查。适用macOS14+，Intel/Apple通用构建；本轮实机为Apple芯片。
+
+Puppeteer真实扩展引擎＋真实本机消息宿主通过：4.2.0→4.2.1实际加载、原身份/证据完整保留、普通标签页不变且浏览器PID不变；签名但代码不能导入的4.2.2自动恢复4.2.1。测试为独立公钥、本地发布fixture、假身份，无生产入库。默认客户端检查、宿主拒绝篡改/权限扩张/路径穿越、防失败重试/中断恢复、隔离诊断SQL与分发构建检查通过。
+
+诊断保留最近24个固定动作节点，导航节点共享随机编号，回传节点使用请求UUID；不上传完整网址、正文或Cookie。本机超过24小时节点不再报告，云端只保留最近快照；关闭诊断清除。迁移`20261008155351_crowd_v4_trace_updates`已部署、旧版兼容，anon无RPC权限且authenticated不能直读表。时间线见`server/crowd/v4/diagnostic_timeline.sql`。
+
+23:54:18北京时间只读回验，故障设备仍4.1.2/action_budget，received=0；该设备没有已接通的更新助手。需要一次接通包和原浏览器确认，之后的补丁无需反复解压。商店发布与原设备首次采集仍未证明。详见[UPDATE_DIAGNOSTICS.md](UPDATE_DIAGNOSTICS.md)。
 
 ## v4.1.3 Mac 验证与修复（2026-10-08 23:25 北京时间）
 

@@ -23,6 +23,7 @@ select jsonb_build_object(
    'diagnostics',(select jsonb_agg(jsonb_build_object('version',state->>'version','error',state->>'error',
       'phase',state->>'phase','nav_stage',state->>'nav_stage','nav_error',state->>'nav_error',
       'document_kind',state->>'document_kind','pending_kind',state->>'pending_kind',
+      'update_state',state->>'update_state','last_node',state->'trace'->-1,
       'previous_nav_stage',state->>'prev_nav_stage','previous_nav_error',state->>'prev_nav_error',
       'page_failures',state->'page_failures','last_tick_age_s',state->'last_tick_age_s','next_in_s',state->'next_in_s','updated_at',updated_at,'stale',updated_at<now()-interval '10 minutes')) from crowd_v4.diagnostics where enabled))
 ) as health;
