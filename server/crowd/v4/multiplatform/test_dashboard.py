@@ -35,7 +35,7 @@ class DashboardTests(unittest.TestCase):
         with patch.object(self.app, 'run') as run:
             response = urllib.request.urlopen(self.url)
             text = response.read().decode()
-            self.assertIn('多平台采集工作台', text)
+            self.assertIn('新建采集', text)
             self.assertIn(self.app.token, text)
             self.assertIn("frame-ancestors 'none'", response.headers['Content-Security-Policy'])
             run.assert_not_called()
