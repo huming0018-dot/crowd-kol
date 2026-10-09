@@ -27,7 +27,7 @@ class RunnerTest(unittest.TestCase):
             (self.mc/p).mkdir(parents=True,exist_ok=True)
         (self.mc/'LICENSE').write_text('Synthetic test executor, no upstream code')
         (self.mc/'cmd_arg/arg.py').write_text('# fixture')
-        (self.mc/'config.py').write_text('')
+        (self.mc/'config.py').write_text('CRAWLER_MAX_SLEEP_SEC=2\n')
         (self.mc/'playwright/__init__.py').write_text('')
         (self.mc/'playwright/async_api.py').write_text('class BrowserType:\n async def launch(self,*a,**kw): return None\n async def launch_persistent_context(self,*a,**kw): return None\n')
         (self.mc/'.venv/bin/python').symlink_to(PYTHON if PYTHON.exists() else sys.executable)
@@ -39,6 +39,7 @@ async def main():
  args=dict(zip(sys.argv[1::2],sys.argv[2::2]))
  p=args['--platform']; mode=args['--type']; target=args.get('--keywords',args.get('--specified_id',args.get('--creator_id')))
  assert config.ENABLE_CDP_MODE is False and config.COOKIES==''
+ assert config.CRAWLER_MAX_SLEEP_SEC==2
  assert config.USER_DATA_DIR=='%s_bridge_profile'
  assert pathlib.Path('libs').is_dir() and pathlib.Path('media_platform/kuaishou/graphql').is_dir()
  if p=='zhihu' and mode=='creator': assert config.ZHIHU_CREATOR_URL_LIST==[target]

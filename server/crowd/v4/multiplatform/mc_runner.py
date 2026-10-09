@@ -300,7 +300,6 @@ def execute(root, mc, run_id):
             config.ENABLE_IP_PROXY=False
             config.SAVE_LOGIN_STATE=True
             config.USER_DATA_DIR='%s_bridge_profile'
-            config.CRAWLER_MAX_SLEEP_SEC=30
             config.ENABLE_GET_WORDCLOUD=False
             config.CREATOR_MODE=True
             config.ENABLE_GET_CONTACTS=False
