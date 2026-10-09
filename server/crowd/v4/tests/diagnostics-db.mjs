@@ -20,6 +20,7 @@ await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).fi
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_recovery.sql'))),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_navigation_commit.sql'))),'utf8'));
 await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_trace_updates.sql'))),'utf8'));
+await db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_crowd_v4_probe_error.sql'))),'utf8'));
 async function call(uid,action,revision,state=null) {
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid||'']);
   return (await db.query('select public.crowd_v4_diagnostics($1,$2,$3::jsonb) as result',[action,revision,state===null?null:JSON.stringify(state)])).rows[0].result;
@@ -34,6 +35,8 @@ await assert.rejects(call(user,'report',1,{...snapshot,gate:'user_login'}),/inva
 const navigation={...snapshot,version:'4.0.3',error:'page_loading',nav_stage:'failed',nav_error:'ERR_NAME_NOT_RESOLVED',nav_age_s:4,probe_status:'no_receiver'};
 await call(user,'report',1,navigation);
 assert.deepEqual((await db.query('select state from crowd_v4.diagnostics')).rows[0].state,navigation);
+for(const probe_error of ['unknown','none','no_receiver','empty_response','port_closed','tab_missing','access_denied','timed_out','message_failed']) await call(user,'report',1,{...navigation,probe_error});
+for(const probe_error of [null,0,{},'https://private.test/token','PRIVATE_COOKIE']) await assert.rejects(call(user,'report',1,{...navigation,probe_error}),/invalid_diagnostics/);
 for(const invalid of [{nav_error:'https://secret.test/token'}, {nav_stage:null}, {probe_status:'raw exception'}, {nav_age_s:86401}, {nav_age_s:-1}, {nav_age_s:'1'}, {nav_url:'private'}]) await assert.rejects(call(user,'report',1,{...navigation,...invalid}),/invalid_diagnostics/);
 await call(user,'report',1,{...navigation,nav_error:null,nav_age_s:null,nav_stage:'unknown'});
 const recovery={...navigation,prev_nav_stage:'started',prev_nav_error:null,prev_nav_age_s:123,page_failures:2,last_tick_age_s:31,next_in_s:60};
