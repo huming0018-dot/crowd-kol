@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """No source-site access. Fake process lifecycle + real installed CLI wiring."""
+import ast
 import importlib.util
 import json
 import os
@@ -50,7 +51,8 @@ async def main():
  if target=='large':
   async for chunk in httpx.Response().aiter_bytes(): pass
  key={'xhs':'note_id','dy':'aweme_id','ks':'video_id','bili':'video_id','wb':'note_id','tieba':'note_id','zhihu':'content_id'}[p]
- out=pathlib.Path(args['--save_data_path'])/p/'jsonl';out.mkdir(parents=True)
+ writer_platform={'dy':'douyin','ks':'kuaishou','wb':'weibo'}.get(p,p)
+ out=pathlib.Path(args['--save_data_path'])/writer_platform/'jsonl';out.mkdir(parents=True)
  rows=[{key:'id123','title':'fixture','desc':'body','like_count':0},{key:'bad?id','desc':'reject'}]
  (out/(mode+'_contents_today.jsonl')).write_text('\\n'.join(json.dumps(r) for r in rows)+'\\n')
  (out/(mode+'_comments_today.jsonl')).write_text(json.dumps({key:'id123','comment_id':'c1','parent_comment_id':'c0','content':'reply'})+'\\n')
@@ -93,6 +95,30 @@ async def async_cleanup(): pass
                     self.assertFalse(result['reward_eligible'])
                     self.assertEqual(result['source_kind'],'mediacrawler_api')
                     self.assertTrue(all('SECRET_SENTINEL' not in f.read_text(errors='ignore') for f in (self.root/'runs'/run).glob('*.json')))
+    def test_jsonl_real_names_legacy_aliases_and_no_double_import(self):
+        for platform, name in [('dy','douyin'),('ks','kuaishou'),('wb','weibo')]:
+            with self.subTest(platform=platform):
+                rid=str(uuid.uuid4());run=self.root/'runs'/rid
+                output=run/'output';long=output/name/'jsonl';short=output/platform/'jsonl'
+                long.mkdir(parents=True);short.mkdir(parents=True)
+                m.write(run/'status.json',{'state':'completed'})
+                m.write(run/'manifest.json',{'run_id':rid,'request':{'platform':platform},'source':{}})
+                key=m.ID_KEYS[platform]
+                row={key:'first','desc':'real writer output'}
+                (long/'detail_contents_today.jsonl').write_text((json.dumps(row)+'\n')*2)
+                (short/'detail_contents_today.jsonl').write_text(json.dumps(row)+'\n'+json.dumps({key:'second','desc':'legacy unique row'})+'\n')
+                result=m.import_output(self.root,{'run_id':rid})
+                self.assertEqual([r['content_id'] for r in result['records']],['first','first','second'])
+                self.assertEqual(len(result['files']),2)
+                self.assertEqual(result['summary']['contents'],3)
+                self.assertTrue(all(r['source_kind']=='mediacrawler_api' for r in result['records']))
+                # Old short-code-only runs remain readable.
+                (long/'detail_contents_today.jsonl').unlink()
+                self.assertEqual(m.import_output(self.root,{'run_id':rid})['summary']['contents'],2)
+                long.rmdir();long.symlink_to(short,target_is_directory=True)
+                with self.assertRaisesRegex(m.BridgeError,'unsafe_output_file'):
+                    m.import_output(self.root,{'run_id':rid})
+
     def test_stop_lock_reuse_and_platform_binding(self):
         p=self.payload(target='slow')
         run=self.invoke('start',p)['result']
@@ -149,6 +175,15 @@ async def async_cleanup(): pass
         with self.assertRaises(m.BridgeError): m.uid('../elsewhere')
 
 class InstalledCLI(unittest.TestCase):
+    @unittest.skipUnless(MC.exists(),'external executor not installed')
+    def test_installed_jsonl_writer_directory_contract(self):
+        sources={'xhs':('xhs','XhsJsonlStoreImplement'),'dy':('douyin','DouyinJsonlStoreImplement'),'ks':('kuaishou','KuaishouJsonlStoreImplement'),'bili':('bilibili','BiliJsonlStoreImplement'),'wb':('weibo','WeiboJsonlStoreImplement'),'tieba':('tieba','TieBaJsonlStoreImplement'),'zhihu':('zhihu','ZhihuJsonlStoreImplement')}
+        for platform,(folder,class_name) in sources.items():
+            tree=ast.parse((MC/'store'/folder/'_store_impl.py').read_text())
+            cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name==class_name)
+            names={k.value.value for n in ast.walk(cls) if isinstance(n,ast.Call) for k in n.keywords if k.arg=='platform' and isinstance(k.value,ast.Constant)}
+            self.assertEqual(names,{m.JSONL_DIRS.get(platform,(platform,))[0]},platform)
+
     @unittest.skipUnless(PYTHON.exists(),'external executor not installed')
     def test_actual_21_cli_bindings_without_network(self):
         with tempfile.TemporaryDirectory(prefix='crowd-mc-cli-') as temp:

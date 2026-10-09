@@ -19,6 +19,8 @@ from urllib.parse import unquote, urlsplit, parse_qsl
 
 PLATFORMS = {'xhs':'xiaohongshu','dy':'douyin','ks':'kuaishou','bili':'bilibili','wb':'weibo','tieba':'tieba','zhihu':'zhihu'}
 MEDIA = {'xhs','dy','ks','bili','wb'}
+# JSONL writer names differ from CLI platform codes; retain older bridge output aliases.
+JSONL_DIRS = {'dy':('douyin','dy'),'ks':('kuaishou','ks'),'wb':('weibo','wb')}
 FINAL = {'completed','failed','stopped','interrupted_unknown','login_required'}
 ID_KEYS = {'xhs':'note_id','dy':'aweme_id','ks':'video_id','bili':'video_id','wb':'note_id','tieba':'note_id','zhihu':'content_id'}
 SECRET = re.compile(r'(?i)(?:cookie|authorization|access_token|refresh_token|xsec_token|token|password|passwd|secret|sessionid|api_key|x-amz-signature|x-amz-credential)\s*[=:]')
@@ -441,7 +443,13 @@ def import_output(root,payload):
     records=[]
     files=[]
     rejected=0
-    for path in sorted((output/p/'jsonl').glob('*.jsonl')):
+    paths=[]
+    for name in JSONL_DIRS.get(p,(p,)):
+        folder=output/name/'jsonl'
+        if folder.is_symlink() or folder.parent.is_symlink(): fail('unsafe_output_file')
+        paths.extend(sorted(folder.glob('*.jsonl')))
+    seen_rows={}
+    for path in paths:
         if path.is_symlink() or not path.resolve().is_relative_to(output.resolve()) or path.stat().st_size>50_000_000: fail('unsafe_output_file')
         kind='comment' if '_comments_' in path.name else 'content' if '_contents_' in path.name else None
         if not kind: continue
@@ -451,7 +459,13 @@ def import_output(root,payload):
             for number,line in enumerate(f,1):
                 if number>10000 or len(line)>1_000_000: fail('output_limit')
                 try:
-                    records.append(normalize(p,kind,json.loads(line),{'run_id':manifest['run_id'],'file_sha256':digest,'line':number}))
+                    row=json.loads(line)
+                    record=normalize(p,kind,row,{'run_id':manifest['run_id'],'file_sha256':digest,'line':number})
+                    key=(kind,hashlib.sha256(canonical(row).encode()).hexdigest())
+                    directory=path.parent.parent.name
+                    if key not in seen_rows or seen_rows[key]==directory:
+                        records.append(record)
+                        seen_rows[key]=directory
                 except (BridgeError,ValueError):
                     rejected+=1
                 if len(records)>10000: fail('output_limit')
