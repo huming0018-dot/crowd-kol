@@ -6,3 +6,7 @@ __pycache__/
 *.pyc
 .env
 .env.local
+
+__pycache__/
+*.pyc
+server/crowd/v4/supabase/.temp/

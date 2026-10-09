@@ -1,0 +1,189 @@
+{
+  "inputs": {
+    "source_manifest_label": "1.0.0",
+    "artifact_manifest_label": "3.4.14",
+    "artifact_sha256": "f1b1a17e694c8ce6aa03d69ca0a77a3d07ff2e7ac2a7833feb37cc344a517123"
+  },
+  "method": "Acorn AST without source positions, comments or literal raw spelling; limited isolated collection probes; labels do not rank versions",
+  "files": [
+    {
+      "source": "sw.js",
+      "artifact": "sw.js",
+      "source_sha256": "5d46c68a70299d3b8a15d37b4e45cf3908c94fcb03a947103b89c4abe0315456",
+      "artifact_sha256": "5d46c68a70299d3b8a15d37b4e45cf3908c94fcb03a947103b89c4abe0315456",
+      "bytes_equal": true,
+      "ast_equal": true,
+      "changed_top_level_functions": []
+    },
+    {
+      "source": "src/onboarding.js",
+      "artifact": "src/onboarding.js",
+      "source_sha256": "2a0d8df80386e66b53f100103e1de84f91ba77a46341dcf75c55476929055e42",
+      "artifact_sha256": "36af5e85d42e352f1aa17ddfc61038bf43229d618f89cf37548e48408c9fa1d5",
+      "bytes_equal": false,
+      "ast_equal": false,
+      "changed_top_level_functions": []
+    },
+    {
+      "source": "src/popup.js",
+      "artifact": "src/popup.js",
+      "source_sha256": "3476841c5f60f5496a4e26846d7f6c291f4acfa2dcfed6653c2ed391793d6971",
+      "artifact_sha256": "3476841c5f60f5496a4e26846d7f6c291f4acfa2dcfed6653c2ed391793d6971",
+      "bytes_equal": true,
+      "ast_equal": true,
+      "changed_top_level_functions": []
+    },
+    {
+      "source": "src/background.js",
+      "artifact": "src/background_v3414.js",
+      "source_sha256": "f68d8c8bb0be0c20d6a47418c0089a3e88efc491ae70b37ac5afa30d44f8cca8",
+      "artifact_sha256": "d8cf02d9bdef15747f1405eee5813b876dac5dcc8b8df7a83e7a3d031000ae59",
+      "bytes_equal": false,
+      "ast_equal": false,
+      "changed_top_level_functions": [
+        "fetchActiveTask",
+        "_collectOnceInner",
+        "_uploadProofsInner"
+      ]
+    },
+    {
+      "source": "src/device_profile.js",
+      "artifact": "src/device_profile.js",
+      "source_sha256": "16d1e6c4e0af062089143e9d35428e62e438cba5f9e7f1c5d4b196ba6d90cc73",
+      "artifact_sha256": "90cac756804ded1d4a896828781cbb521229871bf859bbd82de35a551b37bf4b",
+      "bytes_equal": false,
+      "ast_equal": true,
+      "changed_top_level_functions": []
+    },
+    {
+      "source": "src/config.js",
+      "artifact": "src/config.js",
+      "source_sha256": "118f8c8abc9b3ecb3a273990aa21e8e629e5ae7546c7e5d671dafe2c1fb7352b",
+      "artifact_sha256": "6e7f58e5d0b45ac8defbe7cb747d16b882c18bced4ce93a806e555e0d67291d8",
+      "bytes_equal": false,
+      "ast_equal": true,
+      "changed_top_level_functions": []
+    },
+    {
+      "source": "src/sampler.js",
+      "artifact": "src/sampler.js",
+      "source_sha256": "d1c637c2759b231675540296a2d45d803c3dd0c64d40c514b34a48ec9dacb472",
+      "artifact_sha256": "2ac200cc0e2e144d4c95a0c2aa12c7b7cb4dc81a52cfbca3eb34fb0804dc3e4c",
+      "bytes_equal": false,
+      "ast_equal": false,
+      "changed_top_level_functions": []
+    },
+    {
+      "source": "src/safety_engine.js",
+      "artifact": "src/safety_engine.js",
+      "source_sha256": "b2c1e6c15a8375826ae5210643e2a7b9659f78d5d198ab371e1b8a8f00c3fb12",
+      "artifact_sha256": "13149d22b1cbd7708d84042e6fa4223f5330bc0a0e0a0a6de35b0b63a93281e9",
+      "bytes_equal": false,
+      "ast_equal": true,
+      "changed_top_level_functions": []
+    },
+    {
+      "source": "src/content.js",
+      "artifact": "src/content.js",
+      "source_sha256": "2b9e2910fe870f63abc69fd984e46049ac42ae8882c9ff8360a91ff171ec5a1c",
+      "artifact_sha256": "aeacb8f413a5ae3d28d27aea7647fd201b42145447ee1a0dddc83862784ccf9b",
+      "bytes_equal": false,
+      "ast_equal": true,
+      "changed_top_level_functions": []
+    }
+  ],
+  "behavior_probes": {
+    "normal": {
+      "source": {
+        "result": {
+          "status": "collected",
+          "count": 1,
+          "kw_index": 0,
+          "gate": {
+            "ok": true
+          }
+        },
+        "trace": [
+          "search_count",
+          "session_count"
+        ],
+        "notes": [
+          "new"
+        ]
+      },
+      "artifact": {
+        "result": {
+          "status": "collected",
+          "count": 1,
+          "kw_index": 0,
+          "gate": {
+            "ok": true
+          }
+        },
+        "trace": [
+          "search_count",
+          "session_count"
+        ],
+        "notes": [
+          "new"
+        ]
+      }
+    },
+    "failed_risk": {
+      "source": {
+        "result": {
+          "status": "search_failed",
+          "reason": "fixture",
+          "rateLimited": true
+        },
+        "trace": [
+          "risk",
+          "report"
+        ],
+        "notes": []
+      },
+      "artifact": {
+        "result": {
+          "status": "search_failed",
+          "reason": "fixture",
+          "rateLimited": true
+        },
+        "trace": [
+          "risk",
+          "report"
+        ],
+        "notes": []
+      }
+    },
+    "successful_risk": {
+      "source": {
+        "result": {
+          "status": "empty_search",
+          "kw_index": 0,
+          "streak": 1
+        },
+        "trace": [
+          "risk",
+          "report",
+          "search_count",
+          "session_count"
+        ],
+        "notes": []
+      },
+      "artifact": {
+        "result": {
+          "status": "empty_search",
+          "kw_index": 0,
+          "streak": 1
+        },
+        "trace": [
+          "search_count",
+          "session_count",
+          "risk",
+          "report"
+        ],
+        "notes": []
+      }
+    }
+  }
+}

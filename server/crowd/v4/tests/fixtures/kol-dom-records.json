@@ -1,0 +1,332 @@
+{
+  "scope": "Synthetic rendered DOM in actual Chromium; no real platform collection",
+  "records": [
+    {
+      "platform": "xiaohongshu",
+      "record": {
+        "schema_version": 4,
+        "standard": {
+          "platform": "xiaohongshu",
+          "note_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "url": "https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa",
+          "title": "真实DOM测试标题",
+          "captured_at": "2026-10-09T03:16:32.821Z",
+          "published_at": "2026-10-08",
+          "author_display": "作者",
+          "like_count": 12000,
+          "collect_count": null,
+          "comment_count": null,
+          "view_count": null
+        },
+        "extra": {
+          "author": {
+            "id": "dddddddddddddddddddddddd",
+            "url": "https://www.xiaohongshu.com/user/profile/dddddddddddddddddddddddd"
+          },
+          "media_present": false,
+          "field_observations": {
+            "like_count": {
+              "value": 12000,
+              "label": "1.2万",
+              "status": "approximate"
+            },
+            "collect_count": {
+              "value": null,
+              "label": null,
+              "status": "not_visible"
+            },
+            "comment_count": {
+              "value": null,
+              "label": null,
+              "status": "not_visible"
+            },
+            "view_count": {
+              "value": null,
+              "label": null,
+              "status": "not_visible"
+            }
+          },
+          "hashtags": [],
+          "published_label": "2026-10-08",
+          "metric_labels": {
+            "like_count": "1.2万",
+            "collect_count": null,
+            "comment_count": null,
+            "view_count": null
+          },
+          "author_opinion_quotes": [],
+          "comments": {
+            "items": [
+              {
+                "key": "comment-1",
+                "comment_id": "root-1",
+                "parent_key": null,
+                "is_reply": false,
+                "author_display": null,
+                "text": "一级评论",
+                "original_length": 4,
+                "truncated": false,
+                "like_count": null,
+                "like_label": null,
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
+              },
+              {
+                "key": "comment-2",
+                "comment_id": "reply-1",
+                "parent_key": "comment-1",
+                "is_reply": true,
+                "author_display": null,
+                "text": "实际二级回复",
+                "original_length": 6,
+                "truncated": false,
+                "like_count": null,
+                "like_label": null,
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
+              },
+              {
+                "key": "comment-3",
+                "comment_id": "reply-2",
+                "parent_key": "comment-1",
+                "is_reply": true,
+                "author_display": null,
+                "text": "展开后回复",
+                "original_length": 5,
+                "truncated": false,
+                "like_count": null,
+                "like_label": null,
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
+              },
+              {
+                "key": "comment-4",
+                "comment_id": "image-1",
+                "parent_key": null,
+                "is_reply": false,
+                "author_display": null,
+                "text": "",
+                "original_length": 0,
+                "truncated": false,
+                "like_count": null,
+                "published_label": null,
+                "content_type": "image",
+                "is_placeholder": true,
+                "media_count": 1,
+                "reported_reply_count": 4
+              }
+            ],
+            "coverage": "visible_loaded_only",
+            "complete": false,
+            "panel_found": true,
+            "loaded_count": 4,
+            "captured_count": 4,
+            "omitted_count": 1,
+            "truncated": false,
+            "more_available": false
+          },
+          "content_type": "note",
+          "comment_status": "visible_sample",
+          "replies_status": "visible_loaded_only",
+          "media_refs": [
+            {
+              "url": "https://sns-img.xhscdn.com/public.jpg",
+              "kind": "image",
+              "source": "rendered_public_dom",
+              "status": "discovered_not_downloaded"
+            }
+          ],
+          "media_status": "public_refs_available"
+        },
+        "evidence": {
+          "text": "作者原文，不是搜索摘要。",
+          "original_length": 12,
+          "truncated": false,
+          "selector": "#detail-desc",
+          "parser_version": "4.2.5",
+          "source": "rendered_public_dom"
+        }
+      }
+    },
+    {
+      "platform": "bilibili",
+      "record": {
+        "schema_version": 4,
+        "standard": {
+          "platform": "bilibili",
+          "note_id": "BV1xx411c7mD",
+          "url": "https://www.bilibili.com/video/BV1xx411c7mD",
+          "title": "B站公开视频",
+          "captured_at": "2026-10-09T03:16:32.902Z",
+          "published_at": "2026-10-08",
+          "author_display": "UP主",
+          "like_count": 123,
+          "collect_count": null,
+          "comment_count": null,
+          "view_count": 12000
+        },
+        "extra": {
+          "author": {
+            "id": "123",
+            "url": "https://space.bilibili.com/123"
+          },
+          "media_present": false,
+          "content_type": "video",
+          "field_observations": {
+            "like_count": {
+              "value": 123,
+              "label": "123",
+              "status": "exact"
+            },
+            "collect_count": {
+              "value": null,
+              "label": null,
+              "status": "not_visible"
+            },
+            "comment_count": {
+              "value": null,
+              "label": null,
+              "status": "not_visible"
+            },
+            "view_count": {
+              "value": 12000,
+              "label": "1.2万",
+              "status": "approximate"
+            }
+          },
+          "published_label": "2026-10-08 12:00:00",
+          "author_opinion_quotes": [],
+          "comments": {
+            "items": [
+              {
+                "key": "comment-1",
+                "comment_id": "100",
+                "parent_key": null,
+                "is_reply": false,
+                "author_display": null,
+                "text": "可见评论",
+                "original_length": 4,
+                "truncated": false,
+                "like_count": null,
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
+              },
+              {
+                "key": "comment-2",
+                "comment_id": "image-1",
+                "parent_key": null,
+                "is_reply": false,
+                "author_display": null,
+                "text": "",
+                "original_length": 0,
+                "truncated": false,
+                "like_count": null,
+                "published_label": null,
+                "content_type": "image",
+                "is_placeholder": true,
+                "media_count": 1,
+                "reported_reply_count": 4
+              }
+            ],
+            "captured_count": 2,
+            "coverage": "visible_loaded_only",
+            "complete": false,
+            "truncated": false
+          },
+          "comment_status": "visible_sample",
+          "replies_status": "visible_loaded_only",
+          "media_refs": [
+            {
+              "url": "https://i0.hdslb.com/public.jpg",
+              "kind": "image",
+              "source": "rendered_public_dom",
+              "status": "discovered_not_downloaded"
+            }
+          ],
+          "media_status": "public_refs_available"
+        },
+        "evidence": {
+          "text": "视频简介原文。",
+          "original_length": 7,
+          "truncated": false,
+          "selector": ".video-description",
+          "parser_version": "4.2.5",
+          "source": "rendered_public_dom"
+        }
+      }
+    }
+  ],
+  "profiles": [
+    {
+      "platform": "xiaohongshu",
+      "profile": {
+        "author_id": "dddddddddddddddddddddddd",
+        "url": "https://www.xiaohongshu.com/user/profile/dddddddddddddddddddddddd",
+        "nickname": "作者",
+        "public_handle": null,
+        "metrics": {
+          "followers": {
+            "value": 12000,
+            "label": "1.2万",
+            "status": "approximate"
+          },
+          "notes": {
+            "value": 20,
+            "label": "20",
+            "status": "exact"
+          },
+          "likes_collected": {
+            "value": null,
+            "label": null,
+            "status": "not_visible"
+          }
+        },
+        "captured_at": "2026-10-09T03:16:32.854Z",
+        "source": "rendered_public_dom",
+        "parser_version": "4.2.5"
+      }
+    },
+    {
+      "platform": "bilibili",
+      "profile": {
+        "author_id": "123",
+        "url": "https://space.bilibili.com/123",
+        "nickname": "UP主",
+        "public_handle": null,
+        "metrics": {
+          "followers": {
+            "value": 23000,
+            "label": "2.3万",
+            "status": "approximate"
+          },
+          "notes": {
+            "value": 8,
+            "label": "8",
+            "status": "exact"
+          },
+          "likes_collected": {
+            "value": null,
+            "label": null,
+            "status": "not_visible"
+          }
+        },
+        "captured_at": "2026-10-09T03:16:32.927Z",
+        "source": "rendered_public_dom",
+        "parser_version": "4.2.5"
+      }
+    }
+  ],
+  "result": "PASS"
+}
