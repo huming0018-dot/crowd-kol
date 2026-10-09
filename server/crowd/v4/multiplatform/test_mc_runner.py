@@ -155,6 +155,32 @@ async def async_cleanup(): pass
         self.assertEqual(result['state'],'login_required')
         self.assertEqual(result['reason'],'login_required')
 
+    def test_weibo_detail_urls_to_cli_ids(self):
+        cases={
+            'https://weibo.com/7798269830/5264010640887796':'5264010640887796',
+            'https://www.weibo.com/7798269830/AbC123?from=page':'AbC123',
+            'https://m.weibo.cn/detail/5264010640887796':'5264010640887796',
+            'https://m.weibo.cn/status/AbC123/':'AbC123',
+            '5264010640887796':'5264010640887796','AbC123':'AbC123',
+        }
+        for target,expected in cases.items():
+            with self.subTest(target=target):
+                p=m.validate(self.payload('wb','detail',target))
+                args=m.argv_for(p,self.base/'out')
+                self.assertEqual(args[args.index('--specified_id')+1],expected)
+                self.assertEqual(p['targets'],[target])
+        for target in ['https://weibo.com/u/7798269830','https://weibo.com/','https://weibo.com/cctvxinwen','https://weibo.com/search/foo','https://m.weibo.cn/profile/7798269830','https://m.weibo.cn/status/a/b','https://evil.weibo.com/1/AbC','https://weibo.com/1/%2fabc']:
+            with self.subTest(target=target),self.assertRaisesRegex(m.BridgeError,'invalid_weibo_detail_url'):
+                m.validate(self.payload('wb','detail',target))
+        with self.assertRaisesRegex(m.BridgeError,'credential_target_not_allowed'):
+            m.validate(self.payload('wb','detail','https://weibo.com/1/AbC?access_token=hidden'))
+        creator=m.validate(self.payload('wb','creator','https://weibo.com/u/7798269830'))
+        self.assertEqual(m.argv_for(creator,self.base/'out')[-1],creator['targets'][0])
+        search=m.validate(self.payload('wb','search','普通搜索关键词'))
+        self.assertEqual(m.argv_for(search,self.base/'out')[-1],'普通搜索关键词')
+        xhs=m.validate(self.payload('xhs','detail','https://www.xiaohongshu.com/explore/id?xsec_token=local'))
+        self.assertEqual(m.argv_for(xhs,self.base/'out')[-1],xhs['targets'][0])
+
     def test_validation_and_secrets(self):
         for kwargs,code in [({'platform':[]},'unsupported_platform_or_mode'),({'platform':'no'},'unsupported_platform_or_mode'),({'max_items':2},'upstream_search_minimum_20'),({'platform':'zhihu','media':True},'media_not_supported_by_upstream'),({'replies':True,'comments':False},'replies_require_comments')]:
             p=self.payload();p.update(kwargs)
@@ -212,6 +238,10 @@ async def check():
     attr={'xhs':'XHS_CREATOR_ID_LIST','dy':'DY_CREATOR_ID_LIST','ks':'KS_CREATOR_ID_LIST','bili':'BILI_CREATOR_ID_LIST','wb':'WEIBO_CREATOR_ID_LIST','tieba':'TIEBA_CREATOR_URL_LIST','zhihu':'ZHIHU_CREATOR_URL_LIST'}[p]
     assert 'abc123' in getattr(config,attr)[0]
    out.append({'platform':p,'mode':mode,'class':name})
+ for target,expected in [('https://weibo.com/7798269830/5264010640887796','5264010640887796'),('https://m.weibo.cn/detail/5264010640887796','5264010640887796'),('https://m.weibo.cn/status/AbC123','AbC123'),('AbC123','AbC123')]:
+  request=bridge.validate({'platform':'wb','mode':'detail','targets':[target],'purpose':'noncommercial_research'})
+  await cmd_arg.parse_cmd(bridge.argv_for(request,Path.cwd()/'output'))
+  assert config.WEIBO_SPECIFIED_ID_LIST==[expected]
  print(json.dumps(out))
 asyncio.run(check())
 '''

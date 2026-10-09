@@ -67,6 +67,19 @@ def uid(value):
         fail('invalid_uuid')
     return result
 
+def weibo_detail_id(value):
+    # The upstream Weibo client appends its argument to /detail/ without URL parsing.
+    # Preserve numeric IDs and alphanumeric bids; no unsupported base62 conversion.
+    if '://' not in value:
+        return value
+    url=urlsplit(value)
+    host=url.hostname or ''
+    pattern=r'/[0-9]{1,20}/([A-Za-z0-9]{1,200})/?' if host in ('weibo.com','www.weibo.com') else r'/(?:detail|status)/([A-Za-z0-9]{1,200})/?' if host=='m.weibo.cn' else None
+    match=re.fullmatch(pattern,url.path) if pattern else None
+    if not match:
+        fail('invalid_weibo_detail_url')
+    return match.group(1)
+
 def validate(payload):
     allowed = {'platform','mode','targets','max_items','comments','replies','media','purpose','authorization_ref','session_id','max_api_requests','timeout_seconds','max_comments','headless'}
     if not isinstance(payload, dict) or set(payload) - allowed:
@@ -103,6 +116,8 @@ def validate(payload):
                 if contains_secret(key+'='+value): fail('credential_target_not_allowed')
         elif not re.fullmatch(r'[A-Za-z0-9_-]{1,200}',target):
             fail('invalid_target_id')
+    if p['platform']=='wb' and p['mode']=='detail':
+        for target in targets: weibo_detail_id(target)
     for field, default, low, high in [('max_items',20,1,100),('max_comments',20,0,200),('max_api_requests',20,1,500),('timeout_seconds',600,30,1800)]:
         v = p.setdefault(field,default)
         if type(v) is not int or not low <= v <= high:
@@ -184,7 +199,8 @@ def start(root, mc, payload):
 
 def argv_for(p, output):
     args = ['--platform',p['platform'],'--type',p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media']).lower(),'--enable_ip_proxy','false']
-    args += [{'search':'--keywords','detail':'--specified_id','creator':'--creator_id'}[p['mode']],','.join(p['targets'])]
+    targets=[weibo_detail_id(t) for t in p['targets']] if p['platform']=='wb' and p['mode']=='detail' else p['targets']
+    args += [{'search':'--keywords','detail':'--specified_id','creator':'--creator_id'}[p['mode']],','.join(targets)]
     return args
 
 def status(root, payload):
