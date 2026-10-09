@@ -126,8 +126,9 @@ try{
   }};
   await db.exec("update crowd_v4.note_reservations set expires_at=clock_timestamp()-interval '1 second'"); // End the earlier fixture owner's reservation.
   const at=check(await call('upsert',{url:sample.kind==='creator'?actual.extra.author.url:actual.standard.url,label:'Agent SQL integration'},other)).target;
+  if(sample.kind==='creator')await db.query("update crowd_kol.contents set last_seen_at=clock_timestamp()-interval '25 hours' where owner=$1",[other]); // Sparse refresh fixture, not an immediate duplicate capture.
   const agent=new globalThis.CrowdKOL.Agent(runtime,adapter);await agent.start({target_id:at.id,mode:sample.kind==='creator'?'history':'manual',max_items:1,comment_limit:20,comment_depth:2});
-  for(let step=0;step<20;step++){
+  for(let step=0;step<40;step++){
    await db.query("update crowd_v4.safety set next_action=clock_timestamp()-interval '1 second' where user_id=$1",[other]);
    clock+=60000;await agent.tick();const state=await agent.read(other);if(state.received===1&&!state.task)break;
   }

@@ -10,7 +10,7 @@
           "note_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
           "url": "https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa",
           "title": "真实DOM测试标题",
-          "captured_at": "2026-10-09T00:26:41.381Z",
+          "captured_at": "2026-10-09T03:16:32.821Z",
           "published_at": "2026-10-08",
           "author_display": "作者",
           "like_count": 12000,
@@ -68,7 +68,11 @@
                 "truncated": false,
                 "like_count": null,
                 "like_label": null,
-                "published_label": null
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
               },
               {
                 "key": "comment-2",
@@ -81,7 +85,11 @@
                 "truncated": false,
                 "like_count": null,
                 "like_label": null,
-                "published_label": null
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
               },
               {
                 "key": "comment-3",
@@ -94,28 +102,57 @@
                 "truncated": false,
                 "like_count": null,
                 "like_label": null,
-                "published_label": null
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
+              },
+              {
+                "key": "comment-4",
+                "comment_id": "image-1",
+                "parent_key": null,
+                "is_reply": false,
+                "author_display": null,
+                "text": "",
+                "original_length": 0,
+                "truncated": false,
+                "like_count": null,
+                "published_label": null,
+                "content_type": "image",
+                "is_placeholder": true,
+                "media_count": 1,
+                "reported_reply_count": 4
               }
             ],
             "coverage": "visible_loaded_only",
             "complete": false,
             "panel_found": true,
-            "loaded_count": 3,
-            "captured_count": 3,
-            "omitted_count": 0,
+            "loaded_count": 4,
+            "captured_count": 4,
+            "omitted_count": 1,
             "truncated": false,
             "more_available": false
           },
           "content_type": "note",
           "comment_status": "visible_sample",
-          "replies_status": "visible_loaded_only"
+          "replies_status": "visible_loaded_only",
+          "media_refs": [
+            {
+              "url": "https://sns-img.xhscdn.com/public.jpg",
+              "kind": "image",
+              "source": "rendered_public_dom",
+              "status": "discovered_not_downloaded"
+            }
+          ],
+          "media_status": "public_refs_available"
         },
         "evidence": {
           "text": "作者原文，不是搜索摘要。",
           "original_length": 12,
           "truncated": false,
           "selector": "#detail-desc",
-          "parser_version": "4.2.4",
+          "parser_version": "4.2.5",
           "source": "rendered_public_dom"
         }
       }
@@ -129,7 +166,7 @@
           "note_id": "BV1xx411c7mD",
           "url": "https://www.bilibili.com/video/BV1xx411c7mD",
           "title": "B站公开视频",
-          "captured_at": "2026-10-09T00:26:41.455Z",
+          "captured_at": "2026-10-09T03:16:32.902Z",
           "published_at": "2026-10-08",
           "author_display": "UP主",
           "like_count": 123,
@@ -180,23 +217,52 @@
                 "original_length": 4,
                 "truncated": false,
                 "like_count": null,
-                "published_label": null
+                "published_label": null,
+                "content_type": "text",
+                "is_placeholder": false,
+                "media_count": 0,
+                "reported_reply_count": null
+              },
+              {
+                "key": "comment-2",
+                "comment_id": "image-1",
+                "parent_key": null,
+                "is_reply": false,
+                "author_display": null,
+                "text": "",
+                "original_length": 0,
+                "truncated": false,
+                "like_count": null,
+                "published_label": null,
+                "content_type": "image",
+                "is_placeholder": true,
+                "media_count": 1,
+                "reported_reply_count": 4
               }
             ],
-            "captured_count": 1,
+            "captured_count": 2,
             "coverage": "visible_loaded_only",
             "complete": false,
             "truncated": false
           },
           "comment_status": "visible_sample",
-          "replies_status": "visible_loaded_only"
+          "replies_status": "visible_loaded_only",
+          "media_refs": [
+            {
+              "url": "https://i0.hdslb.com/public.jpg",
+              "kind": "image",
+              "source": "rendered_public_dom",
+              "status": "discovered_not_downloaded"
+            }
+          ],
+          "media_status": "public_refs_available"
         },
         "evidence": {
           "text": "视频简介原文。",
           "original_length": 7,
           "truncated": false,
           "selector": ".video-description",
-          "parser_version": "4.2.4",
+          "parser_version": "4.2.5",
           "source": "rendered_public_dom"
         }
       }
@@ -227,9 +293,9 @@
             "status": "not_visible"
           }
         },
-        "captured_at": "2026-10-09T00:26:41.420Z",
+        "captured_at": "2026-10-09T03:16:32.854Z",
         "source": "rendered_public_dom",
-        "parser_version": "4.2.4"
+        "parser_version": "4.2.5"
       }
     },
     {
@@ -256,9 +322,9 @@
             "status": "not_visible"
           }
         },
-        "captured_at": "2026-10-09T00:26:41.483Z",
+        "captured_at": "2026-10-09T03:16:32.927Z",
         "source": "rendered_public_dom",
-        "parser_version": "4.2.4"
+        "parser_version": "4.2.5"
       }
     }
   ],

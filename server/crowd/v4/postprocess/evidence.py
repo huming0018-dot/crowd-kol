@@ -17,7 +17,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parent
 
 
-def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run):
+def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run, asr_model=None):
     if platform not in ('xiaohongshu', 'bilibili') or not re.fullmatch(
             r'[a-f0-9]{24}' if platform == 'xiaohongshu' else r'BV[A-Za-z0-9]{10}', content_id):
         raise ValueError('invalid_content_identity')
@@ -54,17 +54,20 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
         raw = '\n'.join(x['text'] for x in blocks)
         evidence.update(blocks=blocks, raw_text=raw[:24000], truncated=bool(parsed['truncated'] or len(raw) > 24000))
     elif kind == 'asr':
-        if sys.platform != 'darwin' or source.suffix.lower() not in ('.wav', '.m4a', '.mp3', '.caf', '.aiff'):
-            raise ValueError('macos_audio_file_required')
+        if source.suffix.lower() not in ('.wav', '.m4a', '.mp3', '.caf', '.aiff', '.mp4', '.webm', '.ogg'):
+            raise ValueError('audio_file_required')
         native = ROOT / 'crowd-speech'
-        if not native.is_file() or not os.access(native, os.X_OK):
+        if asr_model is None and (sys.platform != 'darwin' or not native.is_file() or not os.access(native, os.X_OK)):
             raise ValueError('packaged_speech_tool_required')
         with tempfile.TemporaryDirectory(prefix='crowd-authorized-speech-') as directory:
             audio = Path(directory) / ('input' + source.suffix.lower())
             audio.write_bytes(data)
-            result = runner([str(native), str(audio)], check=True, capture_output=True, timeout=150)
+            command = [sys.executable, str(ROOT / 'local_asr.py'), '--model-dir', str(Path(asr_model).resolve()), str(audio)] if asr_model else [str(native), str(audio)]
+            result = runner(command, check=True, capture_output=True, timeout=150)
         parsed = json.loads(result.stdout)
-        evidence.update(raw_text=parsed['raw_text'], truncated=parsed['truncated'], processor='apple_speech_ondevice')
+        if not isinstance(parsed.get('raw_text'), str) or not parsed['raw_text'].strip() or len(parsed['raw_text']) > 24000 or type(parsed.get('truncated')) is not bool:
+            raise ValueError('invalid_asr_output')
+        evidence.update(raw_text=parsed['raw_text'], truncated=parsed['truncated'], processor='faster_whisper_local' if asr_model else 'apple_speech_ondevice')
     elif kind == 'transcript':
         if source.suffix.lower() not in ('.txt', '.vtt', '.srt'):
             raise ValueError('authorized_txt_vtt_srt_required')
@@ -102,11 +105,12 @@ def main():
     parser.add_argument('--content-id', required=True)
     parser.add_argument('--authorization-ref', required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--asr-model', type=Path, help='Explicit verified local Faster Whisper model; no automatic download')
     args = parser.parse_args()
     if not 1 <= len(args.input) <= (2 if args.kind == 'ocr' else 1):
         parser.error('最多2张图片，其他类型每次1份文件')
     try:
-        output = [prepare(args.kind, path, args.platform, args.content_id, args.authorization_ref) for path in args.input]
+        output = [prepare(args.kind, path, args.platform, args.content_id, args.authorization_ref, asr_model=args.asr_model) for path in args.input]
         encoded = json.dumps(output, ensure_ascii=False, indent=2).encode('utf-8')
         if len(encoded) > 200000:
             raise ValueError('evidence_over_200kb')
