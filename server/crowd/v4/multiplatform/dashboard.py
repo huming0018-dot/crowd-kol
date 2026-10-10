@@ -25,6 +25,7 @@ class Application:
         self.runner_root = self.root / 'collector'
         self.lock = threading.Lock()
         self.token = secrets.token_urlsafe(32)
+        self.analysis_jobs = None
         try:
             config = json.loads(self.config_path.read_text())
             self.mc_root = config.get('mc_root', '')
@@ -77,6 +78,49 @@ class Application:
             return {'ok': False, 'error': 'invalid_runner_result'}
         return value
 
+    def analysis(self, action, payload):
+        from analysis_contract import build_snapshot
+        from analysis_jobs import AnalysisJobs
+        if not isinstance(payload, dict) or action not in ('start', 'status', 'cancel', 'lookup'):
+            raise ValueError('invalid_analysis_action')
+        with self.lock:
+            if self.analysis_jobs is None:
+                self.analysis_jobs = AnalysisJobs(self.root)
+        if action in ('status', 'cancel'):
+            if set(payload) != {'job_id'}:
+                raise ValueError('invalid_analysis_request')
+            return getattr(self.analysis_jobs, action)(payload['job_id'])
+        fields = {'run_id', 'platform', 'content_id'}
+        if action == 'start':
+            fields |= {'snapshot_hash', 'allow_model_transfer'}
+        if set(payload) != fields:
+            raise ValueError('invalid_analysis_request')
+        response = self.run('import', {'run_id': payload['run_id']})
+        if response.get('ok') is False:
+            raise ValueError('results_not_ready')
+        imported = response.get('result', response)
+        snapshot = build_snapshot(imported, payload['platform'], payload['content_id'])
+        input_summary = {'scope': snapshot['content']['scope'],
+                         'comments': len(snapshot['comments']), 'coverage': snapshot['coverage']}
+        if action == 'start':
+            if payload['allow_model_transfer'] is not True:
+                raise ValueError('analysis_transfer_authorization_required')
+            if payload['snapshot_hash'] != snapshot['snapshot_hash']:
+                raise ValueError('analysis_snapshot_changed')
+            return self.analysis_jobs.start(imported, payload['platform'], payload['content_id'])
+        matching = []
+        for folder in self.analysis_jobs.root.iterdir():
+            if folder.is_dir() and not folder.is_symlink() and (folder / 'state.json').is_file():
+                state = json.loads((folder / 'state.json').read_text())
+                if state.get('snapshot_hash') == snapshot['snapshot_hash']:
+                    matching.append(state)
+        if not matching:
+            return {'ok': True, 'state': 'not_started', 'snapshot_hash': snapshot['snapshot_hash'],
+                    'input_summary': input_summary}
+        completed = [s for s in matching if s['state'] == 'completed']
+        latest = max(completed or matching, key=lambda s: s['created_at'])
+        return {**self.analysis_jobs.status(latest['job_id']), 'input_summary': input_summary}
+
     def media_file(self, body):
         if set(body) != {'run_id', 'path'} or not isinstance(body['path'], str):
             raise ValueError('invalid_media_request')
@@ -126,6 +170,16 @@ def make_server(app, port=45937):
             if path == '/':
                 document = (HERE / 'dashboard.html').read_text()
                 return self.send(document.replace('__NONCE__', app.token), html=True)
+            if path == '/analysis-ui.js':
+                data = (HERE / 'analysis-ui.js').read_bytes()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/javascript; charset=utf-8')
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                self.wfile.write(data)
+                return
             if path == '/api/config':
                 return self.send({'ok': True, 'mc_root': app.mc_root})
             return self.send({'ok': False, 'error': 'not_found'}, 404)
@@ -143,6 +197,10 @@ def make_server(app, port=45937):
                     raise ValueError('invalid_request')
                 if self.path == '/api/config':
                     return self.send(app.configure(body))
+                if self.path == '/api/analysis':
+                    if set(body) != {'action', 'payload'}:
+                        raise ValueError('invalid_analysis_request')
+                    return self.send(app.analysis(body['action'], body['payload']))
                 if self.path == '/api/media':
                     path = app.media_file(body)
                     with path.open('rb') as stream:
@@ -166,7 +224,13 @@ def make_server(app, port=45937):
                 message = str(error)
                 return self.send({'ok': False, 'error': message if message.replace('_', '').isalnum() else 'invalid_request'}, 400)
 
-    return ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    class Server(ThreadingHTTPServer):
+        def server_close(self):
+            if app.analysis_jobs is not None:
+                app.analysis_jobs.close()
+            super().server_close()
+
+    return Server(('127.0.0.1', port), Handler)
 
 
 def main():
