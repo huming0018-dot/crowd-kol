@@ -88,6 +88,21 @@ class Tests(unittest.TestCase):
         value['content_analysis']['summary']='changed';write(path,value)
         with self.assertRaisesRegex(ValueError,'result_changed'):self.jobs.reassemble(self.job_id)
 
+    def test_cached_numeric_type_changes_not_equal(self):
+        new=self.jobs.reassemble(self.job_id);folder=self.jobs.folder(new['job_id'])
+        for filename in ('result.json','snapshot.json','state.json'):
+            path=folder/filename;original=path.read_bytes()
+            for replacement in (False,0.0):
+                with self.subTest(filename=filename,replacement=replacement):
+                    value=read(path)
+                    if filename=='result.json':value['content_analysis']['segments'][0]['analysis_context']['batch_index']=replacement
+                    elif filename=='snapshot.json':value['paragraphs'][0]['paragraph']=replacement
+                    else:value['reassembly']['batches'][0]['batch_index']=replacement
+                    write(path,value)
+                    with self.assertRaisesRegex(ValueError,'result_changed'):self.jobs.reassemble(self.job_id)
+                    path.write_bytes(original)
+        self.assertEqual(self.jobs.reassemble(self.job_id)['job_id'],new['job_id'])
+
     def test_future_full_start_uses_new_assembly_cache_key(self):
         from test_analysis import JobsTests
         fixture=JobsTests();fixture.setUp()

@@ -313,8 +313,9 @@ class AnalysisJobs:
                 if cached.get('cache_key') == cache_key and cached.get('state') == 'completed':
                     cached_result, _ = _read(candidate / 'result.json', 8 * 1024 * 1024)
                     cached_snapshot, _ = _read(candidate / 'snapshot.json', 8 * 1024 * 1024)
-                    if (cached.get('reassembly') != provenance or cached_result != assembled
-                            or cached_snapshot != snapshot or cached.get('job_id') != candidate.name):
+                    if (canonical(cached.get('reassembly')) != canonical(provenance)
+                            or canonical(cached_result) != canonical(assembled)
+                            or canonical(cached_snapshot) != canonical(snapshot) or cached.get('job_id') != candidate.name):
                         raise ValueError('analysis_reassembly_result_changed')
                     return {'ok': True, **cached, 'result': cached_result, 'cached': True, 'model_calls': 0, 'source_requests': 0}
             new_id = str(uuid.uuid4())
