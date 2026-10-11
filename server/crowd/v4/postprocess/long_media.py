@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 import uuid
+import unicodedata
 import wave
 
 RATE = 16000
@@ -21,6 +22,9 @@ SEGMENT_SECONDS = 55
 OVERLAP_SECONDS = 2
 MAX_SECONDS = 3600
 MAX_BYTES = 25 * 1024 * 1024
+LONG_AUDIO_SUFFIXES = frozenset(('.m4a', '.mp3', '.aac'))
+LONG_AUDIO_BYTES = 64 * 1024 * 1024
+LONG_AUDIO_SECONDS = 7200
 SCHEMA = 1
 
 
@@ -79,8 +83,11 @@ def exclusive_audio_file(work, prefix):
 
 def prepare_chunks(source, work_dir, cancel=None):
     source = Path(source)
-    if source.is_symlink() or not source.is_file() or source.stat().st_size > MAX_BYTES:
-        raise ValueError('media_missing_or_over_25mb')
+    long_audio = source.suffix.lower() in LONG_AUDIO_SUFFIXES
+    max_bytes = LONG_AUDIO_BYTES if long_audio else MAX_BYTES
+    max_seconds = LONG_AUDIO_SECONDS if long_audio else MAX_SECONDS
+    if source.is_symlink() or not source.is_file() or source.stat().st_size > max_bytes:
+        raise ValueError('media_missing_or_over_processing_limit')
     work = safe_work_directory(source, work_dir)
     source_hash = digest(source)
     manifest_path = work / 'chunks.json'
@@ -92,7 +99,7 @@ def prepare_chunks(source, work_dir, cancel=None):
             raise ValueError('long_media_checkpoint_identity_mismatch')
         rows = existing.get('chunks')
         duration = existing.get('duration_seconds')
-        if not isinstance(rows, list) or not 1 <= len(rows) <= 68 or type(duration) not in (int, float) or not math.isfinite(duration) or not 0 < duration <= MAX_SECONDS:
+        if not isinstance(rows, list) or not 1 <= len(rows) <= math.ceil(max_seconds / (SEGMENT_SECONDS - OVERLAP_SECONDS)) or type(duration) not in (int, float) or not math.isfinite(duration) or not 0 < duration <= max_seconds:
             raise ValueError('invalid_long_media_checkpoint')
         for index, row in enumerate(rows):
             start = index * (SEGMENT_SECONDS - OVERLAP_SECONDS)
@@ -135,8 +142,9 @@ def prepare_chunks(source, work_dir, cancel=None):
         os.close(descriptor)
         command = [executable, '-nostdin', '-hide_banner', '-loglevel', 'error', '-y',
                    '-protocol_whitelist', 'file,pipe', '-format_whitelist',
-                   'wav,mp3,mov,aiff,caf,ogg,matroska,webm,flac', '-enable_drefs', '0',
-                   '-i', str(source.resolve()), '-map', '0:a:0', '-vn', '-t', str(MAX_SECONDS + 1),
+                   'wav,mp3,aac,mov,aiff,caf,ogg,matroska,webm,flac',
+                   *(['-enable_drefs','0'] if source.suffix.lower() in ('.mov','.mp4','.m4a','.m4v') else []),
+                   '-i', str(source.resolve()), '-map', '0:a:0', '-vn', '-t', str(max_seconds + 1),
                    '-ac', '1', '-ar', str(RATE), '-c:a', 'pcm_s16le', str(temporary)]
         proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL)
@@ -162,8 +170,8 @@ def prepare_chunks(source, work_dir, cancel=None):
             raise ValueError('invalid_extracted_audio')
         frames = handle.getnframes()
         duration = frames / RATE
-        if not frames or duration > MAX_SECONDS:
-            raise ValueError('audio_empty_or_over_3600_seconds')
+        if not frames or duration > max_seconds:
+            raise ValueError('audio_empty_or_over_duration_limit')
         chunks = []
         step = (SEGMENT_SECONDS - OVERLAP_SECONDS) * RATE
         for index, start in enumerate(range(0, frames, step)):
@@ -224,7 +232,9 @@ def validate_adjustments(adjustments, rows, duration):
         start, end, adjusted = item['provider_start'], item['provider_end'], item['adjusted_end']
         if (any(type(value) not in (int, float) or not math.isfinite(value) for value in (start,end,adjusted))
                 or not 0 <= start < duration < end <= duration + 0.5
-                or adjusted != duration or rows[index]['start'] != start or rows[index]['end'] != adjusted
+                or not math.isclose(adjusted, duration, rel_tol=0, abs_tol=1e-6)
+                or rows[index]['start'] != start
+                or not math.isclose(rows[index]['end'], adjusted, rel_tol=0, abs_tol=1e-6)
                 or rows[index]['text'] != item['text'] or item['reason'] != 'provider_tail_overrun'):
             raise ValueError('invalid_asr_timing_adjustments')
     return adjustments
@@ -233,7 +243,17 @@ def validate_adjustments(adjustments, rows, duration):
 def merge_chunks(manifest, results):
     if len(results) != len(manifest['chunks']):
         raise ValueError('incomplete_asr_chunk_results')
-    merged, removed, adjustments = [], 0, []
+    merged, removed, adjustments, decisions = [], 0, [], []
+    windows = {chunk['index']: chunk for chunk in manifest['chunks']}
+
+    def normalized(text):
+        return ''.join(char for char in unicodedata.normalize('NFKC', text).casefold()
+                       if not char.isspace() and not unicodedata.category(char).startswith('P'))
+
+    def edge_match(short, longer):
+        if len(short) < 6:
+            return None
+        return 'prefix' if longer.startswith(short) else 'suffix' if longer.endswith(short) else None
     for chunk, result in zip(manifest['chunks'], results):
         rows = validate_segments(result['segments'], chunk['end'] - chunk['start'])
         for adjustment in validate_adjustments(result.get('timing_adjustments', []), rows, chunk['end'] - chunk['start']):
@@ -243,24 +263,53 @@ def merge_chunks(manifest, results):
                                 'provider_absolute_end': chunk['start'] + adjustment['provider_end'],
                                 'adjusted_absolute_end': chunk['start'] + adjustment['adjusted_end']})
         for row in rows:
-            value = {**row, 'start': round(chunk['start'] + row['start'], 3),
-                     'end': round(chunk['start'] + row['end'], 3), 'chunk_index': chunk['index']}
-            normal = re.sub(r'[\s，。！？,.!?]+', '', value['text']).casefold()
-            duplicate = next((old for old in reversed(merged[-100:])
-                              if old['chunk_index'] != value['chunk_index']
-                              and re.sub(r'[\s，。！？,.!?]+', '', old['text']).casefold() == normal
-                              and max(old['start'], value['start']) <= min(old['end'], value['end']) + 0.2), None)
-            if duplicate is not None:
-                duplicate['start'] = min(duplicate['start'], value['start'])
-                duplicate['end'] = max(duplicate['end'], value['end'])
+            value = {**row, 'start': min(round(chunk['start'] + row['start'], 3), manifest['duration_seconds']),
+                     'end': min(round(chunk['start'] + row['end'], 3), manifest['duration_seconds']),
+                     'chunk_index': chunk['index']}
+            normal = normalized(value['text'])
+            drop = False
+            for old in reversed(merged[-100:]):
+                if (old['chunk_index'] == value['chunk_index']
+                        or max(old['start'], value['start']) >= min(old['end'], value['end'])):
+                    continue
+                other = windows[old['chunk_index']]
+                overlap_start, overlap_end = max(other['start'], chunk['start']), min(other['end'], chunk['end'])
+                if overlap_start >= overlap_end:
+                    continue
+                previous = normalized(old['text'])
+                if previous == normal:
+                    decisions.append({'action': 'merge_exact_overlap', 'original_segments': [dict(old), dict(value)],
+                                      'overlap_start': overlap_start, 'overlap_end': overlap_end,
+                                      'normalization': 'NFKC/casefold/no_unicode_punctuation_or_whitespace'})
+                    old['start'], old['end'] = min(old['start'], value['start']), max(old['end'], value['end'])
+                    removed += 1
+                    drop = True
+                    break
+                shorter, longer = (old, value) if len(previous) < len(normal) else (value, old)
+                short_text, long_text = (previous, normal) if shorter is old else (normal, previous)
+                match = edge_match(short_text, long_text)
+                # Only a whole fragment inside the actual two-window overlap is removable.
+                if (not match or len(short_text) >= len(long_text)
+                        or shorter['start'] < overlap_start or shorter['end'] > overlap_end):
+                    continue
+                decisions.append({'action': 'remove_contained_overlap_fragment', 'match': match,
+                                  'removed_segment': dict(shorter), 'retained_segment': dict(longer),
+                                  'overlap_start': overlap_start, 'overlap_end': overlap_end,
+                                  'normalization': 'NFKC/casefold/no_unicode_punctuation_or_whitespace'})
                 removed += 1
-            else:
+                if shorter is old:
+                    merged.remove(old)
+                else:
+                    drop = True
+                    break
+            if not drop:
                 merged.append(value)
     merged.sort(key=lambda x: (x['start'], x['end'], x['chunk_index']))
     raw = '\n'.join('[%.2f–%.2f] %s' % (r['start'], r['end'], r['text']) for r in merged)
     return {'raw_text': raw[:24000], 'segments': merged, 'truncated': len(raw) > 24000,
             'duration_seconds': manifest['duration_seconds'], 'processor': 'faster_whisper_local_segmented',
             'deduplicated_overlap_segments': removed, 'timeline': 'absolute_seconds',
+            'overlap_decisions': decisions,
             'timing_adjustments': adjustments,
             'segment_seconds': SEGMENT_SECONDS, 'overlap_seconds': OVERLAP_SECONDS}
 
@@ -296,7 +345,8 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                 target = work / ('result-%04d.json' % chunk['index'])
                 if target.is_symlink() or target.exists() and target.stat().st_size > 2_000_000:
                     raise ValueError('invalid_long_media_chunk_cache')
-                processor_hash = digest(Path(__file__)) + digest(Path(__file__).with_name('local_asr.py'))
+                processor_hash = (digest(Path(__file__)) + digest(Path(__file__).with_name('local_asr.py'))
+                                  + digest(Path(__file__).with_name('fetch_model.py')))
                 key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA)).encode()).hexdigest()
                 result = json.loads(target.read_text()) if target.is_file() else None
                 if result is not None and (not isinstance(result, dict) or set(result) != {'segments', 'input_hash', 'timing_adjustments'} or result.get('input_hash') != key):

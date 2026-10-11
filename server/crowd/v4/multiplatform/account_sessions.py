@@ -23,6 +23,16 @@ CLIENTS = {'xhs': ('xhs', 'XiaoHongShuClient'), 'dy': ('douyin', 'DouYinClient')
            'zhihu': ('zhihu', 'ZhiHuClient')}
 
 
+class LoginVerified(Exception):
+    """Exit login-only navigation after native account verification, before collection."""
+
+
+class LoginFlowError(BaseException):
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
 def identifier(value):
     if not isinstance(value, str) or str(uuid.UUID(value)) != value:
         raise ValueError('invalid_session_id')
@@ -68,14 +78,27 @@ class AccountSessions:
         return path, identity['platform']
 
     def status(self, session_id, platform=None):
-        _, platform = self._session(session_id, platform)
+        session, platform = self._session(session_id, platform)
         path = self.root / session_id / 'state.json'
         try:
             value = json.loads(path.read_text())
         except FileNotFoundError:
             value = {'session_id': session_id, 'platform': platform, 'state': 'unverified',
                      'generation': 0, 'identity_status': 'unverified', 'authorized_for_run': None}
-        return {'ok': True, **value, 'credentials_imported': False}
+        active = session / 'active.lock'
+        busy = active.is_symlink()
+        if active.exists() and not busy:
+            try:
+                with open(active, 'r+') as lock:
+                    try:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        busy = True
+                    else:
+                        fcntl.flock(lock, fcntl.LOCK_UN)
+            except OSError:
+                busy = True
+        return {'ok': True, **value, 'credentials_imported': False, 'login_in_progress': busy}
 
     def list(self):
         sessions = []
@@ -95,6 +118,7 @@ class AccountSessions:
             fcntl.flock(lock, fcntl.LOCK_EX)
             value = self.status(session_id, platform)
             value.pop('ok', None)
+            value.pop('login_in_progress', None)
             change(value)
             value['updated_at'] = time.time()
             temporary = folder / ('state-' + secrets.token_hex(8))
@@ -123,6 +147,7 @@ class AccountSessions:
                     value['recovering'] = True
                     value['authorized_for_run'] = None
                 return
+            value.pop('login_error_code', None)
             previous = value.get('account_ref')
             if previous and account_ref and previous != account_ref:
                 generation = value.get('generation', 0) + (value.get('candidate_account_ref') != account_ref)
@@ -135,7 +160,7 @@ class AccountSessions:
             if value.get('candidate_account_ref'):
                 value.update(state='account_changed', authorized_for_run=None)
                 return
-            if value.get('recovering') and value.get('generation', 0) > 0 and (not previous or not account_ref):
+            if value.get('recovering') and (not previous or not account_ref):
                 value.update(state='identity_unverified', authorized_for_run=None,
                              identity_status='same_account_confirmation_required', login_verified=True,
                              verified_at=time.time())
@@ -189,8 +214,11 @@ class AccountSessions:
             lock.close(); raise ValueError('session_busy')
         try:
             status = self.observe(session_id, platform, 'checking')
+            self._update(session_id, platform, lambda value: value.pop('login_error_code', None))
             folder = self.root / session_id
             (folder / 'login-stop').unlink(missing_ok=True)
+            (folder / 'login-verify-continue').unlink(missing_ok=True)
+            self._update(session_id, platform, lambda value: value.update(login_verification_paused=False))
             process = subprocess.Popen([str(mc_root / '.venv/bin/python'), str(Path(__file__).resolve()),
                 '--root', str(self.collector_root), '--mc-root', str(mc_root), '--session-id', session_id,
                 '--platform', platform, '--lock-fd', str(lock.fileno()), '_login_worker'],
@@ -208,8 +236,72 @@ class AccountSessions:
         (folder / 'login-stop').touch(mode=0o600)
         return {'ok': True, 'session_id': session_id, 'cancel_requested': True}
 
+    def resume_verification(self, session_id):
+        status = self.status(session_id)
+        if status.get('login_in_progress') is not True or status.get('login_verification_paused') is not True:
+            raise ValueError('login_verification_not_paused')
+        marker = self.root / session_id / 'login-verify-continue'
+        if marker.is_symlink():
+            raise ValueError('unsafe_login_continue_marker')
+        try:
+            fd = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+        except FileExistsError:
+            return {'ok': True, 'session_id': session_id, 'verification_continue_requested': True}
+        os.close(fd)
+        return {'ok': True, 'session_id': session_id, 'verification_continue_requested': True}
 
-def install_hooks(collector_root, session_id, platform, run_id, event, headless=False, client_class=None):
+
+class LoginVerificationPaused(BaseException):
+    """Unwind a request made with old credentials before waiting for the human."""
+
+
+class LoginVerificationWindow:
+    """Pause authenticated HTTP checks; only an explicit human marker opens another bounded round."""
+    def __init__(self, store, session_id, platform, deadline):
+        self.store, self.session_id, self.platform = store, session_id, platform
+        self.deadline, self.attempts, self.round, self.paused = deadline, 0, 1, False
+        self.folder = store.root / session_id
+
+    def pause(self):
+        if self.paused:
+            return
+        self.paused = True
+        self.store.observe(self.session_id, self.platform, 'waiting_login')
+        self.store._update(self.session_id, self.platform, lambda value: value.update(
+            login_verification_paused=True, login_wait_reason='verification_paused',
+            login_verified=False, authorized_for_run=None, login_verification_round=self.round,
+            login_verification_attempts=self.attempts))
+
+    async def ensure_window(self):
+        if self.attempts >= 8 or time.monotonic() >= self.deadline:
+            self.pause()
+        while self.paused:
+            if (self.folder / 'login-stop').exists():
+                raise LoginFlowError('login_user_cancelled')
+            marker = self.folder / 'login-verify-continue'
+            if marker.is_symlink():
+                raise LoginFlowError('unsafe_login_continue_marker')
+            if marker.exists():
+                marker.unlink()
+                self.deadline, self.attempts, self.paused = time.monotonic()+180, 0, False
+                self.round += 1
+                self.store._update(self.session_id, self.platform, lambda value: value.update(
+                    login_verification_paused=False, login_wait_reason='explicit_verification_round',
+                    login_verification_round=self.round, login_verification_attempts=0))
+                return
+            await asyncio.sleep(.5)
+
+    async def before_request(self):
+        if self.paused or self.attempts >= 8 or time.monotonic() >= self.deadline:
+            self.pause()
+            raise LoginVerificationPaused()
+        self.attempts += 1
+        self.store._update(self.session_id, self.platform, lambda value: value.update(
+            login_verification_round=self.round, login_verification_attempts=self.attempts))
+
+
+def install_hooks(collector_root, session_id, platform, run_id, event, headless=False, client_class=None,
+                  interactive_login=False):
     """Observe original pong; recheck after native login updates, without copying cookies."""
     store = AccountSessions(collector_root)
     if client_class is None:
@@ -244,10 +336,19 @@ def install_hooks(collector_root, session_id, platform, run_id, event, headless=
         emit(store.observe(session_id, platform, 'checking', run_id))
         try:
             result = await original_pong(self, *args, **kwargs)
+        except (ImportError, FileNotFoundError):
+            raise
+        except Exception:
+            if not interactive_login:
+                raise
+            capture['error'] = True
+            result = False
         finally:
             capture['checking'] = False
         if result is True:
             value = store.observe(session_id, platform, 'authenticated', run_id, capture['account_id'])
+            if interactive_login:
+                value = store._update(session_id, platform, lambda item: item.update(login_verification_available=True))
             emit(value)
             if value['state'] == 'account_changed':
                 raise SystemExit(78)
@@ -264,8 +365,11 @@ def install_hooks(collector_root, session_id, platform, run_id, event, headless=
             return True
         value = store.observe(session_id, platform, 'check_failed' if capture['error'] else 'logged_out', run_id)
         emit(value)
-        if headless or capture['error']:
+        if headless or capture['error'] and not interactive_login:
             raise SystemExit(77)
+        if capture['error']:
+            store._update(session_id, platform, lambda value: value.update(
+                login_error_code='login_verification_unavailable', login_verification_available=False))
         emit(store.observe(session_id, platform, 'waiting_login', run_id))
         return False
     async def update(self, *args, **kwargs):
@@ -307,9 +411,108 @@ def guard_auth_response(store, session_id, platform, run_id, event, response):
         raise SystemExit(77)
 
 
+def install_manual_login_fallback(crawler, store, session_id, platform, deadline,
+                                  login_class=None, client_class=None, utilities=None, verification=None):
+    """Keep the original visible context alive when a native QR selector fails."""
+    if platform not in ('zhihu', 'ks'):
+        return
+    module, name = CLIENTS[platform]
+    if client_class is None:
+        client_class = getattr(importlib.import_module('media_platform.' + module + '.client'), name)
+    if login_class is None:
+        login_class = getattr(importlib.import_module('media_platform.' + module + '.login'),
+                              'ZhiHuLogin' if platform == 'zhihu' else 'KuaishouLogin')
+    if utilities is None:
+        from tools import utils as utilities
+    checked_pong = client_class.pong
+    async def verified_pong(self, *args, **kwargs):
+        if not store.status(session_id).get('login_page_ready'):
+            page = crawler.context_page
+            if page.is_closed():
+                raise LoginFlowError('login_browser_closed')
+            await page.bring_to_front()
+            store._update(session_id, platform, lambda value: value.update(
+                login_flow='native_original_browser', login_page_ready=True))
+        try:
+            verified = await checked_pong(self, *args, **kwargs)
+        except LoginVerificationPaused:
+            if verification is None:
+                raise
+            await verification.ensure_window()
+            # The old HTTP request has unwound; native cookies must refresh before a new pong.
+            await self.update_cookies(browser_context=crawler.browser_context, urls=crawler.cookie_urls)
+            return False
+        if verified is True:
+            raise LoginVerified()
+        return False
+    client_class.pong = verified_pong
+    missing = {'qr': False}
+    finder = 'find_qrcode_img_from_canvas' if platform == 'zhihu' else 'find_login_qrcode'
+    original_finder = getattr(utilities, finder, None)
+    if original_finder:
+        async def find(*args, **kwargs):
+            value = await original_finder(*args, **kwargs)
+            missing['qr'] = not bool(value)
+            return value
+        setattr(utilities, finder, find)
+    native_begin = login_class.begin
+    async def begin(self):
+        page = crawler.context_page
+        if page.is_closed():
+            raise LoginFlowError('login_browser_closed')
+        await page.bring_to_front()
+        store._update(session_id, platform, lambda value: value.update(
+            login_flow='native_original_browser', login_wait_reason='native_qr_preparation', login_page_ready=True))
+        async def native_result():
+            try:
+                await native_begin(self)
+            except SystemExit as error:
+                return error
+        try:
+            # Native cookie polling can wait 120/600 rounds; retain time for authenticated self-check.
+            window_deadline = verification.deadline if verification else deadline
+            native_exit = await asyncio.wait_for(native_result(), timeout=min(30, max(.01, window_deadline-time.monotonic())))
+            if native_exit is not None:
+                raise native_exit
+        except SystemExit as error:
+            if error.code not in (None, 0):
+                raise
+            reason = 'qr_missing' if missing['qr'] else 'native_qr_wait_ended'
+        except Exception as error:
+            if type(error).__name__ != 'TimeoutError':
+                raise
+            reason = 'qr_element_unavailable'
+        else:
+            reason = 'native_login_requires_verification'
+        if page.is_closed():
+            raise LoginFlowError('login_browser_closed')
+        await page.bring_to_front()
+        if platform == 'zhihu':
+            await page.goto('https://www.zhihu.com/signin', wait_until='domcontentloaded')
+        store.observe(session_id, platform, 'waiting_login')
+        store._update(session_id, platform, lambda value: value.update(
+            login_flow='manual_original_browser', login_wait_reason='verification_paused' if verification and verification.paused else reason, login_page_ready=True))
+        client = getattr(crawler, 'zhihu_client' if platform == 'zhihu' else 'ks_client')
+        while verification or time.monotonic() < deadline:
+            if (store.root / session_id / 'login-stop').exists():
+                raise LoginFlowError('login_user_cancelled')
+            if page.is_closed():
+                raise LoginFlowError('login_browser_closed')
+            if verification:
+                await verification.ensure_window()
+            # Native update_cookies hook invokes the original authenticated pong.
+            await client.update_cookies(browser_context=crawler.browser_context, urls=crawler.cookie_urls)
+            window_deadline = verification.deadline if verification else deadline
+            await asyncio.sleep(min(20, max(0, window_deadline - time.monotonic())))
+        raise LoginFlowError('login_user_timeout')
+    login_class.begin = begin
+
+
 async def login_worker(args):
     """Use MC's visible human-login path with every content-collection entry disabled."""
+    deadline = time.monotonic() + 180
     store = AccountSessions(args.root)
+    verification = LoginVerificationWindow(store, args.session_id, args.platform, deadline) if args.platform in ('zhihu', 'ks') else None
     session, _ = store._session(args.session_id, args.platform)
     folder = store.root / args.session_id
     work = folder / ('login-' + secrets.token_hex(8)); work.mkdir(mode=0o700)
@@ -336,7 +539,8 @@ async def login_worker(args):
         async def no_collection(self, *_args, **_kwargs): return None
         crawler_class.search = no_collection
         def event(_state, _value): pass
-        install_hooks(args.root, args.session_id, args.platform, None, event)
+        install_hooks(args.root, args.session_id, args.platform, None, event,
+                      interactive_login=args.platform in ('zhihu', 'ks'))
         from playwright.async_api import BrowserType
         original = BrowserType.launch_persistent_context
         async def persistent(self, *a, **kw):
@@ -349,23 +553,58 @@ async def login_worker(args):
         attempts = 0
         async def bounded_send(self, *a, **kw):
             nonlocal attempts
-            attempts += 1
-            if attempts > 8: raise SystemExit(77)
+            if verification:
+                await verification.before_request()
+            else:
+                attempts += 1
+                if attempts > 8: raise LoginFlowError('login_request_budget_exhausted')
             return await send(self, *a, **kw)
         httpx.AsyncClient.send = bounded_send
         crawler = crawler_class()
+        install_manual_login_fallback(crawler, store, args.session_id, args.platform, deadline, verification=verification)
         task = asyncio.create_task(crawler.start())
-        deadline = time.monotonic() + 180
         try:
             while not task.done():
-                if time.monotonic() > deadline or (folder / 'login-stop').exists():
-                    task.cancel(); raise SystemExit(77)
+                if verification and time.monotonic() > verification.deadline:
+                    verification.pause()
+                elif verification is None and time.monotonic() > deadline:
+                    task.cancel(); raise LoginFlowError('login_user_timeout')
+                if verification and getattr(crawler, 'context_page', None) and crawler.context_page.is_closed():
+                    task.cancel(); raise LoginFlowError('login_browser_closed')
+                if (folder / 'login-stop').exists():
+                    task.cancel(); raise LoginFlowError('login_user_cancelled')
                 await asyncio.sleep(.5)
-            await task
+            try:
+                await task
+            except LoginVerified:
+                pass
         finally:
-            if not task.done(): task.cancel()
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
             if getattr(crawler, 'browser_context', None):
-                await crawler.browser_context.close()
+                with contextlib.suppress(Exception):
+                    await crawler.browser_context.close()
+            store._update(args.session_id, args.platform, lambda value: value.update(
+                login_page_ready=False, login_verification_paused=False))
+
+
+def record_login_failure(root, session_id, platform, error):
+    """Report a fixed error category, never upstream exception text or credentials."""
+    store = AccountSessions(root)
+    status = store.status(session_id)
+    if status['state'] in ('resumed', 'authenticated', 'account_changed', 'identity_unverified'):
+        return
+    name = type(error).__name__
+    code = (error.code if isinstance(error, LoginFlowError) else
+            'login_browser_timeout' if name == 'TimeoutError' else
+            'login_browser_closed' if name == 'TargetClosedError' else
+            'login_dependency_missing' if isinstance(error, (ImportError, FileNotFoundError)) else
+            'login_flow_ended_before_verification' if isinstance(error, SystemExit) else
+            'login_executor_failed')
+    store.observe(session_id, platform, 'check_failed')
+    store._update(session_id, platform, lambda value: value.update(login_error_code=code))
 
 
 if __name__ == '__main__':
@@ -376,9 +615,7 @@ if __name__ == '__main__':
     arguments = parser.parse_args()
     try:
         asyncio.run(login_worker(arguments))
-    except BaseException:
-        status = AccountSessions(arguments.root).status(arguments.session_id)
-        if status['state'] not in ('resumed', 'authenticated', 'account_changed', 'identity_unverified'):
-            AccountSessions(arguments.root).observe(arguments.session_id, arguments.platform, 'check_failed')
+    except BaseException as error:
+        record_login_failure(arguments.root, arguments.session_id, arguments.platform, error)
     finally:
         os.close(arguments.lock_fd)

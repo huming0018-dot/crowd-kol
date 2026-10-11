@@ -190,6 +190,9 @@ class CloudOwnerAdapter:
     def resume(self, task_id):
         return self._control(task_id, 'running')
 
+    def retry_supplemental(self, payload):
+        return {'ok': True, **self.client.call('retry_supplemental', payload)}
+
     def start_scheduler(self):
         pass
 
@@ -360,7 +363,7 @@ class CloudWorker:
                 self.last_error = result.get('error')
                 result['waiting_login_count'] = sum(v.get('desired_state','running') == 'running' for v in mc_runner.read(self.path).get('waiting_logins', []))
                 return result
-            except (CloudError, ValueError, OSError, sqlite3.Error) as error:
+            except (CloudError, mc_runner.BridgeError, ValueError, OSError, sqlite3.Error) as error:
                 code = str(error) if re.fullmatch(r'[a-z_]{1,80}', str(error)) else 'cloud_worker_failed'
                 self.last_error = code
                 try:
@@ -421,6 +424,8 @@ class CloudWorker:
         if state['phase'] in ('dispatching','local_stop_unknown'):
             # A crash between source start and persistence cannot be resolved by another start.
             return {'state': state['phase'], 'error': 'source_outcome_unknown'}
+        if state['phase'] == 'reconciling_no_dispatch':
+            return self._reconcile_no_dispatch(state, waiting)
         lease = state['lease']
         if state['phase'] == 'waiting_login':
             # Upgrade the previous single-wait durable state without discarding context.
@@ -431,8 +436,21 @@ class CloudWorker:
             self._save({'phase':'idle', 'waiting_logins': [*waiting, pending]})
             return {'state': 'waiting_login'}
         if state['phase'] == 'authorized':
+            pre_dispatch = {'phase': 'authorized', 'local_run_id': state.get('local_run_id'),
+                            'sequence': state.get('sequence', 0)}
             lease = self._heartbeat(state)
             if lease.get('may_dispatch') is not True:
+                if (lease.get('state') == 'unknown' and pre_dispatch['local_run_id'] is None
+                        and type(pre_dispatch['sequence']) is int and pre_dispatch['sequence'] >= 1):
+                    proof = {**pre_dispatch, 'evidence_sha256': _hash('crowd-machine-pre-dispatch-v1',
+                        {**pre_dispatch, 'claim_id': state['claim_id'], 'run_id': lease['run_id'],
+                         'lease_epoch': lease['lease_epoch']})}
+                    payload = {
+                        'claim_id': state['claim_id'], 'run_id': lease['run_id'],
+                        'lease_epoch': lease['lease_epoch'], 'proof': proof}
+                    state.update(phase='reconciling_no_dispatch', reconciliation_payload=payload)
+                    self._save(state)
+                    return self._reconcile_no_dispatch(state, waiting)
                 state.update(phase='finishing', outcome='unknown', api_attempts=0)
                 self._save(state)
             elif lease['delivery_basis'] == 'existing_saved':
@@ -453,15 +471,28 @@ class CloudWorker:
                     session = self.session_selector(lease)
                     if session:
                         request['session_id'] = mc_runner.uid(session)
-                request = mc_runner.validate(request)
-                state['session_id'] = request['session_id']
-                state['phase'] = 'dispatching'
-                self._save(state)  # Commit authorization before the first source call.
-                result = self._runner('start', request)
-                run_id = result.get('run_id') or result.get('run', {}).get('run_id')
-                mc_runner.uid(run_id)
-                state.update(phase='running', local_run_id=run_id)
-                self._save(state)
+                try:
+                    request = mc_runner.validate(request)
+                except mc_runner.BridgeError:
+                    # Validation ran before dispatch: there is no unknown source call.
+                    # Persist finish first so a lost ACK retries the same finish only.
+                    state.update(phase='finishing', outcome='failed', api_attempts=0,
+                                 validation_error='invalid_local_task')
+                    self._save(state)
+                else:
+                    state['session_id'] = request['session_id']
+                    if lease.get('supplemental_context') and not self._supplemental_account(state, request):
+                        state.update(phase='finishing', outcome='login_required', api_attempts=0)
+                        self._save(state)
+                    else:
+                        state['phase'] = 'dispatching'
+                        self._save(state)  # Commit authorization before the first source call.
+                        result = self._runner('start', request)
+                        run_id = result.get('run_id') or result.get('run', {}).get('run_id')
+                        mc_runner.uid(run_id)
+                        state.pop('recovery_authorized_run', None)
+                        state.update(phase='running', local_run_id=run_id)
+                        self._save(state)
         if state['phase'] == 'running':
             lease = self._heartbeat(state)
             if lease.get('may_dispatch') is not True:
@@ -509,9 +540,58 @@ class CloudWorker:
                 self._save({'phase': 'idle', 'waiting_logins': [*waiting, pending]})
             else:
                 self._save({'phase': 'idle', 'last_finished_run_id': state['lease']['run_id'],
+                            'last_validation_error': state.get('validation_error'),
                             'waiting_logins': waiting})
             return {'state': 'finished', 'task': response.get('task')}
         return {'state': state['phase']}
+
+    def _reconcile_no_dispatch(self, state, waiting):
+        response = self.client.call('reconcile_no_dispatch', state['reconciliation_payload'])
+        payload = state['reconciliation_payload']
+        if (response.get('reconciled') is not True
+                or type(response.get('lease_epoch')) is not int
+                or any(response.get(key) != payload[key] for key in ('claim_id','run_id','lease_epoch'))
+                or response.get('worker_id') != state['lease']['worker_id']):
+            raise CloudError('invalid_cloud_reconciliation')
+        self._save({'phase': 'idle', 'waiting_logins': waiting,
+                    'last_reconciled_run_id': state['lease']['run_id']})
+        return {'state': 'reconciled_no_dispatch'}
+
+    def _supplemental_account(self, state, request):
+        lease = state['lease']
+        recovery = lease['supplemental_context']
+        if not isinstance(recovery, dict) or recovery.get('source_worker_id') != lease['worker_id']:
+            raise CloudError('supplemental_account_binding_denied')
+        source_run = mc_runner.uid(recovery.get('source_local_run_id'))
+        source = self._runner('status', {'run_id': source_run})
+        session = mc_runner.uid(source.get('session_id'))
+        if (source.get('platform') != lease['platform'] or source.get('state') != 'failed'
+                or recovery.get('request_session_id') not in (None, session)):
+            raise CloudError('supplemental_account_binding_denied')
+        request['session_id'] = session
+        state['session_id'] = session
+        account = self._runner('account_status', {'session_id': session, 'platform': lease['platform']})
+        expected = recovery.get('account_context') or {}
+        generation = expected.get('generation', source.get('account_generation'))
+        if type(generation) is not int or generation < 0:
+            raise CloudError('supplemental_account_binding_denied')
+        authorization_run = mc_runner.uid(recovery.get('authorization_local_run_id') or source_run)
+        if authorization_run != source_run:
+            authorization = self._runner('status', {'run_id': authorization_run})
+            if (authorization.get('state') != 'login_required' or authorization.get('session_id') != session
+                    or authorization.get('platform') != lease['platform']
+                    or authorization.get('account_generation') != generation):
+                raise CloudError('supplemental_account_binding_denied')
+        context = {'session_id': session, 'generation': generation,
+                   'account_ref': expected.get('account_ref', account.get('account_ref'))}
+        state.update(account_context=context, recovery_authorized_run=authorization_run)
+        verified = account.get('verified_at')
+        return (account.get('generation') == generation and account.get('account_ref') == context['account_ref']
+                and (context['account_ref'] is not None or account.get('identity_status') == 'manually_confirmed_same_account')
+                and account.get('state') in ('authenticated', 'resumed') and account.get('login_verified') is True
+                and account.get('login_in_progress') is not True
+                and type(verified) in (int, float) and 0 <= time.time()-verified <= 180
+                and account.get('authorized_for_run') == authorization_run)
 
     def _resume_login(self, state):
         context, lease = state.get('account_context', {}), state['lease']
@@ -525,13 +605,20 @@ class CloudWorker:
         account = self._runner('account_status', {'session_id': context['session_id'], 'platform': lease['platform']})
         same = account.get('generation') == context.get('generation') and account.get('account_ref') == context.get('account_ref')
         identified = account.get('account_ref') is not None or account.get('identity_status') == 'manually_confirmed_same_account'
+        generation = context.get('generation')
+        valid_generation = type(generation) is int and generation >= 0 and (
+            generation > 0 or context.get('account_ref') is None and
+            account.get('identity_status') == 'manually_confirmed_same_account')
         verified_at = account.get('verified_at')
         fresh = type(verified_at) in (int,float) and 0 <= time.time()-verified_at <= 180
         authenticated = account.get('state') in ('authenticated','resumed') and account.get('login_verified') is True
-        if not (same and identified and fresh and authenticated and account.get('authorized_for_run') == state.get('local_run_id') and context.get('generation',0)>0):
+        authorization_run = state.get('recovery_authorized_run') or state.get('local_run_id')
+        if not (same and identified and valid_generation and fresh and authenticated
+                and account.get('login_in_progress') is not True
+                and account.get('authorized_for_run') == authorization_run):
             return False
         self.client.call('resume_login', {'run_id':lease['run_id'],'lease_epoch':lease['lease_epoch'],
-            'local_run_id':state['local_run_id'],'session_id':context['session_id'],
+            'local_run_id':authorization_run,'session_id':context['session_id'],
             'generation':context['generation'],'account_ref':context.get('account_ref'),
             'identity_status':account.get('identity_status'),'verified_at_ms':int(account['verified_at']*1000),
             'authorized_for_run':account['authorized_for_run']})

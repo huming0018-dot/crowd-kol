@@ -94,6 +94,26 @@ python3 fetch_model.py --output-dir ./asr-model-tiny
 
 ## 4.2.5：从插件媒体任务到可导入证据
 
+### 可选 small 中文质量配置
+
+`fetch_model.py --model small --output-dir /新的模型目录` 显式下载官方 MIT 固定版本
+`Systran/faster-whisper-small@536b0662742c02347bc0e980a01041f333bce120`。
+五文件共 486,214,370 字节，单次下载/本地运行文件总量上限 500,000,000 字节；
+tiny 仍为默认，保持 100,000,000 字节上限及原清单兼容。
+权重 SHA 固定为 `3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671`。
+每次运行校验清单，`local_files_only=True`、CPU int8、两线程；不上传音频或隐式获取模型。
+已有目录拒绝覆盖。将 `--asr-model` 或工作台 `CROWD_LOCAL_ASR_MODEL` 指向 small 目录即可调用。
+改模型或处理源码后须使用新检查点，原任务和数据保留。
+
+2026-10-11 本机两份已知原文的 Mac 中文语音合成样本（69.82 秒、28.55 秒）实测：
+按字符数加权、NFKC/标点空白/ICU 简繁规范化的 CER，tiny 为 28/387（7.24%），
+small 为 14/387（3.62%）；真实总耗时分别 5.33 秒与 27.94 秒。
+未给目标句提示、未手工改字。仍有错词；这不是真人录音质量验收。
+跨窗去重保留 `overlap_decisions` 原片和决策；只有真实重叠时间内的完整短片与较长片
+具有至少六个规范化字符的前缀/后缀匹配才移除，重叠区外的正常重复保留。
+`asr_quality.py --reference 已知原文.txt --transcript 转写或evidence.json --simplify-macos`
+可复算 CER。省略 `--simplify-macos` 保留简繁字符差异；规范化不会校正同音字或专名。
+
 1. 在指定KOL内容的详情中，确认媒体权利并导出媒体任务JSON。只有本次DOM实际可见、受支持CDN的公开引用才会列出；blob/凭证URL/不可访问资源不伪造替代链接。
 2. 运行下列命令。默认只下载；`--ocr`只处理图片，`--asr`只处理音视频，并要求显式本地模型目录。
 

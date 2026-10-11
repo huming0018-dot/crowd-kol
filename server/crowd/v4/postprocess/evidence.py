@@ -28,11 +28,12 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
     if not authorization_ref.strip() or len(authorization_ref) > 200:
         raise ValueError('authorization_reference_required')
     source = Path(source)
-    if not source.is_file() or source.stat().st_size > 25 * 1024 * 1024:
+    limit = 64 * 1024 * 1024 if kind == 'asr' and work_dir is not None and asr_model is not None and source.suffix.lower() in ('.m4a', '.mp3', '.aac') else 25 * 1024 * 1024
+    if source.is_symlink() or not source.is_file() or source.stat().st_size > limit:
         raise ValueError('file_missing_or_over_25mb')
     with source.open('rb') as stream:
-        data = stream.read(25 * 1024 * 1024 + 1)
-    if len(data) > 25 * 1024 * 1024:
+        data = stream.read(limit + 1)
+    if len(data) > limit:
         raise ValueError('file_over_25mb')
     evidence = {'source_kind': 'authorized_local_file', 'asset_sha256': hashlib.sha256(data).hexdigest(),
                 'observed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -58,7 +59,7 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
         raw = '\n'.join(x['text'] for x in blocks)
         evidence.update(blocks=blocks, raw_text=raw[:24000], truncated=bool(parsed['truncated'] or len(raw) > 24000))
     elif kind == 'asr':
-        if source.suffix.lower() not in ('.wav', '.m4a', '.mp3', '.caf', '.aiff', '.mp4', '.webm', '.ogg'):
+        if source.suffix.lower() not in ('.wav', '.m4a', '.mp3', '.aac', '.caf', '.aiff', '.mp4', '.webm', '.ogg'):
             raise ValueError('audio_file_required')
         if work_dir is not None and asr_model is not None:
             import long_media

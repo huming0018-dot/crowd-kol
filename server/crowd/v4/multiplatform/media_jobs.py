@@ -33,13 +33,23 @@ class MediaJobs:
 
     def capabilities(self):
         model_ready = self.asr_model is not None and (self.asr_model / 'crowd-model.json').is_file()
+        model_name = None
+        if model_ready:
+            try:
+                manifest = self.asr_model / 'crowd-model.json'
+                if manifest.stat().st_size <= 10000:
+                    model_name = read(manifest).get('repository', '').rsplit('/', 1)[-1]
+            except (OSError, ValueError, TypeError, AttributeError):
+                model_name = None
         executable = os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
         return {'ocr': sys.platform == 'darwin', 'asr': model_ready,
                 'asr_model_state': 'configured_unverified' if model_ready else 'local_model_unavailable',
+                'asr_model_name': model_name,
                 'long_audio': True, 'ffmpeg': bool(executable and Path(executable).is_file()),
                 'audio_extraction_state': 'configured_unverified' if executable else 'ffmpeg_unavailable_pcm_wav_only',
                 'transcript': True, 'network': False, 'source': 'saved_task_file',
                 'limits': {'bytes': 25 * 1024 * 1024, 'seconds': 3600, 'max_audio_seconds': 3600,
+                           'long_audio_bytes': 64 * 1024 * 1024, 'long_audio_seconds': 7200,
                            'segment_seconds': 55, 'overlap_seconds': 2, 'concurrency': 1}}
 
     def status(self, job_id):
@@ -74,18 +84,20 @@ class MediaJobs:
         if kind == 'asr' and not self.capabilities()['asr']:
             raise ValueError('local_asr_model_not_configured')
         source = Path(source)
-        if source.is_symlink() or not source.is_file() or source.stat().st_size > 25 * 1024 * 1024:
-            raise ValueError('media_missing_or_over_25mb')
+        limit = 64 * 1024 * 1024 if kind == 'asr' and source.suffix.lower() in ('.m4a', '.mp3', '.aac') else 25 * 1024 * 1024
+        if source.is_symlink() or not source.is_file() or source.stat().st_size > limit:
+            raise ValueError('media_missing_or_over_processing_limit')
         data = source.read_bytes()
-        if len(data) > 25 * 1024 * 1024:
-            raise ValueError('media_over_25mb')
+        if len(data) > limit:
+            raise ValueError('media_over_processing_limit')
         digest = hashlib.sha256(data).hexdigest()
         identity = {'asset_sha256': digest, 'platform': platform, 'content_id': content_id,
+                    'processing_profile': 'long_audio_64mib_7200s' if limit == 64 * 1024 * 1024 else 'standard_25mib_3600s',
                     'kind': kind, 'processor_schema': 2,
                     'processor_sha256': hashlib.sha256(PROCESSOR.read_bytes()).hexdigest(),
                     'model': str(self.asr_model) if kind == 'asr' else None}
         identity['processor_files'] = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
-            for name in ('local_asr.py', 'long_media.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
+            for name in ('local_asr.py', 'fetch_model.py', 'long_media.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
             if (PROCESSOR.parent / name).is_file()}
         if kind == 'asr':
             manifest = self.asr_model / 'crowd-model.json'
@@ -232,7 +244,8 @@ class MediaJobs:
                 raise ValueError('media_checkpoint_processor_changed')
             folder = self.root / job_id
             snapshots = list(folder.glob('input*'))
-            if len(snapshots) != 1 or snapshots[0].is_symlink() or snapshots[0].stat().st_size > 25 * 1024 * 1024 or hashlib.sha256(snapshots[0].read_bytes()).hexdigest() != state['asset_sha256']:
+            limit = 64 * 1024 * 1024 if state['kind'] == 'asr' and len(snapshots) == 1 and snapshots[0].suffix.lower() in ('.m4a', '.mp3', '.aac') else 25 * 1024 * 1024
+            if len(snapshots) != 1 or snapshots[0].is_symlink() or snapshots[0].stat().st_size > limit or hashlib.sha256(snapshots[0].read_bytes()).hexdigest() != state['asset_sha256']:
                 raise ValueError('media_checkpoint_source_changed')
             process_lock = open(self.root / 'processor.lock', 'a+')
             try:

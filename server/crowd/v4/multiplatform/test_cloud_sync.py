@@ -7,9 +7,11 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 import uuid
 
 from cloud_sync import CloudClient, CloudError, CloudOutbox, CloudOwnerAdapter, CloudWorker, canonical, _hash, _strict_json
+import mc_runner
 
 
 def uid():
@@ -102,6 +104,67 @@ class Tests(unittest.TestCase):
         many=json.dumps({'tasks':[{'children':[{'state':'completed','contents':1} for _ in range(7)]} for _ in range(200)]})
         self.assertEqual(len(_strict_json(many,max_nodes=100000)['tasks']),200)
         with self.assertRaises(CloudError):_strict_json(many)
+
+    def test_validation_failure_finishes_without_source_or_stranding_worker(self):
+        worker = CloudWorker(self.root, self.cloud, self.runner)
+        with patch('cloud_sync.mc_runner.validate', side_effect=mc_runner.BridgeError('media_not_supported_by_upstream')):
+            self.assertEqual(worker.tick()['state'], 'finished')
+        self.assertEqual(self.actions, [])
+        finish = next(p for a,p in self.cloud.calls if a == 'finish')
+        self.assertEqual((finish['outcome'], finish['api_attempts'], finish['capture_ids']), ('failed', 0, []))
+        state = mc_runner.read(worker.path)
+        self.assertEqual(state['phase'], 'idle')
+        self.assertEqual(state['last_validation_error'], 'invalid_local_task')
+
+    def test_validation_finish_unknown_retries_finish_without_source(self):
+        worker = CloudWorker(self.root, self.cloud, self.runner)
+        original = self.cloud.call
+        lost = [True]
+        def call(action, payload=None):
+            if action == 'finish' and lost:
+                lost.pop()
+                raise CloudError('cloud_outcome_unknown')
+            return original(action, payload)
+        self.cloud.call = call
+        with patch('cloud_sync.mc_runner.validate', side_effect=mc_runner.BridgeError('invalid_budget')):
+            self.assertEqual(worker.tick()['error'], 'cloud_outcome_unknown')
+        self.assertEqual(mc_runner.read(worker.path)['phase'], 'finishing')
+        self.assertEqual(worker.tick()['state'], 'finished')
+        self.assertEqual(self.actions, [])
+
+    def test_expired_pre_dispatch_reconciliation_survives_lost_ack(self):
+        worker = CloudWorker(self.root, self.cloud, self.runner)
+        state = {'phase':'authorized','claim_id':uid(),'lease':self.cloud.lease,'sequence':1,
+                 'waiting_logins':[]}
+        worker._save(state)
+        self.cloud.lease.update(may_dispatch=False,state='unknown')
+        original = self.cloud.call
+        reconciliations = []
+        def call(action, payload=None):
+            if action == 'reconcile_no_dispatch':
+                reconciliations.append(payload)
+                if len(reconciliations) == 1:
+                    self.cloud.lease['state'] = 'waiting'
+                    raise CloudError('cloud_outcome_unknown')
+                return {'reconciled':True,'replayed':True,
+                        **{k:payload[k] for k in ('claim_id','run_id','lease_epoch')},
+                        'worker_id':self.cloud.lease['worker_id']}
+            return original(action,payload)
+        self.cloud.call = call
+        self.assertEqual(worker.tick()['error'],'cloud_outcome_unknown')
+        self.assertEqual(mc_runner.read(worker.path)['phase'],'reconciling_no_dispatch')
+        recreated = CloudWorker(self.root,self.cloud,self.runner)
+        self.assertEqual(recreated.tick()['state'],'reconciled_no_dispatch')
+        self.assertEqual(reconciliations[0],reconciliations[1])
+        self.assertEqual(self.actions,[])
+        self.assertFalse(any(action == 'finish' for action,_ in self.cloud.calls))
+
+    def test_uncertain_dispatch_is_never_reconciled_as_no_dispatch(self):
+        worker = CloudWorker(self.root,self.cloud,self.runner)
+        worker._save({'phase':'dispatching','lease':self.cloud.lease,'sequence':1,'waiting_logins':[]})
+        self.assertEqual(worker.tick()['error'],'source_outcome_unknown')
+        self.assertEqual(self.cloud.calls,[])
+        self.assertEqual(self.actions,[])
 
     def test_outbox_lost_ack_queries_receipt_without_retransmit(self):
         outbox=CloudOutbox(self.root,self.cloud)
@@ -213,7 +276,10 @@ class Tests(unittest.TestCase):
         account.update(authorized_for_run=self.local_id,generation=3,state='resumed')
         self.assertEqual(worker.tick()['state'],'waiting_login')
         self.assertEqual(sum(a=='start' for a,_ in self.actions),1)
-        account['generation']=2
+        account.update(generation=2,login_in_progress=True)
+        worker.tick()
+        self.assertFalse(any(a=='resume_login' for a,_ in self.cloud.calls))
+        account['login_in_progress']=False
         worker.tick();self.assertTrue(any(a=='resume_login' for a,_ in self.cloud.calls))
         p=next(p for a,p in self.cloud.calls if a=='resume_login')
         self.assertEqual(p['local_run_id'],self.local_id)
@@ -227,6 +293,39 @@ class Tests(unittest.TestCase):
         controls=[p for a,p in self.cloud.calls if a=='task_control']
         self.assertEqual([p['desired_state'] for p in controls],['stopped','running'])
         self.assertEqual([p['expected_revision'] for p in controls],[2,2])
+
+    def test_zero_generation_resume_requires_fresh_manual_confirmation_of_original_scope(self):
+        session = uid()
+        account = {'generation':0, 'account_ref':None, 'state':'logged_out',
+                   'identity_status':'unverified', 'authorized_for_run':None,
+                   'login_verified':False, 'verified_at':time.time()}
+        def runner(action,payload):
+            if action=='status':return {'ok':True,'result':{'state':'login_required','api_attempts':1}}
+            if action=='account_status':return {'ok':True,'result':account}
+            if action=='import':return {'ok':True,'result':{'records':[]}}
+            return self.runner(action,payload)
+        worker = CloudWorker(self.root,self.cloud,runner,session_selector=lambda _:session)
+        worker.tick()
+        account.update(state='resumed',login_verified=True,authorized_for_run=self.local_id)
+        for changes in ({'identity_status':'session_only_unverified'},
+                        {'identity_status':'manually_confirmed_same_account','generation':1},
+                        {'generation':0,'verified_at':time.time()-181},
+                        {'verified_at':time.time(),'authorized_for_run':uid()},
+                        {'authorized_for_run':self.local_id,'account_ref':'f'*64}):
+            account.update(changes)
+            worker.tick()
+            self.assertFalse(any(a=='resume_login' for a,_ in self.cloud.calls))
+        account.update(account_ref=None,verified_at=time.time())
+        self.cloud.lease['desired_state']='stopped'
+        worker.tick()
+        self.assertFalse(any(a=='resume_login' for a,_ in self.cloud.calls))
+        self.cloud.lease['desired_state']='running'
+        worker.tick()
+        payload=next(p for a,p in self.cloud.calls if a=='resume_login')
+        self.assertEqual(payload['generation'],0)
+        self.assertIsNone(payload['account_ref'])
+        self.assertEqual(payload['identity_status'],'manually_confirmed_same_account')
+        self.assertEqual(payload['local_run_id'],self.local_id)
 
     def test_waiting_login_persists_and_other_platform_is_dispatched(self):
         session=uid()
@@ -250,6 +349,56 @@ class Tests(unittest.TestCase):
         starts=[p['platform'] for a,p in self.actions if a=='start']
         self.assertEqual(starts,['xhs','dy'])
         self.assertEqual(len(json.loads(worker.path.read_text())['waiting_logins']),2)
+
+    def test_supplemental_account_requires_original_session_generation_fresh_scope(self):
+        source_run, session = uid(), uid()
+        self.cloud.lease.update(platform='bili', supplemental_context={
+            'source_local_run_id':source_run, 'source_worker_id':self.cloud.lease['worker_id'],
+            'request_session_id':session})
+        account={'generation':1,'account_ref':'f'*64,'state':'authenticated',
+                 'login_verified':True,'verified_at':time.time(),'authorized_for_run':source_run}
+        def runner(action,payload):
+            if action=='status':return {'ok':True,'result':{'state':'failed','platform':'bili',
+                    'session_id':session,'account_generation':1}}
+            if action=='account_status':return {'ok':True,'result':account}
+            return self.runner(action,payload)
+        worker=CloudWorker(self.root,self.cloud,runner)
+        state={'lease':self.cloud.lease}
+        request={}
+        self.assertTrue(worker._supplemental_account(state,request))
+        self.assertEqual(request['session_id'],session)
+        self.assertEqual(state['recovery_authorized_run'],source_run)
+        original=dict(account)
+        for changes in ({'generation':2},{'authorized_for_run':uid()},
+                        {'verified_at':time.time()-181},{'login_in_progress':True},
+                        {'state':'checking'},{'account_ref':None}):
+            account.clear();account.update(original);account.update(changes)
+            self.assertFalse(worker._supplemental_account(state,request))
+        self.cloud.lease['supplemental_context']['source_worker_id']=uid()
+        with self.assertRaisesRegex(CloudError,'supplemental_account_binding_denied'):
+            worker._supplemental_account(state,request)
+        self.assertFalse(any(a=='start' for a,_ in self.actions))
+
+    def test_supplemental_login_after_dispatch_uses_explicit_latest_authorization(self):
+        source_run, next_run, session = uid(), uid(), uid()
+        self.cloud.lease.update(platform='bili', supplemental_context={
+            'source_local_run_id':source_run, 'source_worker_id':self.cloud.lease['worker_id'],
+            'authorization_local_run_id':next_run})
+        states={source_run:{'state':'failed','session_id':session,'platform':'bili','account_generation':1},
+                next_run:{'state':'login_required','session_id':session,'platform':'bili','account_generation':1}}
+        account={'generation':1,'account_ref':'f'*64,'state':'resumed','login_verified':True,
+                 'verified_at':time.time(),'authorized_for_run':next_run}
+        def runner(action,payload):
+            if action=='status':return {'ok':True,'result':states[payload['run_id']]}
+            if action=='account_status':return {'ok':True,'result':account}
+            return self.runner(action,payload)
+        worker=CloudWorker(self.root,self.cloud,runner)
+        state={'lease':self.cloud.lease}
+        self.assertTrue(worker._supplemental_account(state,{}))
+        self.assertEqual(state['recovery_authorized_run'],next_run)
+        states[next_run]['session_id']=uid()
+        with self.assertRaisesRegex(CloudError,'supplemental_account_binding_denied'):
+            worker._supplemental_account(state,{})
 
     def test_config_permissions_role_header_and_no_fake_jwt(self):
         seen=[]

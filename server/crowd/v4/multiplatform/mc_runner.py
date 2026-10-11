@@ -19,7 +19,8 @@ import uuid
 from urllib.parse import unquote, urlsplit, parse_qsl
 
 PLATFORMS = {'xhs':'xiaohongshu','dy':'douyin','ks':'kuaishou','bili':'bilibili','wb':'weibo','tieba':'tieba','zhihu':'zhihu'}
-MEDIA = {'xhs','dy','ks','bili','wb'}
+NATIVE_MEDIA = {'xhs','dy','ks','bili','wb'}
+MEDIA = NATIVE_MEDIA | {'tieba','zhihu'}
 # JSONL writer names differ from CLI platform codes; retain older bridge output aliases.
 JSONL_DIRS = {'dy':('douyin','dy'),'ks':('kuaishou','ks'),'wb':('weibo','wb')}
 FINAL = {'completed','failed','stopped','interrupted_unknown','login_required'}
@@ -28,6 +29,10 @@ SECRET = re.compile(r'(?i)(?:cookie|authorization|access_token|refresh_token|xse
 
 class BridgeError(Exception):
     pass
+
+class SingleResponseLimit(SystemExit):
+    """A per-response cap; total response/API limits remain hard process stops."""
+    def __init__(self): super().__init__(76)
 
 def contains_secret(value):
     for _ in range(3):
@@ -139,7 +144,7 @@ def validate_options(p):
     if p['platform']!='bili':
         if options: fail('unsupported_platform_options')
         return
-    if set(options)-{'creator_sections','search_mode','start_day','end_day','quality'}: fail('unsupported_platform_options')
+    if set(options)-{'creator_sections','search_mode','start_day','end_day','quality','long_audio'}: fail('unsupported_platform_options')
     sections=options.get('creator_sections',['videos'])
     if not isinstance(sections,list) or not sections or any(s not in ('videos','dynamics') for s in sections) or len(set(sections))!=len(sections): fail('invalid_creator_sections')
     if 'creator_sections' in options and p['mode']!='creator': fail('creator_options_require_creator_mode')
@@ -151,6 +156,8 @@ def validate_options(p):
         except (KeyError,TypeError,ValueError): fail('invalid_bilibili_date_range')
         if start>end: fail('invalid_bilibili_date_range')
     elif 'start_day' in options or 'end_day' in options: fail('date_range_requires_search_mode')
+    if 'long_audio' in options and type(options['long_audio']) is not bool: fail('invalid_long_audio')
+    if options.get('long_audio') and not p.get('media',False): fail('long_audio_requires_media')
     if 'quality' in options and (type(options['quality']) is not int or options['quality'] not in (16,32,64,80,112,116,120)): fail('invalid_bilibili_quality')
     if p['mode']=='creator' and sections==['dynamics']:
         for field in ('comments','replies','media'):
@@ -236,8 +243,10 @@ def capabilities(mc):
         discovery_modes = [mode for mode, platforms in SUPPORT.items() if p in platforms]
         features.extend({'id':mode,'support_state':'implemented','live_verified':False,'notes':'visible-page sample from normal homepage/ranking navigation; not following feed'} for mode in discovery_modes)
         if p=='bili':
+            features.append({'id':'long_audio','support_state':'implemented','live_verified':False,'notes':'explicit audio-only DASH option; lowest available bandwidth, fixed 64MiB single audio/100MiB total, at most 2h; DURL-only responses do not trigger another request'})
             features.extend([{'id':'creator_dynamics','support_state':'implemented','live_verified':False,'notes':'separate dynamic identity; no dynamic comments or media download'}, {'id':'creator_relations','support_state':'unsupported','live_verified':False,'notes':'installed upstream callbacks do not persist followers/following'}, {'id':'video_quality','support_state':'implemented','live_verified':False,'notes':'requested quality is subject to session and source availability'}])
-        if p=='zhihu': features.extend([{'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
+        if p=='tieba': features.append({'id':'public_post_media','support_state':'implemented','live_verified':False,'notes':'own adapter downloads at most three public CDN assets from the same native page response; not upstream media support'})
+        if p=='zhihu': features.extend([{'id':'public_body_media','support_state':'implemented','live_verified':False,'notes':'own adapter observes at most three public body assets from the same native detail HTML or search/creator JSON; excerpt and CDN availability may limit coverage'}, {'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
         platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator',*discovery_modes],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
     return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'visible isolated browser; user completes login/captcha; no automatic credential import'}
 
@@ -256,6 +265,49 @@ def configure_executor(config,p):
         if 'quality' in options: config.BILI_QN=options['quality']
 
 def configure_platform_hooks(upstream,p):
+    if p['platform']=='zhihu' and p['media']:
+        from media_platform.zhihu.client import ZhiHuClient
+        from zhihu_media import install_hook
+        install_hook(ZhiHuClient,Path.cwd()/'output')
+    if p['platform']=='bili' and p['media']:
+        crawler=upstream.CrawlerFactory.CRAWLERS['bili']
+        original_media=crawler.download_media
+        if p.get('platform_options',{}).get('long_audio'):
+            from bili_audio import download_audio
+            from media_platform.bilibili.media import DASH_FNVAL
+            async def audio_only(self,video_item,semaphore):
+                view=video_item.get('View') or {}
+                aid=view.get('aid');cid=view.get('cid');content_id=view.get('bvid') or (str(aid) if aid else '')
+                if not aid or not cid or not content_id:
+                    result={'status':'unavailable','reason':'audio_identity_missing'}
+                else:
+                    try:
+                        play=await self.get_video_play_url_task(aid,cid,semaphore,fnval=DASH_FNVAL)
+                        result=await download_audio(play,content_id,Path.cwd()/'output',view.get('duration'))
+                    except Exception:
+                        result={'status':'failed','reason':'audio_adapter_failed'}
+                phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
+                write(phase,{**previous,'media_status':result['status'],'media_reason':result.get('reason'),
+                             'media_kind':'audio','media_single_file_limit_bytes':67108864,
+                             'media_duration_seconds_reported':result.get('duration_seconds_reported')})
+            original_media=audio_only
+        async def bounded_media(self,*args,**kwargs):
+            folder=Path.cwd()/'output/bili/media'
+            before=set(folder.rglob('*.part')) if folder.exists() else set()
+            try:
+                return await original_media(self,*args,**kwargs)
+            except SingleResponseLimit:
+                for path in set(folder.rglob('*.part'))-before:
+                    path.unlink(missing_ok=True)
+                phase=Path.cwd()/'phase.json'
+                previous=read(phase) if phase.exists() else {}
+                write(phase,{**previous,'media_status':'limited','media_reason':'single_response_byte_limit',
+                             'media_single_file_limit_bytes':67108864 if p.get('platform_options',{}).get('long_audio') else 26214400})
+        crawler.download_media=bounded_media
+    if p['platform']=='tieba' and p['media']:
+        from media_platform.tieba.client import BaiduTieBaClient
+        from tieba_media import install_hook
+        install_hook(BaiduTieBaClient,Path.cwd()/'output')
     if p['mode'] in ('homefeed','trending'):
         from discovery import configure_discovery
         configure_discovery(upstream,p,Path.cwd())
@@ -344,7 +396,7 @@ def start(root, mc, payload):
     return {'run_id':run_id,'state':'starting','session_id':p['session_id'],'supervisor_pid':proc.pid,'source_kind':'mediacrawler_api','reward_eligible':False}
 
 def argv_for(p, output):
-    args = ['--platform',p['platform'],'--type','search' if p['mode'] in ('homefeed','trending') else p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--start',str(p.get('start_page',1)),'--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media']).lower(),'--enable_ip_proxy','false']
+    args = ['--platform',p['platform'],'--type','search' if p['mode'] in ('homefeed','trending') else p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--start',str(p.get('start_page',1)),'--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media'] and p['platform'] in NATIVE_MEDIA).lower(),'--enable_ip_proxy','false']
     if p['mode'] in ('homefeed','trending'):
         return args
     targets=[execution_target(p['platform'],p['mode'],t) for t in p['targets']]
@@ -411,7 +463,8 @@ def execute(root, mc, run_id):
     attempts=0
     account_store=None
     response_bytes=0
-    resource.setrlimit(resource.RLIMIT_FSIZE,(26214400,26214400))
+    file_limit=67108864 if p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') else 26214400
+    resource.setrlimit(resource.RLIMIT_FSIZE,(file_limit,file_limit))
     phase='running'
     def event(new=None):
         nonlocal phase
@@ -514,9 +567,14 @@ def execute(root, mc, run_id):
                         response_size+=len(chunk)
                         with budget_lock:
                             response_bytes+=len(chunk)
-                            if response_size>26214400 or response_bytes>104857600:
+                            if response_bytes>104857600:
                                 event('response_byte_limit')
                                 raise SystemExit(76)
+                            from bili_audio import AUDIO_RESPONSE_ACTIVE
+                            response_limit=67108864 if p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') and AUDIO_RESPONSE_ACTIVE.get() else 26214400
+                            if response_size>response_limit:
+                                event('response_byte_limit')
+                                raise SingleResponseLimit()
                         yield chunk
                 httpx.Response.aiter_bytes=bounded_bytes
             from playwright.async_api import BrowserType
@@ -587,6 +645,9 @@ def normalize(platform, kind, row, origin):
     result={'platform':PLATFORMS[platform],'content_id':cid,'kind':kind,'source_kind':'mediacrawler_api','reward_eligible':False,'coverage':'unverified','origin':origin}
     if kind=='comment':
         result.update(comment_id=opaque(row.get('comment_id')),parent_comment_id=opaque(row.get('parent_comment_id')),text=safe_text(row.get('content')),reported_reply_count=reported_count(row.get('sub_comment_count')))
+        # These stores explicitly use an empty parent for a root; absent stays unknown.
+        if platform in ('xhs','tieba') and row.get('parent_comment_id')=='':
+            result['parent_comment_id']=''
         if not result['comment_id']: fail('missing_comment_id')
     else:
         result.update(title=safe_text(row.get('title'),2000),body=safe_text(next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)),content_type=safe_text(row.get('content_type') or row.get('video_type') or row.get('type'),80))
@@ -608,7 +669,8 @@ def normalize(platform, kind, row, origin):
     result['metrics']=metrics
     result['upstream_transport']='platform_dependent_api_or_browser_html'
     if kind=='comment':
-        result['parent_status']='reported' if result['parent_comment_id'] is not None else 'missing_upstream'
+        reported_root=(platform in ('xhs','tieba') and result['parent_comment_id']=='') or (platform=='wb' and result['parent_comment_id']==result['comment_id'])
+        result['parent_status']='reported_root' if reported_root else 'reported' if result['parent_comment_id'] is not None else 'missing_upstream'
         result['reply_count_semantics']='upstream_reported_not_independently_verified'
     result['published_at_reported']=next((row[k] for k in ('time','create_time','created_time','publish_time','pub_ts') if type(row.get(k)) is int or isinstance(row.get(k),str) and len(row[k])<=80 and not contains_secret(row[k])),None)
     result['entity_key']=result['platform']+':'+cid+(':'+result['comment_id'] if kind=='comment' else '')
@@ -666,14 +728,27 @@ def import_output(root,payload):
                     rejected+=1
                 if len(records)>10000: fail('output_limit')
     media=[]
+    media_bytes=0
     artifacts=[]
     artifact_bytes=0
     for name in JSONL_DIRS.get(p,(p,)):
         folder=output/name/'media'
         if folder.is_symlink() or folder.parent.is_symlink(): fail('unsafe_output_file')
         for path in sorted(folder.rglob('*')):
-            if path.is_file() and path.suffix.lower() in ('.jpg','.jpeg','.png','.webp','.gif','.mp4','.m4a','.mp3','.wav','.webm','.flv','.mov') and not path.is_symlink() and path.resolve().is_relative_to(output.resolve()):
-                media.append({'path':str(path.relative_to(run)),'bytes':path.stat().st_size,'status':'downloaded_by_external_executor','source_kind':'mediacrawler_api'})
+            if path.is_file() and path.suffix.lower() in ('.jpg','.jpeg','.png','.webp','.gif','.mp4','.m4a','.mp3','.aac','.wav','.webm','.flv','.mov') and not path.is_symlink() and path.resolve().is_relative_to(output.resolve()):
+                size=path.stat().st_size
+                media_bytes+=size
+                audio_only=p=='bili' and manifest['request'].get('platform_options',{}).get('long_audio') and path.name=='audio.m4a'
+                file_limit=67108864 if audio_only else 26214400
+                if size>file_limit or media_bytes>104857600: fail('media_import_byte_limit')
+                parts=path.relative_to(folder).parts
+                content_id=opaque(parts[0]) if len(parts)>1 else None
+                item={'path':str(path.relative_to(run)),'bytes':size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+                      'content_id':content_id,'platform':PLATFORMS[p],'status':'downloaded_by_external_executor',
+                      'source_kind':'mediacrawler_api','reward_eligible':False,'content_identity_status':'reported_directory_id' if content_id else 'missing'}
+                if audio_only:item.update({'kind':'audio','single_file_limit_bytes':67108864,'max_duration_seconds':7200})
+                if p=='zhihu' and len(parts)>2 and parts[1] in ('answer','article','zvideo'):item['source_content_type']=parts[1]
+                media.append(item)
                 if len(media)>1000: fail('media_manifest_limit')
         words=output/name/'words'
         if words.is_symlink(): fail('unsafe_output_file')

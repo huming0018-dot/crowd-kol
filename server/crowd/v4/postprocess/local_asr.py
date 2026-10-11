@@ -7,6 +7,7 @@ import math
 import os
 from pathlib import Path
 import sys
+from fetch_model import model_profile
 
 
 def normalize_timestamps(rows, duration):
@@ -25,28 +26,38 @@ def normalize_timestamps(rows, duration):
     return timeline, adjustments
 
 
-def transcribe(source, model_dir):
-    # A local path and offline mode prevent implicit Hub fetches or auth access.
-    os.environ['HF_HUB_OFFLINE'] = '1'
-    os.environ['HF_HUB_DISABLE_IMPLICIT_TOKEN'] = '1'
+def verify_model(model_dir):
     model_dir = Path(model_dir).resolve()
     manifest_path = model_dir / 'crowd-model.json'
-    if not manifest_path.is_file() or manifest_path.stat().st_size > 10000:
+    if manifest_path.is_symlink() or not manifest_path.is_file() or manifest_path.stat().st_size > 10000:
         raise ValueError('verified_local_model_required')
     manifest = json.loads(manifest_path.read_text())
+    name, profile = model_profile(manifest)
     required = {'model.bin', 'config.json', 'tokenizer.json', 'vocabulary.txt'}
     if set(manifest.get('sha256', {})) != required:
         raise ValueError('model_manifest_invalid')
-    for name in required:
-        path = model_dir / name
-        if not path.is_file() or path.is_symlink() or path.stat().st_size > 100_000_000:
+    total = 0
+    for filename in required:
+        path = model_dir / filename
+        if not path.is_file() or path.is_symlink() or path.stat().st_size > profile['limit']:
+            raise ValueError('model_file_invalid')
+        total += path.stat().st_size
+        if total > profile['limit']:
             raise ValueError('model_file_invalid')
         digest = hashlib.sha256()
         with path.open('rb') as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b''):
                 digest.update(chunk)
-        if digest.hexdigest() != manifest['sha256'][name]:
+        if digest.hexdigest() != manifest['sha256'][filename]:
             raise ValueError('model_hash_mismatch')
+    return model_dir, name, profile
+
+
+def transcribe(source, model_dir):
+    # A local path and offline mode prevent implicit Hub fetches or auth access.
+    os.environ['HF_HUB_OFFLINE'] = '1'
+    os.environ['HF_HUB_DISABLE_IMPLICIT_TOKEN'] = '1'
+    model_dir, name, profile = verify_model(model_dir)
     from faster_whisper import WhisperModel
     import av
     import numpy as np
@@ -94,6 +105,7 @@ def transcribe(source, model_dir):
     return {'raw_text': text[:24000], 'truncated': len(text) > 24000,
             'processor': 'faster_whisper_local', 'segments': timeline,
             'duration_seconds': count / 16000,
+            'model': name, 'model_repository': profile['repository'], 'model_revision': profile['revision'],
             'timing_adjustments': adjustments, 'timing_policy': 'tail_overrun_at_most_0.5s'}
 
 

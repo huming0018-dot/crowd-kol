@@ -44,6 +44,119 @@ class ResultsTests(unittest.TestCase):
         self.assertEqual(again['results_revision'], first['results_revision'])
         self.assertEqual(self.store.path.stat().st_mode & 0o777, 0o600)
 
+    def test_zhihu_reported_types_keep_distinct_entities_and_reject_ambiguous_evaluation(self):
+        records=[{'kind':'content','platform':'zhihu','content_id':123,'content_type':kind,'body':kind,
+                  'record_hash':kind+'-unchanged'} for kind in ('answer','article','zvideo')]
+        self.store.ingest({'records':records})
+        detail=self.store.detail('zhihu','123')
+        self.assertEqual(detail['stats']['contents'],3)
+        self.assertEqual(detail['content_identity_status'],'ambiguous_types')
+        self.assertEqual(detail['observed_content_types'],['answer','article','zvideo'])
+        self.assertEqual({r['entity_ref'] for r in detail['contents']},{'zhihu:content:123:'+kind for kind in ('answer','article','zvideo')})
+        with self.assertRaisesRegex(ValueError,'content_evaluation_requires_one_content'):
+            self.store.evaluate('zhihu','123',4)
+        unknown={'kind':'comment','platform':'zhihu','content_id':'123','comment_id':'c','text':'unknown parent scope'}
+        self.store.ingest({'records':[unknown]})
+        comment=self.store.detail('zhihu','123')['comments'][0]
+        self.assertNotIn('content_type',comment)
+
+    def test_exact_entity_detail_versions_evaluation_and_unknown_relationships(self):
+        answer={'kind':'content','platform':'zhihu','content_id':'123','content_type':'answer','body':'answer v1','record_hash':'original-answer-hash'}
+        article={**answer,'content_type':'article','body':'article','record_hash':'original-article-hash'}
+        comment={'kind':'comment','platform':'zhihu','content_id':'123','comment_id':'unknown','text':'unknown comment'}
+        comments=[comment,{**comment,'comment_id':'answer-c','content_type':'answer'},
+                  {**comment,'comment_id':'article-c','platform_fields':{'content_type':'article'}},
+                  {**comment,'comment_id':'conflict','source_content_type':'article','content_type':'answer'}]
+        media=[{'kind':'media','platform':'zhihu','content_id':'123','media_id':kind,'path':kind+'.jpg',
+                'source_content_type':kind if kind!='unknown' else None} for kind in ('answer','article','unknown')]
+        first=self.store.ingest({'run_id':'typed-first','records':[answer,article,*comments,*media]})['results_revision']
+        self.store.ingest({'run_id':'typed-next','records':[{**answer,'body':'answer v2'}]})
+        with sqlite3.connect(str(self.store.path)) as db:
+            before={table:list(db.execute('SELECT * FROM '+table)) for table in ('versions','observations','imports')}
+        ref='zhihu:content:123:answer';detail=self.store.detail('zhihu','123',entity_ref=ref)
+        self.assertEqual(detail['selected_entity_ref'],ref);self.assertEqual([c['body'] for c in detail['contents']],['answer v2'])
+        self.assertEqual([v['record']['body'] for v in detail['versions']],['answer v1','answer v2'])
+        self.assertEqual(len(detail['observations']),2)
+        self.assertEqual([c['comment_id'] for c in detail['comments']],['answer-c'])
+        self.assertEqual({c['comment_id'] for c in detail['unassigned_comments']},{'unknown','conflict'})
+        self.assertEqual([m['media_id'] for m in detail['media']],['answer'])
+        self.assertEqual([m['media_id'] for m in detail['unassigned_media']],['unknown'])
+        article_detail=self.store.detail('zhihu','123',entity_ref='zhihu:content:123:article')
+        self.assertEqual([c['comment_id'] for c in article_detail['comments']],['article-c'])
+        self.assertEqual({c['comment_id'] for c in article_detail['unassigned_comments']},{'unknown','conflict'})
+        self.assertEqual(len(self.store.detail('zhihu','123')['comments']),4)
+        evaluation=self.store.evaluate('zhihu','123',5,['selected'],entity_ref=ref)
+        self.assertEqual(evaluation['entity_ref'],ref)
+        self.assertEqual(self.store.detail('zhihu','123',entity_ref=ref)['contents'][0]['owner_evaluations'][0]['value'],5)
+        self.assertEqual(self.store.detail('zhihu','123',entity_ref='zhihu:content:123:article')['contents'][0]['owner_evaluations'],[])
+        self.assertEqual(self.store.detail('zhihu','123',first,ref)['contents'][0]['body'],'answer v1')
+        with sqlite3.connect(str(self.store.path)) as db:
+            for table,rows in before.items():self.assertEqual(list(db.execute('SELECT * FROM '+table)),rows)
+        with self.assertRaisesRegex(ValueError,'content_evaluation_requires_one_content'):self.store.evaluate('zhihu','123',4)
+
+    def test_entity_selector_boundaries_and_non_zhihu_compatibility(self):
+        revision=self.store.ingest(imported())['results_revision'];ref='xiaohongshu:content:n1'
+        self.assertEqual(self.store.detail('xhs','n1',entity_ref=ref)['comments'],self.store.detail('xhs','n1')['comments'])
+        for bad in (False,{},'xiaohongshu:content:n2','zhihu:content:n1:answer','xiaohongshu:comment:n1:c1',ref+"' OR 1=1"):
+            with self.assertRaisesRegex(ValueError,'invalid_results_entity_ref'):self.store.detail('xhs','n1',entity_ref=bad)
+            with self.assertRaisesRegex(ValueError,'invalid_results_entity_ref'):self.store.evaluate('xhs','n1',4,entity_ref=bad)
+        self.assertEqual(self.store.list_results()['results_revision'],revision)
+        with self.assertRaisesRegex(ValueError,'result_not_found'):self.store.detail('xhs','n1',entity_ref='xiaohongshu:dynamic:n1')
+
+    def test_legacy_typed_selector_is_readonly_and_scores_exact_historical_version(self):
+        from unittest.mock import patch
+        answer={'kind':'content','platform':'zhihu','content_id':'123','content_type':'answer','body':'answer'}
+        with patch('results_store._typed_entity',side_effect=lambda entity,_:entity):
+            self.store.ingest({'run_id':'legacy-a','records':[answer]})
+            self.store.ingest({'run_id':'legacy-b','records':[{**answer,'content_type':'article','body':'article'}]})
+        with sqlite3.connect(str(self.store.path)) as db:before=list(db.execute('SELECT * FROM versions'))
+        ref='zhihu:content:123:article';detail=self.store.detail('zhihu','123',entity_ref=ref)
+        self.assertEqual(len(detail['versions']),1);self.assertEqual(detail['versions'][0]['record']['body'],'article')
+        result=self.store.evaluate('zhihu','123',4,entity_ref=ref)
+        self.assertEqual(result['version_hash'],detail['contents'][0]['version_hash'])
+        self.assertEqual(self.store.detail('zhihu','123',entity_ref='zhihu:content:123:answer')['contents'][0]['owner_evaluations'],[])
+        with sqlite3.connect(str(self.store.path)) as db:self.assertEqual(list(db.execute('SELECT * FROM versions')),before)
+
+    def test_dashboard_results_passes_optional_exact_selector(self):
+        from types import SimpleNamespace
+        import dashboard
+        self.store.ingest({'records':[{'kind':'content','platform':'zhihu','content_id':'123','content_type':kind,'body':kind} for kind in ('answer','article')]})
+        app=SimpleNamespace(lock=threading.Lock(),results_store=self.store)
+        payload={'platform':'zhihu','content_id':'123','entity_ref':'zhihu:content:123:answer'}
+        self.assertEqual(dashboard.Application.results(app,'detail',payload)['contents'][0]['body'],'answer')
+        self.assertEqual(dashboard.Application.results(app,'evaluate',{**payload,'value':4})['entity_ref'],payload['entity_ref'])
+
+    def test_legacy_zhihu_types_project_without_rewriting_records_hashes_or_evaluations(self):
+        from unittest.mock import patch
+        data={'run_id':'legacy','records':[{'kind':'content','platform':'zhihu','content_id':'123','content_type':'answer','body':'original answer'}]}
+        with patch('results_store._typed_entity',side_effect=lambda entity,_:entity):
+            first=self.store.ingest(data)
+        initial=self.store.detail('zhihu','123')['contents'][0]
+        # Simulate the original stored evaluation entity without rewriting it during compatibility reads.
+        with sqlite3.connect(str(self.store.path)) as db:
+            db.execute('INSERT INTO evaluations(entity,version_hash,revision,evaluator_ref,value,tags,created_at) VALUES (?,?,?,?,?,?,?)',
+                       ('zhihu:content:123',initial['version_hash'],first['results_revision'],'legacy-owner',4,'[]','2026-10-11T00:00:00Z'))
+            before=[tuple(row) for row in db.execute('SELECT * FROM versions ORDER BY entity,version_hash')]
+            evaluations_before=[tuple(row) for row in db.execute('SELECT * FROM evaluations')]
+        with patch('results_store._typed_entity',side_effect=lambda entity,_:entity):
+            self.store.ingest({'run_id':'legacy-article','records':[{'kind':'content','platform':'zhihu','content_id':'123','content_type':'article','body':'article'}]})
+        detail=self.store.detail('zhihu','123')
+        self.assertEqual({r['content_type'] for r in detail['contents']},{'answer','article'})
+        answer=next(r for r in detail['contents'] if r['content_type']=='answer')
+        self.assertEqual(answer['version_hash'],initial['version_hash']);self.assertEqual(answer['owner_evaluations'][0]['value'],4)
+        self.assertEqual(self.store.saved_version('zhihu','123','content',initial['version_hash'])['body'],'original answer')
+        # New typed import of the same historical version must not make version lookup ambiguous.
+        self.store.ingest({**data,'run_id':'new-typed'})
+        self.assertEqual(self.store.saved_version('zhihu','123','content',initial['version_hash'])['first_version_revision'],first['results_revision'])
+        current=next(r for r in self.store.detail('zhihu','123')['contents'] if r['content_type']=='answer')
+        self.assertEqual(current['owner_evaluations'][0]['value'],4)
+        self.assertEqual(current['first_version_revision'],first['results_revision'])
+        self.assertEqual(self.store.detail('zhihu','123',first['results_revision'])['stats']['contents'],1)
+        with sqlite3.connect(str(self.store.path)) as db:
+            old_rows=[tuple(row) for row in db.execute('SELECT * FROM versions WHERE entity=? ORDER BY entity,version_hash',('zhihu:content:123',))]
+            self.assertIn(before[0],old_rows)
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM evaluations')],evaluations_before)
+
     def test_metrics_are_observations_not_body_versions(self):
         first = self.store.ingest(imported())
         second = self.store.ingest(imported('run-2', likes=9))
@@ -92,6 +205,24 @@ class ResultsTests(unittest.TestCase):
         self.store.ingest(data)
         stats = self.store.detail('xhs', 'n1')['stats']
         self.assertEqual((stats['root_comments'], stats['unknown_parent_comments'], stats['orphan_replies']), (0, 1, 1))
+
+    def test_reported_weibo_self_root_preserves_parent_and_history(self):
+        rows = [{'kind':'content','platform':'weibo','content_id':'wb1','body':'body'},
+                {'kind':'comment','platform':'weibo','content_id':'wb1','comment_id':'r1',
+                 'parent_comment_id':'r1','parent_status':'reported','text':'root'},
+                {'kind':'comment','platform':'weibo','content_id':'wb1','comment_id':'c1',
+                 'parent_comment_id':'r1','parent_status':'reported','text':'reply'}]
+        first = self.store.ingest({'records':rows})['results_revision']
+        rows[1]['parent_status'] = 'reported_root'
+        self.store.ingest({'records':rows})
+        detail = self.store.detail('wb','wb1')
+        self.assertEqual((detail['stats']['root_comments'],detail['stats']['orphan_replies']), (1,0))
+        self.assertEqual(next(r for r in detail['comments'] if r['comment_id']=='r1')['parent_comment_id'], 'r1')
+        self.assertEqual(self.store.detail('wb','wb1',first)['stats']['root_comments'],0)
+        # A root label alone must not turn another comment's parent into a root.
+        rows[2]['parent_status'] = 'reported_root'
+        self.store.ingest({'records':rows})
+        self.assertEqual(self.store.detail('wb','wb1')['stats']['root_comments'],1)
 
     def test_dynamic_supported(self):
         data = imported()

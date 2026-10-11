@@ -29,7 +29,7 @@ TERMINAL = {'completed', 'failed', 'stopped', 'login_required', 'interrupted_unk
 FIELDS = {'platforms', 'mode', 'targets', 'targets_by_platform', 'desired_items',
           'max_api_requests', 'comments', 'replies', 'media', 'purpose',
           'authorization_ref', 'session_by_platform', 'timeout_seconds',
-          'max_comments', 'headless', 'idempotency_key'}
+          'max_comments', 'headless', 'idempotency_key', 'platform_options_by_platform'}
 
 
 def parse_batch(text, mode='detail'):
@@ -131,6 +131,9 @@ def plan(payload):
         targets = payload.get('targets_by_platform')
         if payload.get('targets') or not isinstance(targets, dict) or set(targets) - set(platforms):
             raise ValueError('platform_targets_required')
+    options = payload.get('platform_options_by_platform', {})
+    if not isinstance(options, dict) or set(options) - set(platforms):
+        raise ValueError('invalid_platform_options')
     children = []
     for index, platform in enumerate(platforms):
         count = total // len(platforms) + (index < total % len(platforms))
@@ -139,6 +142,8 @@ def plan(payload):
             raise ValueError('per_platform_budget_limit')
         request = {k: payload[k] for k in ('comments', 'replies', 'media', 'purpose',
                     'authorization_ref', 'timeout_seconds', 'max_comments', 'headless') if k in payload}
+        if platform in options:
+            request['platform_options'] = options[platform]
         missing_targets = not discovery_mode and not targets.get(platform)
         unsupported_media = request.get('media') is True and platform not in mc_runner.MEDIA
         if unsupported_media:
@@ -434,6 +439,7 @@ class OwnerTasks:
             return
         child['session_login_state'] = status.get('state', 'unverified')
         if (status.get('state') not in ('resumed', 'authenticated')
+                or status.get('login_in_progress') is True
                 or status.get('authorized_for_run') != child['runs'][-1]
                 or not status.get('login_verified') or time.time() - status.get('verified_at', 0) > 180):
             return

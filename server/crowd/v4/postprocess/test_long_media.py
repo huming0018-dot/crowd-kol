@@ -49,6 +49,30 @@ class LongMediaTests(unittest.TestCase):
             self.assertEqual(lm.prepare_chunks(self.source, self.work), manifest)
         self.assertEqual(lm.digest(self.source), before)
 
+    @unittest.skipUnless(lm.ffmpeg_path(), 'local ffmpeg required')
+    def test_long_audio_over_hour_is_bounded_and_video_keeps_old_limit(self):
+        source = self.root / 'long.m4a'
+        subprocess.run([lm.ffmpeg_path(), '-nostdin','-loglevel','error', '-f','lavfi',
+                        '-i','anullsrc=r=16000:cl=mono','-t','3601','-c:a','aac',str(source)],
+                       check=True,timeout=60)
+        manifest = lm.prepare_chunks(source, self.work)
+        self.assertGreater(manifest['duration_seconds'],3600)
+        self.assertLess(manifest['duration_seconds'],3602)
+        self.assertEqual(manifest['chunks'][-1]['end'],manifest['duration_seconds'])
+        self.assertEqual(lm.prepare_chunks(source,self.work),manifest)
+        other = self.root / 'video.mp4'
+        shutil.copyfile(source,other)
+        with self.assertRaisesRegex(ValueError,'audio_empty_or_over_duration_limit'):
+            lm.prepare_chunks(other,self.root/'video-work')
+
+    def test_long_audio_single_file_limit_does_not_expand_video_limit(self):
+        for suffix,maximum in (('.m4a',lm.LONG_AUDIO_BYTES),('.mp4',lm.MAX_BYTES)):
+            source = self.root / ('oversized'+suffix)
+            with source.open('wb') as stream:
+                stream.truncate(maximum+1)
+            with self.assertRaisesRegex(ValueError,'media_missing_or_over_processing_limit'):
+                lm.prepare_chunks(source,self.root/('work'+suffix))
+
     def test_absolute_timeline_overlap_only_dedup_and_stable_merge(self):
         manifest = lm.prepare_chunks(self.source, self.work)
         rows = [
@@ -60,6 +84,44 @@ class LongMediaTests(unittest.TestCase):
         self.assertEqual([(x['start'], x['end']) for x in merged['segments']], [(0, 1), (53, 55), (56, 57), (58, 60)])
         self.assertEqual(lm.merge_chunks(manifest, rows), merged)
         self.assertEqual(merged['timeline'], 'absolute_seconds')
+
+    def test_overlap_partial_prefix_keeps_original_decision_and_normal_repetition(self):
+        manifest = lm.prepare_chunks(self.source, self.work)
+        partial = {'start': 53.26, 'end': 54.96, 'text': '最後，我們用真實……'}
+        full = {'start': 0, 'end': 10, 'text': '最後，我們用真實耗時比較兩個模型。'}
+        repeated = {'start': 12, 'end': 14, 'text': partial['text']}
+        result = lm.merge_chunks(manifest, [{'segments': [partial]}, {'segments': [full, repeated]}])
+        self.assertEqual(len(result['segments']), 2)
+        self.assertEqual(result['segments'][0]['text'], full['text'])
+        decision = result['overlap_decisions'][0]
+        self.assertEqual(decision['match'], 'prefix')
+        self.assertEqual(decision['removed_segment']['text'], partial['text'])
+        self.assertEqual(decision['removed_segment']['start'], 53.26)
+        self.assertEqual(partial['text'], '最後，我們用真實……')
+
+    def test_suffix_fragment_and_false_positive_boundaries(self):
+        manifest = lm.prepare_chunks(self.source, self.work)
+        full = {'start': 50, 'end': 55, 'text': '我们保留正文和评论以及媒体文件'}
+        suffix = {'start': .2, 'end': 1.5, 'text': '评论以及媒体文件'}
+        result = lm.merge_chunks(manifest, [{'segments': [full]}, {'segments': [suffix]}])
+        self.assertEqual(len(result['segments']), 1)
+        self.assertEqual(result['overlap_decisions'][0]['match'], 'suffix')
+        for bad in ({**suffix, 'start': 3., 'end': 4.},
+                    {**suffix, 'text': '媒体文件'},
+                    {**suffix, 'text': '评论以及媒体完全不同'},
+                    {**suffix, 'end': 3.}):
+            with self.subTest(bad=bad):
+                retained = lm.merge_chunks(manifest, [{'segments': [full]}, {'segments': [bad]}])
+                self.assertEqual(len(retained['segments']), 2)
+                self.assertEqual(retained['overlap_decisions'], [])
+
+    def test_adjacent_same_text_without_time_overlap_is_not_removed(self):
+        manifest = lm.prepare_chunks(self.source, self.work)
+        result = lm.merge_chunks(manifest, [
+            {'segments': [{'start': 52, 'end': 53, 'text': '我们现在开始采集'}]},
+            {'segments': [{'start': 0, 'end': 1, 'text': '我们现在开始采集'}]}])
+        self.assertEqual(len(result['segments']), 2)
+        self.assertEqual(result['overlap_decisions'], [])
 
     def test_cancel_checkpoint_resume_and_cached_chunks_no_retranscription(self):
         cancelled = False

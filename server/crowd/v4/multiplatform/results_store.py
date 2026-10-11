@@ -132,6 +132,41 @@ def _filters(filters):
     return out
 
 
+def _typed_entity(entity, record):
+    if record.get('platform') == 'zhihu' and record.get('kind') == 'content' and record.get('content_type') in ('answer', 'article', 'zvideo'):
+        return 'zhihu:content:' + record['content_id'] + ':' + record['content_type']
+    return entity
+
+
+def _entity_sql(alias):
+    # Legacy rows retain their original entity/hash; queries group by reported type without rewriting history.
+    return (f"CASE WHEN {alias}.platform='zhihu' AND {alias}.kind='content' "
+            f"AND json_extract({alias}.record,'$.content_type') IN ('answer','article','zvideo') "
+            f"THEN 'zhihu:content:'||{alias}.content_id||':'||json_extract({alias}.record,'$.content_type') "
+            f"ELSE {alias}.entity END")
+
+
+def _entity_selector(entity_ref, platform, content_id):
+    if entity_ref is None:
+        return None
+    allowed = {platform + ':' + kind + ':' + content_id for kind in ('content', 'dynamic')}
+    if platform == 'zhihu':
+        allowed.update('zhihu:content:' + content_id + ':' + kind for kind in ('answer', 'article', 'zvideo'))
+    if not isinstance(entity_ref, str) or entity_ref not in allowed:
+        raise ValueError('invalid_results_entity_ref')
+    return entity_ref
+
+
+def _related_content_type(row):
+    # Only explicit reported types prove association; IDs, paths and nearby bodies do not.
+    fields = row.get('platform_fields') if isinstance(row.get('platform_fields'), dict) else {}
+    values = [row.get('source_content_type'), row.get('content_type'), fields.get('content_type')]
+    if any(value is not None and not isinstance(value, str) for value in values):
+        return None
+    reported = {value for value in values if isinstance(value, str) and value}
+    return next(iter(reported)) if len(reported) == 1 and reported <= {'answer', 'article', 'zvideo'} else None
+
+
 def _record(record, default_platform=None):
     if not isinstance(record, dict) or record.get('kind') not in KINDS:
         raise ValueError('invalid_results_record')
@@ -167,6 +202,7 @@ def _record(record, default_platform=None):
     else:
         identity = item['platform'] + ':' + kind + ':' + cid
     item['content_id'], item['author_id'] = cid, aid
+    identity = _typed_entity(identity, item)
     reported = item.get('published_at_reported', item.get('published_at'))
     item['published_at_utc'] = _date(reported)
     expected = ('body', 'author_id', 'published_at_utc') if kind in ('content', 'dynamic') else ('text', 'parent_comment_id') if kind == 'comment' else ('content_id',) if kind == 'media' else ('display_name',)
@@ -289,10 +325,14 @@ class ResultsStore:
 
     def _rows(self, db, filters, revision):
         # Latest observation selects the active version, including a return to an older text.
-        sql = '''SELECT v.*,o.record AS observation,o.observed_at FROM observations o
+        sql = f'''SELECT v.*,{_entity_sql('v')} AS lookup_entity,o.record AS observation,o.observed_at FROM observations o
             JOIN versions v ON v.entity=o.entity AND v.version_hash=o.version_hash
             WHERE o.revision<=? AND NOT EXISTS
-            (SELECT 1 FROM observations n WHERE n.entity=o.entity AND n.revision<=?
+            (SELECT 1 FROM observations n
+             JOIN versions nv ON nv.entity=n.entity AND nv.version_hash=n.version_hash
+             WHERE n.entity IN (v.entity,{_entity_sql('v')},
+                   CASE WHEN v.platform='zhihu' AND v.kind='content' THEN 'zhihu:content:'||v.content_id ELSE v.entity END)
+             AND {_entity_sql('nv')}={_entity_sql('v')} AND n.revision<=?
              AND (n.revision>o.revision OR (n.revision=o.revision AND n.rowid>o.rowid)))'''
         values = [revision, revision]
         for field, column in (('platform', 'platform'), ('author_id', 'author_id'), ('content_id', 'content_id'), ('kind', 'kind')):
@@ -305,7 +345,8 @@ class ResultsStore:
                 values.append(filters[field])
         rows = []
         for row in db.execute(sql + ' ORDER BY v.entity', values):
-            evaluations = [dict(e) for e in db.execute('SELECT * FROM evaluations WHERE entity=? AND version_hash=? AND revision<=? ORDER BY revision,id', (row['entity'], row['version_hash'], revision))]
+            legacy_entity = 'zhihu:content:' + row['content_id'] if row['platform'] == 'zhihu' and row['kind'] == 'content' else row['entity']
+            evaluations = [dict(e) for e in db.execute('SELECT * FROM evaluations WHERE entity IN (?,?,?) AND version_hash=? AND revision<=? ORDER BY revision,id', (row['entity'], row['lookup_entity'], legacy_entity, row['version_hash'], revision))]
             for evaluation in evaluations:
                 evaluation['tags'] = json.loads(evaluation['tags'])
                 evaluation['type'] = 'quality'
@@ -314,9 +355,12 @@ class ResultsStore:
             if filters.get('tags') and not set(filters['tags']).issubset({tag for e in current_by_evaluator.values() for tag in e['tags']}):
                 continue
             item = {**json.loads(row['record']), **json.loads(row['observation']),
-                    'entity_ref': row['entity'], 'version_hash': row['version_hash'],
+                    'entity_ref': row['lookup_entity'], 'version_hash': row['version_hash'],
                     'body_hash': row['body_hash'], 'first_version_revision': row['revision'],
                     'observed_at': row['observed_at'], 'owner_evaluations': evaluations}
+            if row['platform'] == 'zhihu' and row['kind'] == 'content':
+                item['first_version_revision'] = db.execute('SELECT MIN(revision) FROM versions WHERE platform=? AND kind=? AND content_id=? AND version_hash=?',
+                    (row['platform'], row['kind'], row['content_id'], row['version_hash'])).fetchone()[0]
             rows.append(item)
             if len(rows) > 50000:
                 raise ValueError('results_export_row_limit')
@@ -355,7 +399,7 @@ class ResultsStore:
         if kind not in KINDS or not isinstance(version_hash, str) or not re.fullmatch(r'[a-f0-9]{64}', version_hash):
             raise ValueError('invalid_results_version')
         with closing(self._connect()) as db:
-            versions = db.execute('SELECT revision FROM versions WHERE platform=? AND content_id=? AND kind=? AND version_hash=?',
+            versions = db.execute('SELECT MIN(revision) AS revision FROM versions WHERE platform=? AND content_id=? AND kind=? AND version_hash=? HAVING COUNT(*)>0',
                                   (platform, content_id, kind, version_hash)).fetchall()
             if len(versions) != 1:
                 raise ValueError('results_version_not_found')
@@ -365,33 +409,53 @@ class ResultsStore:
             raise ValueError('results_version_not_found')
         return matching[0]
 
-    def detail(self, platform, content_id, revision=None):
+    def detail(self, platform, content_id, revision=None, entity_ref=None):
         platform, content_id = _platform(platform), _identifier(content_id, 'content_id')
+        entity_ref = _entity_selector(entity_ref, platform, content_id)
         with closing(self._connect()) as db:
             revision = self._revision(db, revision)
             rows = self._rows(db, {'platform': platform, 'content_id': content_id}, revision)
             contents = [row for row in rows if row['kind'] in ('content', 'dynamic')]
+            if entity_ref is not None:
+                contents = [row for row in contents if row['entity_ref'] == entity_ref]
             if not contents:
                 raise ValueError('result_not_found')
             author_ids = {row['author_id'] for row in contents if row.get('author_id')}
             authors = [row for row in self._rows(db, {'platform': platform, 'kind': 'author'}, revision) if row.get('author_id') in author_ids]
-            versions = [dict(row) for row in db.execute('SELECT version_hash,body_hash,revision,record FROM versions WHERE platform=? AND content_id=? AND kind IN (\'content\',\'dynamic\') AND revision<=? ORDER BY revision', (platform, content_id, revision))]
-            observations = [dict(row) for row in db.execute('SELECT o.revision,o.observed_at,o.record,o.version_hash FROM observations o JOIN versions v ON v.entity=o.entity AND v.version_hash=o.version_hash WHERE v.platform=? AND v.content_id=? AND v.kind IN (\'content\',\'dynamic\') AND o.revision<=? ORDER BY o.revision,o.rowid', (platform, content_id, revision))]
+            selection = ' AND ' + _entity_sql('v') + '=?' if entity_ref is not None else ''
+            args = (platform, content_id, revision) + ((entity_ref,) if entity_ref is not None else ())
+            versions = [dict(row) for row in db.execute('SELECT v.version_hash,v.body_hash,v.revision,v.record FROM versions v WHERE v.platform=? AND v.content_id=? AND v.kind IN (\'content\',\'dynamic\') AND v.revision<=?' + selection + ' ORDER BY v.revision', args)]
+            observations = [dict(row) for row in db.execute('SELECT o.revision,o.observed_at,o.record,o.version_hash FROM observations o JOIN versions v ON v.entity=o.entity AND v.version_hash=o.version_hash WHERE v.platform=? AND v.content_id=? AND v.kind IN (\'content\',\'dynamic\') AND o.revision<=?' + selection + ' ORDER BY o.revision,o.rowid', args)]
         for row in versions + observations:
             row['record'] = json.loads(row['record'])
         comments = [row for row in rows if row['kind'] == 'comment']
-        roots = sum(row.get('parent_comment_id') in ('0', '') for row in comments)
+        media = [row for row in rows if row['kind'] == 'media']
+        unassigned_comments, unassigned_media = [], []
+        if entity_ref is not None and platform == 'zhihu':
+            selected_type = contents[0].get('content_type')
+            unassigned_comments = [row for row in comments if _related_content_type(row) is None]
+            unassigned_media = [row for row in media if _related_content_type(row) is None]
+            comments = [row for row in comments if selected_type in ('answer', 'article', 'zvideo') and _related_content_type(row) == selected_type]
+            media = [row for row in media if selected_type in ('answer', 'article', 'zvideo') and _related_content_type(row) == selected_type]
+        roots = sum(row.get('parent_comment_id') in ('0', '') or
+                    (row['platform'] == 'weibo' and row.get('parent_status') == 'reported_root'
+                     and row.get('parent_comment_id') == row['comment_id']) for row in comments)
         known = {row['comment_id'] for row in comments}
         orphans = sum(row.get('parent_comment_id') not in (None, '', '0') and row['parent_comment_id'] not in known for row in comments)
         return {'schema': SCHEMA, 'results_revision': revision, 'contents': contents, 'comments': comments,
-                'authors': authors, 'media': [row for row in rows if row['kind'] == 'media'],
+                'selected_entity_ref': entity_ref, 'unassigned_comments': unassigned_comments,
+                'unassigned_media': unassigned_media,
+                'content_identity_status': 'ambiguous_types' if platform == 'zhihu' and len(contents) > 1 else 'observed',
+                'observed_content_types': sorted({row.get('content_type') or 'unreported' for row in contents}),
+                'authors': authors, 'media': media,
                 'versions': versions, 'observations': observations,
                 'stats': {'contents': len(contents), 'comments': len(comments), 'root_comments': roots,
                           'unknown_parent_comments': sum(row.get('parent_comment_id') is None for row in comments),
                           'orphan_replies': orphans, 'coverage': 'observed_local_imports_only'}}
 
-    def evaluate(self, platform, content_id, value, tags=None, evaluator_ref='local-owner', revision=None):
+    def evaluate(self, platform, content_id, value, tags=None, evaluator_ref='local-owner', revision=None, entity_ref=None):
         platform, content_id = _platform(platform), _identifier(content_id, 'content_id')
+        entity_ref = _entity_selector(entity_ref, platform, content_id)
         if type(value) is not int or not 0 <= value <= 5:
             raise ValueError('invalid_owner_evaluation')
         evaluator_ref = _identifier(evaluator_ref, 'evaluator_ref')
@@ -402,6 +466,8 @@ class ResultsStore:
             selected = self._revision(db, revision)
             rows = self._rows(db, {'platform': platform, 'content_id': content_id}, selected)
             contents = [row for row in rows if row['kind'] in ('content', 'dynamic')]
+            if entity_ref is not None:
+                contents = [row for row in contents if row['entity_ref'] == entity_ref]
             if len(contents) != 1:
                 raise ValueError('content_evaluation_requires_one_content')
             content = contents[0]
@@ -409,6 +475,7 @@ class ResultsStore:
             row = db.execute('INSERT INTO evaluations(entity,version_hash,revision,evaluator_ref,value,tags,created_at) VALUES (?,?,?,?,?,?,?)', (content['entity_ref'], content['version_hash'], new_revision, evaluator_ref, value, _json(tags), now))
             db.execute('UPDATE state SET revision=? WHERE id=1', (new_revision,))
         return {'evaluation_id': row.lastrowid, 'results_revision': new_revision,
+                'entity_ref': content['entity_ref'],
                 'version_hash': content['version_hash'], 'value': value, 'tags': tags,
                 'reward_eligible': False, 'type': 'quality'}
 

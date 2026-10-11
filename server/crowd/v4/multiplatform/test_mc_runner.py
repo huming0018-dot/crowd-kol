@@ -142,6 +142,16 @@ async def async_cleanup(): pass
         p['targets']=['fixture']
         reused=self.invoke('start',p)['result']
         self.assertEqual(reused['session_id'],run['session_id'])
+        from account_sessions import AccountSessions
+        store=AccountSessions(self.root)
+        for _ in range(80):
+            if store.status(run['session_id'])['state']=='identity_unverified':break
+            time.sleep(.1)
+        account=store.status(run['session_id'])
+        self.assertEqual(account['state'],'identity_unverified')
+        self.assertEqual(account['generation'],0)
+        self.assertIsNone(account['authorized_for_run'])
+        store.confirm_same_account(run['session_id'],0,True)
         self.assertEqual(self.wait(reused['run_id'])['state'],'completed')
         p['platform']='bili'
         self.assertEqual(self.invoke('start',p)['error'],'session_platform_mismatch')
@@ -195,7 +205,7 @@ async def async_cleanup(): pass
         self.assertEqual(m.argv_for(xhs,self.base/'out')[-1],xhs['targets'][0])
 
     def test_validation_and_secrets(self):
-        for kwargs,code in [({'platform':[]},'unsupported_platform_or_mode'),({'platform':'no'},'unsupported_platform_or_mode'),({'max_items':2},'upstream_search_minimum_20'),({'platform':'zhihu','media':True},'media_not_supported_by_upstream'),({'replies':True,'comments':False},'replies_require_comments')]:
+        for kwargs,code in [({'platform':[]},'unsupported_platform_or_mode'),({'platform':'no'},'unsupported_platform_or_mode'),({'max_items':2},'upstream_search_minimum_20'),({'media':1},'invalid_media'),({'replies':True,'comments':False},'replies_require_comments')]:
             p=self.payload();p.update(kwargs)
             self.assertEqual(self.invoke('start',p)['error'],code)
         p=self.payload(mode='detail',target='https://www.xiaohongshu.com/explore/id?access_token=hidden')
@@ -233,6 +243,34 @@ async def async_cleanup(): pass
             with self.subTest(values=values),self.assertRaises(m.BridgeError): m.validate(self.payload('bili','creator','123',**values))
         with self.assertRaisesRegex(m.BridgeError,'unsupported_platform_options'): m.validate(self.payload('xhs',platform_options={'quality':64}))
 
+    def test_explicit_xhs_comment_root_preserved_and_missing_parent_unknown(self):
+        base={'note_id':'note1','comment_id':'comment1','content':'first-level'}
+        root=m.normalize('xhs','comment',{**base,'parent_comment_id':''},{})
+        self.assertEqual((root['parent_comment_id'],root['parent_status']),('','reported_root'))
+        missing=m.normalize('xhs','comment',base,{})
+        self.assertEqual((missing['parent_comment_id'],missing['parent_status']),(None,'missing_upstream'))
+        reply=m.normalize('xhs','comment',{**base,'parent_comment_id':'parent1'},{})
+        self.assertEqual((reply['parent_comment_id'],reply['parent_status']),('parent1','reported'))
+        dy=m.normalize('dy','comment',{'aweme_id':'1','comment_id':'2','content':'root','parent_comment_id':'0'},{})
+        self.assertEqual((dy['parent_comment_id'],dy['parent_status']),('0','reported'))
+        self.assertNotEqual(root['record_hash'],missing['record_hash'])
+
+    def test_tieba_explicit_root_and_weibo_self_parent_preserve_source_identity(self):
+        tieba={'note_id':'thread1','comment_id':'comment1','content':'root'}
+        root=m.normalize('tieba','comment',{**tieba,'parent_comment_id':''},{})
+        self.assertEqual((root['parent_comment_id'],root['parent_status']),('','reported_root'))
+        missing=m.normalize('tieba','comment',tieba,{})
+        self.assertEqual((missing['parent_comment_id'],missing['parent_status']),(None,'missing_upstream'))
+        wb={'note_id':'status1','comment_id':'comment1','content':'root'}
+        self_root=m.normalize('wb','comment',{**wb,'parent_comment_id':'comment1'},{})
+        self.assertEqual((self_root['parent_comment_id'],self_root['parent_status']),('comment1','reported_root'))
+        reply=m.normalize('wb','comment',{**wb,'comment_id':'reply1','parent_comment_id':'comment1'},{})
+        self.assertEqual((reply['parent_comment_id'],reply['parent_status']),('comment1','reported'))
+        unknown=m.normalize('wb','comment',wb,{})
+        self.assertEqual((unknown['parent_comment_id'],unknown['parent_status']),(None,'missing_upstream'))
+        other=m.normalize('dy','comment',{'aweme_id':'1','comment_id':'2','content':'self','parent_comment_id':'2'},{})
+        self.assertEqual(other['parent_status'],'reported')
+
     def test_target_shapes_normalize_before_executor_and_keep_private_locators(self):
         cases=[('xhs','detail','https://www.xiaohongshu.com/explore/66fad51c000000001b0224b8/?xsec_token=local','https://www.xiaohongshu.com/explore/66fad51c000000001b0224b8?xsec_token=local'),('xhs','creator','https://www.xiaohongshu.com/user/profile/5eb8e1d400000000010075ae/','https://www.xiaohongshu.com/user/profile/5eb8e1d400000000010075ae'),('dy','detail','https://www.douyin.com/user/fixture?modal_id=123','123'),('dy','creator','https://www.douyin.com/user/MS4wLjABAAAAexample/','MS4wLjABAAAAexample'),('ks','detail','https://www.kuaishou.com/short-video/3xexample/','3xexample'),('ks','creator','https://www.kuaishou.com/profile/3xexample/','3xexample'),('bili','detail','https://www.bilibili.com/video/BV1Vs411j7cX/?spm=fixture','BV1Vs411j7cX'),('bili','creator','https://space.bilibili.com/123/','123'),('wb','detail','https://weibo.com/123/AbCd','AbCd'),('wb','creator','https://weibo.com/u/123/','123'),('tieba','detail','https://tieba.baidu.com/p/123?pn=2','123'),('tieba','creator','https://tieba.baidu.com/home/main?id=tb.1.example_portrait','tb.1.example_portrait'),('tieba','creator','tb.1.example_portrait','tb.1.example_portrait'),('zhihu','detail','https://www.zhihu.com/question/123/answer/456/?tab=fixture','https://www.zhihu.com/question/123/answer/456'),('zhihu','creator','https://www.zhihu.com/people/alice/?tab=answers','alice')]
         for platform,mode,target,expected in cases:
@@ -257,6 +295,66 @@ async def async_cleanup(): pass
         m.configure_platform_hooks(upstream,p)
         asyncio.run(Crawler().get_creator_videos(123))
         self.assertEqual(calls,[('videos',123),('dynamics',['123'])])
+
+    def test_tieba_media_uses_own_hook_without_native_flag(self):
+        from unittest.mock import patch
+        import tieba_media
+        class Native: pass
+        p=m.validate(self.payload('tieba','detail','123',max_items=1,media=True))
+        args=m.argv_for(p,self.base/'output')
+        self.assertEqual(args[args.index('--get_media')+1],'false')
+        module=SimpleNamespace(BaiduTieBaClient=Native)
+        with patch.dict(sys.modules,{'media_platform.tieba.client':module}),patch.object(tieba_media,'install_hook') as hook:
+            m.configure_platform_hooks(None,p)
+            hook.assert_called_once_with(Native,Path.cwd()/'output')
+            p['media']=False
+            m.configure_platform_hooks(None,p)
+            self.assertEqual(hook.call_count,1)
+        info=next(x for x in m.capabilities(self.mc)['platforms'] if x['id']=='tieba')
+        self.assertTrue(info['media'])
+        self.assertEqual(next(x for x in info['platform_features'] if x['id']=='public_post_media')['live_verified'],False)
+
+    def test_bili_single_response_media_limit_preserves_comments_and_hard_stops(self):
+        from unittest.mock import patch
+        work=self.base.resolve()/'bili-run';folder=work/'output/bili/media';folder.mkdir(parents=True)
+        old=folder/'old.part';old.write_bytes(b'old immutable partial')
+        calls=[]
+        class Crawler:
+            failure=m.SingleResponseLimit()
+            async def download_media(self,*args):
+                (folder/'new.part').write_bytes(b'limited partial')
+                raise self.failure
+            async def comments(self):calls.append('comments')
+        upstream=SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'bili':Crawler}))
+        p=m.validate(self.payload('bili','detail',media=True,max_items=1))
+        with patch.object(m.Path,'cwd',return_value=work):
+            m.configure_platform_hooks(upstream,p)
+            async def collect():
+                await Crawler().download_media()
+                await Crawler().comments()
+            asyncio.run(collect())
+            self.assertEqual(calls,['comments'])
+            self.assertEqual(m.read(work/'phase.json')['media_status'],'limited')
+            self.assertFalse((folder/'new.part').exists())
+            self.assertEqual(old.read_bytes(),b'old immutable partial')
+            for code in (73,76,77):
+                Crawler.failure=SystemExit(code)
+                with self.assertRaises(SystemExit) as stopped:asyncio.run(Crawler().download_media())
+                self.assertEqual(stopped.exception.code,code)
+
+    def test_zhihu_media_all_modes_use_own_hook_without_native_flag(self):
+        from unittest.mock import patch
+        import zhihu_media
+        class Native:pass
+        for mode in ('search','detail','creator'):
+            p=m.validate(self.payload('zhihu',mode,media=True))
+            args=m.argv_for(p,self.base/'output')
+            self.assertEqual(args[args.index('--get_media')+1],'false')
+            with patch.dict(sys.modules,{'media_platform.zhihu.client':SimpleNamespace(ZhiHuClient=Native)}),patch.object(zhihu_media,'install_hook') as hook:
+                m.configure_platform_hooks(None,p)
+                hook.assert_called_once_with(Native,Path.cwd()/'output')
+        self.assertEqual(m.MEDIA,set(m.PLATFORMS))
+        self.assertNotIn('zhihu',m.NATIVE_MEDIA)
 
     def test_field_fidelity_dynamic_identity_and_upstream_partiality(self):
         wb=m.normalize('wb','content',{'note_id':'note','comments_count':'12','shared_count':'3','desc':'正文'},{})
@@ -307,6 +405,69 @@ async def async_cleanup(): pass
         saved=self.invoke('import',{'run_id':started['run_id']})['result']
         self.assertEqual(saved['summary']['contents'],1)
         self.assertEqual(saved['wordcloud_status'],'resource_missing')
+
+    def test_media_import_retains_reported_identity_type_hash_and_bounds(self):
+        import hashlib
+        rid=str(uuid.uuid4());run=self.root/'runs'/rid
+        for kind in ('answer','article'):
+            folder=run/'output/zhihu/media/123'/kind;folder.mkdir(parents=True)
+            (folder/'001.jpg').write_bytes(('fake '+kind).encode())
+        m.write(run/'manifest.json',{'run_id':rid,'request':{'platform':'zhihu'},'source':{}})
+        m.write(run/'status.json',{'state':'completed'})
+        result=m.import_output(self.root,{'run_id':rid})
+        self.assertEqual(len(result['media']),2)
+        for item in result['media']:
+            self.assertEqual(item['content_id'],'123')
+            self.assertEqual(item['platform'],'zhihu')
+            self.assertEqual(item['sha256'],hashlib.sha256((run/item['path']).read_bytes()).hexdigest())
+            self.assertIn(item['source_content_type'],('answer','article'))
+            self.assertFalse(item['reward_eligible'])
+        with open(run/'output/zhihu/media/123/answer/too_large.mp4','wb') as stream:stream.truncate(26214401)
+        with self.assertRaisesRegex(m.BridgeError,'media_import_byte_limit'):m.import_output(self.root,{'run_id':rid})
+
+    def test_long_audio_option_and_same_dash_response_hook(self):
+        from unittest.mock import patch,AsyncMock
+        import bili_audio
+        p=m.validate(self.payload('bili','detail',media=True,max_items=1,platform_options={'long_audio':True}))
+        for invalid in ({'long_audio':1},{'long_audio':'true'}):
+            with self.assertRaises(m.BridgeError):m.validate(self.payload('bili','detail',media=True,platform_options=invalid))
+        with self.assertRaises(m.BridgeError):m.validate(self.payload('bili','detail',media=False,platform_options={'long_audio':True}))
+        with self.assertRaises(m.BridgeError):m.validate(self.payload('dy','detail',media=True,platform_options={'long_audio':True}))
+        calls=[]
+        class Crawler:
+            async def download_media(self,*args):raise AssertionError('native video path must not run')
+            async def get_video_play_url_task(self,*args,**kw):
+                calls.append((args,kw));return {'dash':{'audio':[]}}
+        upstream=SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'bili':Crawler}))
+        work=self.base.resolve()/'audio-hook';work.mkdir()
+        downloaded=AsyncMock(return_value={'status':'unavailable','reason':'dash_audio_unavailable'})
+        with patch.dict(sys.modules,{'media_platform.bilibili.media':SimpleNamespace(DASH_FNVAL=16)}),patch.object(bili_audio,'download_audio',downloaded),patch.object(m.Path,'cwd',return_value=work):
+            m.configure_platform_hooks(upstream,p)
+            video={'View':{'aid':1,'cid':2,'bvid':'BV123','duration':4915.9}}
+            asyncio.run(Crawler().download_media(video,object()))
+        self.assertEqual(len(calls),1);self.assertEqual(calls[0][1],{'fnval':16})
+        self.assertEqual(downloaded.await_count,1)
+        self.assertEqual(m.read(work/'phase.json')['media_reason'],'dash_audio_unavailable')
+        self.assertEqual(m.read(work/'phase.json')['media_kind'],'audio')
+        with patch.object(m.Path,'cwd',return_value=work):
+            downloaded.side_effect=ValueError('private-url-must-not-be-logged')
+            asyncio.run(Crawler().download_media(video,object()))
+            self.assertEqual(m.read(work/'phase.json')['media_reason'],'audio_adapter_failed')
+            downloaded.side_effect=SystemExit(73)
+            with self.assertRaises(SystemExit):asyncio.run(Crawler().download_media(video,object()))
+
+    def test_long_audio_import_requires_explicit_scope(self):
+        rid=str(uuid.uuid4());run=self.root/'runs'/rid;folder=run/'output/bili/media/BV123';folder.mkdir(parents=True)
+        asset=folder/'audio.m4a'
+        with asset.open('wb') as stream:stream.truncate(26214401)
+        manifest={'run_id':rid,'request':{'platform':'bili','platform_options':{}},'source':{}}
+        m.write(run/'manifest.json',manifest);m.write(run/'status.json',{'state':'completed'})
+        with self.assertRaisesRegex(m.BridgeError,'media_import_byte_limit'):m.import_output(self.root,{'run_id':rid})
+        manifest['request']['platform_options']={'long_audio':True};m.write(run/'manifest.json',manifest)
+        item=m.import_output(self.root,{'run_id':rid})['media'][0]
+        self.assertEqual(item['kind'],'audio');self.assertEqual(item['single_file_limit_bytes'],67108864)
+        asset.rename(folder/'video.mp4')
+        with self.assertRaisesRegex(m.BridgeError,'media_import_byte_limit'):m.import_output(self.root,{'run_id':rid})
 
     def test_dynamic_and_long_directory_media_import(self):
         for platform,folder in [('dy','douyin'),('ks','kuaishou'),('wb','weibo'),('bili','bili')]:
@@ -365,7 +526,7 @@ async def check():
    await cmd_arg.parse_cmd(bridge.argv_for(request,Path.cwd()/'output'))
    assert config.PLATFORM==p and config.CRAWLER_TYPE==mode
    assert config.ENABLE_GET_COMMENTS and config.ENABLE_GET_SUB_COMMENTS
-   assert config.ENABLE_GET_MEDIA==(p in bridge.MEDIA)
+   assert config.ENABLE_GET_MEDIA==(p in bridge.NATIVE_MEDIA)
    assert config.MAX_CONCURRENCY_NUM==1
    name=main.CrawlerFactory.CRAWLERS[p].__name__
    assert hasattr(main.CrawlerFactory.CRAWLERS[p],'start')

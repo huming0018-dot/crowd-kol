@@ -51,6 +51,18 @@ class OwnerTaskTests(unittest.TestCase):
         missing = self.service.preview(self.request(targets_by_platform={'xhs': ['66fad51c000000001b0224b8']}))
         self.assertEqual(missing['children'][1]['reason_code'], 'missing_targets')
 
+    def test_long_audio_options_reach_bili_and_reject_other_scope(self):
+        req = self.request(platforms=['bili'], targets_by_platform={'bili': ['BV1234567890']},
+                           media=True, platform_options_by_platform={'bili': {'long_audio': True}})
+        child = plan(req)['children'][0]
+        self.assertEqual(child['request']['platform_options'], {'long_audio': True})
+        for options in ({'bili': {'long_audio': 'true'}}, {'wb': {'long_audio': True}},
+                        {'bili': {'long_audio': True, 'cookie': 'secret'}}):
+            with self.assertRaises(ValueError):
+                plan({**req, 'platform_options_by_platform': options})
+        with self.assertRaises(ValueError):
+            plan({**req, 'media': False})
+
     def test_idempotency_persistence_and_conflict(self):
         first = self.create()
         self.assertEqual(first['task_id'], self.create()['task_id'])
@@ -179,14 +191,15 @@ class OwnerTaskTests(unittest.TestCase):
         self.assertEqual(missing['children'][1]['state'], 'waiting')
         self.assertEqual(missing['mode'], 'detail')
 
-    def test_unsupported_media_does_not_reject_healthy_platform(self):
+    def test_zhihu_media_and_existing_platform_share_healthy_plan(self):
         request = self.request(platforms=['xhs', 'zhihu'], targets_by_platform={'xhs': ['66fad51c000000001b0224b8'], 'zhihu': ['https://www.zhihu.com/question/1/answer/1']}, media=True)
         value = self.service.preview(request)
         self.assertEqual(value['children'][0]['state'], 'queued')
-        self.assertEqual(value['children'][1]['reason_code'], 'media_not_supported_by_upstream')
+        self.assertIsNone(value['children'][1]['reason_code'])
+        self.assertEqual(value['children'][1]['state'], 'queued')
         task = self.service.create(request)['task']
         self.service.resume(task['task_id'])
-        self.assertEqual(self.service.status(task['task_id'])['task']['children'][1]['state'], 'waiting')
+        self.assertEqual(self.service.status(task['task_id'])['task']['children'][1]['state'], 'queued')
 
     def test_cross_instance_stop_survives_delayed_start_response(self):
         task = self.create()

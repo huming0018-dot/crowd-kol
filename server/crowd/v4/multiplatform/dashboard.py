@@ -280,6 +280,8 @@ class Application:
             return store.open_login(session_id, payload['platform'], self.mc_root)
         if action == 'cancel_login' and set(payload) == {'session_id'}:
             return store.cancel_login(session_id)
+        if action == 'resume_verification' and set(payload) == {'session_id'}:
+            return store.resume_verification(session_id)
         if action == 'confirm_same_account' and set(payload) == {'session_id', 'expected_generation', 'confirm_same_account'}:
             return store.confirm_same_account(**payload)
         if action == 'accept_account_switch' and set(payload) == {'session_id', 'expected_generation', 'acknowledge_new_scope'}:
@@ -344,6 +346,11 @@ class Application:
                 self.owner_tasks.start_scheduler()
         if action in ('preview', 'create'):
             return getattr(self.owner_tasks, action)(payload)
+        if action == 'retry_supplemental':
+            method = getattr(self.owner_tasks, action, None)
+            if method is None:
+                raise ValueError('supplemental_requires_cloud_task')
+            return method(payload)
         if action == 'list' and not payload:
             return self.owner_tasks.list()
         if action in ('status', 'stop', 'resume') and set(payload) == {'task_id'}:
@@ -364,8 +371,8 @@ class Application:
             return self.results_store.ingest(response.get('result', response))
         fields = {
             'list': {'filters', 'revision', 'limit', 'offset', 'cursor'},
-            'detail': {'platform', 'content_id', 'revision'},
-            'evaluate': {'platform', 'content_id', 'value', 'tags', 'evaluator_ref', 'revision'},
+            'detail': {'platform', 'content_id', 'revision', 'entity_ref'},
+            'evaluate': {'platform', 'content_id', 'value', 'tags', 'evaluator_ref', 'revision', 'entity_ref'},
             'export': {'format', 'filters', 'revision'},
         }
         if action not in fields or set(payload) - fields[action]:
@@ -421,8 +428,17 @@ class Application:
         if action == 'start' and set(payload) == {'run_id', 'path', 'content_id', 'kind'}:
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
             imported = self.run('import', {'run_id': payload['run_id']})
-            records = imported.get('result', imported).get('records', [])
+            result = imported.get('result', imported)
+            records = result.get('records', [])
             candidates = [r for r in records if r.get('kind') in ('content', 'dynamic') and r.get('content_id') == payload['content_id']]
+            files = [item for item in result.get('media', []) if item.get('path') == payload['path']]
+            if payload['path'].startswith('output/zhihu/') or any(item.get('platform') == 'zhihu' for item in files):
+                if len(files) != 1 or files[0].get('content_id') != payload['content_id']:
+                    raise ValueError('media_content_not_in_task')
+                source_type = files[0].get('source_content_type')
+                candidates = [row for row in candidates if row.get('platform') == 'zhihu']
+                if source_type not in ('answer', 'article', 'zvideo') or len(candidates) != 1 or candidates[0].get('content_type') != source_type:
+                    raise ValueError('media_content_identity_ambiguous')
             if not candidates:
                 raise ValueError('media_content_not_in_task')
             platform = candidates[0]['platform']

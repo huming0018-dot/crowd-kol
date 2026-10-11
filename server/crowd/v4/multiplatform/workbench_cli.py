@@ -13,13 +13,13 @@ import urllib.request
 from urllib.parse import urlsplit
 
 ROUTES = {
-    'tasks': {'parse_batch', 'preview', 'create', 'list', 'status', 'stop', 'resume'},
+    'tasks': {'parse_batch', 'preview', 'create', 'list', 'status', 'stop', 'resume', 'retry_supplemental'},
     'watchlists': {'preview', 'create', 'list', 'status', 'stop', 'resume'},
     'results': {'ingest', 'list', 'detail', 'evaluate', 'export'},
     'collector': {'capabilities', 'list', 'status', 'start', 'stop', 'import'},
     'media-processing': {'capabilities', 'list', 'status', 'start', 'cancel', 'resume'},
     'cloud': {'status', 'results'},
-    'accounts': {'list', 'status', 'open_login', 'cancel_login', 'confirm_same_account', 'accept_account_switch'},
+    'accounts': {'list', 'status', 'open_login', 'cancel_login', 'resume_verification', 'confirm_same_account', 'accept_account_switch'},
     # Starting an external model job remains an explicit UI authorization step.
     'analysis': {'lookup', 'status', 'cancel'},
 }

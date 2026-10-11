@@ -1,6 +1,6 @@
 import unittest
 from local_asr import normalize_timestamps
-from long_media import validate_adjustments
+from long_media import validate_adjustments, merge_chunks
 
 
 class TimestampTests(unittest.TestCase):
@@ -26,3 +26,22 @@ class TimestampTests(unittest.TestCase):
             bad=[{**adjusted[0],field:value}]
             with self.assertRaisesRegex(ValueError,'invalid_asr_timing_adjustments'):
                 validate_adjustments(bad,rows,3.)
+
+    def test_pcm_fractional_duration_epsilon_only(self):
+        pcm = 16.8206875
+        rows, adjusted = normalize_timestamps([{'start':0., 'end':17., 'text':'original'}], pcm)
+        self.assertEqual(validate_adjustments(adjusted, rows, 69.8206875 - 53), adjusted)
+        self.assertEqual(validate_adjustments(adjusted, rows, pcm - 1e-14), adjusted)
+        for change in ({'adjusted_end': pcm - 1e-5}, {'provider_end': pcm + .50001}):
+            with self.assertRaisesRegex(ValueError, 'invalid_asr_timing_adjustments'):
+                validate_adjustments([{**adjusted[0], **change}], rows, pcm)
+
+    def test_merged_fractional_tail_rounding_never_exceeds_asset_duration(self):
+        duration = 69.8206875
+        rows, adjusted = normalize_timestamps([{'start':0., 'end':17., 'text':'original'}], 16.8206875)
+        manifest = {'duration_seconds': duration, 'chunks': [
+            {'index':0, 'start':0., 'end':55.}, {'index':1, 'start':53., 'end':duration}]}
+        merged = merge_chunks(manifest, [{'segments':[]}, {'segments':rows, 'timing_adjustments':adjusted}])
+        self.assertEqual(merged['segments'][0]['end'], duration)
+        self.assertTrue(all(0 <= row['start'] <= row['end'] <= duration for row in merged['segments']))
+        self.assertEqual(merged['timing_adjustments'][0]['provider_absolute_end'], 70.)

@@ -16,7 +16,7 @@ from mc_runner import BridgeError, contains_secret, uid
 
 FIELDS = {'title', 'platforms', 'targets_by_platform', 'interval_minutes', 'window_days',
           'total_request_budget', 'per_cycle_requests', 'per_cycle_items', 'purpose',
-          'authorization_ref', 'comments', 'replies', 'media', 'max_comments', 'idempotency_key'}
+          'authorization_ref', 'comments', 'replies', 'media', 'max_comments', 'idempotency_key', 'platform_options_by_platform'}
 
 
 def _int(data, name, default, low, high):
@@ -42,7 +42,7 @@ def _validate(payload):
     if total < requests:
         raise ValueError('watch_total_budget_below_cycle_budget')
     request = {key: payload[key] for key in ('platforms', 'targets_by_platform', 'purpose',
-               'authorization_ref', 'comments', 'replies', 'media', 'max_comments') if key in payload}
+               'authorization_ref', 'comments', 'replies', 'media', 'max_comments', 'platform_options_by_platform') if key in payload}
     request.update(mode='creator', desired_items=items, max_api_requests=requests,
                    idempotency_key='watch-validation')
     validated = plan(request)
