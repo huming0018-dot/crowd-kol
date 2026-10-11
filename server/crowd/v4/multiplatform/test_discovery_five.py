@@ -150,12 +150,34 @@ class FiveDiscoveryTests(unittest.TestCase):
             self.assertIsNone(feed_response_path('wb',url))
         self.assertEqual(feed_response_path('wb','https://weibo.com:443/ajax/feed/hottimeline?uid=not-saved'), '/ajax/feed/hottimeline')
 
+    def test_new_exact_native_feed_routes_and_mobile_cards(self):
+        self.assertEqual(feed_response_path('dy','https://www.douyin.com/aweme/v2/web/module/feed/?private=SECRET'),'/aweme/v2/web/module/feed/')
+        self.assertIsNone(feed_response_path('dy','https://www.douyin.com/aweme/v2/web/unknown/feed/'))
+        self.assertEqual(feed_response_path('wb','https://m.weibo.cn/api/container/getIndex?containerid=102803'),'/api/container/getIndex')
+        for path in ['https://m.weibo.cn/feed/friends','https://m.weibo.cn/api/container/getIndex?type=uid&value=12345',
+                     'https://m.weibo.cn/api/container/getIndex?containerid=10760312345',
+                     'https://m.weibo.cn/api/container/getIndex?containerid=100103',
+                     'https://m.weibo.cn/api/container/getIndex?containerid=102803&containerid=10760312345']:
+            self.assertIsNone(feed_response_path('wb',path))
+        value={'ok':1,'data':{'cards':[{'id':'12345','user':{'id':'12345'}},
+             {'card_group':[{'mblog':{'id':5293049158180589,'user':{'id':'SECRET'}}},
+                            {'mblog':{'idstr':'5293049158180590'}}]}]}}
+        self.assertEqual(response_candidates('wb',value,2),[('5293049158180589','5293049158180589'),('5293049158180590','5293049158180590')])
+        self.assertEqual(response_candidates('wb',{**value,'ok':True},2),[])
+        self.assertEqual(response_candidates('wb',{'data':value['data']},2),[])
+        crowded={'ok':1,'data':{'cards':[{}]*200+[{'mblog':{'id':'12345'}}]}}
+        self.assertEqual(response_candidates('wb',crowded,1),[])
+
     def test_same_homepage_response_fallback_dom_precedence_cleanup_and_limits(self):
-        for platform, invalid in [('dy',None),('wb',None),('dy','dom'),('wb','oversize'),('dy','hung'),('wb','wrong_path')]:
+        for platform, invalid in [('dy',None),('wb',None),('dy','dom'),('wb','oversize'),('dy','hung'),('wb','wrong_path'),('wb','mobile'),('wb','mobile_missing_ok'),('wb','mobile_statuses_only')]:
             with self.subTest(platform=platform,invalid=invalid), tempfile.TemporaryDirectory() as directory:
                 clock=[0.0];calls=[];navigation=[];config=SimpleNamespace();cancelled=[]
                 identity='7590708381897651318' if platform=='dy' else '5293049158180589'
                 payload={'status_code':0,'aweme_list':[{'aweme_id':identity,'author_uid':'do-not-save'}]} if platform=='dy' else {'ok':1,'data':{'statuses':[{'idstr':identity,'uid':'do-not-save'}]}}
+                if invalid in ('mobile','mobile_missing_ok','mobile_statuses_only'):
+                    payload={'ok':1,'data':{'cards':[{'mblog':{'idstr':identity}}]}}
+                    if invalid=='mobile_missing_ok':payload.pop('ok')
+                    if invalid=='mobile_statuses_only':payload={'ok':1,'data':{'statuses':[{'idstr':identity}]}}
                 class Response:
                     status=200
                     url=('https://www.douyin.com/aweme/v1/web/tab/feed/?private=not-saved' if platform=='dy' else 'https://weibo.com/ajax/feed/hottimeline?private=not-saved')
@@ -166,6 +188,7 @@ class FiveDiscoveryTests(unittest.TestCase):
                             finally:cancelled.append(True)
                         return json.dumps(payload).encode()
                 if invalid=='wrong_path':Response.url='https://weibo.com/ajax/search/all'
+                if invalid in ('mobile','mobile_missing_ok','mobile_statuses_only'):Response.url='https://m.weibo.cn/api/container/getIndex?containerid=102803'
                 class Page:
                     def on(self,event,callback):
                         if event=='response':self.callback=callback
@@ -182,7 +205,7 @@ class FiveDiscoveryTests(unittest.TestCase):
                 configure_discovery(SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={platform:Crawler})),
                                     {'platform':platform,'mode':'homefeed','max_items':1},Path(directory))
                 with patch.dict(sys.modules,{'config':config}),patch('discovery.time',SimpleNamespace(monotonic=lambda:clock[0])),patch('discovery.asyncio.sleep',side_effect=advance):
-                    if invalid in ('oversize','hung','wrong_path'):
+                    if invalid in ('oversize','hung','wrong_path','mobile_missing_ok','mobile_statuses_only'):
                         with self.assertRaisesRegex(ValueError,'discovery_empty_or_unavailable'):asyncio.run(Crawler().search())
                         self.assertEqual(calls,[])
                         self.assertFalse((Path(directory)/'discovery.json').exists())

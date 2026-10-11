@@ -20,9 +20,9 @@ SELECTORS = {'xhs': 'a[href*="/explore/"],a[href*="/discovery/item/"]',
              'tieba': 'a[href*="/p/"]',
              'zhihu': 'a[href*="/answer/"],a[href*="zhuanlan.zhihu.com/p/"],a[href*="/zvideo/"]',
              'ks': 'a[href*="/short-video/"]'}
-FEED_PATHS = {'dy': {'/aweme/v1/web/tab/feed/', '/aweme/v1/web/feed/'},
-              'wb': {'/ajax/feed/hottimeline'}}
-SAFE_ROUTE_PARTS = set('aweme v1 v2 web tab feed api ajax hottimeline recommend status user profile login passport account check info detail comment comments reply replies list item video search config settings hot trending pc get mblog ad ads recommendation challenge explore container getIndex statuses sso signin'.split())
+FEED_PATHS = {'dy': {'/aweme/v1/web/tab/feed/', '/aweme/v1/web/feed/', '/aweme/v2/web/module/feed/'},
+              'wb': {'/ajax/feed/hottimeline', '/api/container/getIndex'}}
+SAFE_ROUTE_PARTS = set('aweme v1 v2 web tab feed api ajax hottimeline recommend status user profile login passport account check info detail comment comments reply replies list item video search config settings hot trending pc get mblog ad ads recommendation challenge explore container getIndex statuses sso signin module friends'.split())
 
 
 def safe_observed_location(platform, value):
@@ -65,7 +65,7 @@ def page_diagnostics(value):
     return result
 
 
-def response_candidates(platform, payload, limit):
+def response_candidates(platform, payload, limit, path=None):
     """Project IDs from a normal homepage response, never from search results."""
     if platform not in FEED_PATHS or not isinstance(payload, dict):
         return []
@@ -76,7 +76,25 @@ def response_candidates(platform, payload, limit):
     else:
         if 'ok' in payload and (type(payload['ok']) is not int or payload['ok'] != 1):
             return []
-        rows = payload.get('data', {}).get('statuses') if isinstance(payload.get('data'), dict) else None
+        data = payload.get('data')
+        mobile_cards = path == '/api/container/getIndex'
+        if mobile_cards and (type(payload.get('ok')) is not int or payload['ok']!=1 or not isinstance(data,dict) or not isinstance(data.get('cards'),list)):
+            return []
+        rows = data.get('statuses') if isinstance(data, dict) else None
+        if mobile_cards:rows=None
+        if not isinstance(rows,list) and isinstance(data,dict) and isinstance(data.get('cards'),list):
+            if type(payload.get('ok')) is not int or payload['ok']!=1:return []
+            rows=[]
+            visited=0
+            def cards(values, depth=0):
+                nonlocal visited
+                for card in values[:200]:
+                    if visited>=200:return
+                    visited+=1
+                    if not isinstance(card,dict):continue
+                    if isinstance(card.get('mblog'),dict):rows.append({'mblog':card['mblog']})
+                    if depth<2 and isinstance(card.get('card_group'),list):cards(card['card_group'],depth+1)
+            cards(data['cards'])
     if not isinstance(rows, list):
         return []
     chosen, seen = [], set()
@@ -89,7 +107,7 @@ def response_candidates(platform, payload, limit):
             record = row.get('mblog', row)
             if not isinstance(record, dict):
                 continue
-            identity = record.get('idstr') or record.get('mid')
+            identity = record.get('idstr') or record.get('mid') or record.get('id')
         if type(identity) is int:
             identity = str(identity)
         if not isinstance(identity, str) or not re.fullmatch(r'[0-9]{5,30}', identity) or identity in seen:
@@ -106,6 +124,12 @@ def feed_response_path(platform, value):
         url = urlsplit(value)
         if url.scheme != 'https' or url.username or url.password or url.port not in (None, 443):
             return None
+        if platform=='wb' and url.path=='/api/container/getIndex':
+            query=parse_qsl(url.query,keep_blank_values=True)
+            containers=[value for key,value in query if key=='containerid']
+            # User/search containers are not recommendation feed evidence.
+            if url.hostname!='m.weibo.cn' or containers!=['102803'] or any(key=='type' and value=='uid' for key,value in query):return None
+            return url.path
         hosts = ('www.douyin.com',) if platform == 'dy' else ('weibo.com', 'www.weibo.com')
         return url.path if url.hostname in hosts and url.path in FEED_PATHS.get(platform, set()) else None
     except (ValueError, TypeError):
@@ -223,6 +247,7 @@ def configure_discovery(upstream, request, run):
         document_response_status = None
         async def observe(response, path):
             summary = {'path':path, 'http_status':response.status, 'candidate_count':0, 'status':'pending'}
+            if platform=='wb' and path=='/api/container/getIndex':summary['scope']='mobile_public_hot_channel_102803'
             observations.append(summary)
             if response.status != 200:
                 summary['status'] = 'http_failed'
@@ -236,7 +261,7 @@ def configure_discovery(upstream, request, run):
                 if len(body) > 1048576:
                     summary['status'] = 'size_rejected'
                     return
-                candidates = response_candidates(platform, json.loads(body), request['max_items'])
+                candidates = response_candidates(platform, json.loads(body), request['max_items'], path=path)
                 summary.update(status='matched' if candidates else 'shape_unmatched', candidate_count=len(candidates))
                 for item in candidates:
                     if item not in received:
