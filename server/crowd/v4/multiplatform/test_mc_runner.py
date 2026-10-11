@@ -141,6 +141,9 @@ class RunnerTest(unittest.TestCase):
         for module, name in CLIENTS.values():
             folder=self.mc/'media_platform'/module;folder.mkdir(parents=True,exist_ok=True)
             (folder/'client.py').write_text('import config\nclass '+name+':\n async def pong(self,*a,**kw): return config.FAKE_AUTH_LOGGED_IN\n async def update_cookies(self,*a,**kw): return None\n')
+        with (self.mc/'media_platform/tieba/client.py').open('a') as fixture:
+            fixture.write(' async def get_note_by_id(self,note_id): return None\n')
+        (self.mc/'media_platform/tieba/help.py').write_text('class TieBaExtractor:\n def extract_note_detail_from_api(self,data): return None\n')
         (self.mc/'main.py').write_text('''import asyncio,json,pathlib,sys
 from types import SimpleNamespace
 CrawlerFactory=SimpleNamespace(CRAWLERS={key:None for key in ('xhs','dy','ks','bili','wb','tieba','zhihu')})
@@ -401,18 +404,20 @@ async def async_cleanup(): pass
 
     def test_tieba_media_uses_own_hook_without_native_flag(self):
         from unittest.mock import patch
-        import tieba_media
+        import tieba_media,tieba_body
         class Native: pass
+        class Extractor: pass
         p=m.validate(self.payload('tieba','detail','123',max_items=1,media=True))
         args=m.argv_for(p,self.base/'output')
         self.assertEqual(args[args.index('--get_media')+1],'false')
         module=SimpleNamespace(BaiduTieBaClient=Native)
-        with patch.dict(sys.modules,{'media_platform.tieba.client':module}),patch.object(tieba_media,'install_hook') as hook:
+        with patch.dict(sys.modules,{'media_platform.tieba.client':module,'media_platform.tieba.help':SimpleNamespace(TieBaExtractor=Extractor)}),patch.object(tieba_media,'install_hook') as hook,patch.object(tieba_body,'install_hook') as body_hook:
             m.configure_platform_hooks(None,p)
             hook.assert_called_once_with(Native,Path.cwd()/'output')
+            body_hook.assert_called_once_with(Native,Extractor,Path.cwd())
             p['media']=False
             m.configure_platform_hooks(None,p)
-            self.assertEqual(hook.call_count,1)
+            self.assertEqual(hook.call_count,1);self.assertEqual(body_hook.call_count,2)
         info=next(x for x in m.capabilities(self.mc)['platforms'] if x['id']=='tieba')
         self.assertTrue(info['media'])
         self.assertEqual(next(x for x in info['platform_features'] if x['id']=='public_post_media')['live_verified'],False)

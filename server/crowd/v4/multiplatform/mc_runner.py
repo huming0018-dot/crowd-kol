@@ -335,6 +335,11 @@ def configure_platform_hooks(upstream,p):
                 write(phase,{**previous,'media_status':'limited','media_reason':'single_response_byte_limit',
                              'media_single_file_limit_bytes':67108864 if p.get('platform_options',{}).get('long_audio') else 26214400})
         crawler.download_media=bounded_media
+    if p['platform']=='tieba':
+        from media_platform.tieba.client import BaiduTieBaClient
+        from media_platform.tieba.help import TieBaExtractor
+        from tieba_body import install_hook as install_body_hook
+        install_body_hook(BaiduTieBaClient,TieBaExtractor,Path.cwd())
     if p['platform']=='tieba' and p['media']:
         from media_platform.tieba.client import BaiduTieBaClient
         from tieba_media import install_hook
