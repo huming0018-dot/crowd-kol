@@ -1,4 +1,4 @@
-# 本地 MediaCrawler 执行桥
+# 本机多平台采集工作台
 
 这是 Crowd 自有本地桥和工作台。它调用用户另外安装的 MediaCrawler，不包含、复制或修改 MediaCrawler 源码，不接 Crowd 真人奖励、旧采集任务或生产数据库。
 
@@ -6,13 +6,44 @@
 
 ## Owner 使用顺序
 
-1. 双击“打开工作台.command”，首页查看本机采集任务；首次没有任务时点“新建采集”。
-2. 选择平台、采集对象和内容。首次使用会打开独立浏览器供本人登录；已有登录资料可直接从列表选择，无需复制编号。
-3. 在首页看“等待登录 / 采集中 / 已停止 / 本轮结束”等状态。等待登录时，到采集器打开的浏览器完成登录；不要把等待当作已开始采集。
-4. 任务结束后点“查看结果”，阅读内容与评论、下载JSON或实际落盘媒体。停止与失败的任务也可查看已保存部分；零条结果不表示成功采到内容。
-5. 执行器目录、平台能力与使用依据在“设置”；请求计数、内部编号等在技术详情。高级数量仍沿用上游限制，不保证取得配置数量。
+1. 双击“打开工作台.command”，点击“＋ 新建任务”。选择关键词、指定内容或指定博主，勾选多个平台。
+2. 输入共享关键词，或粘贴链接/导入 `platform,target` CSV，设置所有平台的总数量与接口总额，再预览分配。系统按平台自动分配；目标缺失、媒体不支持或预算不足的子项显示原因，不暗增额度。首次登录由本人在独立浏览器完成；系统尝试选择本平台空闲历史会话，已有会话不等于登录有效。
+3. “指定博主”可开启持续跟踪，设置间隔、观察窗口与整个计划接口总额。总额跨周期保留；手动停止、上一轮未知或失败不自动复活。当前为最新作品观察，不保证平台日期筛选完整覆盖。工作台关闭期间不调度，重新打开后恢复核对原任务。
+4. 首页看每个平台的实际状态，停止或继续未完成范围；结束后点“查看结果”阅读正文、评论，下载已保存媒体或本地派生词云。零条结果不会算采集成功。父任务的子进程只在父卡中显示，避免重复任务卡。
+5. “资料库”查询平台、作者、时间、业务标签与记录类型；保存正文版本和指标观察、查看关联评论、评价，导出 JSON / JSONL / CSV / Excel 与来源清单。业务评价与原参与者奖励分开。后台导入也会保存资料；写库失败显示未完成导入，只重试既有结果，不重新访问源站。
 
-此页管理本机MediaCrawler作业；原众包参与者、评分和云端KOL台账仍在原系统，尚未合并成同一后台。
+此页管理本机机器采集作业。原众包身份、outbox、真人评分、生产回执和OTA使用原链路；本轮没有接通机器结果的生产接收器，也未把两条生产DOM ACK冒充这套统一流程的验收。
+
+## 复用原采集目录与 Linux worker
+
+已有各平台采集目录可用重复的 `--collector-root /绝对路径` 登记，配置保存在工作台 root 内，重启继续使用。会话和 run 必须唯一归属；重名冲突拒绝执行，不猜选。登记、list/status 不复制或读取浏览器凭据，不启动来源请求。`import` 会更新旧 run 的派生 normalized 缓存，因此它不是原目录纯只读操作。
+
+本轮 workspace 交付启动器 `outputs/unified-crawler-implementation-2026-10-11/启动统一工作台.command` 复用已启动的45937服务和已登记目录；通用“打开工作台.command”仍采用原默认 root。具体 root 与历史数据导入证据见本轮交付 README。
+
+Linux 常驻 worker 的启动、隔离与验证命令见 [docker/README.md](docker/README.md)。桥、外部 MC、Linux依赖环境与 runtime 分离；实际通过替身任务完成/停止/导入及删除容器后重建恢复。本轮没有提供七平台已登录 Linux 环境、安装 MC 全部依赖或开放远端服务，不能把容器生命周期通过称为七平台生产部署完成。
+
+## 同一 HTTP / CLI / Skill 入口
+
+`dashboard.py` 是任务服务；`workbench_cli.py` 是其标准库客户端，不另起调度。浏览器和CLI看到相同任务、预算与结果版本。CLI需要工作台已运行，地址仅接受带端口的本机HTTP，禁止重定向/代理。请求 JSON 由 stdin 输入；创建重试沿用同一 idempotency_key，响应未知先 status/list，不重复创建。
+
+```sh
+printf '{}' | python3 workbench_cli.py --url http://127.0.0.1:45937 tasks list
+printf '{}' | python3 workbench_cli.py --url http://127.0.0.1:45937 watchlists list
+printf '{}' | python3 workbench_cli.py --url http://127.0.0.1:45937 results list
+printf '{"format":"xlsx"}' | python3 workbench_cli.py results export --output /tmp/crowd-results.xlsx
+```
+
+支持 tasks、watchlists、results、collector、media-processing、analysis（lookup/status/cancel）。导出要求新路径，文件与manifest均0600、核对SHA；不覆盖旧文件，碰撞/写入失败清理本次创建的半件。Excel需要工作台Python有openpyxl，Mac启动器优先使用本机已有bundled Python。
+
+项目技能在 `skills/unified-crawler/SKILL.md`；直接读该文件执行即可。本轮已通过frontmatter校验和同HTTP CLI实际调用；未声称全局安装或界面热注册。
+
+## 已下载媒体的本地处理
+
+任务结果的“媒体 / 词云”中，原媒体可以下载或点“本地 OCR / 转写”。选择本次已采内容建立明确关联，后台验证文件属于本次导入清单，不根据文件名猜归属。词云为本地派生产物，单独标记，不冒充原图。
+
+`media_jobs.py` 复用现有 postprocess：macOS Vision OCR、已有字幕导入、显式本机ASR。处理输入做SHA快照，原文件保留；状态与产物0600，单并发、可取消、同输入和处理器版本缓存。重启后未知任务需要核对，不偷偷重复处理。转写文本保留原媒体SHA、时间信息和待人工校对标记。
+
+ASR需设置 `CROWD_LOCAL_ASR_MODEL`、`CROWD_LOCAL_ASR_PYTHON` 指向已有模型和对应Python，不自动下载模型。本次上限沿现有实现：60秒/25MiB音频，180秒处理时限；长视频自动切段未实现。本轮实际处理的是本地VTT，不是语音质量或真实图片OCR验收。
 
 ## 正文与评论分析
 
@@ -35,14 +66,14 @@
 | xhs | 上游真实入口已接 | 已接 | 已接 | 已接 | 带 `xsec_token` 的 HTTPS 正常定位链接可本地使用；无可用定位符的详情可能失败 |
 | dy | 上游真实入口已接 | 已接 | 已接 | 已接 | 登录、风控及分页终点未实机全量验收 |
 | ks | 上游真实入口已接 | 已接 | 已接 | 已接 | 当前 store 不保存 parent ID，导入标记 missing_upstream，不伪造完整树 |
-| bili | 上游真实入口已接 | 已接 | 已接 | 已接 | 强制 creator 视频分支，不进入关注/粉丝/动态抓取分支；上游描述可能已截断至 500 字 |
+| bili | 上游真实入口已接 | 已接 | 已接 | 已接 | 支持creator视频/动态/两者，动态单独ID与类型；关系链未实现，上游描述可能已截断至500字 |
 | wb | 上游真实入口已接 | 已接 | 已接 | 已接 | 当前上游回复实现主要使用响应内附带回复，不能称完整回复分页 |
 | tieba | 上游真实入口已接 | 已接 | 已接 | **不支持** | 上游有 browser HTML/fetch/goto，非纯 API；媒体请求明确拒绝 |
 | zhihu | 上游真实入口已接 | 已接 | 已接 | **不支持** | 当前 creator 主要为 answers；桥补 CLI 未绑定 creator URL 列表的内存配置；详情需完整 answer/article/zvideo URL |
 
 “已接”指可调用真实外部入口和参数，不表示 7 平台已经登录并采集验收。真实上游 21 组 CLI 参数解析/类绑定测试不访问平台；21 组生命周期测试使用自有替身，不冒充平台结果。
 
-来源标记 `source_kind=mediacrawler_api` 是外部机器执行通道；每条结果额外标记 `upstream_transport=platform_dependent_api_or_browser_html`，不声称所有上游内容均来自 API，更不标记真人 DOM。始终 `reward_eligible=false`。当前导入内容、评论及已落盘媒体清单；不导入个人创作者资料/粉丝画像。
+来源标记 `source_kind=mediacrawler_api` 是外部机器执行通道；每条结果额外标记 `upstream_transport=platform_dependent_api_or_browser_html`，不声称所有上游内容均来自 API，更不标记真人 DOM。始终 `reward_eligible=false`。当前导入内容、动态、评论及已落盘媒体/派生产物清单，并投影可取得作者身份；上游匿名作者明确标记，不能逆推真实身份。不声称取得粉丝画像。
 
 ## 启动与接口
 
@@ -78,7 +109,7 @@ python3 mc_runner.py --root /absolute/local/runtime --mc-root /absolute/MediaCra
 
 可选 `session_id` 为先前返回的 UUID；不传就新建隔离资料。`headless:true` 要求显式提供已存在的同平台 session，但“存在”不证明已登录或登录仍有效。`purpose:licensed_use` 还要求非空 `authorization_ref`，不自动验证授权。
 
-`targets` 最多 10 个：search 是关键词；detail/creator 是平台 ID 或该平台 HTTPS URL。短链域名未接自动展开，请使用原平台完整链接。禁止外站、URL userinfo、端口、fragment 与登录凭据参数。XHS `xsec_token` 是此桥特准的本地导航定位符，仅在 0600 manifest 和子进程内存使用；不进入 OS argv、状态、标准化导出和日志。不会导入或替换原 MC 的登录凭据。
+`targets` 最多 10 个：search 是关键词；detail/creator 是平台 ID 或该平台 HTTPS URL。短链仅接受实际已绑定的上游支持形态，其余明确拒绝；B站详情要求BV，av不会猜转换。禁止外站、URL userinfo、端口、fragment 与登录凭据参数。XHS `xsec_token` 是此桥特准的本地导航定位符，仅在 0600 manifest 和子进程内存使用；不进入 OS argv、状态、标准化导出和日志。不会导入或替换原 MC 的登录凭据。
 
 `status` / `stop` / `import` 输入 `{ "run_id": "UUID" }`；`list` 与 `capabilities` 输入 `{}`。
 
@@ -87,6 +118,8 @@ python3 mc_runner.py --root /absolute/local/runtime --mc-root /absolute/MediaCra
 - stop 写停止意图。监管进程及子进程都检查停止；不根据持久 PID 重新找任意进程杀掉。
 - import 只允许已结束或监管丢失且 session 锁已释放。返回 records、media、summary、来源、文件 SHA 与 normalized_path。
 - list 返回最近最多 100 个 runs。
+
+可选 `start_page`（1–10000）、`interval_seconds`（0–300；未给时保留上游默认）。`wordcloud:true`需启用评论，调用外部已有词云器；资源缺失只标派生失败，正文照常保存。B站 `platform_options.creator_sections` 可设 `videos/dynamics` 或两者，纯动态不支持评论/媒体开关；日期搜索参数与画质支持已按实际上游配置接入。实际日期覆盖和视频质量尚待真实样本验收。
 
 ## 限额、停止与状态真实性
 
@@ -120,7 +153,7 @@ normalized 不是通用 DLP：只投影显式字段、不带原 URL/用户个人
 
 ```sh
 PYTHONPYCACHEPREFIX=/private/tmp/crowd-mc-pycache python3 test_mc_runner.py
-python3 test_dashboard.py
+python3 -m unittest test_mc_runner test_dashboard test_analysis test_owner_tasks test_results_store test_watchlists test_unified_dashboard test_workbench_cli test_collector_roots
 ```
 
 测试覆盖实际上游 21 组 CLI、7 真实 Crawler 类绑定（不访问来源），自有替身 21 组进程/输出、停止、同 session 互斥与复用、发送前限额、响应字节限额、平台/秘密参数边界、媒体清单。独立审查另复现监管丢失并复核子进程停止。发布时以 reviews 下的最终 SHA 与审查报告为准。

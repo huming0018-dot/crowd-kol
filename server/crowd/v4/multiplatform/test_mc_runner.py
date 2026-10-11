@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """No source-site access. Fake process lifecycle + real installed CLI wiring."""
 import ast
+import asyncio
 import importlib.util
 import json
 import os
@@ -11,6 +12,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from types import SimpleNamespace
 
 HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('mc_bridge',HERE/'mc_runner.py')
@@ -67,6 +69,8 @@ async def async_cleanup(): pass
     def tearDown(self):
         self.tmp.cleanup()
     def payload(self,p='xhs',mode='search',target='fixture',**kw):
+        if mode!='search' and target=='fixture':
+            target={'xhs':'66fad51c000000001b0224b8','dy':'123' if mode=='detail' else 'fixture','ks':'fixture','bili':'BV1Vs411j7cX' if mode=='detail' else '123','wb':'123','tieba':'123' if mode=='detail' else 'fixture','zhihu':'https://www.zhihu.com/zvideo/123' if mode=='detail' else 'fixture'}[p]
         return dict(platform=p,mode=mode,targets=[target],purpose='noncommercial_research',**kw)
     def invoke(self,action,payload):
         proc=subprocess.run([sys.executable,str(HERE/'mc_runner.py'),'--root',str(self.root),'--mc-root',str(self.mc),action],input=json.dumps(payload),text=True,capture_output=True)
@@ -175,10 +179,10 @@ async def async_cleanup(): pass
         with self.assertRaisesRegex(m.BridgeError,'credential_target_not_allowed'):
             m.validate(self.payload('wb','detail','https://weibo.com/1/AbC?access_token=hidden'))
         creator=m.validate(self.payload('wb','creator','https://weibo.com/u/7798269830'))
-        self.assertEqual(m.argv_for(creator,self.base/'out')[-1],creator['targets'][0])
+        self.assertEqual(m.argv_for(creator,self.base/'out')[-1],'7798269830')
         search=m.validate(self.payload('wb','search','普通搜索关键词'))
         self.assertEqual(m.argv_for(search,self.base/'out')[-1],'普通搜索关键词')
-        xhs=m.validate(self.payload('xhs','detail','https://www.xiaohongshu.com/explore/id?xsec_token=local'))
+        xhs=m.validate(self.payload('xhs','detail','https://www.xiaohongshu.com/explore/66fad51c000000001b0224b8?xsec_token=local'))
         self.assertEqual(m.argv_for(xhs,self.base/'out')[-1],xhs['targets'][0])
 
     def test_validation_and_secrets(self):
@@ -187,7 +191,7 @@ async def async_cleanup(): pass
             self.assertEqual(self.invoke('start',p)['error'],code)
         p=self.payload(mode='detail',target='https://www.xiaohongshu.com/explore/id?access_token=hidden')
         self.assertEqual(self.invoke('start',p)['error'],'credential_target_not_allowed')
-        locator=m.validate(self.payload(mode='detail',target='https://www.xiaohongshu.com/explore/id?xsec_token=local&xsec_source=pc_search'))
+        locator=m.validate(self.payload(mode='detail',target='https://www.xiaohongshu.com/explore/66fad51c000000001b0224b8?xsec_token=local&xsec_source=pc_search'))
         self.assertIn('xsec_token=local',locator['targets'][0])
         self.assertEqual(self.invoke('start',self.payload(headless=True))['error'],'headless_requires_existing_session')
         self.assertIsNone(m.safe_text('https://a.test/?ACCESS%5FTOKEN=secret'))
@@ -199,6 +203,127 @@ async def async_cleanup(): pass
         self.assertEqual(record['text_status'],'reported')
         self.assertFalse(record['reward_eligible'])
         with self.assertRaises(m.BridgeError): m.uid('../elsewhere')
+
+    def test_bounded_options_and_executor_configuration(self):
+        p=m.validate(self.payload('bili','creator','123',max_items=7,start_page=3,interval_seconds=0.5,platform_options={'creator_sections':['dynamics'],'quality':64}))
+        self.assertFalse(p['comments'])
+        config=SimpleNamespace(CRAWLER_MAX_SLEEP_SEC=2)
+        m.configure_executor(config,p)
+        self.assertFalse(config.CREATOR_MODE)
+        self.assertEqual(config.CRAWLER_MAX_DYNAMICS_COUNT_SINGLENOTES,7)
+        self.assertEqual(config.CRAWLER_MAX_SLEEP_SEC,.5)
+        self.assertEqual(config.BILI_QN,64)
+        args=m.argv_for(p,self.base/'out')
+        self.assertEqual(args[args.index('--start')+1],'3')
+        self.assertEqual(args[args.index('--max_concurrency_num')+1],'1')
+        search=m.validate(self.payload('bili',platform_options={'search_mode':'all_in_time_range','start_day':'2026-10-01','end_day':'2026-10-02'}))
+        m.configure_executor(config,search)
+        self.assertEqual((config.START_DAY,config.END_DAY),('2026-10-01','2026-10-02'))
+        invalid=[{'start_page':True},{'interval_seconds':True},{'interval_seconds':float('nan')},{'interval_seconds':-1},{'platform_options':{'followers':True}},{'platform_options':{'creator_sections':['dynamics']},'comments':True},{'platform_options':{'creator_sections':['videos','videos']}},{'platform_options':{'quality':True}},{'platform_options':[]},{'platform_options':{'search_mode':'all_in_time_range','start_day':'2026-10-03','end_day':'2026-10-01'}}]
+        for values in invalid:
+            with self.subTest(values=values),self.assertRaises(m.BridgeError): m.validate(self.payload('bili','creator','123',**values))
+        with self.assertRaisesRegex(m.BridgeError,'unsupported_platform_options'): m.validate(self.payload('xhs',platform_options={'quality':64}))
+
+    def test_target_shapes_normalize_before_executor_and_keep_private_locators(self):
+        cases=[('xhs','detail','https://www.xiaohongshu.com/explore/66fad51c000000001b0224b8/?xsec_token=local','https://www.xiaohongshu.com/explore/66fad51c000000001b0224b8?xsec_token=local'),('xhs','creator','https://www.xiaohongshu.com/user/profile/5eb8e1d400000000010075ae/','https://www.xiaohongshu.com/user/profile/5eb8e1d400000000010075ae'),('dy','detail','https://www.douyin.com/user/fixture?modal_id=123','123'),('dy','creator','https://www.douyin.com/user/MS4wLjABAAAAexample/','MS4wLjABAAAAexample'),('ks','detail','https://www.kuaishou.com/short-video/3xexample/','3xexample'),('ks','creator','https://www.kuaishou.com/profile/3xexample/','3xexample'),('bili','detail','https://www.bilibili.com/video/BV1Vs411j7cX/?spm=fixture','BV1Vs411j7cX'),('bili','creator','https://space.bilibili.com/123/','123'),('wb','detail','https://weibo.com/123/AbCd','AbCd'),('wb','creator','https://weibo.com/u/123/','123'),('tieba','detail','https://tieba.baidu.com/p/123?pn=2','123'),('tieba','creator','https://tieba.baidu.com/home/main?id=tb.1.example_portrait','tb.1.example_portrait'),('tieba','creator','tb.1.example_portrait','tb.1.example_portrait'),('zhihu','detail','https://www.zhihu.com/question/123/answer/456/?tab=fixture','https://www.zhihu.com/question/123/answer/456'),('zhihu','creator','https://www.zhihu.com/people/alice/?tab=answers','alice')]
+        for platform,mode,target,expected in cases:
+            with self.subTest(platform=platform,mode=mode,target=target):
+                p=m.validate(self.payload(platform,mode,target,max_items=1))
+                self.assertEqual(m.argv_for(p,self.base/'output')[-1],expected)
+                self.assertEqual(p['targets'][0],target)
+                if platform=='zhihu' and mode=='creator':
+                    config=SimpleNamespace();m.configure_executor(config,p)
+                    self.assertEqual(config.ZHIHU_CREATOR_URL_LIST,[expected])
+        invalid=[('xhs','detail','https://www.xiaohongshu.com/user/profile/66fad51c000000001b0224b8'),('xhs','creator','abc'),('dy','detail','abc'),('dy','creator','https://www.douyin.com/video/123'),('ks','detail','https://v.kuaishou.cn/AbCd'),('ks','creator','https://www.kuaishou.com/short-video/id'),('bili','detail','av123'),('bili','detail','123'),('bili','creator','https://www.bilibili.com/video/BV1Vs411j7cX'),('wb','creator','https://weibo.com/namedprofile'),('tieba','detail','https://tieba.baidu.com/f?kw=fixture'),('tieba','creator','https://tieba.baidu.com/home/main'),('tieba','creator','https://tieba.baidu.com/home/main?un=fixture'),('zhihu','detail','123'),('zhihu','detail','https://www.zhihu.com/question/123'),('zhihu','creator','https://www.zhihu.com/org/fixture')]
+        for platform,mode,target in invalid:
+            with self.subTest(invalid=target),self.assertRaises(m.BridgeError): m.validate(self.payload(platform,mode,target,max_items=1))
+
+    def test_bilibili_both_sections_reuses_live_creator_context(self):
+        calls=[]
+        class Crawler:
+            async def get_creator_videos(self,creator_id): calls.append(('videos',creator_id))
+            async def get_all_creator_details(self,targets): calls.append(('dynamics',targets))
+        upstream=SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'bili':Crawler}))
+        p=m.validate(self.payload('bili','creator','123',platform_options={'creator_sections':['dynamics','videos']}))
+        m.configure_platform_hooks(upstream,p)
+        asyncio.run(Crawler().get_creator_videos(123))
+        self.assertEqual(calls,[('videos',123),('dynamics',['123'])])
+
+    def test_field_fidelity_dynamic_identity_and_upstream_partiality(self):
+        wb=m.normalize('wb','content',{'note_id':'note','comments_count':'12','shared_count':'3','desc':'正文'},{})
+        self.assertEqual(wb['metrics']['comments_count']['reported_value'],'12')
+        self.assertEqual(wb['metrics']['shared_count']['reported_value'],'3')
+        bili=m.normalize('bili','content',{'video_id':'123','video_type':'video','desc':'x'*500,'nickname':'匿名UP','creator_hash':'abc'},{})
+        self.assertEqual(bili['content_type'],'video')
+        self.assertEqual(bili['canonical_id_scheme'],'bilibili.aid.v1')
+        self.assertFalse(bili['text_truncated'])
+        self.assertEqual(bili['text_completeness'],'unknown')
+        self.assertEqual(bili['upstream_truncation_risk']['limit_chars'],500)
+        dynamic=m.normalize('bili','dynamic',{'dynamic_id':'123','text':'动态','type':'WORD','pub_ts':1234,'total_comments':4,'total_forwards':3,'total_liked':2},{})
+        self.assertEqual(dynamic['canonical_id_scheme'],'bilibili.dynamic.v1')
+        self.assertNotEqual(dynamic['entity_key'],bili['entity_key'])
+        self.assertEqual(dynamic['published_at_reported'],1234)
+        self.assertEqual(dynamic['metrics']['total_comments']['reported_value'],4)
+        secret=m.normalize('bili','content',{'video_id':'123','creator_hash':'access_token=hidden','desc':'safe'},{})
+        self.assertNotIn('creator_hash',secret['platform_fields'])
+        self.assertNotIn('author',secret)
+        self.assertEqual(bili['author']['author_id'],'abc')
+        self.assertEqual(bili['author']['identity_status'],'anonymized_upstream')
+        public=m.normalize('wb','content',{'note_id':'note','user_id':123,'title':'access_token=hidden','desc':'safe'},{})
+        self.assertEqual(public['author']['author_id'],'123')
+        self.assertEqual(public['author']['identity_status'],'reported_upstream')
+        self.assertEqual(public['title_status'],'withheld_sensitive')
+        self.assertIsNone(public['title'])
+        long_title=m.normalize('xhs','content',{'note_id':'note','title':'x'*2001,'desc':'safe'},{})
+        self.assertTrue(long_title['title_truncated'])
+        self.assertEqual(len(long_title['title']),2000)
+
+    def test_optional_wordcloud_requires_comments_and_local_resources(self):
+        p=m.validate(self.payload(wordcloud=True))
+        config=SimpleNamespace(CRAWLER_MAX_SLEEP_SEC=2)
+        m.configure_executor(config,p)
+        self.assertTrue(config.ENABLE_GET_WORDCLOUD)
+        with self.assertRaisesRegex(m.BridgeError,'wordcloud_requires_comments'): m.validate(self.payload(wordcloud=True,comments=False))
+        with self.assertRaisesRegex(m.BridgeError,'invalid_wordcloud'): m.validate(self.payload(wordcloud=1))
+        run=self.base/'wordcloud-run';run.mkdir()
+        config.FONT_PATH='missing.ttf';config.STOP_WORDS_FILE='missing.txt'
+        upstream=SimpleNamespace()
+        m.configure_wordcloud(upstream,config,p,self.mc,run)
+        self.assertFalse(config.ENABLE_GET_WORDCLOUD)
+        asyncio.run(upstream._generate_wordcloud_if_needed())
+        self.assertEqual(m.read(run/'phase.json')['wordcloud_status'],'resource_missing')
+        (self.mc/'config.py').write_text('CRAWLER_MAX_SLEEP_SEC=2\nFONT_PATH="missing.ttf"\nSTOP_WORDS_FILE="missing.txt"\n')
+        started=self.invoke('start',self.payload(wordcloud=True))['result']
+        self.assertEqual(self.wait(started['run_id'])['state'],'completed')
+        saved=self.invoke('import',{'run_id':started['run_id']})['result']
+        self.assertEqual(saved['summary']['contents'],1)
+        self.assertEqual(saved['wordcloud_status'],'resource_missing')
+
+    def test_dynamic_and_long_directory_media_import(self):
+        for platform,folder in [('dy','douyin'),('ks','kuaishou'),('wb','weibo'),('bili','bili')]:
+            with self.subTest(platform=platform):
+                rid=str(uuid.uuid4());run=self.root/'runs'/rid
+                jsonl=run/'output'/folder/'jsonl';jsonl.mkdir(parents=True)
+                media=run/'output'/folder/'media';media.mkdir()
+                (media/'sample.mp4').write_bytes(b'fixture bytes, format not verified')
+                m.write(run/'manifest.json',{'run_id':rid,'request':{'platform':platform},'source':{}})
+                m.write(run/'status.json',{'state':'completed'})
+                if platform=='bili': (jsonl/'creator_dynamics_today.jsonl').write_text(json.dumps({'dynamic_id':'123','text':'already saved dynamic'})+'\n')
+                words=run/'output'/folder/'words';words.mkdir()
+                (words/'detail_comments_today_word_freq.json').write_text('{"fixture":1}')
+                result=m.import_output(self.root,{'run_id':rid})
+                self.assertEqual(result['summary']['media_files'],1)
+                if platform=='bili': self.assertEqual(result['summary']['dynamics'],1)
+                self.assertEqual(result['media'][0]['status'],'downloaded_by_external_executor')
+                self.assertEqual(result['artifacts'][0]['kind'],'word_frequency')
+                self.assertEqual(result['artifacts'][0]['source_kind'],'derived_local')
+                with open(words/'oversized_word_cloud.png','wb') as too_large: too_large.truncate(26214401)
+                with self.assertRaisesRegex(m.BridgeError,'wordcloud_artifact_limit'): m.import_output(self.root,{'run_id':rid})
+        capability=m.capabilities(self.mc)
+        self.assertEqual(capability['execution_limits']['session_concurrency'],1)
+        self.assertTrue(all(p['live_verified'] is False for p in capability['platforms']))
+        feature=next(p for p in capability['platforms'] if p['id']=='bili')['platform_features']
+        self.assertEqual(next(f for f in feature if f['id']=='creator_relations')['support_state'],'unsupported')
 
 class InstalledCLI(unittest.TestCase):
     @unittest.skipUnless(MC.exists(),'external executor not installed')
@@ -225,7 +350,8 @@ async def check():
  out=[]
  for p in bridge.PLATFORMS:
   for mode in ['search','detail','creator']:
-   request=bridge.validate({'platform':p,'mode':mode,'targets':['abc123'],'purpose':'noncommercial_research','comments':True,'replies':True,'media':p in bridge.MEDIA})
+   target='abc123' if mode=='search' else {'xhs':'66fad51c000000001b0224b8','dy':'123' if mode=='detail' else 'fixture','ks':'fixture','bili':'BV1Vs411j7cX' if mode=='detail' else '123','wb':'123','tieba':'123' if mode=='detail' else 'fixture','zhihu':'https://www.zhihu.com/zvideo/123' if mode=='detail' else 'fixture'}[p]
+   request=bridge.validate({'platform':p,'mode':mode,'targets':[target],'purpose':'noncommercial_research','comments':True,'replies':True,'media':p in bridge.MEDIA})
    if p=='zhihu' and mode=='creator': config.ZHIHU_CREATOR_URL_LIST=request['targets']
    await cmd_arg.parse_cmd(bridge.argv_for(request,Path.cwd()/'output'))
    assert config.PLATFORM==p and config.CRAWLER_TYPE==mode
@@ -236,12 +362,19 @@ async def check():
    assert hasattr(main.CrawlerFactory.CRAWLERS[p],'start')
    if mode=='creator':
     attr={'xhs':'XHS_CREATOR_ID_LIST','dy':'DY_CREATOR_ID_LIST','ks':'KS_CREATOR_ID_LIST','bili':'BILI_CREATOR_ID_LIST','wb':'WEIBO_CREATOR_ID_LIST','tieba':'TIEBA_CREATOR_URL_LIST','zhihu':'ZHIHU_CREATOR_URL_LIST'}[p]
-    assert 'abc123' in getattr(config,attr)[0]
+    assert bridge.execution_target(p,mode,target) in getattr(config,attr)[0]
    out.append({'platform':p,'mode':mode,'class':name})
  for target,expected in [('https://weibo.com/7798269830/5264010640887796','5264010640887796'),('https://m.weibo.cn/detail/5264010640887796','5264010640887796'),('https://m.weibo.cn/status/AbC123','AbC123'),('AbC123','AbC123')]:
   request=bridge.validate({'platform':'wb','mode':'detail','targets':[target],'purpose':'noncommercial_research'})
   await cmd_arg.parse_cmd(bridge.argv_for(request,Path.cwd()/'output'))
   assert config.WEIBO_SPECIFIED_ID_LIST==[expected]
+ request=bridge.validate({'platform':'bili','mode':'creator','targets':['123'],'max_items':3,'start_page':4,'interval_seconds':0.5,'platform_options':{'creator_sections':['dynamics'],'quality':64},'purpose':'noncommercial_research'})
+ bridge.configure_executor(config,request)
+ await cmd_arg.parse_cmd(bridge.argv_for(request,Path.cwd()/'output'))
+ assert config.START_PAGE==4 and config.CRAWLER_MAX_SLEEP_SEC==0.5 and config.BILI_QN==64
+ assert config.CREATOR_MODE is False and config.CRAWLER_MAX_DYNAMICS_COUNT_SINGLENOTES==3
+ crawler=main.CrawlerFactory.CRAWLERS['bili']
+ assert hasattr(crawler,'get_creator_videos') and hasattr(crawler,'get_all_creator_details') and hasattr(crawler,'get_dynamics')
  print(json.dumps(out))
 asyncio.run(check())
 '''

@@ -1,0 +1,542 @@
+{
+  "schema": "crowd-product-capability-ledger-v1",
+  "date": "2026-10-11",
+  "scope": "local_implementation_round",
+  "generated_from": "统一PRD 30项需求",
+  "features": [
+    {
+      "id": "K01",
+      "name": "原参与者身份、邀请与任务领取",
+      "required": true,
+      "status": "retained_requires_regression",
+      "fully_accepted": false,
+      "conclusion": "存在原插件实现；本人Mac两条基础真实ACK仅覆盖特定基线，不证明统一MC路线完成。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "K02",
+      "name": "静默采集、后台页生命周期、暂停继续",
+      "required": true,
+      "status": "retained_requires_regression",
+      "fully_accepted": false,
+      "conclusion": "存在原插件实现；本人Mac两条基础真实ACK仅覆盖特定基线，不证明统一MC路线完成。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "K03",
+      "name": "本地 outbox、重试、逐条回执",
+      "required": true,
+      "status": "retained_requires_regression",
+      "fully_accepted": false,
+      "conclusion": "存在原插件实现；本人Mac两条基础真实ACK仅覆盖特定基线，不证明统一MC路线完成。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "K04",
+      "name": "人工评分与原奖励归属",
+      "required": true,
+      "status": "retained_requires_regression",
+      "fully_accepted": false,
+      "conclusion": "当前未取得该统一功能的全链验收；详见PROGRESS和原始报告。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "K05",
+      "name": "签名 OTA、版本兼容、失败回滚",
+      "required": true,
+      "status": "retained_requires_regression",
+      "fully_accepted": false,
+      "conclusion": "签名更新及回滚有实现/隔离验证；原设备完整更新与统一worker升级仍需分别验收。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "K06",
+      "name": "登出提示、登录恢复和账号变化状态",
+      "required": true,
+      "status": "retained_requires_regression",
+      "fully_accepted": false,
+      "conclusion": "登录诊断与恢复提示有实现/隔离验证；长期真实恢复仍待验。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "O01",
+      "name": "简洁后台、跨平台多选、批量导入",
+      "required": true,
+      "status": "local_code_verified",
+      "fully_accepted": false,
+      "conclusion": "跨平台多选、分平台目标、批量导入与一个Owner任务已接本机；本人使用体验待验。",
+      "evidence": [
+        "owner_tasks.py",
+        "owner-ui.js",
+        "test_owner_tasks.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "O02",
+      "name": "自动调度与可解释节奏调整",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "本机自动选已有会话、持久预算和周期观察已实现；学习型频控/平台间并行未全部实现。",
+      "evidence": [
+        "owner_tasks.py",
+        "watchlists.py",
+        "test_watchlists.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "O03",
+      "name": "跨执行器统一任务、结果与异常页",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "Owner本机子任务/状态统一；插件与MC的生产统一接收闭环未完成。",
+      "evidence": [
+        "owner_tasks.py",
+        "dashboard.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "O04",
+      "name": "结果检索、人工判断、版本与导出",
+      "required": true,
+      "status": "local_code_verified",
+      "fully_accepted": false,
+      "conclusion": "本机SQLite保存正文版本、指标观察、作者/时间/标签过滤、Owner评价及导出。",
+      "evidence": [
+        "results_store.py",
+        "results-ui.js",
+        "test_results_store.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "O05",
+      "name": "人可用性验收与完整性看板",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "30项需求完整性台账已保存；本人五项可用性验收未执行。",
+      "evidence": [
+        "capability-ledger.json"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R01",
+      "name": "七平台搜索、指定内容、指定作者",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "七平台入口和严格目标合同已接；本轮仅隔离21模式/目标正反验证，历史4/7实采不等于全部模式。",
+      "evidence": [
+        "mc_runner.py",
+        "test_mc_runner.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R02",
+      "name": "作者、正文、公开统计完整映射",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "已补指标、匿名/公开作者引用、标题/正文裁剪状态；完整作者资料、全业务字段仍需逐平台补验。",
+      "evidence": [
+        "mc_runner.py",
+        "results_store.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R03",
+      "name": "评论、二级回复、分页和增量",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "已有评论/回复参数、父子关联及增量身份去重；全平台真实分页/评论覆盖未全验。",
+      "evidence": [
+        "mc_runner.py",
+        "results_store.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R04",
+      "name": "图片、封面、视频、音频下载",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "外部MC媒体下载入口及长目录导入已接；不支持的平台、文件播放、断点下载仍有缺口。",
+      "evidence": [
+        "mc_runner.py",
+        "dashboard.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R05",
+      "name": "独立会话与已选浏览器连接、后台执行",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "本机隔离会话复用、显式headless和登录状态已实现；已有Chrome/CDP桥接未开放。",
+      "evidence": [
+        "mc_runner.py",
+        "owner_tasks.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R06",
+      "name": "原始数据与统一导出、多存储接入",
+      "required": true,
+      "status": "local_code_verified",
+      "fully_accepted": false,
+      "conclusion": "固定revision JSON/JSONL/CSV/XLSX可导出；MC venv真实生成并读回Excel，无新增依赖。其他数据库出口待接。",
+      "evidence": [
+        "results_store.py",
+        "test_results_store.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R07",
+      "name": "并发、间隔、代理和预算配置",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "起始页、间隔、预算可用；目前同一会话/全局执行串行，代理和学习频控未开放。",
+      "evidence": [
+        "mc_runner.py",
+        "owner_tasks.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "R08",
+      "name": "平台专属能力",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "B站视频/动态和可选评论词云已接；已有两评论原生词云图生成验证。粉丝/关注、知乎作者文章视频未接。",
+      "evidence": [
+        "mc_runner.py",
+        "test_mc_runner.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P01",
+      "name": "断点、增量、去重与恢复",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "周期KOL观察、本机幂等、跨轮持久总预算、unknown阻断、正文版本/指标观察已接；源游标续采和生产ACK仍不完整。",
+      "evidence": [
+        "watchlists.py",
+        "test_watchlists.py",
+        "results_store.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P02",
+      "name": "多账号健康管理",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "本机自动选择匹配平台空闲历史会话；显式登记原七平台目录，按唯一session归属路由且不复制凭据。完整账号健康池与新鲜主体核验尚未实现。",
+      "evidence": [
+        "owner_tasks.py",
+        "dashboard.py",
+        "test_collector_roots.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P03",
+      "name": "CookieBridge 类登录态桥接",
+      "required": true,
+      "status": "not_implemented",
+      "fully_accepted": false,
+      "conclusion": "不导入浏览器凭据；CookieBridge真实秘密同步/撤回协议尚未接。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P04",
+      "name": "HTTP 执行通道与独立签名服务适配",
+      "required": true,
+      "status": "external_protocol_pending",
+      "fully_accepted": false,
+      "conclusion": "自有本机HTTP/CLI调度可用；Pro正式签名服务协议/授权尚未取得，不能称已接Pro。",
+      "evidence": [
+        "dashboard.py",
+        "owner_tasks.py"
+      ],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P05",
+      "name": "推荐流、热搜发现",
+      "required": true,
+      "status": "not_implemented",
+      "fully_accepted": false,
+      "conclusion": "推荐流与热搜独立发现入口尚未实现；不以作者名单冒充关注流。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P06",
+      "name": "媒体队列、字幕、OCR、ASR 与内容拆解",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "本地已下载媒体队列、OCR/ASR/字幕、身份与SHA快照、缓存/取消已接工作台；VTT实际处理通过，真实OCR/ASR质量、长视频切段及来源媒体完整覆盖待完成。",
+      "evidence": [
+        "analysis_contract.py",
+        "analysis_jobs.py",
+        "media_jobs.py",
+        "media-ui.js",
+        "test_unified_dashboard.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P07",
+      "name": "评论分析与报告",
+      "required": true,
+      "status": "authorization_pending",
+      "fully_accepted": false,
+      "conclusion": "评论/正文分析入口、引用、程序统计、缓存已有隔离验证；真实模型外发测试被自动审批拒绝，尚无本人回复。",
+      "evidence": [
+        "analysis_contract.py",
+        "analysis_jobs.py",
+        "test_analysis.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P08",
+      "name": "HTTP、CLI、Agent Skill",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "本机HTTP/CLI共用同一任务服务、结果版本与预算；unified-crawler项目skill直接读取可调用，实际CLI Excel导出已验证。完整云端接口与全部Agent动作仍待接。",
+      "evidence": [
+        "dashboard.py",
+        "owner_tasks.py",
+        "watchlists.py",
+        "workbench_cli.py",
+        "test_workbench_cli.py"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P09",
+      "name": "Mac 本机与 Linux/Docker worker",
+      "required": true,
+      "status": "partial",
+      "fully_accepted": false,
+      "conclusion": "Mac本机已部署；常驻Linux Docker桥实际spawn/stop/import和容器重建恢复已在network none替身下通过，16 Linux测试与独审42通过；MC Linux完整依赖、图形登录与真实来源/生产部署仍待完成。",
+      "evidence": [
+        "mc_runner.py",
+        "docker/worker.sh",
+        "docker/worker.py",
+        "docker/README.md"
+      ],
+      "verification": {
+        "local_implementation": true,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "P10",
+      "name": "Reddit 扩展",
+      "required": true,
+      "status": "not_implemented",
+      "fully_accepted": false,
+      "conclusion": "Reddit仍登记待接，没有用七平台标记代替。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    },
+    {
+      "id": "A01",
+      "name": "图片生成工作流，内容生产侧可选",
+      "required": false,
+      "status": "optional_not_implemented",
+      "fully_accepted": false,
+      "conclusion": "图片生成工作流有本地skill说明；实际产品生成入口与预算尚未接。",
+      "evidence": [],
+      "verification": {
+        "local_implementation": false,
+        "new_live_source_this_round": false,
+        "production_deployed_this_round": false,
+        "owner_acceptance": "pending"
+      }
+    }
+  ],
+  "summary": {
+    "requirements": 30,
+    "fully_accepted": 0,
+    "local_code_verified": 3,
+    "partial": 15
+  },
+  "rules": [
+    "代码/隔离测试/真实材料/新采来源/发布/本人验收分别记录，不合成虚假完成率。",
+    "保留身份、outbox、真人评分与签名OTA；本轮没有改这些旧实现。",
+    "快手仍按本人跳过，不恢复看门狗。"
+  ]
+}

@@ -2,6 +2,7 @@
 """Local, separately installed MediaCrawler bridge. No bundled upstream code."""
 import argparse
 import contextlib
+from datetime import date
 import fcntl
 import hashlib
 import json
@@ -80,8 +81,84 @@ def weibo_detail_id(value):
         fail('invalid_weibo_detail_url')
     return match.group(1)
 
+def execution_target(platform,mode,value):
+    if mode=='search': return value
+    url=urlsplit(value) if '://' in value else None
+    path=url.path.rstrip('/') if url else ''
+    host=url.hostname if url else ''
+    query=dict(parse_qsl(url.query,keep_blank_values=True)) if url else {}
+    if platform=='wb' and mode=='detail': return weibo_detail_id(value)
+    patterns={
+        ('xhs','detail'):r'[0-9a-f]{24}',('xhs','creator'):r'[0-9a-f]{24}',
+        ('dy','detail'):r'[0-9]{1,20}',('dy','creator'):r'[A-Za-z0-9_-]{1,200}',
+        ('ks','detail'):r'[A-Za-z0-9_-]{1,200}',('ks','creator'):r'[A-Za-z0-9_-]{1,200}',
+        ('bili','detail'):r'BV[A-Za-z0-9]{10}',('bili','creator'):r'[0-9]{1,20}',
+        ('wb','creator'):r'[0-9]{1,20}',('tieba','detail'):r'[0-9]{1,20}',
+        ('tieba','creator'):r'[A-Za-z0-9_.-]{1,200}',('zhihu','creator'):r'[A-Za-z0-9_-]{1,200}' }
+    if url is None:
+        if platform=='zhihu' and mode=='detail': fail('zhihu_detail_requires_typed_url')
+        if not re.fullmatch(patterns[platform,mode],value): fail('invalid_'+platform+'_'+mode+'_target')
+        return value
+    target=None
+    if platform=='xhs' and host in ('xiaohongshu.com','www.xiaohongshu.com'):
+        match=re.fullmatch(r'/(?:explore|discovery/item)/([0-9a-f]{24})' if mode=='detail' else r'/user/profile/([0-9a-f]{24})',path)
+        if match: return url._replace(path=path).geturl()
+    elif platform=='dy' and host in ('douyin.com','www.douyin.com'):
+        match=re.fullmatch(r'/video/([0-9]{1,20})' if mode=='detail' else r'/user/([A-Za-z0-9_-]{1,200})',path)
+        target=query.get('modal_id') if mode=='detail' and query.get('modal_id') else match.group(1) if match else None
+    elif platform=='dy' and mode=='detail' and host=='v.douyin.com' and re.fullmatch(r'/[A-Za-z0-9_-]+',path): return url._replace(path=path+'/').geturl()
+    elif platform=='ks' and host in ('kuaishou.com','www.kuaishou.com'):
+        match=re.fullmatch(r'/short-video/([A-Za-z0-9_-]{1,200})' if mode=='detail' else r'/profile/([A-Za-z0-9_-]{1,200})',path)
+        target=match.group(1) if match else None
+        if mode=='detail' and re.fullmatch(r'/f/[A-Za-z0-9_-]+',path): return url._replace(path=path).geturl()
+    elif platform=='bili':
+        match=re.fullmatch(r'/video/(BV[A-Za-z0-9]{10})',path) if mode=='detail' and host in ('www.bilibili.com','bilibili.com') else re.fullmatch(r'/([0-9]{1,20})',path) if mode=='creator' and host=='space.bilibili.com' else None
+        target=match.group(1) if match else None
+    elif platform=='wb' and mode=='creator':
+        match=re.fullmatch(r'/(?:u/)?([0-9]{1,20})',path) if host in ('www.weibo.com','weibo.com') else re.fullmatch(r'/profile/([0-9]{1,20})',path) if host=='m.weibo.cn' else None
+        target=match.group(1) if match else None
+    elif platform=='tieba' and host=='tieba.baidu.com':
+        match=re.fullmatch(r'/p/([0-9]{1,20})',path) if mode=='detail' else None
+        if match: target=match.group(1)
+        elif mode=='creator' and path=='/home/main':
+            choices=[query[k] for k in ('id','portrait') if query.get(k)]
+            if len(choices)==1: target=choices[0]
+    elif platform=='zhihu':
+        if mode=='detail':
+            valid=host in ('www.zhihu.com','zhihu.com') and (re.fullmatch(r'/question/[0-9]+/answer/[0-9]+',path) or re.fullmatch(r'/zvideo/[0-9]+',path)) or host=='zhuanlan.zhihu.com' and re.fullmatch(r'/p/[0-9]+',path)
+            if valid: return url._replace(path=path,query='').geturl()
+        else:
+            match=re.fullmatch(r'/people/([A-Za-z0-9_-]{1,200})',path) if host in ('www.zhihu.com','zhihu.com') else None
+            target=match.group(1) if match else None
+    if target is None or not re.fullmatch(patterns[platform,mode],target): fail('invalid_'+platform+'_'+mode+'_target')
+    return target
+
+def validate_options(p):
+    options=p.setdefault('platform_options',{})
+    if not isinstance(options,dict): fail('invalid_platform_options')
+    if p['platform']!='bili':
+        if options: fail('unsupported_platform_options')
+        return
+    if set(options)-{'creator_sections','search_mode','start_day','end_day','quality'}: fail('unsupported_platform_options')
+    sections=options.get('creator_sections',['videos'])
+    if not isinstance(sections,list) or not sections or any(s not in ('videos','dynamics') for s in sections) or len(set(sections))!=len(sections): fail('invalid_creator_sections')
+    if 'creator_sections' in options and p['mode']!='creator': fail('creator_options_require_creator_mode')
+    if options.get('search_mode','normal') not in ('normal','all_in_time_range','daily_limit_in_time_range'): fail('invalid_bilibili_search_mode')
+    if any(k in options for k in ('search_mode','start_day','end_day')) and p['mode']!='search': fail('search_options_require_search_mode')
+    if options.get('search_mode','normal')!='normal':
+        try:
+            start=date.fromisoformat(options['start_day']);end=date.fromisoformat(options['end_day'])
+        except (KeyError,TypeError,ValueError): fail('invalid_bilibili_date_range')
+        if start>end: fail('invalid_bilibili_date_range')
+    elif 'start_day' in options or 'end_day' in options: fail('date_range_requires_search_mode')
+    if 'quality' in options and (type(options['quality']) is not int or options['quality'] not in (16,32,64,80,112,116,120)): fail('invalid_bilibili_quality')
+    if p['mode']=='creator' and sections==['dynamics']:
+        for field in ('comments','replies','media'):
+            if p.get(field,False): fail('bilibili_dynamics_'+field+'_unavailable')
+            p.setdefault(field,False)
+
 def validate(payload):
-    allowed = {'platform','mode','targets','max_items','comments','replies','media','purpose','authorization_ref','session_id','max_api_requests','timeout_seconds','max_comments','headless'}
+    allowed = {'platform','mode','targets','max_items','comments','replies','media','purpose','authorization_ref','session_id','max_api_requests','timeout_seconds','max_comments','headless','start_page','interval_seconds','platform_options','wordcloud'}
     if not isinstance(payload, dict) or set(payload) - allowed:
         fail('invalid_request')
     p = dict(payload)
@@ -114,21 +191,23 @@ def validate(payload):
                     if not re.fullmatch(r'[A-Za-z0-9_=+/-]{1,500}',value): fail('invalid_navigation_locator')
                     continue
                 if contains_secret(key+'='+value): fail('credential_target_not_allowed')
-        elif not re.fullmatch(r'[A-Za-z0-9_-]{1,200}',target):
+        elif not re.fullmatch(r'[A-Za-z0-9_.-]{1,200}' if p['platform']=='tieba' and p['mode']=='creator' else r'[A-Za-z0-9_-]{1,200}',target):
             fail('invalid_target_id')
-    if p['platform']=='wb' and p['mode']=='detail':
-        for target in targets: weibo_detail_id(target)
-    for field, default, low, high in [('max_items',20,1,100),('max_comments',20,0,200),('max_api_requests',20,1,500),('timeout_seconds',600,30,1800)]:
+    for target in targets: execution_target(p['platform'],p['mode'],target)
+    validate_options(p)
+    for field, default, low, high in [('max_items',20,1,100),('max_comments',20,0,200),('max_api_requests',20,1,500),('timeout_seconds',600,30,1800),('start_page',1,1,10000)]:
         v = p.setdefault(field,default)
         if type(v) is not int or not low <= v <= high:
             fail('invalid_' + field)
+    if 'interval_seconds' in p and (type(p['interval_seconds']) not in (int,float) or not 0 <= p['interval_seconds'] <= 300): fail('invalid_interval_seconds')
     if p['mode'] == 'search' and p['max_items'] < 20:
         fail('upstream_search_minimum_20')
-    for field, default in [('comments',True),('replies',False),('media',False),('headless',False)]:
+    for field, default in [('comments',True),('replies',False),('media',False),('headless',False),('wordcloud',False)]:
         if type(p.setdefault(field, default)) is not bool:
             fail('invalid_' + field)
     if p['replies'] and not p['comments']:
         fail('replies_require_comments')
+    if p['wordcloud'] and not p['comments']: fail('wordcloud_requires_comments')
     if p['media'] and p['platform'] not in MEDIA:
         fail('media_not_supported_by_upstream')
     if p['headless'] and not p.get('session_id'): fail('headless_requires_existing_session')
@@ -146,7 +225,64 @@ def source_info(mc):
 
 def capabilities(mc):
     info = source_info(mc)
-    return {'source':info,'platforms':[{'id':p,'name':name,'label':name,'notes':('creator currently answers only; no source completeness guarantee' if p=='zhihu' else 'source completeness unverified; max_items is upstream configuration'),'modes':['search','detail','creator'],'comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else [])} for p,name in PLATFORMS.items()], 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','media_limits':{'single_file_bytes':26214400,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'visible isolated browser; user completes login/captcha; no automatic credential import'}
+    platforms=[]
+    for p,name in PLATFORMS.items():
+        features=[{'id':'comment_wordcloud','support_state':'implemented','live_verified':False,'notes':'optional upstream local generator; output presence checked separately'}]
+        if p=='bili':
+            features.extend([{'id':'creator_dynamics','support_state':'implemented','live_verified':False,'notes':'separate dynamic identity; no dynamic comments or media download'}, {'id':'creator_relations','support_state':'unsupported','live_verified':False,'notes':'installed upstream callbacks do not persist followers/following'}, {'id':'video_quality','support_state':'implemented','live_verified':False,'notes':'requested quality is subject to session and source availability'}])
+        if p=='zhihu': features.extend([{'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
+        platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator'],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
+    return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'visible isolated browser; user completes login/captcha; no automatic credential import'}
+
+def configure_executor(config,p):
+    config.CREATOR_MODE=True
+    config.ENABLE_GET_WORDCLOUD=p.get('wordcloud',False)
+    if p['platform']=='zhihu' and p['mode']=='creator': config.ZHIHU_CREATOR_URL_LIST=[execution_target(p['platform'],p['mode'],t) for t in p['targets']]
+    if 'interval_seconds' in p: config.CRAWLER_MAX_SLEEP_SEC=p['interval_seconds']
+    if p['platform']=='bili':
+        options=p.get('platform_options',{})
+        config.CREATOR_MODE='videos' in options.get('creator_sections',['videos'])
+        config.CRAWLER_MAX_DYNAMICS_COUNT_SINGLENOTES=p['max_items']
+        config.BILI_SEARCH_MODE=options.get('search_mode','normal')
+        if config.BILI_SEARCH_MODE!='normal':
+            config.START_DAY=options['start_day'];config.END_DAY=options['end_day']
+        if 'quality' in options: config.BILI_QN=options['quality']
+
+def configure_platform_hooks(upstream,p):
+    if p['platform']=='bili' and p['mode']=='creator' and set(p.get('platform_options',{}).get('creator_sections',[]))=={'videos','dynamics'}:
+        crawler=upstream.CrawlerFactory.CRAWLERS['bili']
+        original=crawler.get_creator_videos
+        async def videos_and_dynamics(self,creator_id):
+            await original(self,creator_id)
+            await self.get_all_creator_details([str(creator_id)])
+        crawler.get_creator_videos=videos_and_dynamics
+
+def configure_wordcloud(upstream,config,p,mc,run):
+    if not p.get('wordcloud'): return
+    def outcome(state):
+        phase=read(run/'phase.json') if (run/'phase.json').exists() else {'phase':'running','api_attempts':0}
+        write(run/'phase.json',{**phase,'wordcloud_status':state})
+    for field in ('FONT_PATH','STOP_WORDS_FILE'):
+        resource_path=Path(getattr(config,field,''))
+        if not resource_path.is_absolute(): resource_path=Path(mc)/resource_path
+        if not resource_path.is_file():
+            config.ENABLE_GET_WORDCLOUD=False
+            async def unavailable(): outcome('resource_missing')
+            upstream._generate_wordcloud_if_needed=unavailable
+            outcome('resource_missing')
+            return
+        setattr(config,field,str(resource_path.resolve()))
+    async def generate():
+        try:
+            from tools.async_file_writer import AsyncFileWriter
+            await AsyncFileWriter(platform=JSONL_DIRS.get(p['platform'],(p['platform'],))[0],crawler_type=p['mode']).generate_wordcloud_from_comments()
+            folder=run/'output'/JSONL_DIRS.get(p['platform'],(p['platform'],))[0]/'words'
+            generated=any(folder.glob('*_word_cloud.png')) and any(folder.glob('*_word_freq.json'))
+            state='generated' if generated else 'no_output'
+        except (ModuleNotFoundError,ImportError): state='dependency_missing'
+        except Exception: state='generation_failed'
+        outcome(state)
+    upstream._generate_wordcloud_if_needed=generate
 
 def run_dir(root, run_id):
     folder = Path(root).resolve()/'runs'/uid(run_id)
@@ -198,8 +334,8 @@ def start(root, mc, payload):
     return {'run_id':run_id,'state':'starting','session_id':p['session_id'],'supervisor_pid':proc.pid,'source_kind':'mediacrawler_api','reward_eligible':False}
 
 def argv_for(p, output):
-    args = ['--platform',p['platform'],'--type',p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media']).lower(),'--enable_ip_proxy','false']
-    targets=[weibo_detail_id(t) for t in p['targets']] if p['platform']=='wb' and p['mode']=='detail' else p['targets']
+    args = ['--platform',p['platform'],'--type',p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--start',str(p.get('start_page',1)),'--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media']).lower(),'--enable_ip_proxy','false']
+    targets=[execution_target(p['platform'],p['mode'],t) for t in p['targets']]
     args += [{'search':'--keywords','detail':'--specified_id','creator':'--creator_id'}[p['mode']],','.join(targets)]
     return args
 
@@ -267,7 +403,8 @@ def execute(root, mc, run_id):
     def event(new=None):
         nonlocal phase
         phase = new or phase
-        write(run/'phase.json',{'phase':phase,'api_attempts':attempts})
+        previous=read(run/'phase.json') if (run/'phase.json').exists() else {}
+        write(run/'phase.json',{**previous,'phase':phase,'api_attempts':attempts})
     # Raw upstream logs can contain credential URLs. Only constant phase labels leave here.
     class Sink:
         def write(self, text):
@@ -318,12 +455,9 @@ def execute(root, mc, run_id):
             config.ENABLE_IP_PROXY=False
             config.SAVE_LOGIN_STATE=True
             config.USER_DATA_DIR='%s_bridge_profile'
-            config.ENABLE_GET_WORDCLOUD=False
-            config.CREATOR_MODE=True
+            configure_executor(config,p)
             config.ENABLE_GET_CONTACTS=False
             config.ENABLE_GET_DYNAMICS=False
-            if p['platform']=='zhihu' and p['mode']=='creator':
-                config.ZHIHU_CREATOR_URL_LIST=p['targets']
             import httpx
             import requests
             budget_lock=threading.Lock()
@@ -380,6 +514,8 @@ def execute(root, mc, run_id):
             BrowserType.launch=launch
             BrowserType.launch_persistent_context=persistent
             import main as upstream
+            configure_platform_hooks(upstream,p)
+            configure_wordcloud(upstream,config,p,mc,run)
             import asyncio
             sys.argv=[str(Path(mc)/'main.py'),*argv_for(p,run/'output')]
             async def crawl():
@@ -416,16 +552,27 @@ def reported_count(value):
 
 def normalize(platform, kind, row, origin):
     if not isinstance(row,dict): fail('invalid_output_record')
-    cid=opaque(row.get(ID_KEYS[platform]))
+    if kind not in ('content','comment','dynamic') or kind=='dynamic' and platform!='bili': fail('unsupported_output_kind')
+    cid=opaque(row.get('dynamic_id') if kind=='dynamic' else row.get(ID_KEYS[platform]))
     if not cid: fail('missing_content_id')
     result={'platform':PLATFORMS[platform],'content_id':cid,'kind':kind,'source_kind':'mediacrawler_api','reward_eligible':False,'coverage':'unverified','origin':origin}
     if kind=='comment':
         result.update(comment_id=opaque(row.get('comment_id')),parent_comment_id=opaque(row.get('parent_comment_id')),text=safe_text(row.get('content')),reported_reply_count=reported_count(row.get('sub_comment_count')))
         if not result['comment_id']: fail('missing_comment_id')
     else:
-        result.update(title=safe_text(row.get('title'),2000),body=safe_text(next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)),content_type=safe_text(row.get('content_type') or row.get('type'),80))
+        result.update(title=safe_text(row.get('title'),2000),body=safe_text(next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)),content_type=safe_text(row.get('content_type') or row.get('video_type') or row.get('type'),80))
+    result['canonical_id_scheme']='bilibili.dynamic.v1' if kind=='dynamic' else 'bilibili.aid.v1' if platform=='bili' and cid.isdecimal() else 'bilibili.bvid.v1' if platform=='bili' and re.fullmatch(r'BV[A-Za-z0-9]{10}',cid) else PLATFORMS[platform]+'.source_id.v1'
+    result['platform_fields']={k:v for k in ('video_type','type','content_type','creator_hash','nickname','user_name') if (v:=safe_text(row.get(k),2000)) is not None}
+    author_hash=opaque(safe_text(row.get('creator_hash'),200))
+    author_id=author_hash or next((value for key in ('author_id','creator_id','user_id') if (value:=opaque(row.get(key))) is not None),None)
+    if author_id:
+        result['author']={'author_id':author_id,'identity_status':'anonymized_upstream' if author_hash else 'reported_upstream','id_scheme':'upstream_anonymous_hash' if author_hash else PLATFORMS[platform]+'.creator_id.v1','display_name':safe_text(row.get('nickname') or row.get('user_name'),2000)}
+    if kind!='comment':
+        title=row.get('title')
+        result['title_status']='withheld_sensitive' if isinstance(title,str) and contains_secret(title) else 'reported' if isinstance(title,str) else 'missing'
+        result['title_truncated']=isinstance(title,str) and len(title)>2000
     metrics={}
-    for key in ('liked_count','like_count','comment_count','share_count','share_count','collected_count','view_count','play_count','video_play_count','video_review_count','voteup_count','forward_count','video_favorite_count','video_share_count','video_coin_count','video_danmaku','video_comment','comment_like_count','total_replay_num'):
+    for key in ('liked_count','like_count','disliked_count','comment_count','comments_count','share_count','shared_count','collected_count','view_count','play_count','video_play_count','video_review_count','voteup_count','forward_count','video_favorite_count','video_share_count','video_coin_count','video_danmaku','video_comment','comment_like_count','total_replay_num','total_comments','total_forwards','total_liked'):
         value=row.get(key)
         if type(value) is int and value>=0 or isinstance(value,str) and re.fullmatch(r'[0-9.,万千亿wWkKmM+ ]{1,40}',value):
             metrics[key]={'reported_value':value,'semantics':'upstream_reported_not_independently_verified'}
@@ -434,11 +581,15 @@ def normalize(platform, kind, row, origin):
     if kind=='comment':
         result['parent_status']='reported' if result['parent_comment_id'] is not None else 'missing_upstream'
         result['reply_count_semantics']='upstream_reported_not_independently_verified'
-    result['published_at_reported']=next((row[k] for k in ('time','create_time','created_time','publish_time') if type(row.get(k)) is int or isinstance(row.get(k),str) and len(row[k])<=80 and not contains_secret(row[k])),None)
+    result['published_at_reported']=next((row[k] for k in ('time','create_time','created_time','publish_time','pub_ts') if type(row.get(k)) is int or isinstance(row.get(k),str) and len(row[k])<=80 and not contains_secret(row[k])),None)
     result['entity_key']=result['platform']+':'+cid+(':'+result['comment_id'] if kind=='comment' else '')
+    if kind=='dynamic': result['entity_key']=result['platform']+':dynamic:'+cid
     text_value = row.get('content') if kind=='comment' else next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)
     result['text_status']='withheld_sensitive' if isinstance(text_value,str) and contains_secret(text_value) else 'reported' if isinstance(text_value,str) else 'missing'
     result['text_truncated']=isinstance(text_value,str) and len(text_value)>24000
+    result['text_completeness']='partial' if result['text_truncated'] else 'unknown'
+    if platform=='bili' and kind=='content':
+        result['upstream_truncation_risk']={'fields':['title','body'],'limit_chars':500,'reason':'installed_upstream_store_slices_title_and_description'}
     result['record_hash']=hashlib.sha256(canonical(result).encode()).hexdigest()
     return result
 
@@ -467,7 +618,7 @@ def import_output(root,payload):
     seen_rows={}
     for path in paths:
         if path.is_symlink() or not path.resolve().is_relative_to(output.resolve()) or path.stat().st_size>50_000_000: fail('unsafe_output_file')
-        kind='comment' if '_comments_' in path.name else 'content' if '_contents_' in path.name else None
+        kind='comment' if '_comments_' in path.name else 'content' if '_contents_' in path.name else 'dynamic' if p=='bili' and '_dynamics_' in path.name else None
         if not kind: continue
         digest=hashlib.sha256(path.read_bytes()).hexdigest()
         files.append({'path':str(path.relative_to(run)),'sha256':digest})
@@ -486,13 +637,26 @@ def import_output(root,payload):
                     rejected+=1
                 if len(records)>10000: fail('output_limit')
     media=[]
-    for path in sorted((output/p/'media').rglob('*')):
-        if path.is_file() and path.suffix.lower() in ('.jpg','.jpeg','.png','.webp','.gif','.mp4','.m4a','.mp3','.wav','.webm','.flv','.mov') and not path.is_symlink() and path.resolve().is_relative_to(output.resolve()):
-            media.append({'path':str(path.relative_to(run)),'bytes':path.stat().st_size,'status':'downloaded_by_external_executor','source_kind':'mediacrawler_api'})
-            if len(media)>1000: fail('media_manifest_limit')
-    data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
+    artifacts=[]
+    artifact_bytes=0
+    for name in JSONL_DIRS.get(p,(p,)):
+        folder=output/name/'media'
+        if folder.is_symlink() or folder.parent.is_symlink(): fail('unsafe_output_file')
+        for path in sorted(folder.rglob('*')):
+            if path.is_file() and path.suffix.lower() in ('.jpg','.jpeg','.png','.webp','.gif','.mp4','.m4a','.mp3','.wav','.webm','.flv','.mov') and not path.is_symlink() and path.resolve().is_relative_to(output.resolve()):
+                media.append({'path':str(path.relative_to(run)),'bytes':path.stat().st_size,'status':'downloaded_by_external_executor','source_kind':'mediacrawler_api'})
+                if len(media)>1000: fail('media_manifest_limit')
+        words=output/name/'words'
+        if words.is_symlink(): fail('unsafe_output_file')
+        for path in sorted(words.glob('*')):
+            if path.name.endswith(('_word_cloud.png','_word_freq.json')) and path.is_file() and not path.is_symlink() and path.resolve().is_relative_to(output.resolve()):
+                size=path.stat().st_size
+                artifact_bytes+=size
+                if len(artifacts)>=1000 or size>26214400 or artifact_bytes>104857600: fail('wordcloud_artifact_limit')
+                artifacts.append({'kind':'wordcloud_image' if path.suffix=='.png' else 'word_frequency','path':str(path.relative_to(run)),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':size,'source_kind':'derived_local','status':'generated_by_external_executor'})
+    data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
     write(run/'normalized.json',data)
-    return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'media_files':len(media),'rejected_records':rejected,'coverage':'unverified'}}
+    return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'dynamics':sum(r['kind']=='dynamic' for r in records),'media_files':len(media),'rejected_records':rejected,'coverage':'unverified'}}
 
 def main():
     os.umask(0o077)

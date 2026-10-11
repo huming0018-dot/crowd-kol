@@ -12,6 +12,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+import uuid
 from unittest.mock import patch
 
 import analysis_contract as contract
@@ -314,7 +315,21 @@ class JobsTests(unittest.TestCase):
 
     def test_timeout_terminates_child_and_restart_unknown_does_not_rerun(self):
         self.mode.write_text('sleep')
-        with patch.object(analysis_jobs, 'TIMEOUT_SECONDS', 0.1):
+        real_communicate = analysis_jobs.subprocess.Popen.communicate
+
+        def after_provider_started(process, *args, **kwargs):
+            # Interpreter startup can exceed the deliberately tiny timeout on a busy
+            # Mac. Begin this timeout assertion after the fake provider has logged
+            # its single invocation, before communicate sends the prompt.
+            deadline = time.monotonic() + 3
+            while not (self.base / 'calls.jsonl').exists() and time.monotonic() < deadline:
+                time.sleep(0.005)
+            if not (self.base / 'calls.jsonl').exists():
+                raise AssertionError('offline provider did not start')
+            return real_communicate(process, *args, **kwargs)
+
+        with patch.object(analysis_jobs, 'TIMEOUT_SECONDS', 0.1), \
+                patch.object(analysis_jobs.subprocess.Popen, 'communicate', after_provider_started):
             status = self.wait(self.start(), 'failed')
         self.assertEqual(status['error'], 'analysis_timeout')
         self.assertFalse(self.manager._alive(status['provider_pid']))
@@ -328,6 +343,56 @@ class JobsTests(unittest.TestCase):
             self.assertEqual(len((self.base / 'calls.jsonl').read_text().splitlines()), 1)
         finally:
             restarted.close()
+
+    def test_terminal_publication_cannot_turn_owned_snapshot_into_unknown(self):
+        # Force status to read running immediately before the worker publishes its
+        # terminal state and drops ownership. Neither completion nor cancellation
+        # may be mistaken for a restarted manager's unknown request.
+        for terminal in ('completed', 'cancelled'):
+            with self.subTest(terminal=terminal):
+                job_id = str(uuid.uuid4())
+                folder = self.manager.root / job_id
+                folder.mkdir()
+                write(folder / 'state.json', {'job_id': job_id, 'state': 'running'})
+                if terminal == 'completed':
+                    write(folder / 'result.json', {'fixture': 'offline'})
+                self.manager.running[job_id] = {}
+                snapshot_read = threading.Event()
+                terminal_written = threading.Event()
+                ownership_removed = threading.Event()
+                real_read = analysis_jobs.read
+
+                def finish():
+                    if not snapshot_read.wait(2):
+                        return
+                    write(folder / 'state.json', {'job_id': job_id, 'state': terminal})
+                    terminal_written.set()
+                    with self.manager.mutex:
+                        self.manager.running.pop(job_id, None)
+                    ownership_removed.set()
+
+                def overlapping_read(path):
+                    state = real_read(path)
+                    if Path(path) == folder / 'state.json' and state['state'] == 'running':
+                        snapshot_read.set()
+                        if not terminal_written.wait(2):
+                            raise AssertionError('terminal publication did not happen')
+                        # Before the fix ownership can disappear here. With the fix
+                        # removal waits for this status snapshot to release its lock.
+                        ownership_removed.wait(0.1)
+                    return state
+
+                publisher = threading.Thread(target=finish)
+                publisher.start()
+                try:
+                    with patch.object(analysis_jobs, 'read', side_effect=overlapping_read):
+                        observed = self.manager.status(job_id)
+                    self.assertIn(observed['state'], ('running', terminal))
+                finally:
+                    publisher.join(timeout=2)
+                self.assertFalse(publisher.is_alive())
+                self.assertEqual(self.manager.status(job_id)['state'], terminal)
+                self.assertNotIn(job_id, self.manager.running)
 
 
 class AnalysisHTTPTests(unittest.TestCase):

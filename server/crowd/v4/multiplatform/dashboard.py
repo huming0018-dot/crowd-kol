@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Local-only task UI for a separately installed MediaCrawler executor."""
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
 import secrets
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -18,7 +20,7 @@ ACTIONS = {'capabilities', 'start', 'status', 'stop', 'import', 'list'}
 
 
 class Application:
-    def __init__(self, root, mc_root=None):
+    def __init__(self, root, mc_root=None, collector_roots=None):
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.config_path = self.root / 'dashboard-config.json'
@@ -26,11 +28,26 @@ class Application:
         self.lock = threading.Lock()
         self.token = secrets.token_urlsafe(32)
         self.analysis_jobs = None
+        self.owner_tasks = None
+        self.results_store = None
+        self.media_jobs = None
+        config = {}
         try:
             config = json.loads(self.config_path.read_text())
+            if not isinstance(config, dict):
+                raise ValueError('invalid_configuration')
             self.mc_root = config.get('mc_root', '')
         except (OSError, ValueError):
+            config = {}
             self.mc_root = ''
+        registered = config.get('collector_roots', [])
+        if not isinstance(registered, list) or any(not isinstance(p, str) for p in registered):
+            raise ValueError('invalid_collector_roots')
+        self.collector_roots = list(dict.fromkeys(Path(p).expanduser().resolve()
+                                    for p in registered + list(collector_roots or [])))
+        for path in self.collector_roots:
+            if not path.is_dir() or not (path / 'runs').is_dir() or not (path / 'sessions').is_dir():
+                raise ValueError('collector_root_required')
         if mc_root:
             self.mc_root = str(Path(mc_root).expanduser().resolve())
         if not self.mc_root:
@@ -38,6 +55,14 @@ class Application:
                           if (p / 'main.py').is_file() and (p / 'LICENSE').is_file()]
             if len(candidates) == 1:
                 self.mc_root = str(candidates[0].resolve())
+        if collector_roots:
+            self._save_config()
+        from owner_tasks import OwnerTasks
+        self.owner_tasks = OwnerTasks(self.root, self.task_run)
+        self.owner_tasks.start_scheduler()
+        from watchlists import Watchlists
+        self.watchlists = Watchlists(self.root, self.owner_tasks)
+        self.watchlists.start_scheduler()
 
     def configure(self, body):
         if set(body) != {'mc_root'} or not isinstance(body['mc_root'], str):
@@ -46,20 +71,61 @@ class Application:
         if not all((path / name).is_file() for name in ['main.py', 'LICENSE']):
             raise ValueError('mediacrawler_directory_required')
         with self.lock:
-            data = json.dumps({'mc_root': str(path)}).encode()
-            temporary = self.root / ('config-' + secrets.token_hex(8))
-            with os.fdopen(os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'wb') as f:
-                f.write(data)
-            temporary.replace(self.config_path)
             self.mc_root = str(path)
+            self._save_config()
         return {'ok': True, 'mc_root': self.mc_root}
 
-    def run(self, action, payload):
-        if action not in ACTIONS or not isinstance(payload, dict):
-            raise ValueError('invalid_action')
-        if not self.mc_root:
-            raise ValueError('configure_executor_first')
-        command = [sys.executable, str(HERE / 'mc_runner.py'), '--root', str(self.runner_root),
+    def _save_config(self):
+        data = json.dumps({'mc_root': self.mc_root,
+                           'collector_roots': [str(p) for p in self.collector_roots]}).encode()
+        temporary = self.root / ('config-' + secrets.token_hex(8))
+        with os.fdopen(os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'wb') as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        temporary.replace(self.config_path)
+
+    def _roots(self):
+        return list(dict.fromkeys([self.runner_root, *self.collector_roots]))
+
+    def _registered_run_root(self, run_id):
+        try:
+            if not isinstance(run_id, str) or str(uuid.UUID(run_id)) != run_id:
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError('invalid_run_id') from None
+        matches = [p for p in self._roots() if (p / 'runs' / run_id).is_dir()
+                   and not (p / 'runs' / run_id).is_symlink()]
+        if len(matches) != 1:
+            raise ValueError('collector_run_ambiguous' if matches else 'run_not_found')
+        return matches[0]
+
+    def _start_root(self, payload):
+        session_id = payload.get('session_id')
+        if not session_id:
+            return self.runner_root
+        try:
+            if not isinstance(session_id, str) or str(uuid.UUID(session_id)) != session_id:
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError('invalid_session_id') from None
+        matches = [p for p in self._roots() if (p / 'sessions' / session_id).is_dir()
+                   and not (p / 'sessions' / session_id).is_symlink()]
+        if len(matches) > 1:
+            raise ValueError('collector_session_ambiguous')
+        if not matches:
+            raise ValueError('session_not_found')
+        # identity.json is platform metadata; browser_data and credentials stay untouched.
+        try:
+            identity = json.loads((matches[0] / 'sessions' / session_id / 'identity.json').read_text())
+            if identity.get('platform') != payload.get('platform'):
+                raise ValueError('session_platform_mismatch')
+        except (OSError, TypeError, AttributeError, json.JSONDecodeError):
+            raise ValueError('session_identity_unavailable') from None
+        return matches[0]
+
+    def _call_runner(self, root, action, payload):
+        command = [sys.executable, str(HERE / 'mc_runner.py'), '--root', str(root),
                    '--mc-root', self.mc_root, action]
         # The runner consumes JSON, never a shell command or browser credentials.
         try:
@@ -77,6 +143,57 @@ class Application:
         if not isinstance(value, dict):
             return {'ok': False, 'error': 'invalid_runner_result'}
         return value
+
+    def run(self, action, payload):
+        if action not in ACTIONS or not isinstance(payload, dict):
+            raise ValueError('invalid_action')
+        if not self.mc_root:
+            raise ValueError('configure_executor_first')
+        if action == 'list':
+            if payload:
+                raise ValueError('invalid_list_request')
+            runs = []
+            for root in self._roots():
+                response = self._call_runner(root, action, payload)
+                if response.get('ok') is False:
+                    return response
+                items = response.get('result', response).get('runs', [])
+                if not isinstance(items, list):
+                    raise ValueError('invalid_runner_result')
+                runs.extend(items)
+            seen = set()
+            for item in runs:
+                run_id = item.get('run_id')
+                if run_id in seen:
+                    raise ValueError('collector_run_ambiguous')
+                seen.add(run_id)
+            return {'ok': True, 'result': {'runs': runs}}
+        root = (self._registered_run_root(payload.get('run_id')) if action in ('status', 'stop', 'import')
+                else self._start_root(payload) if action == 'start' else self.runner_root)
+        value = self._call_runner(root, action, payload)
+        if action == 'import' and value.get('ok') is not False:
+            imported = value.get('result', value)
+            if isinstance(imported, dict) and 'records' in imported:
+                try:
+                    from results_store import ResultsStore
+                    with self.lock:
+                        if self.results_store is None:
+                            self.results_store = ResultsStore(self.root)
+                    persisted = self.results_store.ingest(imported)
+                    imported['local_results_revision'] = persisted['results_revision']
+                except (ValueError, TypeError, OSError, sqlite3.Error):
+                    imported['local_results_error'] = 'results_store_write_failed'
+        return value
+
+    def task_run(self, action, payload):
+        """A parent cannot report success before its library write succeeds."""
+        response = self.run(action, payload)
+        imported = response.get('result', response)
+        if action == 'import' and imported.get('local_results_error'):
+            # Original files and the run stay intact. OwnerTasks retains active_run_id
+            # and retries this read/import, without starting another source action.
+            return {'ok': False, 'error': 'local_results_persistence_failed'}
+        return response
 
     def analysis(self, action, payload):
         from analysis_contract import build_snapshot
@@ -121,7 +238,62 @@ class Application:
         latest = max(completed or matching, key=lambda s: s['created_at'])
         return {**self.analysis_jobs.status(latest['job_id']), 'input_summary': input_summary}
 
-    def media_file(self, body):
+    def tasks(self, action, payload):
+        from owner_tasks import OwnerTasks, parse_batch
+        if not isinstance(payload, dict):
+            raise ValueError('invalid_task_request')
+        if action == 'parse_batch':
+            if set(payload) != {'text', 'mode'}:
+                raise ValueError('invalid_batch_request')
+            parsed = parse_batch(payload['text'], payload['mode'])
+            return {**parsed, 'valid': parsed['ok'], 'ok': True}
+        with self.lock:
+            if self.owner_tasks is None:
+                self.owner_tasks = OwnerTasks(self.root, self.task_run)
+                self.owner_tasks.start_scheduler()
+        if action in ('preview', 'create'):
+            return getattr(self.owner_tasks, action)(payload)
+        if action == 'list' and not payload:
+            return self.owner_tasks.list()
+        if action in ('status', 'stop', 'resume') and set(payload) == {'task_id'}:
+            return getattr(self.owner_tasks, action)(payload['task_id'])
+        raise ValueError('invalid_task_action')
+
+    def results(self, action, payload):
+        from results_store import ResultsStore
+        if not isinstance(payload, dict):
+            raise ValueError('invalid_results_request')
+        with self.lock:
+            if self.results_store is None:
+                self.results_store = ResultsStore(self.root)
+        if action == 'ingest' and set(payload) == {'run_id'}:
+            response = self.run('import', payload)
+            if response.get('ok') is False:
+                raise ValueError(response.get('error', 'results_not_ready'))
+            return self.results_store.ingest(response.get('result', response))
+        fields = {
+            'list': {'filters', 'revision', 'limit', 'offset', 'cursor'},
+            'detail': {'platform', 'content_id', 'revision'},
+            'evaluate': {'platform', 'content_id', 'value', 'tags', 'evaluator_ref', 'revision'},
+            'export': {'format', 'filters', 'revision'},
+        }
+        if action not in fields or set(payload) - fields[action]:
+            raise ValueError('invalid_results_action')
+        method = 'list_results' if action == 'list' else action
+        return getattr(self.results_store, method)(**payload)
+
+    def watches(self, action, payload):
+        if not isinstance(payload, dict):
+            raise ValueError('invalid_watchlist_request')
+        if action in ('create', 'preview'):
+            return getattr(self.watchlists, action)(payload)
+        if action == 'list' and not payload:
+            return self.watchlists.list()
+        if action in ('status', 'stop', 'resume') and set(payload) == {'watch_id'}:
+            return getattr(self.watchlists, action)(payload['watch_id'])
+        raise ValueError('invalid_watchlist_action')
+
+    def media_file(self, body, artifact=False):
         if set(body) != {'run_id', 'path'} or not isinstance(body['path'], str):
             raise ValueError('invalid_media_request')
         run_id = str(uuid.UUID(body['run_id']))
@@ -130,16 +302,43 @@ class Application:
         response = self.run('import', {'run_id': run_id})
         if response.get('ok') is False:
             raise ValueError('results_not_ready')
-        media = response.get('result', response).get('media', [])
+        media = response.get('result', response).get('artifacts' if artifact else 'media', [])
         if body['path'] not in {item['path'] for item in media}:
             raise ValueError('media_not_in_task')
-        run = self.runner_root / 'runs' / run_id
+        run = self._registered_run_root(run_id) / 'runs' / run_id
         path = run / body['path']
         if path.is_symlink() or not path.resolve().is_relative_to((run / 'output').resolve()) or not path.is_file():
             raise ValueError('unsafe_media_path')
         if path.stat().st_size > 500 * 1024 * 1024:
             raise ValueError('media_over_download_limit')
         return path
+
+    def process_media(self, action, payload):
+        from media_jobs import MediaJobs
+        from mc_runner import PLATFORMS
+        if not isinstance(payload, dict):
+            raise ValueError('invalid_media_processing_request')
+        with self.lock:
+            if self.media_jobs is None:
+                self.media_jobs = MediaJobs(self.root, os.environ.get('CROWD_LOCAL_ASR_MODEL'), os.environ.get('CROWD_LOCAL_ASR_PYTHON'))
+        if action == 'capabilities' and not payload:
+            return self.media_jobs.capabilities()
+        if action == 'list' and set(payload) == {'run_id'}:
+            return self.media_jobs.list(payload['run_id'])
+        if action in ('status', 'cancel') and set(payload) == {'job_id'}:
+            return getattr(self.media_jobs, action)(payload['job_id'])
+        if action == 'start' and set(payload) == {'run_id', 'path', 'content_id', 'kind'}:
+            source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
+            imported = self.run('import', {'run_id': payload['run_id']})
+            records = imported.get('result', imported).get('records', [])
+            candidates = [r for r in records if r.get('kind') in ('content', 'dynamic') and r.get('content_id') == payload['content_id']]
+            if not candidates:
+                raise ValueError('media_content_not_in_task')
+            platform = candidates[0]['platform']
+            if platform in PLATFORMS:
+                platform = PLATFORMS[platform]
+            return self.media_jobs.start(source, platform, payload['content_id'], payload['kind'], payload['run_id'])
+        raise ValueError('invalid_media_processing_action')
 
 
 def make_server(app, port=45937):
@@ -170,8 +369,8 @@ def make_server(app, port=45937):
             if path == '/':
                 document = (HERE / 'dashboard.html').read_text()
                 return self.send(document.replace('__NONCE__', app.token), html=True)
-            if path == '/analysis-ui.js':
-                data = (HERE / 'analysis-ui.js').read_bytes()
+            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js'):
+                data = (HERE / path[1:]).read_bytes()
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/javascript; charset=utf-8')
                 self.send_header('Content-Length', str(len(data)))
@@ -201,8 +400,38 @@ def make_server(app, port=45937):
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_analysis_request')
                     return self.send(app.analysis(body['action'], body['payload']))
-                if self.path == '/api/media':
-                    path = app.media_file(body)
+                if self.path == '/api/tasks':
+                    if set(body) != {'action', 'payload'}:
+                        raise ValueError('invalid_task_request')
+                    return self.send(app.tasks(body['action'], body['payload']))
+                if self.path == '/api/watchlists':
+                    if set(body) != {'action', 'payload'}:
+                        raise ValueError('invalid_watchlist_request')
+                    return self.send(app.watches(body['action'], body['payload']))
+                if self.path == '/api/results':
+                    if set(body) != {'action', 'payload'}:
+                        raise ValueError('invalid_results_request')
+                    value = app.results(body['action'], body['payload'])
+                    if body['action'] == 'export':
+                        data = value['data']
+                        self.send_response(200)
+                        self.send_header('Content-Type', value['mime'])
+                        self.send_header('Content-Length', str(len(data)))
+                        self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(value['filename']))
+                        self.send_header('X-Content-SHA256', value['sha256'])
+                        self.send_header('X-Crowd-Export-Manifest', base64.urlsafe_b64encode(json.dumps(value['manifest'], ensure_ascii=False).encode()).decode())
+                        self.send_header('Cache-Control', 'no-store')
+                        self.send_header('X-Content-Type-Options', 'nosniff')
+                        self.end_headers()
+                        self.wfile.write(data)
+                        return
+                    return self.send(value)
+                if self.path == '/api/media-processing':
+                    if set(body) != {'action', 'payload'}:
+                        raise ValueError('invalid_media_processing_request')
+                    return self.send(app.process_media(body['action'], body['payload']))
+                if self.path in ('/api/media', '/api/artifact'):
+                    path = app.media_file(body, artifact=self.path == '/api/artifact')
                     with path.open('rb') as stream:
                         self.send_response(200)
                         self.send_header('Content-Type', 'application/octet-stream')
@@ -220,6 +449,8 @@ def make_server(app, port=45937):
                 if self.path != '/api/action' or set(body) != {'action', 'payload'}:
                     raise ValueError('invalid_request')
                 return self.send(app.run(body['action'], body['payload']))
+            except sqlite3.Error:
+                return self.send({'ok': False, 'error': 'local_storage_unavailable'}, 503)
             except (ValueError, TypeError, OSError) as error:
                 message = str(error)
                 return self.send({'ok': False, 'error': message if message.replace('_', '').isalnum() else 'invalid_request'}, 400)
@@ -228,6 +459,11 @@ def make_server(app, port=45937):
         def server_close(self):
             if app.analysis_jobs is not None:
                 app.analysis_jobs.close()
+            app.watchlists.close()
+            if app.owner_tasks is not None:
+                app.owner_tasks.close()
+            if app.media_jobs is not None:
+                app.media_jobs.close()
             super().server_close()
 
     return Server(('127.0.0.1', port), Handler)
@@ -237,10 +473,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path.home() / 'Library/Application Support/CrowdCollector')
     parser.add_argument('--mc-root')
+    parser.add_argument('--collector-root', action='append', type=Path, default=[],
+                        help='Register an existing runs/sessions root without moving it; repeatable')
     parser.add_argument('--port', type=int, default=45937)
     parser.add_argument('--open', action='store_true')
     args = parser.parse_args()
-    server = make_server(Application(args.root, args.mc_root), args.port)
+    server = make_server(Application(args.root, args.mc_root, args.collector_root), args.port)
     url = 'http://127.0.0.1:' + str(server.server_port)
     print('多平台采集工作台：' + url, flush=True)
     print('关闭此终端只关闭工作台；请先在页面停止仍在运行的采集任务。', flush=True)

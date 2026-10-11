@@ -25,7 +25,7 @@ class AnalysisJobs:
         self.root = Path(root).resolve() / 'analysis'
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.executable = executable or shutil.which('codex')
-        self.mutex = threading.Lock()
+        self.mutex = threading.RLock()
         self.running = {}
         self.closed = False
         self.provider_version = 'unavailable'
@@ -48,12 +48,16 @@ class AnalysisJobs:
 
     def status(self, job_id):
         folder = self.folder(job_id)
-        state = read(folder / 'state.json')
-        if state['state'] in ('queued', 'running') and job_id not in self.running:
-            # A restarted UI never repeats a possibly billed request automatically.
-            state = {**state, 'state': 'interrupted_unknown', 'error': 'analysis_interrupted_check_before_retry'}
-        if state['state'] == 'completed':
-            state['result'] = read(folder / 'result.json')
+        with self.mutex:
+            # Pair the durable snapshot with ownership. The worker writes its terminal
+            # state before removing ownership; reading outside this lock could combine
+            # an old running snapshot with a newly removed record and report unknown.
+            state = read(folder / 'state.json')
+            if state['state'] in ('queued', 'running') and job_id not in self.running:
+                # A restarted UI never repeats a possibly billed request automatically.
+                state = {**state, 'state': 'interrupted_unknown', 'error': 'analysis_interrupted_check_before_retry'}
+            if state['state'] == 'completed':
+                state['result'] = read(folder / 'result.json')
         return {'ok': True, **state}
 
     def start(self, imported, platform, content_id):

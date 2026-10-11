@@ -18,8 +18,11 @@ ROOT = Path(__file__).resolve().parent
 
 
 def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run, asr_model=None):
-    if platform not in ('xiaohongshu', 'bilibili') or not re.fullmatch(
-            r'[a-f0-9]{24}' if platform == 'xiaohongshu' else r'BV[A-Za-z0-9]{10}', content_id):
+    identities = {'xiaohongshu': r'[a-f0-9]{24}', 'bilibili': r'BV[A-Za-z0-9]{10}|[0-9]{1,30}',
+                  'douyin': r'[0-9]{1,30}', 'kuaishou': r'[A-Za-z0-9_-]{1,100}',
+                  'weibo': r'[A-Za-z0-9]{1,100}', 'tieba': r'[0-9]{1,30}',
+                  'zhihu': r'[A-Za-z0-9_:-]{1,100}'}
+    if platform not in identities or not isinstance(content_id, str) or not re.fullmatch(identities[platform], content_id):
         raise ValueError('invalid_content_identity')
     if not authorization_ref.strip() or len(authorization_ref) > 200:
         raise ValueError('authorization_reference_required')
@@ -101,7 +104,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--kind', choices=('ocr', 'transcript', 'demographics', 'asr'), required=True)
     parser.add_argument('--input', type=Path, nargs='+', required=True)
-    parser.add_argument('--platform', choices=('xiaohongshu', 'bilibili'), required=True)
+    parser.add_argument('--platform', choices=('xiaohongshu', 'bilibili', 'douyin', 'kuaishou', 'weibo', 'tieba', 'zhihu'), required=True)
     parser.add_argument('--content-id', required=True)
     parser.add_argument('--authorization-ref', required=True)
     parser.add_argument('--output', type=Path, required=True)
