@@ -123,6 +123,49 @@ class LongMediaTests(unittest.TestCase):
         self.assertEqual(len(result['segments']), 2)
         self.assertEqual(result['overlap_decisions'], [])
 
+    def test_short_window_cut_fragment_inside_full_sentence_keeps_evidence(self):
+        manifest = lm.prepare_chunks(self.source, self.work)
+        partial = {'start': 54.04, 'end': 55., 'text': '你自己'}
+        full = {'start': 0., 'end': 3.56, 'text': '你很好 你自己卻不知道'}
+        original = json.loads(json.dumps([partial, full]))
+        result = lm.merge_chunks(manifest, [{'segments': [partial]}, {'segments': [full]}])
+        self.assertEqual(len(result['segments']), 1)
+        self.assertEqual(result['segments'][0]['text'], full['text'])
+        decision = result['overlap_decisions'][0]
+        self.assertEqual(decision['match'], 'unique_window_cut_substring')
+        self.assertEqual(decision['removed_segment']['text'], partial['text'])
+        self.assertEqual(decision['retained_segment']['text'], full['text'])
+        self.assertEqual([partial, full], original)
+        self.assertEqual(lm.merge_chunks(manifest, [{'segments': [partial]}, {'segments': [full]}]), result)
+        reverse = lm.merge_chunks(manifest, [
+            {'segments': [{'start': 51., 'end': 55., 'text': full['text']}]},
+            {'segments': [{'start': 0., 'end': 1., 'text': partial['text']}]}])
+        self.assertEqual(len(reverse['segments']), 1)
+        self.assertEqual(reverse['overlap_decisions'][0]['match'], 'unique_window_cut_substring')
+
+    def test_short_fragments_require_unique_text_cut_and_full_temporal_containment(self):
+        manifest = lm.prepare_chunks(self.source, self.work)
+        partial = {'start': 54.04, 'end': 55., 'text': '你自己'}
+        full = {'start': 0., 'end': 3.56, 'text': '你很好 你自己卻不知道'}
+        cases = [
+            ({**partial, 'text': '自己'}, full),
+            ({**partial, 'end': 54.9}, full),
+            ({**partial, 'start': 52.99}, full),
+            (partial, {**full, 'end': 1.9}),
+            (partial, {**full, 'text': '你自己你自己卻不知道'}),
+            ({**partial, 'text': '哈哈哈'}, {**full, 'text': '哈哈哈哈你不知道'}),
+            (partial, {**full, 'text': '你很好但大家卻不知道'}),
+            ({**partial, 'start': 56., 'end': 57.}, full),
+        ]
+        for short, longer in cases:
+            with self.subTest(short=short, longer=longer):
+                # The final case is represented in the later window outside the overlap.
+                rows = ([{'segments': [short]}, {'segments': [longer]}] if short['end'] <= 55
+                        else [{'segments': []}, {'segments': [longer, {**short, 'start': 3., 'end': 4.}]}])
+                result = lm.merge_chunks(manifest, rows)
+                self.assertEqual(len(result['segments']), 2)
+                self.assertEqual(result['overlap_decisions'], [])
+
     def test_cancel_checkpoint_resume_and_cached_chunks_no_retranscription(self):
         cancelled = False
         calls = []

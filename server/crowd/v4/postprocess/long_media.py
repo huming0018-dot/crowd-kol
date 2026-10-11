@@ -288,6 +288,14 @@ def merge_chunks(manifest, results):
                 shorter, longer = (old, value) if len(previous) < len(normal) else (value, old)
                 short_text, long_text = (previous, normal) if shorter is old else (normal, previous)
                 match = edge_match(short_text, long_text)
+                short_window = windows[shorter['chunk_index']]
+                # A short word group may be clipped inside a longer sentence at the window cut.
+                if (not match and len(short_text) >= 3 and short_text in long_text
+                        and long_text.find(short_text) == long_text.rfind(short_text)
+                        and longer['start'] <= shorter['start'] <= shorter['end'] <= longer['end']
+                        and (shorter['start'] == short_window['start']
+                             or shorter['end'] == min(round(short_window['end'], 3), manifest['duration_seconds']))):
+                    match = 'unique_window_cut_substring'
                 # Only a whole fragment inside the actual two-window overlap is removable.
                 if (not match or len(short_text) >= len(long_text)
                         or shorter['start'] < overlap_start or shorter['end'] > overlap_end):
