@@ -9,6 +9,7 @@ import os
 import stat
 import signal
 import time
+import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -144,15 +145,15 @@ def active_socket_path(port):
     return found.pop()
 
 
-def socket_metadata(port,path):
+def socket_metadata(port,path,deadline_seconds=10,on_ready=None,hold=None):
     """Bounded metadata-only CDP; Chrome retains its native consent prompt."""
     validate_port(port)
     if not re.fullmatch(r'/devtools/browser/[A-Za-z0-9-]{16,100}',path):raise BrowserSessionError('invalid_browser_identity')
     try:from websockets.sync.client import connect
     except ImportError:raise BrowserSessionError('browser_transport_dependency_missing') from None
-    deadline=time.monotonic()+10
+    deadline=time.monotonic()+deadline_seconds
     try:
-        with connect('ws://127.0.0.1:'+str(port)+path,proxy=None,open_timeout=10,close_timeout=1,max_size=262144,max_queue=4) as channel:
+        with connect('ws://127.0.0.1:'+str(port)+path,proxy=None,open_timeout=deadline_seconds,close_timeout=1,max_size=262144,max_queue=4) as channel:
             responses=[];count=0;size=0
             for identity,method in enumerate(('Browser.getVersion','Target.getTargets'),1):
                 channel.send(json.dumps({'id':identity,'method':method}))
@@ -169,20 +170,60 @@ def socket_metadata(port,path):
             if not isinstance(responses[0].get('product'),str) or not re.fullmatch(r'(?:Chrome|Chromium)/[0-9.]+',responses[0]['product']):raise BrowserSessionError('invalid_browser_identity')
             rows=responses[1].get('targetInfos')
             if not isinstance(rows,list) or len(rows)>200:raise BrowserSessionError('invalid_browser_target_list')
-            return [{**row,'id':row.get('targetId')} if isinstance(row,dict) else row for row in rows]
+            rows=[{**row,'id':row.get('targetId')} if isinstance(row,dict) else row for row in rows]
+            if on_ready is not None:on_ready(rows)
+            if hold is not None:hold.wait(max(0,deadline-time.monotonic()))
+            return rows
     except BrowserSessionError:raise
     except TimeoutError:raise BrowserSessionError('browser_connection_pending') from None
     except Exception:raise BrowserSessionError('browser_connection_failed') from None
 
 
-def inspect_browser(port,platform):
+_metadata_waiters={}
+_metadata_waiters_lock=threading.Lock()
+METADATA_WAIT_SECONDS=120
+
+
+def retained_socket_metadata(port,path,restart_connection=False):
+    """One bounded native-consent connection; polling never opens another socket."""
+    validate_port(port)
+    if type(restart_connection) is not bool:raise BrowserSessionError('invalid_browser_restart')
+    if not re.fullmatch(r'/devtools/browser/[A-Za-z0-9-]{16,100}',path):raise BrowserSessionError('invalid_browser_identity')
+    key=(port,path)
+    with _metadata_waiters_lock:
+        state=_metadata_waiters.get(key)
+        if restart_connection:
+            if state is None or time.monotonic()<state['deadline']:raise BrowserSessionError('browser_connection_active')
+            state['hold'].set();state=None
+        if state is None:
+            if key not in _metadata_waiters and len(_metadata_waiters)>=4:raise BrowserSessionError('browser_connection_busy')
+            state={'state':'pending','deadline':time.monotonic()+METADATA_WAIT_SECONDS,'rows':None,'hold':threading.Event()}
+            _metadata_waiters[key]=state
+            def ready(rows):
+                with _metadata_waiters_lock:state.update(state='ready',rows=rows)
+            def run():
+                try:socket_metadata(port,path,METADATA_WAIT_SECONDS,ready,state['hold'])
+                except BrowserSessionError as error:
+                    with _metadata_waiters_lock:state.update(state='failed',error=str(error))
+                finally:
+                    with _metadata_waiters_lock:
+                        if state['state'] in ('pending','ready'):state.update(state='expired',rows=None)
+            threading.Thread(target=run,name='crowd-browser-metadata',daemon=True).start()
+        if time.monotonic()>=state['deadline']:raise BrowserSessionError('browser_connection_expired')
+        if state['state']=='ready':return state['rows']
+        if state['state']=='failed':raise BrowserSessionError(state['error'])
+        if state['state']=='expired':raise BrowserSessionError('browser_connection_expired')
+        raise BrowserSessionError('browser_connection_pending')
+
+
+def inspect_browser(port,platform,retain_connection=False,restart_connection=False):
     if platform not in HOSTS:
         raise BrowserSessionError('invalid_browser_platform')
     try:version=metadata(port,'/json/version')
     except BrowserSessionError as error:
         if str(error)!='browser_metadata_endpoint_unavailable':raise
         path=active_socket_path(port)
-        rows=socket_metadata(port,path)
+        rows=retained_socket_metadata(port,path,restart_connection) if retain_connection else socket_metadata(port,path)
         version={'webSocketDebuggerUrl':'ws://127.0.0.1:'+str(port)+path}
     else:rows=metadata(port,'/json/list')
     try:

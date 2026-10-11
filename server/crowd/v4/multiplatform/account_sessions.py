@@ -264,10 +264,16 @@ class AccountSessions:
         finally:
             lock.close()
 
-    def browser_candidates(self, session_id, port=9222):
+    def browser_candidates(self, session_id, port=9222, restart_connection=False):
         from browser_session import inspect_browser
         _,platform=self._session(session_id)
-        value=inspect_browser(port,platform)
+        if type(restart_connection) is not bool:raise ValueError('invalid_browser_restart')
+        try:value=inspect_browser(port,platform,retain_connection=True,restart_connection=restart_connection)
+        except ValueError as error:
+            if str(error) not in ('browser_connection_pending','browser_connection_expired'):raise
+            return {'ok':True,'session_id':session_id,'port':port,'targets':[],
+                    'browser_connection_state':'pending' if str(error)=='browser_connection_pending' else 'expired',
+                    'reason_code':str(error),'credentials_imported':False}
         value.pop('_socket_path',None)
         value.pop('_all_targets',None)
         return {'ok':True,'session_id':session_id,**value,'credentials_imported':False}
@@ -283,6 +289,8 @@ class AccountSessions:
             try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             except BlockingIOError:raise ValueError('session_busy') from None
             if current is None:current=self.browser_candidates(session_id,port)
+            if current.get('browser_connection_state') in ('pending','expired'):
+                raise BrowserSessionError(current['reason_code'])
             if current['browser_fingerprint']!=browser_fingerprint or target_id not in {row['target_id'] for row in current['targets']}:
                 raise BrowserSessionError('browser_selection_changed')
             selected=next(row for row in current['targets'] if row['target_id']==target_id)
@@ -297,7 +305,7 @@ class AccountSessions:
 
     def create_browser_session(self, platform, port, target_id, browser_fingerprint):
         from browser_session import inspect_browser
-        candidate=inspect_browser(port,platform)
+        candidate=inspect_browser(port,platform,retain_connection=True)
         if candidate['browser_fingerprint']!=browser_fingerprint or target_id not in {row['target_id'] for row in candidate['targets']}:
             raise ValueError('browser_selection_changed')
         self.root.mkdir(parents=True,exist_ok=True,mode=0o700)
