@@ -440,7 +440,7 @@ def worker(root, mc, run_id, lock_fd):
                 child.wait()
             break
         progress = read(run/'phase.json') if (run/'phase.json').exists() else {'phase':'running','api_attempts':0}
-        active_state=progress['phase'] if progress['phase'] in ('running','waiting_login','login_required','collecting','comments','media') else 'running'
+        active_state=progress.get('phase') if progress.get('phase') in ('running','waiting_login','login_required','collecting','comments','media') else 'running'
         state.update(progress, state=active_state, updated_at=time.time())
         write(run/'status.json',state)
         time.sleep(0.5)
@@ -595,11 +595,13 @@ def execute(root, mc, run_id):
             import main as upstream
             from account_sessions import install_hooks, guard_auth_response
             def account_event(account_state, account):
+                nonlocal phase
+                phase='waiting_login' if account_state in ('logged_out','waiting_login','identity_unverified','account_changed','check_failed') else 'running'
                 current=read(run/'phase.json') if (run/'phase.json').exists() else {}
-                write(run/'phase.json',{**current,'account_state':account_state,
+                # Publish account and phase together so the supervisor never reads a partial event.
+                write(run/'phase.json',{**current,'phase':phase,'api_attempts':attempts,'account_state':account_state,
                     'account_generation':account.get('generation',0),
                     'account_identity_status':account.get('identity_status','unverified')})
-                event('waiting_login' if account_state in ('logged_out','waiting_login','identity_unverified','account_changed','check_failed') else 'running')
             account_store=install_hooks(root,p['session_id'],p['platform'],run_id,account_event,p['headless'])
             configure_platform_hooks(upstream,p)
             configure_wordcloud(upstream,config,p,mc,run)

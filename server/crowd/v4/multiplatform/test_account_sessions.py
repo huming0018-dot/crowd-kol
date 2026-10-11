@@ -1,4 +1,5 @@
 import asyncio
+import ast
 import fcntl
 import json
 from pathlib import Path
@@ -13,6 +14,7 @@ import uuid
 
 from account_sessions import (AccountSessions, guard_auth_response, install_hooks, own_account_id,
                              record_login_failure, install_manual_login_fallback, LoginVerified, LoginFlowError, LoginVerificationWindow, LoginVerificationPaused)
+from account_sessions import _ks_response_diagnostic, _login_failure_kind
 from owner_tasks import OwnerTasks
 
 
@@ -441,6 +443,79 @@ class CrawlerFactory: CRAWLERS={'zhihu':Crawler}
             with self.assertRaises(SystemExit) as error:asyncio.run(HardStop().begin())
             self.assertEqual(error.exception.code,78)
 
+
+
+class KsDiagnosticTests(unittest.TestCase):
+    def test_fixed_response_and_exception_categories_never_export_values(self):
+        private='synthetic-private-value-not-for-status'
+        for data,errors,result in [({'errors':[{'message':private}],'data':None},'present','missing'),
+                                  ({'data':{'visionProfileUserList':{'result':1,'fols':[{'user_id':private}]}}},'absent','one'),
+                                  ({'data':{'visionProfileUserList':{'result':50,'message':private}}},'absent','other')]:
+            diagnostic=_ks_response_diagnostic(SimpleNamespace(status_code=200,is_stream_consumed=True,json=lambda:data))
+            self.assertEqual((diagnostic['graphql_errors'],diagnostic['graphql_result']),(errors,result))
+            self.assertNotIn(private,json.dumps(diagnostic))
+        def invalid():raise json.JSONDecodeError(private,private,0)
+        self.assertEqual(_ks_response_diagnostic(SimpleNamespace(status_code=403,json=invalid))['response_kind'],'non_json')
+        untouched=Mock(side_effect=AssertionError('stream cannot be consumed for diagnosis'))
+        self.assertEqual(_ks_response_diagnostic(SimpleNamespace(status_code=200,is_stream_consumed=False,json=untouched))['response_kind'],'unknown');untouched.assert_not_called()
+        for name,expected in [('DataFetchError','graphql_error'),('ConnectTimeout','network_timeout'),('ConnectError','network_error'),('PrivateExceptionName','unknown_error')]:
+            error=type(name,(Exception,),{})(private);self.assertEqual(_login_failure_kind(error),expected)
+
+    def test_existing_send_response_is_preserved_counted_once_and_current_check_reset(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();sid=str(uuid.uuid4());session=root/'sessions'/sid;session.mkdir(parents=True)
+            (session/'identity.json').write_text('{"platform":"ks"}');(session/'browser_data').mkdir()
+            store=AccountSessions(root);store.observe(sid,'ks','waiting_login')
+            budget=LoginVerificationWindow(store,sid,'ks',time.monotonic()+180);calls=[]
+            response=SimpleNamespace(status_code=200,is_stream_consumed=True,json=lambda:{'errors':[{'message':'synthetic-secret'}]})
+            async def send(*args,**kwargs):calls.append('one-original-send');return response
+            import account_sessions
+            tree=ast.parse(Path(account_sessions.__file__).read_text());method=next(node for node in ast.walk(tree) if isinstance(node,ast.AsyncFunctionDef) and node.name=='bounded_send')
+            scope={'attempts':0}
+            factory=ast.parse('def bind():\n attempts=0\n').body[0];factory.body.append(method);factory.body.append(ast.Return(value=ast.Name(id='bounded_send',ctx=ast.Load())))
+            module=ast.fix_missing_locations(ast.Module(body=[factory],type_ignores=[]))
+            scope.update(send=send,verification=budget,store=store,args=SimpleNamespace(platform='ks',session_id=sid),_ks_response_diagnostic=_ks_response_diagnostic,LoginFlowError=LoginFlowError)
+            exec(compile(module,'actual-login-bounded-send','exec'),scope);bounded=scope['bind']()
+            class DataFetchError(Exception):pass
+            class Client:
+                cookie_dict={'passToken':'synthetic-secret'}
+                async def request(self):
+                    actual=await bounded(self)
+                    if actual is not response:raise AssertionError('original response replaced')
+                    if actual.json().get('errors'):raise DataFetchError('synthetic-secret')
+                    return actual.json().get('data',{})
+                async def pong(self):
+                    try:return (await self.request()).get('visionProfileUserList',{}).get('result')==1
+                    except Exception:return False
+                async def update_cookies(self,**kwargs):pass
+            install_hooks(root,sid,'ks',None,lambda *_:None,client_class=Client,interactive_login=True)
+            client=Client();self.assertFalse(asyncio.run(client.pong()))
+            diagnostic=store.status(sid)['login_diagnostic'];self.assertEqual(diagnostic['failure_kind'],'graphql_error')
+            self.assertEqual((diagnostic['http_status'],diagnostic['graphql_errors'],diagnostic['graphql_result']),(200,'present','missing'))
+            self.assertEqual((diagnostic['round'],diagnostic['attempt'],diagnostic['client_login_flag_present']),(1,1,True));self.assertEqual(calls,['one-original-send'])
+            self.assertIsNot(store.status(sid).get('login_verified'),True);self.assertIsNone(store.status(sid).get('authorized_for_run'))
+            response.json=lambda:{'data':{'visionProfileUserList':{'result':0}}};client.cookie_dict={}
+            self.assertFalse(asyncio.run(client.pong()));second=store.status(sid)
+            self.assertIsNone(second['login_diagnostic']['failure_kind']);self.assertEqual(second['login_diagnostic']['graphql_result'],'other')
+            self.assertFalse(second['login_diagnostic']['client_login_flag_present']);self.assertNotIn('login_error_code',second)
+            self.assertNotIn('synthetic-secret',json.dumps(second));self.assertEqual(len(calls),2)
+            for _ in range(6):asyncio.run(client.pong())
+            class Page:
+                def is_closed(self):return False
+                async def bring_to_front(self):pass
+            class Login:
+                async def begin(self):raise AssertionError('native login not needed for this probe')
+            crawler=SimpleNamespace(context_page=Page(),browser_context=object(),cookie_urls=['https://www.kuaishou.com'],ks_client=client)
+            install_manual_login_fallback(crawler,store,sid,'ks',budget.deadline,Login,Client,SimpleNamespace(),verification=budget)
+            async def paused_diagnostic():
+                task=asyncio.create_task(client.pong());await asyncio.sleep(.02)
+                current=store.status(sid);self.assertTrue(current['login_verification_paused'])
+                self.assertEqual(current['login_diagnostic']['graphql_result'],'other')
+                self.assertEqual(current['login_diagnostic']['attempt'],8)
+                self.assertEqual(len(calls),8);self.assertFalse(task.done())
+                store.cancel_login(sid)
+                with self.assertRaises(LoginFlowError):await asyncio.wait_for(task,2)
+            asyncio.run(paused_diagnostic())
 
 
 class FreshCookiePauseTests(unittest.TestCase):

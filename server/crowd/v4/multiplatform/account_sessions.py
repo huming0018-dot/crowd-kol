@@ -33,6 +33,40 @@ class LoginFlowError(BaseException):
         super().__init__(code)
 
 
+def _login_failure_kind(error):
+    name = type(error).__name__
+    if name == 'DataFetchError':
+        return 'graphql_error'
+    if name == 'JSONDecodeError':
+        return 'response_not_json'
+    if name in ('TimeoutError', 'TimeoutException', 'ConnectTimeout', 'ReadTimeout', 'WriteTimeout', 'PoolTimeout'):
+        return 'network_timeout'
+    if name in ('ConnectError', 'ReadError', 'WriteError', 'NetworkError', 'RemoteProtocolError', 'RequestError'):
+        return 'network_error'
+    return 'unknown_error'
+
+
+def _ks_response_diagnostic(response):
+    """Classify the existing loaded response; never persist headers, bodies or messages."""
+    status = getattr(response, 'status_code', None)
+    result = {'http_status': status if type(status) is int and 100 <= status <= 599 else None,
+              'response_kind': 'unknown', 'graphql_errors': 'unknown', 'graphql_result': 'unknown'}
+    if getattr(response, 'is_stream_consumed', True) is False:
+        return result
+    try:
+        data = response.json()
+    except Exception:
+        result['response_kind'] = 'non_json'
+        return result
+    result['response_kind'] = 'json'
+    if isinstance(data, dict):
+        result['graphql_errors'] = 'present' if data.get('errors') else 'absent'
+        payload = data.get('data')
+        profile = payload.get('visionProfileUserList') if isinstance(payload, dict) else None
+        result['graphql_result'] = ('one' if profile['result'] == 1 else 'other') if isinstance(profile, dict) and 'result' in profile else 'missing'
+    return result
+
+
 def identifier(value):
     if not isinstance(value, str) or str(uuid.UUID(value)) != value:
         raise ValueError('invalid_session_id')
@@ -320,9 +354,14 @@ def install_hooks(collector_root, session_id, platform, run_id, event, headless=
             async def observed(self, *args, **kwargs):
                 try:
                     value = await function(self, *args, **kwargs)
-                except Exception:
+                except Exception as error:
                     if capture['checking']:
                         capture['error'] = True
+                        if interactive_login and platform == 'ks':
+                            store._update(session_id, platform, lambda value: value['login_diagnostic'].update(
+                                failure_kind=_login_failure_kind(error),
+                                round=value.get('login_verification_round', 1),
+                                attempt=value.get('login_verification_attempts', 0)))
                     raise
                 if capture['checking']:
                     own_id = own_account_id(platform, value)
@@ -334,6 +373,16 @@ def install_hooks(collector_root, session_id, platform, run_id, event, headless=
     async def pong(self, *args, **kwargs):
         capture.update(checking=True, account_id=None, error=False, args=args)
         emit(store.observe(session_id, platform, 'checking', run_id))
+        if interactive_login and platform == 'ks':
+            def reset_diagnostic(value):
+                value.pop('login_error_code', None)
+                value.pop('login_verification_available', None)
+                cookies = getattr(self, 'cookie_dict', None)
+                value['login_diagnostic'] = {'round': value.get('login_verification_round', 1),
+                    'attempt': value.get('login_verification_attempts', 0), 'http_status': None,
+                    'response_kind': 'unknown', 'graphql_errors': 'unknown', 'graphql_result': 'unknown',
+                    'failure_kind': None, 'client_login_flag_present': isinstance(cookies, dict) and bool(cookies.get('passToken'))}
+            store._update(session_id, platform, reset_diagnostic)
         try:
             result = await original_pong(self, *args, **kwargs)
         except (ImportError, FileNotFoundError):
@@ -433,6 +482,11 @@ def install_manual_login_fallback(crawler, store, session_id, platform, deadline
             await page.bring_to_front()
             store._update(session_id, platform, lambda value: value.update(
                 login_flow='native_original_browser', login_page_ready=True))
+        if verification and (verification.paused or verification.attempts >= 8 or time.monotonic() >= verification.deadline):
+            # A check without budget must not erase the last real response diagnosis.
+            await verification.ensure_window()
+            await self.update_cookies(browser_context=crawler.browser_context, urls=crawler.cookie_urls)
+            return False
         try:
             verified = await checked_pong(self, *args, **kwargs)
         except LoginVerificationPaused:
@@ -558,7 +612,11 @@ async def login_worker(args):
             else:
                 attempts += 1
                 if attempts > 8: raise LoginFlowError('login_request_budget_exhausted')
-            return await send(self, *a, **kw)
+            response = await send(self, *a, **kw)
+            if args.platform == 'ks' and store.status(args.session_id).get('state') == 'checking':
+                store._update(args.session_id, args.platform, lambda value: value['login_diagnostic'].update(
+                    **_ks_response_diagnostic(response), round=verification.round, attempt=verification.attempts))
+            return response
         httpx.AsyncClient.send = bounded_send
         crawler = crawler_class()
         install_manual_login_fallback(crawler, store, args.session_id, args.platform, deadline, verification=verification)

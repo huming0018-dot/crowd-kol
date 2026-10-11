@@ -22,6 +22,37 @@ MC=Path(os.environ.get('MC_EXTERNAL_ROOT','/Users/hubowen/WorkBuddy/2026-10-08-2
 PYTHON=MC/'.venv/bin/python'
 
 class RunnerTest(unittest.TestCase):
+    def test_account_event_publishes_one_complete_phase_snapshot(self):
+        tree=ast.parse((HERE/'mc_runner.py').read_text())
+        node=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name=='account_event')
+        node.body=[n for n in node.body if not isinstance(n,ast.Nonlocal)]
+        snapshots=[]
+        with tempfile.TemporaryDirectory() as folder:
+            environment={'run':Path(folder),'phase':'running','attempts':3,'read':m.read,
+                         'write':lambda path,value:snapshots.append((path,dict(value)))}
+            exec(compile(ast.fix_missing_locations(ast.Module(body=[node],type_ignores=[])),'actual_account_event','exec'),environment)
+            environment['account_event']('checking',{'generation':1,'identity_status':'authenticated_self_id'})
+            self.assertEqual(len(snapshots),1)
+            self.assertEqual(snapshots[0][1]['phase'],'running')
+            self.assertEqual(snapshots[0][1]['api_attempts'],3)
+            self.assertEqual(snapshots[0][1]['account_state'],'checking')
+            environment['account_event']('waiting_login',{'generation':1})
+            self.assertEqual(snapshots[-1][1]['phase'],'waiting_login')
+
+    def test_supervisor_tolerates_legacy_partial_account_snapshot(self):
+        from unittest.mock import Mock,patch
+        rid=str(uuid.uuid4());run=self.root/'runs'/rid;(run/'output').mkdir(parents=True)
+        m.write(run/'manifest.json',{'request':{'timeout_seconds':10}})
+        m.write(run/'status.json',{'state':'starting'})
+        m.write(run/'phase.json',{'account_state':'checking','account_generation':1,'api_attempts':0})
+        child=Mock();child.poll.side_effect=[None,0];child.wait.return_value=0
+        with patch.object(m.subprocess,'Popen',return_value=child),patch.object(m.time,'sleep'),patch.object(m.os,'close'):
+            m.worker(self.root,self.mc,rid,99)
+        state=m.read(run/'status.json')
+        self.assertEqual(state['state'],'completed')
+        self.assertEqual(state['account_state'],'checking')
+        self.assertEqual(state['api_attempts'],0)
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='crowd-mc-test-')
         self.base=Path(self.tmp.name)
