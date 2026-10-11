@@ -376,9 +376,21 @@ class CloudWorker:
             state['phase']='local_stop_unknown'
         if self.path.exists():
             prior=mc_runner.read(self.path)
+            if 'session_bindings' not in state:state['session_bindings']=prior.get('session_bindings',{})
             if 'waiting_logins' not in state:state['waiting_logins']=prior.get('waiting_logins',[])
             if 'last_stop' not in state and 'last_stop' in prior:state['last_stop']=prior['last_stop']
         if self.last_stop is not None:state['last_stop']=self.last_stop
+        bindings = state.setdefault('session_bindings', {})
+        for context in [state, *state.get('waiting_logins', [])]:
+            lease = context.get('lease') or {}
+            session_id = context.get('session_id') or context.get('account_context', {}).get('session_id')
+            if lease.get('child_id') and session_id:
+                binding = {'task_id': mc_runner.uid(lease['task_id']), 'platform': lease['platform'],
+                           'session_id': mc_runner.uid(session_id)}
+                existing = bindings.get(lease['child_id'])
+                if existing and existing != binding:
+                    raise CloudError('collector_session_ambiguous')
+                bindings[lease['child_id']] = binding
         mc_runner.write(self.path, state)
 
     def _runner(self, action, payload):
@@ -551,6 +563,8 @@ class CloudWorker:
     def _tick(self, state):
         # A login wait owns no running executor; other platforms may continue.
         waiting = state.get('waiting_logins', [])
+        # Persist old journal bindings before a successful resume removes its wait.
+        self._save(state)
         for pending in list(waiting):
             try:
                 if self._resume_login(pending):
@@ -625,6 +639,12 @@ class CloudWorker:
                 self._save(state)
             else:
                 request = dict(lease['request'])
+                binding = state.get('session_bindings', {}).get(lease['child_id'])
+                if binding:
+                    if (binding.get('task_id') != lease['task_id'] or binding.get('platform') != lease['platform']
+                            or request.get('session_id') not in (None, binding.get('session_id'))):
+                        raise CloudError('collector_session_ambiguous')
+                    request['session_id'] = mc_runner.uid(binding['session_id'])
                 if not request.get('session_id') and self.session_selector:
                     session = self.session_selector(lease)
                     if session:

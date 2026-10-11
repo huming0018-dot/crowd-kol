@@ -193,7 +193,9 @@ class Tests(unittest.TestCase):
                                ('close','cloud_worker_shutdown'),('owner','owner_stop_requested')]:
             with self.subTest(trigger=trigger),tempfile.TemporaryDirectory() as folder:
                 root=Path(folder);rid=uid();run=root/'runs'/rid;(run/'output').mkdir(parents=True)
-                mc_runner.write(run/'manifest.json',{'request':{'timeout_seconds':180}})
+                sid=uid();session=root/'sessions'/sid;session.mkdir(parents=True)
+                mc_runner.write(session/'identity.json',{'platform':'xhs'})
+                mc_runner.write(run/'manifest.json',{'request':{'timeout_seconds':180,'session_id':sid}})
                 mc_runner.write(run/'status.json',{'state':'running','updated_at':time.time()})
                 mc_runner.write(run/'phase.json',{'phase':'comments','api_attempts':2})
                 cloud=FakeCloud();cloud.fail_heartbeat=trigger=='error'

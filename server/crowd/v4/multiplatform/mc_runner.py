@@ -253,7 +253,7 @@ def capabilities(mc):
         if p=='tieba': features.append({'id':'public_post_media','support_state':'implemented','live_verified':False,'notes':'own adapter downloads at most three public CDN assets from the same native page response; not upstream media support'})
         if p=='zhihu': features.extend([{'id':'public_body_media','support_state':'implemented','live_verified':False,'notes':'own adapter observes at most three public body assets from the same native detail HTML or search/creator JSON; excerpt and CDN availability may limit coverage'}, {'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
         platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator',*discovery_modes],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
-    return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'visible isolated browser; user completes login/captcha; no automatic credential import'}
+    return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'native_video_platforms':['dy','ks'],'native_video_single_file_bytes':67108864,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'persistent profile by default; explicit selected existing loopback browser supported; native account verification; no credential import or debug-port launch'}
 
 def configure_executor(config,p):
     config.CREATOR_MODE=True
@@ -270,6 +270,9 @@ def configure_executor(config,p):
         if 'quality' in options: config.BILI_QN=options['quality']
 
 def configure_platform_hooks(upstream,p):
+    if p['platform'] in ('dy','ks') and p['media']:
+        from native_media_scope import install_hook
+        install_hook(upstream.CrawlerFactory.CRAWLERS[p['platform']],p['platform'],Path.cwd()/'output',SingleResponseLimit,read,write)
     if p['platform']=='zhihu' and p['media']:
         from media_platform.zhihu.client import ZhiHuClient
         from zhihu_media import install_hook
@@ -505,6 +508,8 @@ def worker(root, mc, run_id, lock_fd):
     manifest = read(run/'manifest.json')
     p = manifest['request']
     state = read(run/'status.json')
+    from browser_session import existing_browser_session, terminate_executor
+    borrowed=existing_browser_session(root,p['session_id'])
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUNBUFFERED='1', MPLCONFIGDIR=str(run/'cache/matplotlib'), XDG_CACHE_HOME=str(run/'cache'),CROWD_MC_SUPERVISOR_PID=str(os.getpid()))
     child = subprocess.Popen([str(Path(mc)/'.venv/bin/python'),str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_execute','--run-id',run_id],cwd=run,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock_fd,))
     started = time.monotonic()
@@ -513,7 +518,7 @@ def worker(root, mc, run_id, lock_fd):
         output_bytes=sum(f.stat().st_size for f in (run/'output').rglob('*') if f.is_file() and not f.is_symlink())
         if (run/'stop.json').exists() or time.monotonic()-started > p['timeout_seconds'] or output_bytes>104857600:
             reason = stop_context(run)['reason'] if (run/'stop.json').exists() else 'output_byte_limit' if output_bytes>104857600 else 'wall_timeout'
-            os.killpg(child.pid, signal.SIGTERM)
+            terminate_executor(child.pid,borrowed)
             try:
                 child.wait(5)
             except subprocess.TimeoutExpired:
@@ -545,7 +550,8 @@ def execute(root, mc, run_id):
     attempts=0
     account_store=None
     response_bytes=0
-    file_limit=67108864 if p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') else 26214400
+    native_media=p['platform'] in ('dy','ks') and p.get('media') is True
+    file_limit=67108864 if native_media or p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') else 26214400
     resource.setrlimit(resource.RLIMIT_FSIZE,(file_limit,file_limit))
     phase='running'
     def event(new=None):
@@ -573,6 +579,10 @@ def execute(root, mc, run_id):
         raise SystemExit(74)
     deadline=time.monotonic()+p['timeout_seconds']
     finished=threading.Event()
+    from browser_session import existing_browser_session, terminate_executor, ExecutorCancellation
+    borrowed=existing_browser_session(root,p['session_id'])
+    cancellation=ExecutorCancellation() if borrowed else None
+    if cancellation is not None:cancellation.install()
     def child_watchdog():
         while not finished.wait(.25):
             orphaned=os.getppid()!=parent_pid
@@ -587,7 +597,12 @@ def execute(root, mc, run_id):
                     except (OSError,ValueError):
                         pass
                 # Only the freshly created executor's own process group, never a recovered PID.
-                if os.getpgrp()==os.getpid():
+                if borrowed:
+                    terminate_executor(os.getpid(),True)
+                    # Orphaned executors also retain a bounded cleanup grace.
+                    if not finished.wait(5) and os.getpgrp()==os.getpid():
+                        os.killpg(os.getpgrp(),signal.SIGKILL)
+                elif os.getpgrp()==os.getpid():
                     os.killpg(os.getpgrp(),signal.SIGTERM)
                 else:
                     os.kill(os.getpid(),signal.SIGTERM)
@@ -653,7 +668,8 @@ def execute(root, mc, run_id):
                                 event('response_byte_limit')
                                 raise SystemExit(76)
                             from bili_audio import AUDIO_RESPONSE_ACTIVE
-                            response_limit=67108864 if p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') and AUDIO_RESPONSE_ACTIVE.get() else 26214400
+                            from native_media_scope import response_limit as native_response_limit
+                            response_limit=67108864 if p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') and AUDIO_RESPONSE_ACTIVE.get() else native_response_limit(p['platform'])
                             if response_size>response_limit:
                                 event('response_byte_limit')
                                 raise SingleResponseLimit()
@@ -685,6 +701,8 @@ def execute(root, mc, run_id):
                     'account_generation':account.get('generation',0),
                     'account_identity_status':account.get('identity_status','unverified')})
             account_store=install_hooks(root,p['session_id'],p['platform'],run_id,account_event,p['headless'])
+            from browser_session import install_browser_reuse
+            install_browser_reuse(account_store,p['session_id'],p['platform'],BrowserType,upstream.CrawlerFactory.CRAWLERS[p['platform']])
             configure_platform_hooks(upstream,p)
             configure_wordcloud(upstream,config,p,mc,run)
             import asyncio
@@ -694,7 +712,7 @@ def execute(root, mc, run_id):
                     await asyncio.wait_for(upstream.main(), timeout=p['timeout_seconds'])
                 finally:
                     await asyncio.wait_for(upstream.async_cleanup(), timeout=10)
-            asyncio.run(crawl())
+            asyncio.run(cancellation.run(crawl()) if cancellation is not None else crawl())
     except (ModuleNotFoundError,ImportError):
         raise SystemExit(72)
     except SystemExit:
@@ -704,6 +722,7 @@ def execute(root, mc, run_id):
         raise SystemExit(74)
     finally:
         finished.set()
+        if cancellation is not None:cancellation.restore()
 
 # This is a bounded output projection, not a DOM evidence adapter or a universal DLP.
 def safe_text(value, limit=24000):
@@ -823,7 +842,8 @@ def import_output(root,payload):
                 size=path.stat().st_size
                 media_bytes+=size
                 audio_only=p=='bili' and manifest['request'].get('platform_options',{}).get('long_audio') and path.name=='audio.m4a'
-                file_limit=67108864 if audio_only else 26214400
+                native_media=p in ('dy','ks') and manifest['request'].get('media') is True
+                file_limit=67108864 if audio_only or native_media else 26214400
                 if size>file_limit or media_bytes>104857600: fail('media_import_byte_limit')
                 parts=path.relative_to(folder).parts
                 content_id=opaque(parts[0]) if len(parts)>1 else None

@@ -19,7 +19,7 @@ ROUTES = {
     'collector': {'capabilities', 'list', 'status', 'start', 'stop', 'import'},
     'media-processing': {'capabilities', 'list', 'status', 'start', 'cancel', 'resume'},
     'cloud': {'status', 'results'},
-    'accounts': {'list', 'status', 'open_login', 'cancel_login', 'resume_verification', 'confirm_same_account', 'accept_account_switch'},
+    'accounts': {'list', 'status', 'open_login', 'cancel_login', 'resume_verification', 'confirm_same_account', 'accept_account_switch', 'browser_candidates', 'bind_browser', 'create_browser_session', 'use_persistent_browser'},
     # Starting an external model job remains an explicit UI authorization step.
     'analysis': {'lookup', 'status', 'cancel'},
 }

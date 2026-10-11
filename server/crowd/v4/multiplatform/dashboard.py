@@ -44,6 +44,12 @@ class Application:
             config = {}
             self.mc_root = ''
         registered = config.get('collector_roots', [])
+        preferred = config.get('preferred_session_by_platform', {})
+        from account_sessions import PLATFORMS, identifier
+        if not isinstance(preferred, dict) or any(platform not in PLATFORMS for platform in preferred):
+            raise ValueError('invalid_preferred_sessions')
+        self.preferred_session_by_platform = {platform: identifier(session_id)
+                                              for platform, session_id in preferred.items()}
         if not isinstance(registered, list) or any(not isinstance(p, str) for p in registered):
             raise ValueError('invalid_collector_roots')
         self.collector_roots = list(dict.fromkeys(Path(p).expanduser().resolve()
@@ -87,6 +93,12 @@ class Application:
                         'logged_out', 'check_failed'):
                     candidates.append(item)
         ready = [item for item in candidates if item.get('authorized_for_run')]
+        preferred = self.preferred_session_by_platform.get(lease['platform'])
+        if preferred:
+            selected = [item for item in candidates if item['session_id'] == preferred]
+            if len(selected) != 1:
+                raise ValueError('login_session_required' if not selected else 'collector_session_ambiguous')
+            return selected[0]['session_id']
         choices = ready or candidates
         if len(choices) > 1:
             raise ValueError('collector_session_ambiguous')
@@ -137,6 +149,7 @@ class Application:
 
     def _save_config(self):
         data = json.dumps({'mc_root': self.mc_root,
+                           'preferred_session_by_platform': self.preferred_session_by_platform,
                            'collector_roots': [str(p) for p in self.collector_roots]}).encode()
         temporary = self.root / ('config-' + secrets.token_hex(8))
         with os.fdopen(os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'wb') as f:
@@ -144,6 +157,13 @@ class Application:
             f.flush()
             os.fsync(f.fileno())
         temporary.replace(self.config_path)
+
+    def _prefer_session(self, value):
+        # CloudWorker invokes the selector only before dispatch without a bound session.
+        with self.lock:
+            self.preferred_session_by_platform[value['platform']] = value['session_id']
+            self._save_config()
+        return value
 
     def _roots(self):
         return list(dict.fromkeys([self.runner_root, *self.collector_roots]))
@@ -269,6 +289,8 @@ class Application:
             if len(ids) != len(set(ids)):
                 raise ValueError('collector_session_ambiguous')
             return {'ok': True, 'sessions': sessions}
+        if action=='create_browser_session' and set(payload)=={'platform','port','target_id','browser_fingerprint'}:
+            return self._prefer_session(AccountSessions(self._roots()[0]).create_browser_session(**payload))
         session_id = identifier(payload.get('session_id'))
         matches = [root for root in self._roots() if (root/'sessions'/session_id).is_dir()
                    and not (root/'sessions'/session_id).is_symlink()]
@@ -279,6 +301,12 @@ class Application:
             return store.status(session_id, payload.get('platform'))
         if action == 'open_login' and set(payload) == {'session_id', 'platform'}:
             return store.open_login(session_id, payload['platform'], self.mc_root)
+        if action == 'browser_candidates' and set(payload) in ({'session_id'},{'session_id','port'}):
+            return store.browser_candidates(session_id,payload.get('port',9222))
+        if action == 'bind_browser' and set(payload)=={'session_id','port','target_id','browser_fingerprint','expected_generation'}:
+            return self._prefer_session(store.bind_browser(**payload))
+        if action=='use_persistent_browser' and set(payload)=={'session_id','expected_generation'}:
+            return self._prefer_session(store.use_persistent_browser(**payload))
         if action == 'cancel_login' and set(payload) == {'session_id'}:
             return store.cancel_login(session_id)
         if action == 'resume_verification' and set(payload) == {'session_id'}:

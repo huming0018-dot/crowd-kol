@@ -182,6 +182,7 @@ class AccountSessions:
                     value['authorized_for_run'] = None
                 return
             value.pop('login_error_code', None)
+            value.pop('browser_connection_error', None)
             previous = value.get('account_ref')
             if previous and account_ref and previous != account_ref:
                 generation = value.get('generation', 0) + (value.get('candidate_account_ref') != account_ref)
@@ -262,6 +263,66 @@ class AccountSessions:
             return {**status, 'source_collection_started': False}
         finally:
             lock.close()
+
+    def browser_candidates(self, session_id, port=9222):
+        from browser_session import inspect_browser
+        _,platform=self._session(session_id)
+        value=inspect_browser(port,platform)
+        value.pop('_socket_path',None)
+        value.pop('_all_targets',None)
+        return {'ok':True,'session_id':session_id,**value,'credentials_imported':False}
+
+    def bind_browser(self, session_id, port, target_id, browser_fingerprint, expected_generation):
+        from browser_session import BrowserSessionError
+        session,platform=self._session(session_id)
+        if type(expected_generation) is not int:raise ValueError('account_generation_changed')
+        with open(session/'active.lock','a+') as lock:
+            try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:raise ValueError('session_busy') from None
+            current=self.browser_candidates(session_id,port)
+            if current['browser_fingerprint']!=browser_fingerprint or target_id not in {row['target_id'] for row in current['targets']}:
+                raise BrowserSessionError('browser_selection_changed')
+            selected=next(row for row in current['targets'] if row['target_id']==target_id)
+            def change(value):
+                if value.get('generation')!=expected_generation:raise ValueError('account_generation_changed')
+                value.update(browser_connection={'mode':'existing_cdp','port':port,'target_id':target_id,'browser_fingerprint':browser_fingerprint,'selection_kind':selected['selection_kind']},
+                             state='checking',recovering=bool(value.get('account_ref') or value.get('pending_run_id') or value.get('recovering')),
+                             login_verified=False,verified_at=0,authorized_for_run=None)
+                value.pop('browser_connection_error',None)
+                value.pop('login_error_code',None)
+            return self._update(session_id,platform,change)
+
+    def create_browser_session(self, platform, port, target_id, browser_fingerprint):
+        from browser_session import inspect_browser
+        candidate=inspect_browser(port,platform)
+        if candidate['browser_fingerprint']!=browser_fingerprint or target_id not in {row['target_id'] for row in candidate['targets']}:
+            raise ValueError('browser_selection_changed')
+        self.root.mkdir(parents=True,exist_ok=True,mode=0o700)
+        with open(self.root/'browser-registry.lock','a+') as registry:
+            fcntl.flock(registry,fcntl.LOCK_EX)
+            matches=[row for row in self.list()['sessions'] if row['platform']==platform and
+                     all(row.get('browser_connection',{}).get(key)==value for key,value in {'port':port,'target_id':target_id,'browser_fingerprint':browser_fingerprint}.items())]
+            if len(matches)>1:raise ValueError('browser_registration_ambiguous')
+            if matches:return {**matches[0],'registration_replayed':True}
+            session_id=str(uuid.uuid4());session=self.collector_root/'sessions'/session_id
+            session.mkdir(parents=True,mode=0o700)
+            with os.fdopen(os.open(session/'identity.json',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'w') as stream:
+                json.dump({'platform':platform},stream);stream.flush();os.fsync(stream.fileno())
+            return self.bind_browser(session_id,port,target_id,browser_fingerprint,0)
+
+    def use_persistent_browser(self, session_id, expected_generation):
+        session,platform=self._session(session_id)
+        if type(expected_generation) is not int:raise ValueError('account_generation_changed')
+        with open(session/'active.lock','a+') as lock:
+            try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:raise ValueError('session_busy') from None
+            def change(value):
+                if value.get('generation')!=expected_generation:raise ValueError('account_generation_changed')
+                if not value.get('browser_connection'):raise ValueError('browser_binding_not_present')
+                value.pop('browser_connection',None);value.pop('browser_connection_error',None)
+                value.update(state='checking',recovering=bool(value.get('account_ref') or value.get('pending_run_id') or value.get('recovering')),
+                             authorized_for_run=None,login_verified=False,verified_at=0)
+            return self._update(session_id,platform,change)
 
     def cancel_login(self, session_id):
         self._session(session_id)
@@ -602,6 +663,8 @@ async def login_worker(args):
                 kw['executable_path'] = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
             return await original(self, *a, **kw)
         BrowserType.launch_persistent_context = persistent
+        from browser_session import install_browser_reuse
+        install_browser_reuse(store,args.session_id,args.platform,BrowserType,crawler_class)
         import httpx
         send = httpx.AsyncClient.send
         attempts = 0
