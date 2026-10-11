@@ -444,6 +444,8 @@ class Application:
             return self.media_jobs.list(payload['run_id'])
         if action in ('status', 'cancel', 'resume') and set(payload) == {'job_id'}:
             return getattr(self.media_jobs, action)(payload['job_id'])
+        if action == 'playback' and set(payload) == {'job_id', 'asset_sha256'}:
+            return self.media_jobs.playback(payload['job_id'], payload['asset_sha256'])
         if action == 'start' and set(payload) == {'run_id', 'path', 'content_id', 'kind'}:
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
             imported = self.run('import', {'run_id': payload['run_id']})
@@ -484,7 +486,7 @@ def make_server(app, port=45937):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'nonce-" + app.token + "'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'nonce-" + app.token + "'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; media-src blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
             self.end_headers()
             self.wfile.write(data)
 
@@ -563,6 +565,17 @@ def make_server(app, port=45937):
                 if self.path == '/api/media-processing':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_media_processing_request')
+                    if body['action'] == 'playback':
+                        value = app.process_media(body['action'], body['payload'])
+                        self.send_response(200)
+                        self.send_header('Content-Type', value['mime'])
+                        self.send_header('Content-Length', str(len(value['data'])))
+                        self.send_header('X-Content-SHA256', value['sha256'])
+                        self.send_header('Cache-Control', 'no-store')
+                        self.send_header('X-Content-Type-Options', 'nosniff')
+                        self.end_headers()
+                        self.wfile.write(value['data'])
+                        return
                     return self.send(app.process_media(body['action'], body['payload']))
                 if self.path in ('/api/media', '/api/artifact'):
                     path = app.media_file(body, artifact=self.path == '/api/artifact')

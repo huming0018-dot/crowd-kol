@@ -61,7 +61,8 @@ class LongMediaJobsTests(unittest.TestCase):
                     self.assertEqual(completed['completed_chunks'], 2)
                     self.assertEqual(completed['result'][0]['evidence']['segments'][1]['start'], 53)
                     self.assertEqual(hashlib.sha256(checkpoint.read_bytes()).hexdigest(), checkpoint_hash)
-                    self.assertFalse(list(folder.glob('input*')))
+                    self.assertEqual([path.name for path in folder.glob('input*')], ['input.wav'])
+                    self.assertEqual(manager.playback(completed['job_id'], completed['asset_sha256'])['data'], source.read_bytes())
                     self.assertTrue(manager.start(source, 'weibo', '123', 'asr', 'run')['cached'])
                     self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), before)
             finally:

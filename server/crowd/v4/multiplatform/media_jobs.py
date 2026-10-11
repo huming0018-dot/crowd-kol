@@ -142,6 +142,31 @@ class MediaJobs:
             self.threads[job_id] = thread; thread.start()
             return state
 
+    def playback(self, job_id, asset_sha256):
+        try:
+            job_id = uid(job_id)
+        except Exception:
+            raise ValueError('invalid_media_job_id') from None
+        folder = self.root / job_id
+        if any(parent.is_symlink() for parent in (folder, *folder.parents)) or (folder / 'state.json').is_symlink() or (folder / 'result.json').is_symlink():
+            raise ValueError('media_playback_format_or_path_invalid')
+        state = self.status(job_id)
+        if state.get('job_id') != job_id or state.get('kind') != 'asr' or state['state'] != 'completed' or asset_sha256 != state.get('asset_sha256'):
+            raise ValueError('media_playback_identity_mismatch')
+        snapshots = list(folder.glob('input*'))
+        if len(snapshots) != 1:
+            raise ValueError('media_playback_snapshot_missing')
+        path = snapshots[0]
+        mimes = {'.mp4': 'video/mp4', '.webm': 'video/webm', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.mp3': 'audio/mpeg', '.aac': 'audio/aac', '.ogg': 'audio/ogg'}
+        if path.suffix.lower() not in mimes or path.is_symlink() or not path.resolve().is_relative_to(folder.resolve()):
+            raise ValueError('media_playback_format_or_path_invalid')
+        limit = 64 * 1024 * 1024 if path.suffix.lower() in ('.m4a', '.mp3', '.aac') else 25 * 1024 * 1024
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), 'rb') as stream:
+            data = stream.read(limit + 1)
+        if len(data) > limit or hashlib.sha256(data).hexdigest() != state['asset_sha256']:
+            raise ValueError('media_playback_snapshot_changed')
+        return {'data': data, 'mime': mimes[path.suffix.lower()], 'sha256': state['asset_sha256']}
+
     def list(self, run_id):
         try:
             uid(run_id)
@@ -197,7 +222,7 @@ class MediaJobs:
                 self.processes.pop(job_id, None)
                 if job_id in self.cancelled:
                     state.update(state='cancelled')
-                if state['kind'] != 'asr' or state.get('state') == 'completed':
+                if state['kind'] != 'asr':
                     snapshot.unlink(missing_ok=True)
                 write(folder / 'state.json', {**state, 'finished_at': time.time()})
 
