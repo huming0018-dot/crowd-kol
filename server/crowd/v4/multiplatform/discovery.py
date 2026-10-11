@@ -1,5 +1,6 @@
 """Discover visible homepage/ranking links, then reuse the installed detail pipeline."""
 import re
+from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit, parse_qsl, urlencode
 
 SUPPORT = {'homefeed': {'xhs', 'bili'}, 'trending': {'bili'}}
@@ -64,12 +65,18 @@ def configure_discovery(upstream, request, run):
         selector = 'a[href*="/explore/"],a[href*="/discovery/item/"]' if platform == 'xhs' else 'a[href*="/video/BV"]'
         await page.wait_for_selector(selector, timeout=15000)
         links = await page.eval_on_selector_all(selector, '(items) => items.filter(x=>x.getClientRects().length && getComputedStyle(x).visibility!=="hidden").slice(0,200).map(x=>x.href)')
+        observed_at = datetime.now(timezone.utc).isoformat()
         chosen = select_links(platform, links, request['max_items'])
         if not chosen:
             raise ValueError('discovery_empty_or_unavailable')
         # Public metadata has no XHS navigation locator; it stays in this process only.
         write(run / 'discovery.json', {'discovery_kind': mode, 'source_url': source,
                                       'candidate_ids': [identity for identity, _ in chosen],
+                                      'observed_at': observed_at,
+                                      'position_basis': 'deduplicated_visible_selection_order',
+                                      'candidates': [{'content_id': identity, 'sample_position': index + 1,
+                                                      'platform_rank': None}
+                                                     for index, (identity, _) in enumerate(chosen)],
                                       'following_feed': False, 'coverage': 'visible_page_sample'})
         targets = [target for _, target in chosen]
         if platform == 'xhs':

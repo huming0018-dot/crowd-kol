@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import tempfile
@@ -41,13 +42,17 @@ class DiscoveryTests(unittest.TestCase):
                   'idempotency_key': 'unsupported-discovery'})
 
     def test_real_hook_contract_without_source_requests(self):
+        before = datetime.now(timezone.utc)
         class Page:
             async def goto(self, *args, **kwargs):
                 self.goto_url = args[0]
             async def wait_for_selector(self, *args, **kwargs):
                 pass
             async def eval_on_selector_all(self, *args):
-                return ['https://www.bilibili.com/video/BV1234567890/']
+                return ['https://www.bilibili.com/video/BV1234567890/',
+                        'https://www.bilibili.com/video/BV1234567890/',
+                        'https://evil.invalid/video/BV9999999999/',
+                        'https://www.bilibili.com/video/BV2345678901/']
         class Crawler:
             def __init__(self):
                 self.context_page = Page()
@@ -56,14 +61,23 @@ class DiscoveryTests(unittest.TestCase):
         upstream = SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'bili': Crawler}))
         with tempfile.TemporaryDirectory() as temporary:
             run = Path(temporary)
-            configure_discovery(upstream, {'platform': 'bili', 'mode': 'trending', 'max_items': 1}, run)
+            configure_discovery(upstream, {'platform': 'bili', 'mode': 'trending', 'max_items': 2}, run)
             crawler = Crawler()
             asyncio.run(crawler.search())
-            self.assertEqual(crawler.targets, ['BV1234567890'])
+            self.assertEqual(crawler.targets, ['BV1234567890', 'BV2345678901'])
             metadata = json.loads((run / 'discovery.json').read_text())
             self.assertEqual(metadata['discovery_kind'], 'trending')
             self.assertFalse(metadata['following_feed'])
             self.assertNotIn('token', json.dumps(metadata))
+            observed_at = datetime.fromisoformat(metadata['observed_at'])
+            self.assertEqual(observed_at.utcoffset().total_seconds(), 0)
+            self.assertLessEqual(before, observed_at)
+            self.assertLessEqual(observed_at, datetime.now(timezone.utc))
+            self.assertEqual(metadata['position_basis'], 'deduplicated_visible_selection_order')
+            self.assertEqual(metadata['candidates'], [
+                {'content_id': 'BV1234567890', 'sample_position': 1, 'platform_rank': None},
+                {'content_id': 'BV2345678901', 'sample_position': 2, 'platform_rank': None}])
+            self.assertEqual(metadata['candidate_ids'], [c['content_id'] for c in metadata['candidates']])
 
 
 if __name__ == '__main__':
