@@ -1,4 +1,4 @@
-"""Durable local processing of already downloaded task media; no network requests."""
+"""Durable local processing; explicit complete-video downloads have a separate budget."""
 import hashlib
 import fcntl
 import json
@@ -65,7 +65,10 @@ class MediaJobs:
             if state['state'] not in TERMINAL and job_id not in self.threads:
                 state = {**state, 'state': 'interrupted_unknown', 'reason': 'processor_restart_check_existing_output'}
             if state['state'] == 'completed':
-                state['result'] = read(folder / 'result.json')
+                if state.get('kind')=='complete_video':
+                    from complete_video import read_bytes
+                    state['result']=json.loads(read_bytes(folder/'result.json',200000))
+                else:state['result'] = read(folder / 'result.json')
             progress = folder / 'long-asr' / 'state.json'
             if progress.is_file():
                 detail = read(progress)
@@ -76,6 +79,12 @@ class MediaJobs:
                 if state['state'] == 'failed' and detail.get('reason'):
                     state['reason'] = detail['reason']
             state['checkpoint_available'] = state.get('kind') == 'asr' and state['state'] in ('failed', 'cancelled') and bool(list(folder.glob('input*')))
+            if state.get('kind')=='complete_video' and (folder/'video-progress.json').is_file():
+                from complete_video import read_bytes
+                detail=json.loads(read_bytes(folder/'video-progress.json',10000))
+                if detail.get('phase') in ('downloading_video','checking_source_video','transcoding_video','checking_complete_output'):state['video_phase']=detail['phase']
+                for field,limit in (('downloaded_bytes',256*1024*1024),('network_attempts',4)):
+                    if type(detail.get(field)) is int and 0<=detail[field]<=limit:state[field]=detail[field]
         return state
 
     def start(self, source, platform, content_id, kind, run_id, entity_ref=None):
@@ -172,6 +181,76 @@ class MediaJobs:
         if len(data) > limit or hashlib.sha256(data).hexdigest() != state['asset_sha256']:
             raise ValueError('media_playback_snapshot_changed')
         return {'data': data, 'mime': mimes[path.suffix.lower()], 'sha256': state['asset_sha256']}
+
+    def start_video(self, reference):
+        from complete_video import safe_folder, safe_url, atomic_json
+        safe_url(reference['url']);safe_folder(self.root)
+        processor=Path(__file__).parent/'complete_video.py'
+        key=hashlib.sha256((reference['reference_sha256']+hashlib.sha256(processor.read_bytes()).hexdigest()).encode()).hexdigest()
+        with self.lock:
+            if self.closed:raise ValueError('media_processor_closed')
+            for folder in self.root.iterdir():
+                if folder.is_dir() and not folder.is_symlink() and (folder/'state.json').is_file():
+                    state=self.status(folder.name)
+                    if state.get('input_hash')==key:return {**state,'reused_existing_job':True,'cached':state['state']=='completed'}
+                    if state['state']=='interrupted_unknown':raise ValueError('media_processor_reconciliation_required')
+            if any(thread.is_alive() for thread in self.threads.values()):raise ValueError('media_processor_busy')
+            process_lock=os.fdopen(os.open(self.root/'processor.lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600),'a+')
+            try:fcntl.flock(process_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:process_lock.close();raise ValueError('media_processor_busy') from None
+            if os.fstat(process_lock.fileno()).st_nlink!=1:process_lock.close();raise ValueError('unsafe_complete_video_path')
+            try:
+                job_id=str(uuid.uuid4());folder=self.root/job_id;folder.mkdir(mode=0o700)
+                atomic_json(folder/'input-ref.json',reference)
+                ref_hash=hashlib.sha256((folder/'input-ref.json').read_bytes()).hexdigest()
+                state={'job_id':job_id,'state':'queued','kind':'complete_video','platform':'douyin','content_id':reference['content_id'],'run_id':reference['run_id'],'input_hash':key,'source_reference_sha256':reference['reference_sha256'],'created_at':time.time(),'source_kind':'authorized_saved_video_reference','uploaded':False,'network_budget':{'max_request_attempts':4,'input_bytes':256*1024*1024,'output_bytes':64*1024*1024},'collection_budget_changed':False,'model_calls':0}
+                write(folder/'state.json',state)
+                thread=threading.Thread(target=self._execute_video,args=(state,ref_hash,process_lock),daemon=True);self.threads[job_id]=thread;thread.start()
+            except BaseException:
+                process_lock.close();raise
+            return state
+
+    def _execute_video(self,state,ref_hash,process_lock):
+        folder=self.root/state['job_id'];job_id=state['job_id'];proc=None
+        try:
+            with self.lock:
+                if job_id in self.cancelled or self.closed:state.update(state='cancelled');return
+                proc=subprocess.Popen([self.python,str(Path(__file__).parent/'complete_video.py'),'--reference',str(folder/'input-ref.json'),'--reference-file-sha256',ref_hash],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(process_lock.fileno(),))
+                self.processes[job_id]=proc;state.update(state='running',processor_pid=proc.pid);write(folder/'state.json',state)
+            proc.wait(timeout=920)
+            if job_id in self.cancelled:state.update(state='cancelled')
+            elif proc.returncode:
+                from complete_video import read_bytes,ERROR_CODES
+                error=json.loads(read_bytes(folder/'video-error.json',10000)) if (folder/'video-error.json').is_file() else {}
+                reason=error.get('reason');state.update(state='failed',reason=reason if reason in ERROR_CODES else 'complete_video_failed')
+            else:
+                from complete_video import read_bytes
+                data=read_bytes(folder/'result.json',200000);rows=json.loads(data)
+                evidence=rows[0]['evidence']
+                if len(rows)!=1 or rows[0]['kind']!='processed_video' or rows[0]['content_id']!=state['content_id'] or rows[0]['platform']!='douyin' or evidence['source_reference_sha256']!=state['source_reference_sha256'] or hashlib.sha256(read_bytes(folder/'video.mp4',64*1024*1024)).hexdigest()!=evidence['asset_sha256']:
+                    raise ValueError('complete_video_identity_mismatch')
+                state.update(state='completed',asset_sha256=evidence['asset_sha256'],result_sha256=hashlib.sha256(data).hexdigest())
+        except subprocess.TimeoutExpired:
+            self._kill(proc);state.update(state='failed',reason='complete_video_timeout')
+        except (OSError,ValueError,TypeError,KeyError,IndexError):
+            self._kill(proc);state.update(state='failed',reason='complete_video_failed')
+        finally:
+            with self.lock:
+                self.processes.pop(job_id,None)
+                if job_id in self.cancelled:state.update(state='cancelled')
+                (folder/'input-ref.json').unlink(missing_ok=True)
+                write(folder/'state.json',{**state,'finished_at':time.time()})
+            process_lock.close()
+
+    def video_file(self,job_id,asset_sha256):
+        from complete_video import safe_folder,read_bytes
+        try:job_id=uid(job_id)
+        except Exception:raise ValueError('invalid_media_job_id') from None
+        folder=safe_folder(self.root/job_id);state=json.loads(read_bytes(folder/'state.json',20000))
+        if state.get('job_id')!=job_id or state.get('kind')!='complete_video' or state['state']!='completed' or state.get('asset_sha256')!=asset_sha256:raise ValueError('complete_video_identity_mismatch')
+        data=read_bytes(folder/'video.mp4',64*1024*1024)
+        if hashlib.sha256(data).hexdigest()!=asset_sha256:raise ValueError('complete_video_asset_changed')
+        return {'data':data,'mime':'video/mp4','sha256':asset_sha256}
 
     def list(self, run_id):
         try:

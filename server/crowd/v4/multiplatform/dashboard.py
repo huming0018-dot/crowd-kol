@@ -492,6 +492,22 @@ class Application:
             return getattr(self.media_jobs, action)(payload['job_id'])
         if action == 'playback' and set(payload) == {'job_id', 'asset_sha256'}:
             return self.media_jobs.playback(payload['job_id'], payload['asset_sha256'])
+        if action == 'video_file' and set(payload) == {'job_id','asset_sha256'}:
+            return self.media_jobs.video_file(payload['job_id'],payload['asset_sha256'])
+        if action in ('video_preview','video_start'):
+            from complete_video import source_reference,public_reference
+            fields={'run_id','content_id'}|({'reference_sha256','allow_download'} if action=='video_start' else set())
+            if set(payload)!=fields:raise ValueError('invalid_complete_video_request')
+            root=self._registered_run_root(payload['run_id'])
+            imported=self.run('import',{'run_id':payload['run_id']})
+            records=imported.get('result',imported).get('records',[])
+            candidates=[r for r in records if r.get('kind')=='content' and r.get('platform')=='douyin' and r.get('content_id')==payload['content_id']]
+            if len(candidates)!=1:raise ValueError('video_content_identity_ambiguous')
+            reference=source_reference(root/'runs'/payload['run_id'],payload['run_id'],payload['content_id'])
+            if action=='video_preview':return public_reference(reference)
+            if payload['allow_download'] is not True:raise ValueError('video_download_authorization_required')
+            if payload['reference_sha256']!=reference['reference_sha256']:raise ValueError('video_reference_changed')
+            return self.media_jobs.start_video(reference)
         if action == 'start' and set(payload) == {'run_id', 'path', 'content_id', 'kind'}:
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
             imported = self.run('import', {'run_id': payload['run_id']})
@@ -614,7 +630,7 @@ def make_server(app, port=45937):
                 if self.path == '/api/media-processing':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_media_processing_request')
-                    if body['action'] == 'playback':
+                    if body['action'] in ('playback', 'video_file'):
                         value = app.process_media(body['action'], body['payload'])
                         self.send_response(200)
                         self.send_header('Content-Type', value['mime'])
