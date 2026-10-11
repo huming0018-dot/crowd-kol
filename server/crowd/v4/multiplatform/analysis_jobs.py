@@ -262,6 +262,7 @@ class AnalysisJobs:
         command = [self.executable, '-a', 'never', 'exec', '--sandbox', 'read-only',
                    '--ephemeral', '--ignore-user-config', '--skip-git-repo-check',
                    '--enable', 'skip_host_skill_discovery', '-c', 'project_doc_max_bytes=0',
+                   '-c', 'suppress_unstable_features_warning=true',
                    '-c', 'web_search="disabled"', '--output-schema', str(folder / 'schema.json'),
                    '--output-last-message', str(folder / 'model-output.json'), '--json', '--color', 'never']
         for feature in ('shell_tool', 'apps', 'plugins', 'hooks', 'memories', 'multi_agent',
@@ -305,9 +306,20 @@ class AnalysisJobs:
                 if (folder / 'model-output.json').stat().st_size > 512 * 1024 or (folder / 'events.jsonl').stat().st_size > 2 * 1024 * 1024:
                     raise ValueError('analysis_output_limit')
                 # The same strict output and tool-event checks apply to each call.
+                turn_started = False
                 for line in (folder / 'events.jsonl').read_text().splitlines():
                     event = json.loads(line)
+                    if event.get('type') == 'turn.started':
+                        turn_started = True
                     item = event.get('item', {})
+                    # CLI 0.153 emits this startup notice as an error item even
+                    # when the tool-free model turn succeeds. Accept only this
+                    # exact notice; tool events and actual provider errors fail.
+                    if (not turn_started and set(event) == {'type', 'item'}
+                            and set(item) <= {'id', 'type', 'message'}
+                            and event.get('type') == 'item.completed' and item.get('type') == 'error'
+                            and item.get('message') == 'Code Mode is unavailable because code-mode host is disabled. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`.'):
+                        continue
                     if item and item.get('type') not in ('agent_message', 'reasoning'):
                         raise ValueError('analysis_unexpected_tool_event')
                 checked = validate_result(batch['snapshot'], read(folder / 'model-output.json'))
