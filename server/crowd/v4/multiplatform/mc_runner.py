@@ -23,6 +23,7 @@ NATIVE_MEDIA = {'xhs','dy','ks','bili','wb'}
 MEDIA = NATIVE_MEDIA | {'tieba','zhihu'}
 # JSONL writer names differ from CLI platform codes; retain older bridge output aliases.
 JSONL_DIRS = {'dy':('douyin','dy'),'ks':('kuaishou','ks'),'wb':('weibo','wb')}
+DISCOVERY_KINDS = frozenset(('search','detail','creator','homefeed','trending'))
 FINAL = {'completed','failed','stopped','interrupted_unknown','login_required'}
 STOP_REASONS = {'user': {'user_stop'}, 'cloud_worker': {'cloud_controller_error','cloud_dispatch_denied','cloud_worker_shutdown','owner_stop_requested'},
                 'docker_worker': {'worker_shutdown'}}
@@ -410,7 +411,7 @@ def start(root, mc, payload):
     (run/'media_platform/kuaishou/graphql').symlink_to(mc/'media_platform/kuaishou/graphql',target_is_directory=True)
     (run/'browser_data').symlink_to(session/'browser_data',target_is_directory=True)
     (session/'browser_data').mkdir(exist_ok=True,mode=0o700)
-    manifest = {'run_id':run_id,'request':p,'source':info,'created_at':time.time(),'source_kind':'mediacrawler_api','reward_eligible':False}
+    manifest = {'run_id':run_id,'request':p,'source':info,'created_at':time.time(),'source_kind':'mediacrawler_api','reward_eligible':False,'discovery_contract_version':1}
     write(run/'manifest.json',manifest)
     write(run/'status.json',{'run_id':run_id,'state':'starting','phase':'starting','session_id':p['session_id'],'platform':p['platform'],'mode':p['mode'],'source_kind':'mediacrawler_api','reward_eligible':False,'updated_at':time.time()})
     proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_worker','--run-id',run_id,'--lock-fd',str(lock.fileno())],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock.fileno(),))
@@ -837,9 +838,18 @@ def import_output(root,payload):
                 if len(artifacts)>=1000 or size>26214400 or artifact_bytes>104857600: fail('wordcloud_artifact_limit')
                 artifacts.append({'kind':'wordcloud_image' if path.suffix=='.png' else 'word_frequency','path':str(path.relative_to(run)),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':size,'source_kind':'derived_local','status':'generated_by_external_executor'})
     discovery = read(run/'discovery.json') if (run/'discovery.json').is_file() else None
+    discovery_version = manifest.get('discovery_contract_version')
+    discovery_kind = manifest['request'].get('mode') if type(discovery_version) is int and discovery_version == 1 else None
     if discovery:
+        discovery_kind = discovery.get('discovery_kind')
+        if discovery_kind not in ('homefeed','trending') or discovery_kind != manifest['request'].get('mode') or p not in ('xhs','bili') or discovery_kind == 'trending' and p != 'bili':
+            fail('invalid_discovery_provenance')
+    if discovery_kind is not None:
+        if discovery_kind not in DISCOVERY_KINDS or discovery_kind == 'homefeed' and p not in ('xhs','bili') or discovery_kind == 'trending' and p != 'bili':
+            fail('invalid_discovery_provenance')
         for record in records:
-            record['discovery_kind'] = discovery['discovery_kind']
+            # Metadata is outside the established normalized record_hash; the capture hash covers it.
+            record['discovery_kind'] = discovery_kind
     data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'discovery':discovery,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
     write(run/'normalized.json',data)
     return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'dynamics':sum(r['kind']=='dynamic' for r in records),'media_files':len(media),'rejected_records':rejected,'coverage':'unverified'}}

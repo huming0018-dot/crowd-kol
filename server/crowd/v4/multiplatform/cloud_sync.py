@@ -25,7 +25,7 @@ WORKER_ERRORS = mc_runner.STOP_ERRORS | {'source_outcome_unknown','invalid_cloud
     'capture_size_limit','cloud_response_size_limit','invalid_cloud_response','cloud_redirect_denied','unacknowledged_capture',
     'supplemental_account_binding_denied','invalid_cloud_reconciliation','invalid_encoding','integer_required',
     'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown'}
-RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible','coverage','origin',
+RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible','coverage','origin','discovery_kind',
  'comment_id','parent_comment_id','text','reported_reply_count','title','body','content_type',
  'canonical_id_scheme','platform_fields','author','author_id','author_id_scheme','author_id_status',
  'title_status','title_truncated','metrics','upstream_transport','parent_status',
@@ -236,6 +236,8 @@ class CloudOutbox:
             raise CloudError('invalid_imported_records')
         for key in ('run_id', 'task_id', 'child_id'):
             mc_runner.uid(lease.get(key))
+        if type(lease.get('lease_epoch')) is not int or not 1 <= lease['lease_epoch'] <= 2147483647:
+            raise CloudError('invalid_capture_record')
         platform = mc_runner.PLATFORMS[lease['platform']]
         ids = []
         with self._db() as db:
@@ -250,13 +252,42 @@ class CloudOutbox:
                     raise CloudError('invalid_machine_provenance')
                 if record.get('kind') not in ('content', 'dynamic', 'comment', 'author', 'media') or not isinstance(record.get('content_id'), str):
                     raise CloudError('invalid_capture_record')
+                if 'discovery_kind' in record:
+                    entry = record['discovery_kind']
+                    if not isinstance(entry, str) or entry not in mc_runner.DISCOVERY_KINDS or entry == 'homefeed' and platform not in ('xiaohongshu','bilibili') or entry == 'trending' and platform != 'bilibili':
+                        raise CloudError('invalid_capture_record')
                 from results_store import _safe
                 _safe(record)
                 capture_id = str(uuid.uuid5(uuid.UUID(lease['run_id']), canonical(record)))
-                ids.append(capture_id)
-                old = db.execute('SELECT envelope FROM captures WHERE id=?', (capture_id,)).fetchone()
-                if old:
+                def reuse(candidate_id, expected_record):
+                    old = db.execute('SELECT run_id,envelope,digest FROM captures WHERE id=?', (candidate_id,)).fetchone()
+                    if old is None:
+                        return False
+                    try:
+                        saved = json.loads(old[1])
+                        expected = {'schema':SCHEMA,'capture_id':candidate_id,'task_id':lease['task_id'],
+                            'child_id':lease['child_id'],'run_id':lease['run_id'],'lease_epoch':lease['lease_epoch'],
+                            'platform':platform,'delivery_basis':lease['delivery_basis'],'source_kind':'machine_api',
+                            'adapter_version':'cloud-machine-v1','normalizer_version':'mc-normalized-v2'}
+                        valid = (old[0] == lease['run_id'] and type(saved.get('lease_epoch')) is int
+                            and set(saved) == set(expected) | {'record','packaged_at'} and canonical(saved) == old[1]
+                            and all(saved.get(k) == v for k,v in expected.items())
+                            and canonical(saved.get('record')) == canonical(expected_record)
+                            and old[2] == _hash(SCHEMA, saved))
+                    except (TypeError, ValueError):
+                        valid = False
+                    if not valid:
+                        raise CloudError('capture_hash_conflict')
+                    ids.append(candidate_id)
+                    return True
+                if reuse(capture_id, record):
                     continue  # Persisted timestamp/bytes stay identical after a crash or repeated import.
+                if 'discovery_kind' in record:
+                    legacy = {k:v for k,v in record.items() if k != 'discovery_kind'}
+                    legacy_id = str(uuid.uuid5(uuid.UUID(lease['run_id']), canonical(legacy)))
+                    if reuse(legacy_id, legacy):
+                        continue  # Never rewrite an old ACK or invent its missing entry tag.
+                ids.append(capture_id)
                 envelope = {'schema': SCHEMA, 'capture_id': capture_id, 'task_id': lease['task_id'],
                     'child_id': lease['child_id'], 'run_id': lease['run_id'], 'lease_epoch': lease['lease_epoch'],
                     'platform': platform, 'delivery_basis': lease['delivery_basis'], 'source_kind': 'machine_api',
