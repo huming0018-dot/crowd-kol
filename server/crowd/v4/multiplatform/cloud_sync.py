@@ -19,13 +19,14 @@ import uuid
 import mc_runner
 
 SCHEMA = 'crowd-machine-capture-v1'
+DELIVERY_RENEW_SECONDS = 20
 HEX = re.compile(r'[a-f0-9]{64}\Z')
 WORKER_ERRORS = mc_runner.STOP_ERRORS | {'source_outcome_unknown','invalid_cloud_ack','invalid_imported_records',
     'invalid_machine_provenance','invalid_capture_record','existing_saved_reader_missing','existing_saved_selection_mismatch',
     'capture_size_limit','cloud_response_size_limit','invalid_cloud_response','cloud_redirect_denied','unacknowledged_capture',
     'supplemental_account_binding_denied','invalid_cloud_reconciliation','invalid_encoding','integer_required',
     'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown',
-    'runner_status_unavailable'}
+    'runner_status_unavailable','cloud_delivery_lease_unavailable','cloud_delivery_lease_denied'}
 RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible','coverage','origin','discovery_kind',
  'comment_id','parent_comment_id','text','reported_reply_count','title','body','content_type',
  'canonical_id_scheme','platform_fields','author','author_id','author_id_scheme','author_id_status',
@@ -35,6 +36,11 @@ RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible',
 
 
 class CloudError(ValueError):
+    pass
+
+
+class DeliveryLeaseError(CloudError):
+    """Delivery must stop before a remote write when this exact lease cannot renew."""
     pass
 
 
@@ -301,17 +307,23 @@ class CloudOutbox:
                     (capture_id, lease['run_id'], encoded, _hash(SCHEMA, envelope), 'pending', None, None))
         return list(dict.fromkeys(ids))
 
-    def flush(self, run_id=None):
+    def flush(self, run_id=None, limit=2000, before_send=None):
+        if type(limit) is not int or not 1 <= limit <= 2000:
+            raise CloudError('invalid_imported_records')
         with self._db() as db:
             rows = db.execute('SELECT id,envelope,digest FROM captures WHERE state=?' +
-                (' AND run_id=?' if run_id else '') + ' ORDER BY rowid LIMIT 2000',
-                ('pending', run_id) if run_id else ('pending',)).fetchall()
+                (' AND run_id=?' if run_id else '') + ' ORDER BY rowid LIMIT ?',
+                ('pending', run_id, limit) if run_id else ('pending', limit)).fetchall()
         for capture_id, encoded, digest in rows:
             envelope = json.loads(encoded)
             binding = {'run_id': envelope['run_id'], 'lease_epoch': envelope['lease_epoch']}
             try:
+                if before_send:
+                    before_send()
                 receipt = self.client.call('receipt', {**binding, 'capture_id': capture_id, 'envelope_hash': digest}).get('receipt')
                 if receipt is None:
+                    if before_send:
+                        before_send()
                     receipt = self.client.call('capture', {**binding, 'envelope': envelope, 'envelope_hash': digest}).get('receipt')
                 if not isinstance(receipt, dict) or any(receipt.get(k) != v for k, v in {
                     'capture_id': capture_id, 'envelope_hash': digest, **binding, 'task_id': envelope['task_id'],
@@ -320,6 +332,8 @@ class CloudOutbox:
                 with self._db() as db:
                     db.execute('UPDATE captures SET state=?,receipt=?,error=NULL WHERE id=? AND digest=?',
                                ('acknowledged', canonical(receipt), capture_id, digest))
+            except DeliveryLeaseError:
+                raise
             except (CloudError, ValueError) as error:
                 code = str(error) if re.fullmatch(r'[a-z_]{1,80}', str(error)) else 'cloud_outcome_unknown'
                 with self._db() as db:
@@ -393,6 +407,45 @@ class CloudWorker:
         state['lease'] = updated
         self._save(state)
         return updated
+
+    def _renew_delivery(self, state):
+        try:
+            lease = self._heartbeat(state)
+        except (CloudError, ValueError, OSError, sqlite3.Error):
+            raise DeliveryLeaseError('cloud_delivery_lease_unavailable') from None
+        if lease.get('may_dispatch') is not True:
+            # The server permits this immutable outbox for 24 hours after expiry.
+            # Source execution is already terminal here; this never enables start.
+            if (state.get('phase') not in ('importing','delivering','finishing')
+                    or state.get('outcome') not in ('completed','stopped','failed','unknown','login_required')):
+                raise DeliveryLeaseError('cloud_delivery_lease_denied')
+            state['delivery_only'] = True
+            self._save(state)
+        return lease
+
+    @contextmanager
+    def _delivery_keepalive(self, state):
+        """Only local terminal import/staging is allowed while one lease renews."""
+        self._renew_delivery(state)
+        done = threading.Event()
+        errors = []
+        def renew():
+            while not done.wait(DELIVERY_RENEW_SECONDS):
+                try:
+                    self._renew_delivery(state)
+                except DeliveryLeaseError as error:
+                    errors.append(error)
+                    break
+        thread = threading.Thread(target=renew, daemon=True, name='cloud-delivery-lease')
+        thread.start()
+        try:
+            yield
+        finally:
+            done.set()
+            thread.join()
+        if errors:
+            raise errors[0]
+        self._renew_delivery(state)
 
     def _stop_local(self, state, reason, error_code=None):
         context={'origin':'cloud_worker','reason':reason,'lease_epoch':state['lease']['lease_epoch'],
@@ -560,13 +613,14 @@ class CloudWorker:
             elif lease['delivery_basis'] == 'existing_saved':
                 if self.existing_reader is None:
                     raise CloudError('existing_saved_reader_missing')
-                records = self.existing_reader(lease)
-                if isinstance(records, dict):
-                    records = records.get('records')
-                refs = lease.get('record_refs', [])
-                if not isinstance(records, list) or any(not any((r.get('record', r).get('content_id') == ref['content_id'] and r.get('record', r).get('kind') == ref.get('kind','content')) for ref in refs) for r in records):
-                    raise CloudError('existing_saved_selection_mismatch')
-                self.outbox.stage_imported(records, lease)
+                with self._delivery_keepalive(state):
+                    records = self.existing_reader(lease)
+                    if isinstance(records, dict):
+                        records = records.get('records')
+                    refs = lease.get('record_refs', [])
+                    if not isinstance(records, list) or any(not any((r.get('record', r).get('content_id') == ref['content_id'] and r.get('record', r).get('kind') == ref.get('kind','content')) for ref in refs) for r in records):
+                        raise CloudError('existing_saved_selection_mismatch')
+                    self.outbox.stage_imported(records, state['lease'])
                 state.update(phase='delivering', outcome='completed', api_attempts=0)
                 self._save(state)
             else:
@@ -627,17 +681,20 @@ class CloudWorker:
                     'generation': account.get('generation', 0), 'account_ref': account.get('account_ref')}
             self._save(state)
         if state['phase'] == 'importing':
-            records = self._runner('import', {'run_id': state['local_run_id']})
-            self.outbox.stage_imported(records, state['lease'])
+            with self._delivery_keepalive(state):
+                records = self._runner('import', {'run_id': state['local_run_id']})
+                self.outbox.stage_imported(records, state['lease'])
             state['phase'] = 'delivering'
             self._save(state)
         if state['phase'] == 'delivering':
-            status = self.outbox.flush(state['lease']['run_id'])
+            status = self.outbox.flush(state['lease']['run_id'], limit=4,
+                                       before_send=lambda: self._renew_delivery(state))
             if status['pending']:
                 return {'state': 'delivering', **status}
             state['phase'] = 'finishing'
             self._save(state)
         if state['phase'] == 'finishing':
+            self._renew_delivery(state)
             status = self.outbox.stats(state['lease']['run_id'])
             payload = {'run_id': state['lease']['run_id'], 'lease_epoch': state['lease']['lease_epoch'],
                        'capture_ids': status['capture_ids'], 'outcome': state['outcome'],

@@ -96,6 +96,98 @@ class Tests(unittest.TestCase):
         if action=='stop':return {'ok':True,'result':{'state':'stopped'}}
         raise ValueError('unexpected_action')
 
+    def test_delivery_renews_each_request_and_batches_without_expiring_or_redispatch(self):
+        class SlowCloud(FakeCloud):
+            clock = 0
+            expires = 90
+            def call(self, action, payload=None):
+                if action == 'heartbeat':
+                    self.expires = self.clock + 90
+                elif action in ('receipt','capture','finish'):
+                    self.clock += 20
+                    if self.clock >= self.expires:
+                        raise CloudError('cloud_outcome_unknown')
+                return super().call(action,payload)
+        cloud=SlowCloud();records=[{**row(),'content_id':str(i)} for i in range(9)]
+        actions=[]
+        def runner(action,payload):
+            actions.append(action)
+            self.assertEqual(action,'import')
+            cloud.clock += 35
+            return {'records':records}
+        worker=CloudWorker(self.root,cloud,runner)
+        worker._save({'phase':'importing','lease':cloud.lease,'local_run_id':self.local_id,
+                      'outcome':'completed','api_attempts':3,'sequence':2})
+        first=worker.tick();self.assertEqual(first['state'],'delivering')
+        self.assertEqual((first['pending'],first['acknowledged']),(5,4))
+        with worker.outbox._db() as db:
+            original=db.execute('select id,envelope,digest from captures order by rowid').fetchall()
+        self.assertEqual(worker.tick()['state'],'delivering')
+        self.assertEqual(worker.tick()['state'],'finished')
+        with worker.outbox._db() as db:
+            self.assertEqual(original,db.execute('select id,envelope,digest from captures order by rowid').fetchall())
+        self.assertEqual(actions,['import']);self.assertEqual(len(cloud.receipts),9)
+        self.assertEqual(sum(a=='capture' for a,_ in cloud.calls),9)
+        finish=next(p for a,p in cloud.calls if a=='finish')
+        self.assertEqual(finish['api_attempts'],3);self.assertEqual(len(finish['capture_ids']),9)
+        self.assertFalse(any(a in ('claim','resume_login') for a,_ in cloud.calls))
+        sequences=[p['sequence'] for a,p in cloud.calls if a=='heartbeat']
+        self.assertEqual(sequences,list(range(3,3+len(sequences))))
+        for index,(action,payload) in enumerate(cloud.calls):
+            if action in ('receipt','capture','finish'):
+                self.assertEqual(cloud.calls[index-1][0],'heartbeat')
+                self.assertEqual((payload['run_id'],payload['lease_epoch']),(cloud.lease['run_id'],1))
+
+    def test_delivery_expired_or_owner_stopped_is_history_only_and_lost_ack_replays(self):
+        for desired in ('running','stopped'):
+            with self.subTest(desired=desired),tempfile.TemporaryDirectory() as directory:
+                cloud=FakeCloud();cloud.lose_capture=True
+                worker=CloudWorker(Path(directory),cloud,self.runner)
+                worker.outbox.stage_imported([row()],cloud.lease)
+                cloud.lease.update(may_dispatch=False,state='unknown',desired_state=desired)
+                worker._save({'phase':'delivering','lease':cloud.lease,'local_run_id':self.local_id,
+                              'outcome':'completed','api_attempts':3})
+                self.assertEqual(worker.tick()['state'],'delivering')
+                self.assertTrue(mc_runner.read(worker.path)['delivery_only'])
+                restored=CloudWorker(Path(directory),cloud,self.runner)
+                self.assertEqual(restored.tick()['state'],'finished')
+                self.assertEqual(sum(a=='capture' for a,_ in cloud.calls),1)
+                self.assertEqual(cloud.lease['state'],'unknown')
+                self.assertFalse(any(a in ('claim','resume_login') for a,_ in cloud.calls))
+        self.assertEqual(self.actions,[])
+
+    def test_delivery_heartbeat_failure_blocks_remote_writes_and_recovers_same_outbox(self):
+        worker=CloudWorker(self.root,self.cloud,self.runner)
+        worker.outbox.stage_imported([row()],self.cloud.lease)
+        worker._save({'phase':'delivering','lease':self.cloud.lease,'local_run_id':self.local_id,
+                      'outcome':'completed','api_attempts':3})
+        self.cloud.fail_heartbeat=True
+        self.assertEqual(worker.tick()['error'],'cloud_delivery_lease_unavailable')
+        self.assertFalse(any(a in ('capture','receipt','finish') for a,_ in self.cloud.calls))
+        self.assertEqual(worker.outbox.stats()['pending'],1)
+        self.cloud.fail_heartbeat=False
+        restored=CloudWorker(self.root,self.cloud,self.runner)
+        self.assertEqual(restored.tick()['state'],'finished');self.assertEqual(self.actions,[])
+
+    def test_delivery_keepalive_renews_during_blocked_local_import(self):
+        cloud=FakeCloud();renewed=threading.Event();original=cloud.call
+        def call(action,payload=None):
+            value=original(action,payload)
+            if action=='heartbeat' and sum(a=='heartbeat' for a,_ in cloud.calls)>=2:
+                renewed.set()
+            return value
+        cloud.call=call
+        def runner(action,payload):
+            self.assertEqual(action,'import')
+            self.assertTrue(renewed.wait(2))
+            return {'records':[row()]}
+        worker=CloudWorker(self.root,cloud,runner)
+        worker._save({'phase':'importing','lease':cloud.lease,'local_run_id':self.local_id,
+                      'outcome':'completed','api_attempts':3})
+        with patch('cloud_sync.DELIVERY_RENEW_SECONDS',0.01):
+            self.assertEqual(worker.tick()['state'],'finished')
+        self.assertFalse(any(t.name=='cloud-delivery-lease' for t in threading.enumerate()))
+
     def test_system_stop_callers_preserve_typed_cause_across_idle_and_restarts(self):
         for trigger,reason in [('error','cloud_controller_error'),('denied','cloud_dispatch_denied'),
                                ('close','cloud_worker_shutdown'),('owner','owner_stop_requested')]:
@@ -386,7 +478,7 @@ class Tests(unittest.TestCase):
                 self.assertEqual(worker.tick()['state'],'finished')
                 self.assertIsNone(worker.status()['last_error'])
                 self.assertEqual([a for a,_ in actions],['status','status','import'])
-                self.assertEqual(sum(a=='heartbeat' for a,_ in cloud.calls),2)
+                self.assertGreaterEqual(sum(a=='heartbeat' for a,_ in cloud.calls),2)
                 self.assertEqual(next(p for a,p in cloud.calls if a=='finish')['api_attempts'],6)
                 self.assertEqual(cloud.lease['request'],original_request)
                 self.assertFalse(any(a in ('claim','resume_login') for a,_ in cloud.calls))
