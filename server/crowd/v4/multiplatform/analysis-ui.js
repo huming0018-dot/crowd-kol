@@ -22,7 +22,10 @@ const analysisView = (() => {
       panel.append(cancel);return;
     }
     if(job.state!=='completed'){
-      if(job.input_summary)panel.append(node('p',`本次范围：这篇已保存的文字与 ${job.input_summary.comments} 条评论；排除 ${job.input_summary.coverage.excluded_comments} 条无效记录。`));
+      if(job.input_summary){
+        const coverage=job.input_summary.coverage||{},count=value=>Number.isSafeInteger(value)&&value>=0?value:'未提供';
+        panel.append(node('p',`本次范围：这篇已保存的文字与 ${job.input_summary.comments} 条评论；排除 ${count(coverage.excluded_comments)} 条无效记录。`),node('p',`一级评论 ${count(coverage.roots)} / 回复 ${count(coverage.replies)} / 父关系未知 ${count(coverage.unknown_parent)}`));
+      }
       const excluded=job.input_summary?.coverage?.excluded_reasons||{};
       if(excluded.unconfirmed_content_type||excluded.different_content_type)panel.append(node('p',`已排除 ${excluded.unconfirmed_content_type||0} 条类型归属不明及 ${excluded.different_content_type||0} 条其他类型评论，不混入所选正文。`));
       if(current?.kind==='dynamic')panel.append(node('p','只分析已保存的动态文字；当前不支持动态评论，不混入同数字 ID 的视频评论。'));
