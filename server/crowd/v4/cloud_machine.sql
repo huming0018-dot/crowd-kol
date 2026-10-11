@@ -315,9 +315,11 @@ begin
    select * into claimed from crowd_machine.claims where worker_id=w.worker_id and claim_id=v_id;
    if found then return jsonb_build_object('lease',case when claimed.child_id is null then null when exists(select 1 from crowd_machine.children cc where cc.child_id=claimed.child_id and cc.run_id=claimed.run_id and cc.lease_epoch=claimed.lease_epoch) then crowd_machine.lease_view(claimed.child_id) else null end,'replayed',true); end if;
    update crowd_machine.children set state='unknown',reason_code='lease_expired_source_outcome_unknown' where worker_id=w.worker_id and state='running' and lease_until<=clock_timestamp();
-   if not exists(select 1 from crowd_machine.children where worker_id=w.worker_id and state in ('running','unknown')) then
+   -- Keep one running execution; an unresolved source blocks only its platform on this worker.
+   if not exists(select 1 from crowd_machine.children where worker_id=w.worker_id and state='running') then
      select c0.* into c from crowd_machine.children c0 join crowd_machine.tasks t0 on t0.task_id=c0.task_id
      where t0.owner_scope=p_owner_scope and t0.desired_state='running' and c0.state='queued' and w.platforms ? c0.platform and not(coalesce(p_payload->'unavailable_platforms','[]'::jsonb) ? c0.platform) and (c0.worker_id is null or c0.worker_id=w.worker_id)
+       and not exists(select 1 from crowd_machine.children blocked where blocked.worker_id=w.worker_id and blocked.platform=c0.platform and blocked.state='unknown')
      order by t0.created_at,c0.platform for update of c0 skip locked limit 1;
      if found then
        update crowd_machine.children set state='running',worker_id=w.worker_id,run_id=gen_random_uuid(),lease_epoch=lease_epoch+1,lease_until=clock_timestamp()+interval '90 seconds',requests_reserved=(plan->>'request_quota')::integer-requests_spent,finished_at=null,finish_hash=null,local_run_id=null,heartbeat_seq=0 where child_id=c.child_id returning * into c;
