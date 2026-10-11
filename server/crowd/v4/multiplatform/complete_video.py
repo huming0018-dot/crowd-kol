@@ -66,11 +66,22 @@ def source_reference(run,run_id,content_id):
         for index,line in enumerate(data.splitlines(),1):
             if not line.strip():continue
             row=json.loads(line)
+            if not isinstance(row,dict):raise ValueError('invalid_video_source_record')
             if str(row.get('aweme_id'))==content_id:
                 url=safe_url(row.get('video_download_url'));matches.append((url,hashlib.sha256(data).hexdigest(),index))
     if not matches or len({m[0] for m in matches})!=1:raise ValueError('video_source_reference_ambiguous_or_missing')
     url,file_hash,row=matches[0]
     identity={'run_id':run_id,'platform':'douyin','content_id':content_id,'source_file_sha256':file_hash,'source_record_index':row,'url_sha256':hashlib.sha256(url.encode()).hexdigest()}
+    native=run/'output'/'douyin'/'video-references'/(content_id+'.json')
+    if native.exists() or native.is_symlink():
+        data=read_bytes(native,10000);saved=json.loads(data)
+        if native.stat().st_mode & 0o777!=0o600 or set(saved)!={'schema_version','run_id','platform','content_id','source_kind','reported_bytes','reported_bitrate','url'} or type(saved['schema_version']) is not int or saved['schema_version']!=1 or saved['run_id']!=run_id or saved['platform']!='douyin' or saved['content_id']!=content_id or saved['source_kind']!='same_native_aweme_detail' or type(saved['reported_bytes']) is not int or not 0<saved['reported_bytes']<=INPUT_LIMIT or saved['reported_bitrate'] is not None and (type(saved['reported_bitrate']) is not int or not 0<saved['reported_bitrate']<=10**12):
+            raise ValueError('video_reference_identity_mismatch')
+        url=safe_url(saved['url']);identity.update(url_sha256=hashlib.sha256(url.encode()).hexdigest(),native_reference_sha256=hashlib.sha256(data).hexdigest(),reported_bytes=saved['reported_bytes'],source_reference_kind='same_native_aweme_detail_lower_rendition')
+    elif (run/'phase.json').is_file():
+        phase=json.loads(read_bytes(run/'phase.json',100000));catalog=phase.get('media_processing_reference')
+        if isinstance(catalog,dict) and catalog.get('state')=='no_fitting_processing_rendition':raise ValueError('video_source_no_fitting_processing_rendition')
+        if isinstance(catalog,dict):raise ValueError('video_processing_reference_unavailable')
     reference_hash=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
     return {**identity,'reference_sha256':reference_hash,'url':url}
 

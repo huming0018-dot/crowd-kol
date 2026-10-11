@@ -1,12 +1,14 @@
 import asyncio
 import json
+import hashlib
+import os
 from pathlib import Path
 import tempfile
 import unittest
 import uuid
 
 from native_media_scope import (install_hook, NATIVE_VIDEO_MEDIA_ACTIVE,
-                                NATIVE_VIDEO_MEDIA_BYTES, response_limit,select_douyin_stream)
+                                NATIVE_VIDEO_MEDIA_BYTES, response_limit,select_douyin_stream,save_processing_reference)
 
 
 class SingleLimit(SystemExit):
@@ -16,6 +18,74 @@ class SingleLimit(SystemExit):
 class NativeMediaScopeTests(unittest.TestCase):
     def rendition(self,size,rate,url='https://v3-web.douyinvod.com/video.mp4?native_signature=PRIVATE'):
         return {'bit_rate':rate,'play_addr':{'data_size':size,'url_list':[url]}}
+
+    def test_private_same_detail_reference_uses_lowest_256_not_collector_limit(self):
+        from complete_video import source_reference,public_reference
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();rid=str(uuid.uuid4());output=base/rid/'output';raw=output/'douyin/jsonl';raw.mkdir(parents=True)
+            original='https://www.douyin.com/aweme/v1/play/?native_original=PRIVATE'
+            (raw/'detail_contents.jsonl').write_text(json.dumps({'aweme_id':'123','video_download_url':original})+'\n')
+            low=self.rendition(80*1024*1024,700000);high=self.rendition(300*1024*1024,5000000)
+            source={'aweme_id':'123','video':{'play_addr_h264':high['play_addr'],'bit_rate':[high,low]}}
+            old=json.dumps(source,sort_keys=True);selected,summary=select_douyin_stream(source)
+            self.assertIs(selected,source);self.assertEqual(summary['fitting_candidate_count'],0)
+            result=save_processing_reference(source,output);path=output/'douyin/video-references/123.json'
+            self.assertEqual(path.stat().st_mode & 0o777,0o600);self.assertEqual(path.parent.stat().st_mode & 0o777,0o700)
+            self.assertEqual(path.stat().st_nlink,1);self.assertEqual(json.loads(path.read_text())['reported_bytes'],80*1024*1024)
+            self.assertNotIn('PRIVATE',json.dumps(result));self.assertFalse((output/'dy').exists())
+            ref=source_reference(base/rid,rid,'123');self.assertEqual(ref['url'],low['play_addr']['url_list'][0])
+            self.assertEqual(ref['native_reference_sha256'],hashlib.sha256(path.read_bytes()).hexdigest())
+            self.assertNotIn('PRIVATE',json.dumps(public_reference(ref)));self.assertEqual(json.dumps(source,sort_keys=True),old)
+            before=path.read_bytes();save_processing_reference(source,output);self.assertEqual(before,path.read_bytes())
+            path.chmod(0o644)
+            with self.assertRaisesRegex(ValueError,'identity_mismatch'):source_reference(base/rid,rid,'123')
+            path.chmod(0o600)
+            saved=json.loads(before)
+            for field,value in [('schema_version',True),('schema_version',1.0),('reported_bitrate','PRIVATE'),('reported_bitrate',True),('reported_bitrate',0),('reported_bitrate',float('inf'))]:
+                path.write_text(json.dumps({**saved,field:value}))
+                with self.assertRaisesRegex(ValueError,'identity_mismatch'):source_reference(base/rid,rid,'123')
+            path.write_bytes(before)
+            changed=json.loads(path.read_text());changed['run_id']=str(uuid.uuid4());path.write_text(json.dumps(changed))
+            with self.assertRaisesRegex(ValueError,'identity_mismatch'):source_reference(base/rid,rid,'123')
+
+    def test_private_reference_symlink_hardlink_and_no_fit_are_fail_closed(self):
+        from complete_video import source_reference
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();rid=str(uuid.uuid4());output=root/rid/'output';output.mkdir(parents=True)
+            source={'aweme_id':'123','video':{'bit_rate':[self.rendition(257*1024*1024,1000)]}}
+            self.assertEqual(save_processing_reference(source,output)['state'],'no_fitting_processing_rendition')
+            self.assertFalse((output/'douyin').exists())
+            source['video']['bit_rate']=[self.rendition(80*1024*1024,1000)]
+            saved=output/'douyin/video-references';saved.mkdir(mode=0o700,parents=True);outside=root/'outside';outside.write_bytes(b'outside-original')
+            for mode in ('symlink','hardlink'):
+                path=saved/'123.json';path.symlink_to(outside) if mode=='symlink' else os.link(outside,path)
+                with self.assertRaises((ValueError,OSError)):save_processing_reference(source,output)
+                self.assertEqual(outside.read_bytes(),b'outside-original');path.unlink()
+            saved.rmdir();saved.symlink_to(root,target_is_directory=True)
+            with self.assertRaisesRegex(ValueError,'unsafe'):save_processing_reference(source,output)
+            self.assertFalse((root/'123.json').exists())
+
+    def test_actual_hook_catalog_summary_has_no_urls_and_source_not_mutated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve()/str(uuid.uuid4())/'output';output.mkdir(parents=True);received=[]
+            def read(path):return json.loads(path.read_text())
+            def write(path,value):path.write_text(json.dumps(value))
+            class Crawler:
+                async def download_media(self,aweme_item):received.append(aweme_item)
+            source={'aweme_id':'123','video':{'bit_rate':[self.rendition(80*1024*1024,700000)]}};old=json.dumps(source)
+            install_hook(Crawler,'dy',output,SingleLimit,read,write);asyncio.run(Crawler().download_media(source))
+            self.assertEqual(len(received),1);self.assertIs(received[0],source);self.assertEqual(json.dumps(source),old)
+            phase=read(output.parent/'phase.json');self.assertEqual(phase['media_processing_reference']['state'],'saved_private_processing_reference')
+            self.assertNotIn('PRIVATE',json.dumps(phase));self.assertNotIn('https',json.dumps(phase))
+
+    def test_known_catalog_unavailable_never_falls_back_to_highest_source(self):
+        from complete_video import source_reference
+        with tempfile.TemporaryDirectory() as directory:
+            rid=str(uuid.uuid4());run=Path(directory).resolve()/rid;raw=run/'output/douyin/jsonl';raw.mkdir(parents=True)
+            (raw/'detail_contents.jsonl').write_text(json.dumps({'aweme_id':'123','video_download_url':'https://www.douyin.com/highest'})+'\n')
+            for state in ('no_fitting_processing_rendition','processing_reference_unavailable','saved_private_processing_reference'):
+                (run/'phase.json').write_text(json.dumps({'media_processing_reference':{'state':state}}))
+                with self.assertRaisesRegex(ValueError,'no_fitting_processing_rendition|reference_unavailable'):source_reference(run,rid,'123')
 
     def test_select_native_complete_low_rendition_without_mutating_original(self):
         high=self.rendition(90*1024*1024,4000000);low=self.rendition(20*1024*1024,700000)
@@ -73,7 +143,7 @@ class NativeMediaScopeTests(unittest.TestCase):
     def test_media_scope_keeps_comments_and_previous_files(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'output'
-            folder = output / 'dy/media'
+            folder = output / 'douyin/media'
             folder.mkdir(parents=True)
             (folder / 'old.part').write_bytes(b'old')
             events = []

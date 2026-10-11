@@ -6,10 +6,9 @@ NATIVE_VIDEO_MEDIA_ACTIVE = ContextVar('crowd_native_video_media_active', defaul
 DEFAULT_RESPONSE_BYTES = 25 * 1024 * 1024
 NATIVE_VIDEO_MEDIA_BYTES = 64 * 1024 * 1024
 
-def select_douyin_stream(item):
-    """Select a complete native rendition before downloading, without probing URLs."""
+def _douyin_candidates(item):
     if not isinstance(item,dict) or not isinstance(item.get('video'),dict) or item.get('images'):
-        return item,None
+        return []
     video=item['video'];rows=[]
     def number(value):
         return value if type(value) is int and 0<value<=10**12 else None
@@ -35,6 +34,12 @@ def select_douyin_stream(item):
     if isinstance(rates,list):
         for row in rates[:32]:
             if isinstance(row,dict):add(row.get('play_addr'),row.get('bit_rate'))
+    return rows
+
+def select_douyin_stream(item):
+    """Select a complete native rendition before downloading, without probing URLs."""
+    if not isinstance(item,dict) or not isinstance(item.get('video'),dict) or item.get('images'):return item,None
+    video=item['video'];rows=_douyin_candidates(item)
     fitting=[row for row in rows if row['size'] is not None and row['size']<=NATIVE_VIDEO_MEDIA_BYTES]
     unknown=[row for row in rows if row['size'] is None and row['rate'] is not None]
     chosen=min(fitting,key=lambda row:row['size']) if fitting else min(unknown,key=lambda row:row['rate']) if unknown else None
@@ -50,6 +55,40 @@ def select_douyin_stream(item):
                            'play_addr_256':chosen['address'],'play_addr':chosen['address']}},summary
 
 
+def save_processing_reference(item,output):
+    """Save one same-detail lower rendition privately; no URL probing or collector quota change."""
+    import hashlib,json,os,re,uuid
+    from pathlib import Path
+    from complete_video import INPUT_LIMIT,safe_folder,safe_url,read_bytes
+    output=Path(output);run_id=output.parent.name
+    if str(uuid.UUID(run_id))!=run_id:raise ValueError('invalid_video_reference_context')
+    cid=item.get('aweme_id') if isinstance(item,dict) else None
+    if not isinstance(cid,str) or not re.fullmatch(r'[0-9]{1,30}',cid):raise ValueError('invalid_video_reference_context')
+    candidates=[row for row in _douyin_candidates(item) if row['size'] is not None and row['size']<=INPUT_LIMIT]
+    if not candidates:return {'state':'no_fitting_processing_rendition','candidate_count':0,'input_limit_bytes':INPUT_LIMIT}
+    chosen=min(candidates,key=lambda row:row['size']);url=safe_url(chosen['address']['url_list'][0])
+    safe_folder(output)
+    parent=output/'douyin';parent.mkdir(exist_ok=True);safe_folder(parent)
+    folder=parent/'video-references';folder.mkdir(mode=0o700,exist_ok=True);safe_folder(folder)
+    if folder.stat().st_mode & 0o777 != 0o700:raise ValueError('unsafe_video_reference_directory')
+    value={'schema_version':1,'run_id':run_id,'platform':'douyin','content_id':cid,
+           'source_kind':'same_native_aweme_detail','reported_bytes':chosen['size'],
+           'reported_bitrate':chosen['rate'],'url':url}
+    path=folder/(cid+'.json');temp=folder/('tmp-'+uuid.uuid4().hex)
+    try:
+        with os.fdopen(os.open(temp,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as stream:
+            json.dump(value,stream);stream.flush();os.fsync(stream.fileno())
+        try:os.link(temp,path)
+        except FileExistsError:
+            previous=json.loads(read_bytes(path,10000))
+            if previous.get('run_id')!=run_id or previous.get('content_id')!=cid or previous.get('platform')!='douyin':raise ValueError('video_reference_identity_mismatch')
+    finally:temp.unlink(missing_ok=True)
+    data=read_bytes(path,10000)
+    if path.stat().st_mode & 0o777 != 0o600:raise ValueError('unsafe_video_reference_file')
+    return {'state':'saved_private_processing_reference','candidate_count':len(candidates),
+            'input_limit_bytes':INPUT_LIMIT,'reference_file_sha256':hashlib.sha256(data).hexdigest()}
+
+
 def response_limit(platform):
     if platform in ('dy', 'ks') and NATIVE_VIDEO_MEDIA_ACTIVE.get():
         return NATIVE_VIDEO_MEDIA_BYTES
@@ -60,13 +99,18 @@ def install_hook(crawler, platform, output, limit_exception, read, write):
     original = crawler.download_media
 
     async def bounded_media(self, *args, **kwargs):
-        folder = output / platform / 'media'
+        folder = output / ('douyin' if platform=='dy' else 'kuaishou' if platform=='ks' else platform) / 'media'
         previous_parts = set(folder.rglob('*.part')) if folder.exists() else set()
         token = NATIVE_VIDEO_MEDIA_ACTIVE.set(True)
         try:
             if platform=='dy':
                 source=kwargs.get('aweme_item') if 'aweme_item' in kwargs else args[0] if args else None
                 selected,selection=select_douyin_stream(source)
+                if isinstance(source,dict):
+                    try:reference=save_processing_reference(source,output)
+                    except (OSError,ValueError,TypeError):reference={'state':'processing_reference_unavailable'}
+                    phase=output.parent/'phase.json';previous=read(phase) if phase.exists() else {}
+                    write(phase,{**previous,'media_processing_reference':reference})
                 if selection is not None:
                     phase=output.parent/'phase.json';previous=read(phase) if phase.exists() else {}
                     write(phase,{**previous,'media_video_selection':selection})
