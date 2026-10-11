@@ -7,7 +7,7 @@ import math
 import os
 from pathlib import Path
 import sys
-from fetch_model import model_profile
+from fetch_model import FILES, model_profile
 
 
 def normalize_timestamps(rows, duration):
@@ -33,7 +33,7 @@ def verify_model(model_dir):
         raise ValueError('verified_local_model_required')
     manifest = json.loads(manifest_path.read_text())
     name, profile = model_profile(manifest)
-    required = {'model.bin', 'config.json', 'tokenizer.json', 'vocabulary.txt'}
+    required = set(profile.get('files', FILES)) - {'README.md'}
     if set(manifest.get('sha256', {})) != required:
         raise ValueError('model_manifest_invalid')
     total = 0

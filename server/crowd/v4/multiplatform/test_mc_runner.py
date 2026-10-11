@@ -465,27 +465,31 @@ async def async_cleanup(): pass
         with self.assertRaises(m.BridgeError):m.validate(self.payload('bili','detail',media=False,platform_options={'long_audio':True}))
         with self.assertRaises(m.BridgeError):m.validate(self.payload('dy','detail',media=True,platform_options={'long_audio':True}))
         calls=[]
+        class Client:
+            async def get_video_play_url(self,**kw):
+                calls.append(kw);return {'dash':{'audio':[]}}
         class Crawler:
+            bili_client=Client()
             async def download_media(self,*args):raise AssertionError('native video path must not run')
-            async def get_video_play_url_task(self,*args,**kw):
-                calls.append((args,kw));return {'dash':{'audio':[]}}
+            async def get_video_play_url_task(self,*args,**kw):raise AssertionError('swallowing native wrapper must not run')
         upstream=SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'bili':Crawler}))
         work=self.base.resolve()/'audio-hook';work.mkdir()
         downloaded=AsyncMock(return_value={'status':'unavailable','reason':'dash_audio_unavailable'})
+        async def run_media():await Crawler().download_media(video,asyncio.Semaphore(1))
         with patch.dict(sys.modules,{'media_platform.bilibili.media':SimpleNamespace(DASH_FNVAL=16)}),patch.object(bili_audio,'download_audio',downloaded),patch.object(m.Path,'cwd',return_value=work):
             m.configure_platform_hooks(upstream,p)
             video={'View':{'aid':1,'cid':2,'bvid':'BV123','duration':4915.9}}
-            asyncio.run(Crawler().download_media(video,object()))
-        self.assertEqual(len(calls),1);self.assertEqual(calls[0][1],{'fnval':16})
+            asyncio.run(run_media())
+        self.assertEqual(calls,[{'aid':1,'cid':2,'fnval':16}])
         self.assertEqual(downloaded.await_count,1)
         self.assertEqual(m.read(work/'phase.json')['media_reason'],'dash_audio_unavailable')
         self.assertEqual(m.read(work/'phase.json')['media_kind'],'audio')
         with patch.object(m.Path,'cwd',return_value=work):
             downloaded.side_effect=ValueError('private-url-must-not-be-logged')
-            asyncio.run(Crawler().download_media(video,object()))
+            asyncio.run(run_media())
             self.assertEqual(m.read(work/'phase.json')['media_reason'],'audio_adapter_failed')
             downloaded.side_effect=SystemExit(73)
-            with self.assertRaises(SystemExit):asyncio.run(Crawler().download_media(video,object()))
+            with self.assertRaises(SystemExit):asyncio.run(run_media())
 
     def test_long_audio_import_requires_explicit_scope(self):
         rid=str(uuid.uuid4());run=self.root/'runs'/rid;folder=run/'output/bili/media/BV123';folder.mkdir(parents=True)

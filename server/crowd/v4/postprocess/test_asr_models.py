@@ -46,6 +46,79 @@ class ModelsTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'hash_mismatch'):
                     verify_model(directory)
 
+    def test_turbo_pin_format_and_all_runtime_files_are_verified(self):
+        pinned = fetch_model.MODELS['turbo']
+        self.assertEqual(pinned['revision'], '0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf')
+        self.assertEqual(pinned['limit'], 2_000_000_000)
+        self.assertEqual(pinned['model_sha256'], 'e76620f83d5f5b69efd3d87e3dc180c1bd21df9fbebacfd4335e5e1efcc018da')
+        self.assertNotIn('vocabulary.txt', pinned['files'])
+        self.assertIn('vocabulary.json', pinned['files'])
+        self.assertIn('preprocessor_config.json', pinned['files'])
+        with tempfile.TemporaryDirectory() as root:
+            directory = Path(root)
+            hashes = {}
+            for name in pinned['files']:
+                if name != 'README.md':
+                    (directory / name).write_bytes(name.encode())
+                    hashes[name] = hashlib.sha256(name.encode()).hexdigest()
+            profile = {**pinned, 'model_sha256': hashes['model.bin']}
+            manifest = {'repository': profile['repository'], 'revision': profile['revision'],
+                        'license': 'MIT', 'sha256': hashes}
+            target = directory / 'crowd-model.json'
+            target.write_text(json.dumps(manifest))
+            with patch.dict(fetch_model.MODELS, turbo=profile):
+                self.assertEqual(verify_model(directory)[1], 'turbo')
+                for name in hashes:
+                    with self.subTest(tampered=name):
+                        original = (directory / name).read_bytes()
+                        (directory / name).write_bytes(b'changed')
+                        with self.assertRaisesRegex(ValueError, 'hash_mismatch'):
+                            verify_model(directory)
+                        (directory / name).write_bytes(original)
+                for files in ({k: v for k, v in hashes.items() if k != 'preprocessor_config.json'},
+                              {**hashes, 'vocabulary.txt': '0' * 64}):
+                    target.write_text(json.dumps({**manifest, 'sha256': files}))
+                    with self.assertRaisesRegex(ValueError, 'model_manifest_invalid'):
+                        verify_model(directory)
+
+    def test_turbo_download_fixture_is_pinned_bounded_and_atomic(self):
+        pinned = fetch_model.MODELS['turbo']
+        values = {name: name.encode() for name in pinned['files']}
+        profile = {**pinned, 'model_sha256': hashlib.sha256(values['model.bin']).hexdigest()}
+        urls = []
+        class Opener:
+            def open(self, url, **_kwargs):
+                urls.append(url)
+                return io.BytesIO(values[url.rsplit('/', 1)[-1]])
+        with tempfile.TemporaryDirectory() as root, patch.dict(fetch_model.MODELS, turbo=profile), \
+                patch('fetch_model.urllib.request.build_opener', return_value=Opener()):
+            destination = Path(root) / 'new'
+            receipt = fetch_model.fetch(destination, 'turbo')
+            self.assertEqual(receipt['bytes'], sum(map(len, values.values())))
+            self.assertEqual(len(urls), 6)
+            self.assertTrue(all('/resolve/' + pinned['revision'] + '/' in url for url in urls))
+            self.assertEqual(verify_model(destination)[1], 'turbo')
+            self.assertEqual(set(json.loads((destination / 'crowd-model.json').read_text())['sha256']),
+                             set(pinned['files']) - {'README.md'})
+            original = (destination / 'model.bin').read_bytes()
+            with self.assertRaisesRegex(ValueError, 'already_exists'):
+                fetch_model.fetch(destination, 'turbo')
+            self.assertEqual((destination / 'model.bin').read_bytes(), original)
+            with patch('fetch_model.time.monotonic', side_effect=[0, 901]):
+                with self.assertRaisesRegex(ValueError, 'model_download_deadline'):
+                    fetch_model.fetch(Path(root) / 'timed-out', 'turbo')
+            self.assertEqual(list(Path(root).iterdir()), [destination])
+            with patch.dict(fetch_model.MODELS, turbo={**profile, 'limit': 1}):
+                with self.assertRaisesRegex(ValueError, 'model_over_download_limit'):
+                    fetch_model.fetch(Path(root) / 'over-limit', 'turbo')
+            self.assertEqual(list(Path(root).iterdir()), [destination])
+            for change in ({'revision': 'main'}, {'repository': 'untrusted/faster-whisper-large-v3-turbo'},
+                           {'license': 'unknown'}, {'sha256': {'model.bin': '0' * 64}}):
+                manifest = {'repository': pinned['repository'], 'revision': pinned['revision'],
+                            'license': 'MIT', 'sha256': {'model.bin': profile['model_sha256']}}
+                with self.assertRaises(ValueError):
+                    fetch_model.model_profile({**manifest, **change})
+
     def test_failed_download_does_not_publish_or_overwrite(self):
         class Opener:
             def open(self, *_args, **_kwargs):

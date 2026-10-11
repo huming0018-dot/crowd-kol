@@ -19,6 +19,12 @@ MODELS = {
     'small': {'repository': 'Systran/faster-whisper-small',
               'revision': '536b0662742c02347bc0e980a01041f333bce120', 'limit': 500_000_000,
               'model_sha256': '3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671'},
+    # SYSTRAN's mobiuslabsgmbh mapping redirects to this public canonical repository.
+    'turbo': {'repository': 'dropbox-dash/faster-whisper-large-v3-turbo',
+              'revision': '0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf', 'limit': 2_000_000_000,
+              'model_sha256': 'e76620f83d5f5b69efd3d87e3dc180c1bd21df9fbebacfd4335e5e1efcc018da',
+              'files': ('model.bin', 'config.json', 'tokenizer.json', 'vocabulary.json',
+                        'preprocessor_config.json', 'README.md')},
 }
 
 
@@ -61,9 +67,9 @@ def fetch(destination, model='tiny'):
         hashes = {}
         file_hashes = {}
         total = 0
-        deadline = time.monotonic() + (900 if model == 'small' else 300)
+        deadline = time.monotonic() + (900 if model in ('small', 'turbo') else 300)
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), OfficialRedirect())
-        for name in FILES:
+        for name in profile.get('files', FILES):
             url = 'https://huggingface.co/' + profile['repository'] + '/resolve/' + profile['revision'] + '/' + name
             digest = hashlib.sha256()
             with opener.open(url, timeout=30) as response, (directory / name).open('xb') as output:

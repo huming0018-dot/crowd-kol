@@ -278,16 +278,34 @@ def configure_platform_hooks(upstream,p):
             async def audio_only(self,video_item,semaphore):
                 view=video_item.get('View') or {}
                 aid=view.get('aid');cid=view.get('cid');content_id=view.get('bvid') or (str(aid) if aid else '')
+                play_evidence={'status':'not_requested','source':'native_bilibili_client'}
                 if not aid or not cid or not content_id:
                     result={'status':'unavailable','reason':'audio_identity_missing'}
                 else:
                     try:
-                        play=await self.get_video_play_url_task(aid,cid,semaphore,fnval=DASH_FNVAL)
-                        result=await download_audio(play,content_id,Path.cwd()/'output',view.get('duration'))
+                        # Native task wrapper swallows request failures; use its same SDK call once.
+                        async with semaphore:
+                            play=await self.bili_client.get_video_play_url(aid=aid,cid=cid,fnval=DASH_FNVAL)
                     except Exception:
-                        result={'status':'failed','reason':'audio_adapter_failed'}
+                        play_evidence['status']='request_failed'
+                        result={'status':'failed','reason':'audio_play_request_failed'}
+                    else:
+                        if not isinstance(play,dict):
+                            play_evidence['status']='response_invalid'
+                            result={'status':'failed','reason':'audio_play_response_invalid'}
+                        else:
+                            dash=play.get('dash');audio=dash.get('audio') if isinstance(dash,dict) else None
+                            play_evidence.update({'status':'native_success','dash_present':isinstance(dash,dict),
+                                                 'audio_list_present':isinstance(audio,list),
+                                                 'audio_entries':min(len(audio),1000) if isinstance(audio,list) else 0,
+                                                 'durl_present':isinstance(play.get('durl'),list) and bool(play['durl'])})
+                            try:
+                                result=await download_audio(play,content_id,Path.cwd()/'output',view.get('duration'))
+                            except Exception:
+                                result={'status':'failed','reason':'audio_adapter_failed'}
                 phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
                 write(phase,{**previous,'media_status':result['status'],'media_reason':result.get('reason'),
+                             'media_play_response':play_evidence,
                              'media_kind':'audio','media_single_file_limit_bytes':67108864,
                              'media_duration_seconds_reported':result.get('duration_seconds_reported')})
             original_media=audio_only
