@@ -30,11 +30,13 @@ const analysisView = (() => {
     derivedPicker(panel,job);
     if(job.error)panel.append(node('p',errors[job.error]||('分析失败：'+job.error)));
     if(['queued','running'].includes(job.state)){
+      if(Number.isInteger(job.total_batches))panel.append(node('p',`全文分批分析：${job.completed_batches||0} / ${job.total_batches} 批。每批保留原时间引用。`));
       const cancel=button('取消分析',async()=>{cancel.disabled=true;stopPolling();const ticket=++generation;try{await poll(await request('cancel',{job_id:job.job_id}),ticket);}finally{cancel.disabled=false;}});
       panel.append(cancel);return;
     }
     if(job.state!=='completed'){
       if(job.input_summary){
+        if(job.input_summary.analysis_batches)panel.append(node('p',`全部所选转写将分 ${job.input_summary.analysis_batches} 批分析；不会重新下载或转写。失败不自动重试。`));
         const coverage=job.input_summary.coverage||{},count=value=>Number.isSafeInteger(value)&&value>=0?value:'未提供';
         panel.append(node('p',`本次范围：这篇已保存的文字与 ${job.input_summary.comments} 条评论；排除 ${count(coverage.excluded_comments)} 条无效记录。`),node('p',`一级评论 ${count(coverage.roots)} / 回复 ${count(coverage.replies)} / 父关系未知 ${count(coverage.unknown_parent)}`));
       }
@@ -45,6 +47,7 @@ const analysisView = (() => {
       start.disabled=job.state==='interrupted_unknown'||!current?.snapshot_hash;panel.append(start);return;
     }
     const result=job.result,snapshot=result.input_snapshot,analysis=result.content_analysis,statistics=result.comment_statistics;
+    if(result.full_analysis_coverage)panel.append(node('p',`已分析全部 ${result.full_analysis_coverage.selected_segments} 个所选转写段，${result.full_analysis_coverage.batches_completed} 批；音频识别准确性仍待校对。`));
     panel.append(node('p',snapshot.derived_inputs?.length?'素材范围：原文字、评论及明确勾选的ASR/OCR候选，均需核对':snapshot.content.scope==='title_only'?'素材范围：仅标题':snapshot.content.kind==='dynamic'?'素材范围：原动态文字；不含视频、画面、音轨或动态评论':'素材范围：原正文或视频简介；不含画面、音轨分析'),node('p',analysis.summary));
     panel.append(section('内容结构',analysis.segments,row=>{const d=node('div');d.append(node('strong',row.role),node('p',row.observation),citation(snapshot,row.paragraph));return d;}));
     panel.append(section('原文声称 · 尚未核实',analysis.claims,row=>{const d=node('div');d.append(node('p',row.claim),citation(snapshot,row.paragraph));return d;}));

@@ -16,6 +16,7 @@ import time
 import uuid
 
 from analysis_contract import build_snapshot, make_prompt, validate_result, MODEL_SCHEMA, _platform, _typed_entity, finite_number
+from full_analysis import build_analysis_snapshot, combine_results, MAX_SEGMENTS, MAX_CHARACTERS, PROMPT_VERSION as FULL_PROMPT_VERSION
 from mc_runner import BridgeError, canonical, read, uid, write, contains_secret as mc_contains_secret
 
 PROMPT_VERSION = 'content-comments-v1'
@@ -112,7 +113,22 @@ class AnalysisJobs:
                     if not isinstance(rows,list) or len(rows)!=1:raise ValueError('invalid_analysis_media_result')
                     record=rows[0];evidence=record.get('evidence',{})
                     asset=state.get('asset_sha256')
-                    if record.get('kind')!=('transcript' if state['kind']=='asr' else 'ocr') or record.get('platform')!=snapshot['platform'] or record.get('content_id')!=snapshot['content_id'] or evidence.get('asset_sha256')!=asset or evidence.get('source_kind')!='authorized_local_file' or evidence.get('truncated') is not False:
+                    # raw_text is a display preview. Completed segmented ASR carries
+                    # its whole candidate text in segments; do not rewrite that preview.
+                    full_segments=(state['kind']=='asr' and evidence.get('processor')=='faster_whisper_local_segmented'
+                        and evidence.get('coverage')=='local_file_all_audio_windows_processed'
+                        and type(state.get('total_chunks')) is int and 0<state['total_chunks']<=512
+                        and type(evidence.get('audio_windows_processed')) is int
+                        and evidence['audio_windows_processed']==state['total_chunks'])
+                    if full_segments:
+                        checkpoint_folder=folder/'long-asr'
+                        if checkpoint_folder.is_symlink():raise ValueError('unsafe_analysis_media_path')
+                        checkpoint=json.loads(bounded(checkpoint_folder/'state.json',64000))
+                        full_segments=(checkpoint.get('state')=='completed'
+                            and type(checkpoint.get('completed_chunks')) is int
+                            and type(checkpoint.get('total_chunks')) is int
+                            and checkpoint['completed_chunks']==checkpoint['total_chunks']==state['total_chunks'])
+                    if record.get('kind')!=('transcript' if state['kind']=='asr' else 'ocr') or record.get('platform')!=snapshot['platform'] or record.get('content_id')!=snapshot['content_id'] or evidence.get('asset_sha256')!=asset or evidence.get('source_kind')!='authorized_local_file' or (evidence.get('truncated') is not False and not (evidence.get('truncated') is True and full_segments)):
                         raise ValueError('analysis_media_identity_mismatch')
                     if not isinstance(asset,str) or len(asset)!=64 or any(c not in '0123456789abcdef' for c in asset):raise ValueError('analysis_media_identity_mismatch')
                     inputs=list(folder.glob('input*'))
@@ -130,14 +146,14 @@ class AnalysisJobs:
                         verified_asset=hashlib.sha256(bounded(inputs[0],64*1024*1024)).hexdigest()==asset
                     if not verified_asset:raise ValueError('analysis_media_asset_unverified')
                     kind=state['kind'];segments=evidence.get('segments') if kind=='asr' else [{'text':evidence.get('raw_text')}]
-                    if not isinstance(segments,list) or not 1<=len(segments)<=1000:raise ValueError('analysis_media_segment_limit')
+                    if not isinstance(segments,list) or not 1<=len(segments)<=(MAX_SEGMENTS if full_segments else 1000):raise ValueError('analysis_media_segment_limit')
                     projected=[];characters=0
                     duration=evidence.get('duration_seconds')
                     for segment in segments:
                         text=segment.get('text')
                         if not isinstance(text,str) or not text.strip() or len(text)>24000 or mc_contains_secret(text):raise ValueError('invalid_analysis_media_text')
                         characters+=len(text)
-                        if characters>24000:raise ValueError('analysis_media_text_limit')
+                        if characters>(MAX_CHARACTERS if full_segments else 24000):raise ValueError('analysis_media_text_limit')
                         value={'text':text}
                         if kind=='asr':
                             if evidence.get('timeline') not in (None,'absolute_seconds'):raise ValueError('analysis_media_time_invalid')
@@ -162,11 +178,12 @@ class AnalysisJobs:
         return {'options':options,'selected':[loaded[k] for k in sorted(chosen)],'excluded':excluded}
 
     def start(self, imported, platform, content_id, entity_ref=None, derived_inputs=None):
-        snapshot = build_snapshot(imported, platform, content_id, entity_ref=entity_ref,derived_inputs=derived_inputs)
+        snapshot = build_analysis_snapshot(imported, platform, content_id, entity_ref=entity_ref,derived_inputs=derived_inputs)
+        prompt_version = FULL_PROMPT_VERSION if 'analysis_batches' in snapshot else PROMPT_VERSION
         if not self.executable:
             raise ValueError('analysis_provider_missing')
         cache_key = hashlib.sha256(canonical({
-            'snapshot': snapshot['snapshot_hash'], 'prompt': PROMPT_VERSION,
+            'snapshot': snapshot['snapshot_hash'], 'prompt': prompt_version,
             'provider_version': self.provider_version,
         }).encode()).hexdigest()
         with self.mutex:
@@ -197,9 +214,11 @@ class AnalysisJobs:
                 state = {'job_id': job_id, 'state': 'queued', 'cache_key': cache_key,
                          'snapshot_hash': snapshot['snapshot_hash'], 'run_id': imported.get('run_id'),
                          'platform': platform, 'content_id': content_id,
-                         'prompt_version': PROMPT_VERSION, 'provider': 'codex_cli',
+                         'prompt_version': prompt_version, 'provider': 'codex_cli',
                          'provider_version': self.provider_version, 'created_at': time.time(),
                          'review_status': 'unreviewed_model_analysis'}
+                if 'analysis_batches' in snapshot:
+                    state.update(total_batches=len(snapshot['analysis_batches']), completed_batches=0)
                 if entity_ref is not None:
                     state['entity_ref'] = entity_ref
                 write(folder / 'state.json', state)
@@ -258,37 +277,51 @@ class AnalysisJobs:
             for name in ('model-output.json', 'events.jsonl'):
                 with os.fdopen(os.open(folder / name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'w'):
                     pass
-            with (folder / 'events.jsonl').open('wb') as events:
-                with self.mutex:
-                    if record['cancel'].is_set():
-                        raise ValueError('analysis_cancelled')
-                    process = subprocess.Popen(self.command(folder), cwd=folder, stdin=subprocess.PIPE,
-                                               stdout=events, stderr=subprocess.PIPE,
-                                               start_new_session=True, pass_fds=(lock.fileno(),))
-                    record['process'] = process
-                    state.update(state='running', provider_pid=process.pid, started_at=time.time())
-                    write(folder / 'state.json', state)
-                try:
-                    _, diagnostic = process.communicate(make_prompt(snapshot).encode(), timeout=TIMEOUT_SECONDS)
-                except subprocess.TimeoutExpired:
-                    self._terminate(process)
-                    raise ValueError('analysis_timeout')
-            if record['cancel'].is_set():
-                raise ValueError('analysis_cancelled')
-            if process.returncode:
-                state['provider_returncode'] = process.returncode
-                raise ValueError(self._failure_code(diagnostic))
-            if (folder / 'model-output.json').stat().st_size > 512 * 1024 or (folder / 'events.jsonl').stat().st_size > 2 * 1024 * 1024:
-                raise ValueError('analysis_output_limit')
-            # No agent tool results are accepted as analysis. All numeric results are local.
-            for line in (folder / 'events.jsonl').read_text().splitlines():
-                event = json.loads(line)
-                item = event.get('item', {})
-                if item and item.get('type') not in ('agent_message', 'reasoning'):
-                    raise ValueError('analysis_unexpected_tool_event')
-            value = read(folder / 'model-output.json')
-            result = validate_result(snapshot, value)
-            result.update(snapshot_hash=snapshot['snapshot_hash'], prompt_version=PROMPT_VERSION,
+            batches = snapshot.get('analysis_batches') or [{'snapshot': snapshot}]
+            results = []
+            for index, batch in enumerate(batches):
+                with (folder / 'events.jsonl').open('wb') as events:
+                    with self.mutex:
+                        if record['cancel'].is_set():
+                            raise ValueError('analysis_cancelled')
+                        # Never accept an output file left by an earlier batch.
+                        (folder / 'model-output.json').write_text('')
+                        process = subprocess.Popen(self.command(folder), cwd=folder, stdin=subprocess.PIPE,
+                                                   stdout=events, stderr=subprocess.PIPE,
+                                                   start_new_session=True, pass_fds=(lock.fileno(),))
+                        record['process'] = process
+                        state.update(state='running', provider_pid=process.pid, started_at=state.get('started_at', time.time()))
+                        write(folder / 'state.json', state)
+                    try:
+                        _, diagnostic = process.communicate(make_prompt(batch['snapshot']).encode(), timeout=TIMEOUT_SECONDS)
+                    except subprocess.TimeoutExpired:
+                        self._terminate(process)
+                        raise ValueError('analysis_timeout')
+                if record['cancel'].is_set():
+                    raise ValueError('analysis_cancelled')
+                if process.returncode:
+                    state['provider_returncode'] = process.returncode
+                    raise ValueError(self._failure_code(diagnostic))
+                if (folder / 'model-output.json').stat().st_size > 512 * 1024 or (folder / 'events.jsonl').stat().st_size > 2 * 1024 * 1024:
+                    raise ValueError('analysis_output_limit')
+                # The same strict output and tool-event checks apply to each call.
+                for line in (folder / 'events.jsonl').read_text().splitlines():
+                    event = json.loads(line)
+                    item = event.get('item', {})
+                    if item and item.get('type') not in ('agent_message', 'reasoning'):
+                        raise ValueError('analysis_unexpected_tool_event')
+                checked = validate_result(batch['snapshot'], read(folder / 'model-output.json'))
+                results.append(checked)
+                if 'analysis_batches' in snapshot:
+                    write(folder / ('batch-%04d.json' % index), {'snapshot_hash': batch['snapshot']['snapshot_hash'], 'result': checked})
+                    with self.mutex:
+                        state['completed_batches'] = index + 1
+                        write(folder / 'state.json', state)
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    if stream is not None and not stream.closed:
+                        stream.close()
+            result = combine_results(snapshot, results) if 'analysis_batches' in snapshot else results[0]
+            result.update(snapshot_hash=snapshot['snapshot_hash'], prompt_version=state['prompt_version'],
                           provider='codex_cli', provider_version=self.provider_version,
                           input_snapshot=snapshot)
             with self.mutex:

@@ -319,6 +319,7 @@ class Application:
 
     def analysis(self, action, payload):
         from analysis_contract import build_snapshot
+        from full_analysis import build_analysis_snapshot
         from analysis_jobs import AnalysisJobs
         if not isinstance(payload, dict) or action not in ('start', 'status', 'cancel', 'lookup'):
             raise ValueError('invalid_analysis_action')
@@ -341,12 +342,14 @@ class Application:
         snapshot = build_snapshot(imported, payload['platform'], payload['content_id'], entity_ref=payload.get('entity_ref'))
         media=self.analysis_jobs.media_inputs(imported,snapshot,payload['run_id'],payload.get('derived_refs'))
         if media['selected']:
-            snapshot=build_snapshot(imported,payload['platform'],payload['content_id'],entity_ref=payload.get('entity_ref'),derived_inputs=media['selected'])
+            snapshot=build_analysis_snapshot(imported,payload['platform'],payload['content_id'],entity_ref=payload.get('entity_ref'),derived_inputs=media['selected'])
         input_summary = {'scope': snapshot['content']['scope'],
                          'comments': len(snapshot['comments']), 'coverage': snapshot['coverage']}
         if 'entity_ref' in snapshot['content']:
             input_summary.update(entity_ref=snapshot['content']['entity_ref'], kind=snapshot['content']['kind'])
         if media['selected']:input_summary['derived_inputs']=media['selected']
+        if 'analysis_batches' in snapshot:
+            input_summary['analysis_batches']=len(snapshot['analysis_batches'])
         preview={'derived_options':media['options'],'derived_excluded':media['excluded']}
         if action == 'start':
             if payload['allow_model_transfer'] is not True:
@@ -382,10 +385,10 @@ class Application:
                 self.owner_tasks.start_scheduler()
         if action in ('preview', 'create'):
             return getattr(self.owner_tasks, action)(payload)
-        if action == 'retry_supplemental':
+        if action in ('retry_supplemental', 'reconcile'):
             method = getattr(self.owner_tasks, action, None)
             if method is None:
-                raise ValueError('supplemental_requires_cloud_task')
+                raise ValueError('supplemental_requires_cloud_task' if action == 'retry_supplemental' else 'reconciliation_requires_cloud_task')
             return method(payload)
         if action == 'list' and not payload:
             return self._task_stop_projection(self.owner_tasks.list())

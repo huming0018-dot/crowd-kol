@@ -13,7 +13,7 @@ import urllib.request
 from urllib.parse import urlsplit
 
 ROUTES = {
-    'tasks': {'parse_batch', 'preview', 'create', 'list', 'status', 'stop', 'resume', 'retry_supplemental'},
+    'tasks': {'parse_batch', 'preview', 'create', 'list', 'status', 'stop', 'resume', 'retry_supplemental', 'reconcile'},
     'watchlists': {'preview', 'create', 'list', 'status', 'stop', 'resume'},
     'results': {'ingest', 'list', 'detail', 'evaluate', 'export'},
     'collector': {'capabilities', 'list', 'status', 'start', 'stop', 'import'},

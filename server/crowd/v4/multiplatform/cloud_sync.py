@@ -206,6 +206,9 @@ class CloudOwnerAdapter:
     def retry_supplemental(self, payload):
         return {'ok': True, **self.client.call('retry_supplemental', payload)}
 
+    def reconcile(self, payload):
+        return {'ok': True, **self.client.call('task_reconcile', payload)}
+
     def start_scheduler(self):
         pass
 
