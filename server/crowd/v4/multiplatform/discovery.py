@@ -228,6 +228,43 @@ def zhihu_type(target):
     return 'answer' if '/answer/' in target else 'article' if 'zhuanlan.zhihu.com/p/' in target else 'zvideo'
 
 
+async def click_wb_recommendation(page, deadline, signals):
+    """One normal click on a real, uniquely visible recommendation navigation item."""
+    if not hasattr(page,'get_by_text') or signals['click_state']!='not_attempted':return
+    async def bounded(awaitable):
+        remaining=deadline-time.monotonic()
+        if remaining<=0:
+            awaitable.close()
+            raise asyncio.TimeoutError
+        return await asyncio.wait_for(awaitable,timeout=min(1,remaining))
+    candidates={}
+    try:
+        for label in ('推荐','热门','关注'):
+            locator=page.get_by_text(label,exact=True)
+            count=await bounded(locator.count())
+            if type(count) is not int or not 0<=count<=20:continue
+            eligible=[]
+            for index in range(count):
+                target=locator.nth(index)
+                if not await bounded(target.is_visible()):continue
+                is_navigation=await bounded(target.evaluate('''el=>{let x=el;
+                    for(let i=0;x&&i<6;i++,x=x.parentElement){
+                        if(['NAV','HEADER'].includes(x.tagName)||['tab','tablist'].includes(x.getAttribute('role'))||
+                           Array.from(x.classList||[]).some(v=>/(?:^|[-_])(nav|tabs?|tabbar|tablist|navigation)(?:$|[-_])/.test(v)))return true;
+                    }return false;}'''))
+                if is_navigation is True:eligible.append(target)
+            signals['visible_labels'][label]=bool(eligible)
+            if len(eligible)==1 and label!='关注':candidates[label]=eligible[0]
+        label=next((value for value in ('推荐','热门') if value in candidates),None)
+        if label:
+            # Mark before waiting, so a delayed click cannot be retried in this task.
+            signals.update(clicked_label=label,click_state='attempted')
+            await bounded(candidates[label].click(timeout=max(1,(deadline-time.monotonic())*1000)))
+            signals['click_state']='completed'
+    except Exception:
+        if signals['click_state']=='attempted':signals['click_state']='failed_or_timeout'
+
+
 def configure_discovery(upstream, request, run):
     mode, platform = request['mode'], request['platform']
     if mode not in SUPPORT:
@@ -245,6 +282,7 @@ def configure_discovery(upstream, request, run):
         load_failures = {'total':0, 'script':0, 'document':0, 'xhr':0, 'fetch':0, 'other':0}
         page_error_count = 0
         document_response_status = None
+        navigation={'visible_labels':{'推荐':False,'热门':False,'关注':False},'clicked_label':None,'click_state':'not_attempted'}
         async def observe(response, path):
             summary = {'path':path, 'http_status':response.status, 'candidate_count':0, 'status':'pending'}
             if platform=='wb' and path=='/api/container/getIndex':summary['scope']='mobile_public_hot_channel_102803'
@@ -329,6 +367,8 @@ def configure_discovery(upstream, request, run):
                     chosen = received[:request['max_items']]
                     basis = 'seen_response_sample'
                     break
+                if platform=='wb' and navigation['click_state']=='not_attempted':
+                    await click_wb_recommendation(page,deadline,navigation)
                 await asyncio.sleep(min(0.25, max(0, deadline - time.monotonic())))
         finally:
             if listening:
@@ -364,6 +404,7 @@ def configure_discovery(upstream, request, run):
                       'legal_sampled_link_count':legal_candidates, 'official_response_paths':response_paths,
                       'failed_request_counts':load_failures, 'page_error_count':page_error_count,
                       'document_response_status':document_response_status,
+                      'homepage_navigation':navigation if platform=='wb' else None,
                       'selection_policy':'visible_DOM_first_then_same_homepage_response'})
         observed_at = datetime.now(timezone.utc).isoformat()
         # Public metadata has no XHS navigation locator; it stays in this process only.
