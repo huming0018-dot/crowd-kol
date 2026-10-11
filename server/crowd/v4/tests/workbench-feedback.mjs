@@ -14,6 +14,7 @@ let cases=0;
 // A prior unrelated operation may leave the message node dirty before opening another run.
 let f=fixture();f.$('result_message').textContent='cloud_outcome_unknown';await f.context.show(run);assert.equal(f.$('result_message').textContent,'');assert.match(f.$('summary').textContent,/内容 1 篇 · 评论 1 条 · 媒体 2 个/);assert.match(f.$('records').textContent,/快手已保存正文原正文可读/);cases++;
 f.context.message('cloud_outcome_unknown',true);assert.equal(f.$('result_message').textContent,'');assert.match(f.$('message').textContent,/云端操作结果待核对/);cases++;
+f.context.message('cloud_read_unavailable',true);assert.equal(f.$('result_message').textContent,'');assert.equal(f.$('message').textContent,'任务刷新失败；已保存任务不变，请稍后刷新。');assert.ok(!f.$('message').textContent.includes('重复提交'));cases++;
 f=fixture(async()=>{throw Error('cloud_outcome_unknown');});await f.context.show(run);assert.match(f.$('result_message').textContent,/本任务结果读取失败：云端操作结果待核对/);assert.equal(f.$('summary').children.length,0);cases++;
 f=fixture(async()=>data,async()=>{throw Error('disk_write_failed');});await f.context.show(run);assert.match(f.$('result_message').textContent,/资料库保存失败：disk_write_failed/);assert.match(f.$('records').textContent,/原正文可读/);cases++;
 let failOld;f=fixture(async(a,p)=>p.run_id==='old-run'?new Promise((resolve,reject)=>failOld=reject):data);const old=f.context.show({...run,run_id:'old-run'});await f.context.show(run);failOld(Error('old_import_failed'));await old;assert.equal(f.$('result_message').textContent,'');assert.equal(f.context.selectedRun.run_id,'ks-run');cases++;

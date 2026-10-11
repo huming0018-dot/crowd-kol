@@ -509,7 +509,8 @@ def worker(root, mc, run_id, lock_fd):
     p = manifest['request']
     state = read(run/'status.json')
     from browser_session import existing_browser_session, terminate_executor
-    borrowed=existing_browser_session(root,p['session_id'])
+    # Legacy supervisors have no browser binding metadata: keep their owned-process shutdown.
+    borrowed=existing_browser_session(root,p['session_id']) if 'session_id' in p else False
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUNBUFFERED='1', MPLCONFIGDIR=str(run/'cache/matplotlib'), XDG_CACHE_HOME=str(run/'cache'),CROWD_MC_SUPERVISOR_PID=str(os.getpid()))
     child = subprocess.Popen([str(Path(mc)/'.venv/bin/python'),str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_execute','--run-id',run_id],cwd=run,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock_fd,))
     started = time.monotonic()
@@ -537,6 +538,11 @@ def worker(root, mc, run_id, lock_fd):
     final = 'stopped' if (run/'stop.json').exists() else 'login_required' if code in (77,78) else 'completed' if code==0 and not reason else 'failed'
     progress = read(run/'phase.json') if (run/'phase.json').exists() else {}
     state.update(progress)
+    if (reason is None and code == 74 and p.get('mode') in ('homefeed','trending')
+            and progress.get('failure_type') == 'DiscoveryUnavailable'
+            and progress.get('failure_stage') == 'homepage_observation'
+            and progress.get('failure_reason') == 'discovery_empty_or_unavailable'):
+        reason='discovery_empty_or_unavailable'
     state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
     write(run/'status.json',state)
     os.close(lock_fd)
@@ -718,7 +724,9 @@ def execute(root, mc, run_id):
     except SystemExit:
         raise
     except BaseException as exc:
-        write(run/'phase.json',{'phase':'failed','api_attempts':attempts,'failure_type':type(exc).__name__[:80]})
+        from discovery import failure_metadata
+        write(run/'phase.json',{'phase':'failed','api_attempts':attempts,
+                               'failure_type':type(exc).__name__[:80],**failure_metadata(exc)})
         raise SystemExit(74)
     finally:
         finished.set()

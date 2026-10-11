@@ -396,16 +396,19 @@ class Application:
     def _task_stop_projection(self, value):
         # Local diagnostics supplement only the matching cloud child; cloud history stays authoritative.
         from mc_runner import status, BridgeError
+        from discovery import unavailable_failure
         value=deepcopy(value)
         for task in ([value['task']] if isinstance(value.get('task'),dict) else value.get('tasks',[])):
             for child in task.get('children',[]):
-                if child.get('state')!='stopped' or not child.get('local_run_id'):continue
+                if child.get('state') not in ('stopped','failed') or not child.get('local_run_id'):continue
                 try:
                     root=self._registered_run_root(child['local_run_id'])
                     current=status(root,{'run_id':child['local_run_id']})
-                    if current.get('state')=='stopped' and current.get('stop_context'):
+                    if child.get('state')=='stopped' and current.get('state')=='stopped' and current.get('stop_context'):
                         child['local_stop_context']=current['stop_context']
                         child['local_stop_reason']=current['stop_context']['reason']
+                    elif child.get('state')=='failed' and unavailable_failure(current):
+                        child['local_failure_reason']='discovery_empty_or_unavailable'
                 except (BridgeError,ValueError,OSError):pass
         return value
 

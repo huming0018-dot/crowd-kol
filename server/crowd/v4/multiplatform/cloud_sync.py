@@ -171,7 +171,8 @@ class CloudClient:
                 raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
             return result['result']
         except (urllib.error.URLError, TimeoutError, OSError):
-            raise CloudError('cloud_outcome_unknown') from None
+            code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status') else 'cloud_outcome_unknown'
+            raise CloudError(code) from None
 
 
 class CloudOwnerAdapter:

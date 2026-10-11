@@ -6,6 +6,27 @@ import json
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit, parse_qsl, urlencode
 
+class DiscoveryUnavailable(ValueError):
+    """Only the bounded homepage observation found no usable candidate."""
+    def __init__(self):
+        super().__init__('discovery_empty_or_unavailable')
+
+
+def failure_metadata(error):
+    # Never classify arbitrary upstream errors by their possibly private message.
+    if type(error) is DiscoveryUnavailable:
+        return {'failure_type':'DiscoveryUnavailable', 'failure_stage':'homepage_observation',
+                'failure_reason':'discovery_empty_or_unavailable'}
+    return {}
+
+
+def unavailable_failure(value):
+    return (value.get('state') == 'failed' and value.get('exit_code') == 74
+            and value.get('reason') == 'discovery_empty_or_unavailable'
+            and value.get('failure_type') == 'DiscoveryUnavailable'
+            and value.get('failure_stage') == 'homepage_observation'
+            and value.get('failure_reason') == 'discovery_empty_or_unavailable')
+
 SUPPORT = {'homefeed': {'xhs', 'bili', 'dy', 'wb', 'tieba', 'zhihu', 'ks'}, 'trending': {'bili'}}
 PAGES = {'xhs': 'https://www.xiaohongshu.com/explore',
          'bili': 'https://www.bilibili.com/',
@@ -368,11 +389,11 @@ def configure_discovery(upstream, request, run):
             while True:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise ValueError('discovery_empty_or_unavailable')
+                    raise DiscoveryUnavailable()
                 try:
                     links = await asyncio.wait_for(page.eval_on_selector_all(selector, '(items) => items.filter(x=>x.getClientRects().length && getComputedStyle(x).visibility!=="hidden").slice(0,200).map(x=>x.href)'), timeout=remaining)
                 except asyncio.TimeoutError:
-                    raise ValueError('discovery_empty_or_unavailable') from None
+                    raise DiscoveryUnavailable() from None
                 chosen = select_links(platform, links, request['max_items'])
                 last_links = links if isinstance(links, list) else []
                 legal_candidates = len(select_links(platform, last_links, 100))

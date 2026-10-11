@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from discovery import PAGES, configure_discovery, page_diagnostics, safe_observed_location
+from discovery import PAGES, configure_discovery, page_diagnostics, safe_observed_location, DiscoveryUnavailable
 
 
 class DiagnosticTests(unittest.TestCase):
@@ -78,7 +78,8 @@ class DiagnosticTests(unittest.TestCase):
             configure_discovery(SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'dy':Crawler})),
                                 {'platform':'dy','mode':'homefeed','max_items':1},root)
             with patch('discovery.time',SimpleNamespace(monotonic=lambda:clock[0])),patch('discovery.asyncio.sleep',side_effect=sleep):
-                with self.assertRaisesRegex(ValueError,'discovery_empty_or_unavailable'):asyncio.run(Crawler().search())
+                with self.assertRaisesRegex(DiscoveryUnavailable,'discovery_empty_or_unavailable') as raised:asyncio.run(Crawler().search())
+                self.assertIs(type(raised.exception),DiscoveryUnavailable)
             value=json.loads((root/'discovery-observation.json').read_text())
             self.assertEqual(len(value['official_response_paths']),30)
             self.assertEqual(value['responses'],[])

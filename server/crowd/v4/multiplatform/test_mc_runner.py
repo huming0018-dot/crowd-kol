@@ -142,6 +142,8 @@ class RunnerTest(unittest.TestCase):
             folder=self.mc/'media_platform'/module;folder.mkdir(parents=True,exist_ok=True)
             (folder/'client.py').write_text('import config\nclass '+name+':\n async def pong(self,*a,**kw): return config.FAKE_AUTH_LOGGED_IN\n async def update_cookies(self,*a,**kw): return None\n')
         (self.mc/'main.py').write_text('''import asyncio,json,pathlib,sys
+from types import SimpleNamespace
+CrawlerFactory=SimpleNamespace(CRAWLERS={key:None for key in ('xhs','dy','ks','bili','wb','tieba','zhihu')})
 import config,httpx
 async def main():
  args=dict(zip(sys.argv[1::2],sys.argv[2::2]))
