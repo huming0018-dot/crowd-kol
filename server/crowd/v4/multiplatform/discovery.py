@@ -2,6 +2,7 @@
 import re
 import asyncio
 import time
+import json
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit, parse_qsl, urlencode
 
@@ -19,6 +20,55 @@ SELECTORS = {'xhs': 'a[href*="/explore/"],a[href*="/discovery/item/"]',
              'tieba': 'a[href*="/p/"]',
              'zhihu': 'a[href*="/answer/"],a[href*="zhuanlan.zhihu.com/p/"],a[href*="/zvideo/"]',
              'ks': 'a[href*="/short-video/"]'}
+FEED_PATHS = {'dy': {'/aweme/v1/web/tab/feed/', '/aweme/v1/web/feed/'},
+              'wb': {'/ajax/feed/hottimeline'}}
+
+
+def response_candidates(platform, payload, limit):
+    """Project IDs from a normal homepage response, never from search results."""
+    if platform not in FEED_PATHS or not isinstance(payload, dict):
+        return []
+    if platform == 'dy':
+        if type(payload.get('status_code')) is not int or payload['status_code'] != 0:
+            return []
+        rows = payload.get('aweme_list')
+    else:
+        if 'ok' in payload and (type(payload['ok']) is not int or payload['ok'] != 1):
+            return []
+        rows = payload.get('data', {}).get('statuses') if isinstance(payload.get('data'), dict) else None
+    if not isinstance(rows, list):
+        return []
+    chosen, seen = [], set()
+    for row in rows[:200]:
+        if not isinstance(row, dict):
+            continue
+        if platform == 'dy':
+            identity = row.get('aweme_id')
+        else:
+            record = row.get('mblog', row)
+            if not isinstance(record, dict):
+                continue
+            identity = record.get('idstr') or record.get('mid')
+        if type(identity) is int:
+            identity = str(identity)
+        if not isinstance(identity, str) or not re.fullmatch(r'[0-9]{5,30}', identity) or identity in seen:
+            continue
+        seen.add(identity)
+        chosen.append((identity, identity))
+        if len(chosen) >= limit:
+            break
+    return chosen
+
+
+def feed_response_path(platform, value):
+    try:
+        url = urlsplit(value)
+        if url.scheme != 'https' or url.username or url.password or url.port not in (None, 443):
+            return None
+        hosts = ('www.douyin.com',) if platform == 'dy' else ('weibo.com', 'www.weibo.com')
+        return url.path if url.hostname in hosts and url.path in FEED_PATHS.get(platform, set()) else None
+    except (ValueError, TypeError):
+        return None
 
 
 def select_links(platform, links, limit):
@@ -125,38 +175,92 @@ def configure_discovery(upstream, request, run):
     async def discover(self):
         page = self.context_page
         source = PAGES['bili_trending'] if mode == 'trending' else PAGES[platform]
+        tasks, received, observations = set(), [], []
+        async def observe(response, path):
+            summary = {'path':path, 'http_status':response.status, 'candidate_count':0, 'status':'pending'}
+            observations.append(summary)
+            if response.status != 200:
+                summary['status'] = 'http_failed'
+                return
+            try:
+                length = await response.header_value('content-length')
+                if length is not None and (not str(length).isdigit() or int(length) > 1048576):
+                    summary['status'] = 'size_rejected'
+                    return
+                body = await response.body()  # Reads an already received browser response; no request.
+                if len(body) > 1048576:
+                    summary['status'] = 'size_rejected'
+                    return
+                candidates = response_candidates(platform, json.loads(body), request['max_items'])
+                summary.update(status='matched' if candidates else 'shape_unmatched', candidate_count=len(candidates))
+                for item in candidates:
+                    if item not in received:
+                        received.append(item)
+            except asyncio.CancelledError:
+                summary['status'] = 'cancelled_at_observation_end'
+                raise
+            except Exception:
+                summary['status'] = 'unreadable'
+        def on_response(response):
+            path = feed_response_path(platform, response.url)
+            if path is not None and len(observations) + len(tasks) < 8:
+                task = asyncio.create_task(observe(response, path))
+                tasks.add(task)
+                task.add_done_callback(tasks.discard)
+        listening = platform in FEED_PATHS and hasattr(page, 'on')
+        if listening:
+            page.on('response', on_response)
         # New platforms may finish login on a search warm-up/desktop page. Navigate
         # their normal homepage explicitly; never relabel that warm-up as a feed.
-        if mode == 'trending' or platform not in ('xhs', 'bili'):
-            await page.goto(source, wait_until='domcontentloaded', timeout=30000)
-        selector = SELECTORS[platform]
+        basis = 'visible_page_sample'
         deadline = time.monotonic() + 15
-        await page.wait_for_selector(selector, timeout=15000)
+        try:
+            if mode == 'trending' or platform not in ('xhs', 'bili'):
+                await asyncio.wait_for(page.goto(source, wait_until='domcontentloaded', timeout=15000), timeout=15)
+            selector = SELECTORS[platform]
+            if not listening:
+                remaining = max(0.001, deadline - time.monotonic())
+                await asyncio.wait_for(page.wait_for_selector(selector, timeout=remaining * 1000), timeout=remaining)
         # Navigation anchors can appear before asynchronous content cards. Wait
         # within one bounded observation window for actual legal candidates.
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise ValueError('discovery_empty_or_unavailable')
-            try:
-                links = await asyncio.wait_for(page.eval_on_selector_all(selector, '(items) => items.filter(x=>x.getClientRects().length && getComputedStyle(x).visibility!=="hidden").slice(0,200).map(x=>x.href)'), timeout=remaining)
-            except asyncio.TimeoutError:
-                raise ValueError('discovery_empty_or_unavailable') from None
-            chosen = select_links(platform, links, request['max_items'])
-            if chosen:
-                break
-            await asyncio.sleep(min(0.25, max(0, deadline - time.monotonic())))
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ValueError('discovery_empty_or_unavailable')
+                try:
+                    links = await asyncio.wait_for(page.eval_on_selector_all(selector, '(items) => items.filter(x=>x.getClientRects().length && getComputedStyle(x).visibility!=="hidden").slice(0,200).map(x=>x.href)'), timeout=remaining)
+                except asyncio.TimeoutError:
+                    raise ValueError('discovery_empty_or_unavailable') from None
+                chosen = select_links(platform, links, request['max_items'])
+                if chosen:
+                    break
+                if received:
+                    chosen = received[:request['max_items']]
+                    basis = 'seen_response_sample'
+                    break
+                await asyncio.sleep(min(0.25, max(0, deadline - time.monotonic())))
+        finally:
+            if listening:
+                page.remove_listener('response', on_response)
+            for task in list(tasks):
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*list(tasks), return_exceptions=True)
+            if listening:
+                write(run / 'discovery-observation.json', {'schema':'crowd_homefeed_observation_v1',
+                      'platform':platform, 'responses':observations, 'source_requests_added':0,
+                      'selection_policy':'visible_DOM_first_then_same_homepage_response'})
         observed_at = datetime.now(timezone.utc).isoformat()
         # Public metadata has no XHS navigation locator; it stays in this process only.
         write(run / 'discovery.json', {'discovery_kind': mode, 'source_url': source,
                                       'candidate_ids': [identity for identity, _ in chosen],
                                       'observed_at': observed_at,
-                                      'position_basis': 'deduplicated_visible_selection_order',
+                                      'position_basis': 'deduplicated_visible_selection_order' if basis == 'visible_page_sample' else 'sampled_received_order',
                                       'candidates': [{'content_id': identity, 'sample_position': index + 1,
                                                       'platform_rank': None,
                                                       **({'source_content_type': zhihu_type(target)} if platform == 'zhihu' else {})}
                                                      for index, (identity, target) in enumerate(chosen)],
-                                      'following_feed': False, 'coverage': 'visible_page_sample'})
+                                      'following_feed': False, 'coverage': basis})
         targets = [target for _, target in chosen]
         if platform == 'bili':
             await self.get_specified_videos(targets)

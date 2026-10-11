@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 import uuid
 
-from discovery import PAGES, SUPPORT, configure_discovery, select_links
+from discovery import PAGES, SUPPORT, configure_discovery, select_links, response_candidates, feed_response_path
 import mc_runner
 from owner_tasks import plan
 
@@ -99,7 +99,7 @@ class FiveDiscoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             configure_discovery(SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'dy': Crawler})),
                                 {'platform':'dy','mode':'homefeed','max_items':1}, Path(directory))
-            clock = iter((0, 0, 15, 15))
+            clock = iter((0, 0, 0, 15, 15))
             with patch('discovery.time', SimpleNamespace(monotonic=lambda:next(clock))):
                 with self.assertRaisesRegex(ValueError, 'discovery_empty_or_unavailable'):
                     asyncio.run(Crawler().search())
@@ -135,6 +135,67 @@ class FiveDiscoveryTests(unittest.TestCase):
                         self.assertFalse((Path(directory) / 'discovery.json').exists())
                         self.assertEqual(clock[0], 15)
                 self.assertEqual(navigations, [PAGES['wb']])
+
+    def test_feed_response_authority_shape_and_real_ids_only(self):
+        self.assertEqual(response_candidates('dy', {'status_code':0,'aweme_list':[{'aweme_id':'7590708381897651318'},
+                        {'aweme_id':'7590708381897651318'}, {'aweme_id':'invented'}, {'aweme_id':True}]}, 2),
+                         [('7590708381897651318','7590708381897651318')])
+        self.assertEqual(response_candidates('dy', {'status_code':True,'aweme_list':[{'aweme_id':'12345'}]}, 1), [])
+        self.assertEqual(response_candidates('wb', {'ok':1,'data':{'statuses':[{'mblog':{'idstr':'5293049158180589'}},
+                          {'mid':'5293049158180590'}]}}, 2), [('5293049158180589','5293049158180589'),('5293049158180590','5293049158180590')])
+        self.assertEqual(response_candidates('wb', {'ok':0,'data':{'statuses':[{'mid':'12345'}]}}, 1), [])
+        for url in ['http://weibo.com/ajax/feed/hottimeline', 'https://evil.invalid/ajax/feed/hottimeline',
+                    'https://weibo.com/ajax/search/all', 'https://user:password@weibo.com/ajax/feed/hottimeline',
+                    'https://weibo.com:444/ajax/feed/hottimeline']:
+            self.assertIsNone(feed_response_path('wb',url))
+        self.assertEqual(feed_response_path('wb','https://weibo.com:443/ajax/feed/hottimeline?uid=not-saved'), '/ajax/feed/hottimeline')
+
+    def test_same_homepage_response_fallback_dom_precedence_cleanup_and_limits(self):
+        for platform, invalid in [('dy',None),('wb',None),('dy','dom'),('wb','oversize'),('dy','hung'),('wb','wrong_path')]:
+            with self.subTest(platform=platform,invalid=invalid), tempfile.TemporaryDirectory() as directory:
+                clock=[0.0];calls=[];navigation=[];config=SimpleNamespace();cancelled=[]
+                identity='7590708381897651318' if platform=='dy' else '5293049158180589'
+                payload={'status_code':0,'aweme_list':[{'aweme_id':identity,'author_uid':'do-not-save'}]} if platform=='dy' else {'ok':1,'data':{'statuses':[{'idstr':identity,'uid':'do-not-save'}]}}
+                class Response:
+                    status=200
+                    url=('https://www.douyin.com/aweme/v1/web/tab/feed/?private=not-saved' if platform=='dy' else 'https://weibo.com/ajax/feed/hottimeline?private=not-saved')
+                    async def header_value(self,*args):return str(1048577) if invalid=='oversize' else None
+                    async def body(self):
+                        if invalid=='hung':
+                            try:await asyncio.Event().wait()
+                            finally:cancelled.append(True)
+                        return json.dumps(payload).encode()
+                if invalid=='wrong_path':Response.url='https://weibo.com/ajax/search/all'
+                class Page:
+                    def on(self,event,callback):self.callback=callback
+                    def remove_listener(self,event,callback):self.removed=callback is self.callback
+                    async def goto(self,url,**kwargs):navigation.append(url);self.callback(Response())
+                    async def wait_for_selector(self,*args,**kwargs):raise AssertionError('absent DOM must not prevent response observation')
+                    async def eval_on_selector_all(self,*args):return ['/video/7590708381897651999'] if invalid=='dom' else ['/login']
+                class Crawler:
+                    context_page=Page()
+                    async def get_specified_awemes(self):calls.append(config.DY_SPECIFIED_ID_LIST)
+                    async def get_specified_notes(self):calls.append(config.WEIBO_SPECIFIED_ID_LIST)
+                async def advance(seconds):clock[0]+=seconds
+                configure_discovery(SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={platform:Crawler})),
+                                    {'platform':platform,'mode':'homefeed','max_items':1},Path(directory))
+                with patch.dict(sys.modules,{'config':config}),patch('discovery.time',SimpleNamespace(monotonic=lambda:clock[0])),patch('discovery.asyncio.sleep',side_effect=advance):
+                    if invalid in ('oversize','hung','wrong_path'):
+                        with self.assertRaisesRegex(ValueError,'discovery_empty_or_unavailable'):asyncio.run(Crawler().search())
+                        self.assertEqual(calls,[])
+                        self.assertFalse((Path(directory)/'discovery.json').exists())
+                    else:
+                        asyncio.run(Crawler().search())
+                        metadata=json.loads((Path(directory)/'discovery.json').read_text())
+                        self.assertEqual(metadata['coverage'],'visible_page_sample' if invalid=='dom' else 'seen_response_sample')
+                        self.assertEqual(metadata['position_basis'],'deduplicated_visible_selection_order' if invalid=='dom' else 'sampled_received_order')
+                        self.assertEqual(calls,[['7590708381897651999' if invalid=='dom' else identity]])
+                self.assertTrue(Crawler.context_page.removed)
+                self.assertEqual(navigation,[PAGES[platform]])
+                observation=(Path(directory)/'discovery-observation.json').read_text()
+                self.assertNotIn('private=',observation);self.assertNotIn('do-not-save',observation)
+                self.assertNotIn('https://',observation)
+                if invalid=='hung':self.assertEqual(cancelled,[True])
 
     def test_owner_total_budget_no_per_platform_inflation_and_trending_stays_bili(self):
         request = {'platforms': list(SAMPLES), 'mode':'homefeed', 'desired_items':5,
