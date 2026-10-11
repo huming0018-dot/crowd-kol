@@ -3,18 +3,20 @@ import argparse
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import threading
 import time
 import uuid
 
-from analysis_contract import build_snapshot, make_prompt, validate_result, MODEL_SCHEMA
-from mc_runner import BridgeError, canonical, read, uid, write
+from analysis_contract import build_snapshot, make_prompt, validate_result, MODEL_SCHEMA, _platform, _typed_entity, finite_number
+from mc_runner import BridgeError, canonical, read, uid, write, contains_secret as mc_contains_secret
 
 PROMPT_VERSION = 'content-comments-v1'
 TIMEOUT_SECONDS = 180
@@ -60,8 +62,107 @@ class AnalysisJobs:
                 state['result'] = read(folder / 'result.json')
         return {'ok': True, **state}
 
-    def start(self, imported, platform, content_id, entity_ref=None):
-        snapshot = build_snapshot(imported, platform, content_id, entity_ref=entity_ref)
+    def media_inputs(self, imported, snapshot, run_id, refs=None):
+        """Read only completed, explicitly associated local results; never infer or transfer."""
+        try:run_id=uid(run_id)
+        except BridgeError:raise ValueError('invalid_analysis_media_reference') from None
+        if imported.get('run_id') not in (None,run_id):raise ValueError('analysis_media_identity_mismatch')
+        refs=[] if refs is None else refs
+        if not isinstance(refs,list) or len(refs)>5:raise ValueError('invalid_analysis_media_reference')
+        chosen={}
+        for ref in refs:
+            if not isinstance(ref,dict) or set(ref)!={'job_id','result_sha256','asset_sha256'}:
+                raise ValueError('invalid_analysis_media_reference')
+            try:job_id=uid(ref['job_id'])
+            except BridgeError:raise ValueError('invalid_analysis_media_reference') from None
+            if job_id in chosen or any(not isinstance(ref[k],str) or len(ref[k])!=64 or any(c not in '0123456789abcdef' for c in ref[k]) for k in ('result_sha256','asset_sha256')):
+                raise ValueError('invalid_analysis_media_reference')
+            chosen[job_id]=ref
+        base=self.root.parent/'media-processing'; options=[];loaded={};excluded=0
+        if base.exists():
+            if any(p.is_symlink() for p in (base,*base.parents)):raise ValueError('unsafe_analysis_media_path')
+            for folder in sorted(base.iterdir()):
+                if folder.is_symlink() or not folder.is_dir():
+                    if folder.name in chosen:raise ValueError('analysis_media_selection_invalid')
+                    continue
+                try:
+                    job_id=uid(folder.name)
+                    def bounded(path,limit):
+                        if path.is_symlink():raise ValueError('unsafe_analysis_media_path')
+                        with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as stream:
+                            info=os.fstat(stream.fileno())
+                            if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>limit:raise ValueError('unsafe_analysis_media_path')
+                            data=stream.read(limit+1)
+                        if len(data)>limit:raise ValueError('analysis_media_size_limit')
+                        return data
+                    state=json.loads(bounded(folder/'state.json',64000))
+                    if state.get('state')!='completed' or state.get('run_id')!=run_id or state.get('platform')!=snapshot['platform'] or state.get('content_id')!=snapshot['content_id'] or state.get('kind') not in ('asr','ocr'):continue
+                    if state.get('job_id')!=job_id:raise ValueError('analysis_media_identity_mismatch')
+                    entity=snapshot['content'].get('entity_ref')
+                    if entity is None:
+                        primary=imported['records'][int(snapshot['content']['source_ref'].split(':')[1])-1]
+                        entity=_typed_entity(snapshot['platform']+':'+primary['kind']+':'+snapshot['content_id'],primary)
+                    ambiguous=any(r.get('kind')=='dynamic' and r.get('content_id')==snapshot['content_id'] for r in imported['records'])
+                    if (snapshot['platform']=='zhihu' or ambiguous) and (not entity or state.get('entity_ref')!=entity):
+                        raise ValueError('analysis_media_identity_unconfirmed')
+                    if state.get('entity_ref') is not None and entity is not None and state['entity_ref']!=entity:raise ValueError('analysis_media_identity_mismatch')
+                    data=bounded(folder/'result.json',2_000_000);digest=hashlib.sha256(data).hexdigest()
+                    if state.get('result_sha256') is not None and state['result_sha256']!=digest:raise ValueError('analysis_media_result_changed')
+                    rows=json.loads(data)
+                    if not isinstance(rows,list) or len(rows)!=1:raise ValueError('invalid_analysis_media_result')
+                    record=rows[0];evidence=record.get('evidence',{})
+                    asset=state.get('asset_sha256')
+                    if record.get('kind')!=('transcript' if state['kind']=='asr' else 'ocr') or record.get('platform')!=snapshot['platform'] or record.get('content_id')!=snapshot['content_id'] or evidence.get('asset_sha256')!=asset or evidence.get('source_kind')!='authorized_local_file' or evidence.get('truncated') is not False:
+                        raise ValueError('analysis_media_identity_mismatch')
+                    if not isinstance(asset,str) or len(asset)!=64 or any(c not in '0123456789abcdef' for c in asset):raise ValueError('analysis_media_identity_mismatch')
+                    inputs=list(folder.glob('input*'))
+                    if len(inputs)>1:raise ValueError('analysis_media_asset_unverified')
+                    def matching_media(media):
+                        if not isinstance(media,dict) or media.get('sha256')!=asset or media.get('content_id')!=snapshot['content_id']:return False
+                        try:
+                            if _platform(media.get('platform'))!=snapshot['platform']:return False
+                        except ValueError:return False
+                        if snapshot['platform']=='zhihu' and media.get('source_content_type')!=entity.rsplit(':',1)[-1]:return False
+                        if ambiguous and media.get('entity_ref')!=entity:return False
+                        return True
+                    verified_asset=any(matching_media(m) for m in imported.get('media',[]))
+                    if len(inputs)==1:
+                        verified_asset=hashlib.sha256(bounded(inputs[0],64*1024*1024)).hexdigest()==asset
+                    if not verified_asset:raise ValueError('analysis_media_asset_unverified')
+                    kind=state['kind'];segments=evidence.get('segments') if kind=='asr' else [{'text':evidence.get('raw_text')}]
+                    if not isinstance(segments,list) or not 1<=len(segments)<=1000:raise ValueError('analysis_media_segment_limit')
+                    projected=[];characters=0
+                    duration=evidence.get('duration_seconds')
+                    for segment in segments:
+                        text=segment.get('text')
+                        if not isinstance(text,str) or not text.strip() or len(text)>24000 or mc_contains_secret(text):raise ValueError('invalid_analysis_media_text')
+                        characters+=len(text)
+                        if characters>24000:raise ValueError('analysis_media_text_limit')
+                        value={'text':text}
+                        if kind=='asr':
+                            if evidence.get('timeline') not in (None,'absolute_seconds'):raise ValueError('analysis_media_time_invalid')
+                            start,end=segment.get('start'),segment.get('end')
+                            if any(not finite_number(v) for v in (start,end,duration)) or not 0<=start<=end<=duration:raise ValueError('analysis_media_time_invalid')
+                            value.update(start=start,end=end)
+                        projected.append(value)
+                    processor=evidence.get('processor') or ('apple_vision_local' if kind=='ocr' else None)
+                    if processor not in ('faster_whisper_local','faster_whisper_local_segmented','apple_speech_ondevice','apple_vision_local'):raise ValueError('analysis_media_processor_unknown')
+                    files=state.get('processor_files',{})
+                    if not isinstance(files,dict) or any(k not in ('local_asr.py','fetch_model.py','long_media.py','vision.swift','speech.swift','crowd-vision','crowd-speech') or not isinstance(v,str) or len(v)!=64 or any(c not in '0123456789abcdef' for c in v) for k,v in files.items()):raise ValueError('invalid_analysis_media_processor')
+                    model=state.get('model_manifest_sha256')
+                    if model is not None and (not isinstance(model,str) or len(model)!=64 or any(c not in '0123456789abcdef' for c in model)):raise ValueError('invalid_analysis_media_processor')
+                    item={'job_id':job_id,'kind':kind,'result_sha256':digest,'asset_sha256':asset,'processor':processor,'model_manifest_sha256':model,'processor_files':files,'review_status':'not_reviewed','segments':projected}
+                    if job_id in chosen and any(chosen[job_id][k]!=item[k] for k in ('result_sha256','asset_sha256')):raise ValueError('analysis_media_result_changed')
+                    loaded[job_id]=item
+                    if len(options)<20:options.append(item)
+                except (ValueError,TypeError,KeyError,OSError,BridgeError,AttributeError):
+                    if folder.name in chosen:raise ValueError('analysis_media_selection_invalid') from None
+                    excluded+=1
+        if set(chosen)-set(loaded):raise ValueError('analysis_media_selection_invalid')
+        return {'options':options,'selected':[loaded[k] for k in sorted(chosen)],'excluded':excluded}
+
+    def start(self, imported, platform, content_id, entity_ref=None, derived_inputs=None):
+        snapshot = build_snapshot(imported, platform, content_id, entity_ref=entity_ref,derived_inputs=derived_inputs)
         if not self.executable:
             raise ValueError('analysis_provider_missing')
         cache_key = hashlib.sha256(canonical({

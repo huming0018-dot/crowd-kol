@@ -7,15 +7,27 @@ const analysisView = (() => {
   const request = (action,payload) => api('/api/analysis',{action,payload});
   Object.assign(errors,{ambiguous_analysis_entity:'相同数字 ID 对应多种内容，请选择具体类型再分析。',analysis_entity_not_found:'所选内容类型在这份结果中不存在，请刷新结果。',invalid_results_entity_ref:'所选内容身份不匹配，不能分析其他平台或内容。',analysis_environment_denied:'当前运行环境限制了 Codex 分析。已有正文和评论仍可查看。',analysis_login_required:'Codex 需要重新登录；登录后再分析，不影响平台采集结果。',analysis_quota_exceeded:'Codex 额度或调用频率已达到限制。请等待额度恢复后再分析。',analysis_network_unavailable:'暂时无法连接 Codex 模型服务。请检查网络后再分析。',analysis_provider_incompatible:'当前 Codex 版本不支持这份分析接口，请更新客户端后再试。',analysis_transfer_authorization_required:'发送前需要明确授权本次材料范围。',analysis_snapshot_changed:'已保存材料发生变化，请刷新范围后再分析。'});
   function stopPolling(){clearTimeout(timer);timer=null;}
-  function target(){return {run_id:idOf(selectedRun),platform:current.platform,content_id:current.content_id,...(current.entity_ref?{entity_ref:current.entity_ref}:{})};}
+  function target(){return {run_id:idOf(selectedRun),platform:current.platform,content_id:current.content_id,...(current.entity_ref?{entity_ref:current.entity_ref}:{}),...(current.derivedRefs?.length?{derived_refs:current.derivedRefs}:{})};}
   function section(label, rows, render){const d=node('details');d.open=true;d.append(node('summary',label));for(const row of rows)d.append(render(row));return d;}
   function paragraph(snapshot,index){return snapshot.paragraphs.find(row=>row.paragraph===index)?.text;}
-  function citation(snapshot,index){const d=node('details');d.append(node('summary','原文依据 · '+snapshot.content.source_ref+' · '+(index===0?'标题':'段落 '+index)),node('p',paragraph(snapshot,index)||'未取得原文'));return d;}
+  function citation(snapshot,index){const row=snapshot.paragraphs.find(row=>row.paragraph===index),d=node('details');d.append(node('summary','依据 · '+(row?.source_ref||snapshot.content.source_ref)+' · '+(row?.kind?row.kind.toUpperCase()+' 候选 '+(row.start==null?'图像文字':row.start+'–'+row.end+'秒'):(index===0?'标题':'段落 '+index))),node('p',paragraph(snapshot,index)||'未取得原文'));return d;}
+  function derivedPicker(panel,job){
+    if(!Array.isArray(job.derived_options)||!job.derived_options.length){if(job.derived_excluded)panel.append(node('p','部分派生任务缺少可证明的实体或文件归属，未列入分析。'));return;}
+    panel.append(node('h3','可选已保存的 ASR / OCR'),node('p','勾选后会加入本次发送范围。候选文字尚未人工核对，ASR和OCR分别引用，不代表识别正确。'));
+    for(const item of job.derived_options){
+      const label=node('label'),check=node('input');check.type='checkbox';check.checked=!!current?.derivedRefs?.some(ref=>ref.job_id===item.job_id);
+      check.disabled=['running','queued'].includes(job.state);
+      check.onchange=async()=>{const ref={job_id:item.job_id,result_sha256:item.result_sha256,asset_sha256:item.asset_sha256};let refs=(current.derivedRefs||[]).filter(value=>value.job_id!==item.job_id);if(check.checked)refs.push(ref);if(refs.length>5){check.checked=false;panel.append(node('p','一次最多选择5份派生任务。'));return;}current.derivedRefs=refs;current.snapshot_hash=null;stopPolling();const ticket=++generation;try{await poll(await request('lookup',target()),ticket);}catch(error){if(ticket===generation)render({state:'failed',error:error.message});}};
+      label.append(check,node('span',item.kind.toUpperCase()+' · '+item.job_id.slice(0,8)+' · '+item.segments.length+' 段 · 尚未核对'));panel.append(label);
+      const detail=node('details');detail.append(node('summary','查看候选文字与引用'),node('pre',item.segments.map(row=>(row.start==null?'': '['+row.start+'–'+row.end+'秒] ')+row.text).join('\n')),node('small','asset '+item.asset_sha256+' · result '+item.result_sha256+' · processor '+item.processor+' · model '+(item.model_manifest_sha256||'未记录')));panel.append(detail);
+    }
+  }
   function render(job){
     if(job.snapshot_hash&&current)current.snapshot_hash=job.snapshot_hash;
     const panel=$('analysis_panel');panel.hidden=false;panel.replaceChildren(node('h3',current?.kind==='dynamic'?'动态文字分析':'正文与评论分析'),node('p',states[job.state]||job.state));
     panel.append(node('p','正文与评论会发送给已登录的 Codex 模型服务进行分析；报告为模型判断，统计由程序计算。'));
     panel.lastChild.className='hint';
+    derivedPicker(panel,job);
     if(job.error)panel.append(node('p',errors[job.error]||('分析失败：'+job.error)));
     if(['queued','running'].includes(job.state)){
       const cancel=button('取消分析',async()=>{cancel.disabled=true;stopPolling();const ticket=++generation;try{await poll(await request('cancel',{job_id:job.job_id}),ticket);}finally{cancel.disabled=false;}});
@@ -33,7 +45,7 @@ const analysisView = (() => {
       start.disabled=job.state==='interrupted_unknown'||!current?.snapshot_hash;panel.append(start);return;
     }
     const result=job.result,snapshot=result.input_snapshot,analysis=result.content_analysis,statistics=result.comment_statistics;
-    panel.append(node('p',snapshot.content.scope==='title_only'?'素材范围：仅标题':snapshot.content.kind==='dynamic'?'素材范围：原动态文字；不含视频、画面、音轨或动态评论':'素材范围：原正文或视频简介；不含画面、音轨分析'),node('p',analysis.summary));
+    panel.append(node('p',snapshot.derived_inputs?.length?'素材范围：原文字、评论及明确勾选的ASR/OCR候选，均需核对':snapshot.content.scope==='title_only'?'素材范围：仅标题':snapshot.content.kind==='dynamic'?'素材范围：原动态文字；不含视频、画面、音轨或动态评论':'素材范围：原正文或视频简介；不含画面、音轨分析'),node('p',analysis.summary));
     panel.append(section('内容结构',analysis.segments,row=>{const d=node('div');d.append(node('strong',row.role),node('p',row.observation),citation(snapshot,row.paragraph));return d;}));
     panel.append(section('原文声称 · 尚未核实',analysis.claims,row=>{const d=node('div');d.append(node('p',row.claim),citation(snapshot,row.paragraph));return d;}));
     panel.append(section('可借鉴的方法',analysis.reusable_methods,row=>{const d=node('div');d.append(node('p',row.method),citation(snapshot,row.paragraph));return d;}));

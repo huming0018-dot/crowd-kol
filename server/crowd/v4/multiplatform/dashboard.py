@@ -304,23 +304,28 @@ class Application:
         fields = {'run_id', 'platform', 'content_id'}
         if action == 'start':
             fields |= {'snapshot_hash', 'allow_model_transfer'}
-        if set(payload) - {'entity_ref'} != fields:
+        if set(payload) - {'entity_ref','derived_refs'} != fields:
             raise ValueError('invalid_analysis_request')
         response = self.run('import', {'run_id': payload['run_id']})
         if response.get('ok') is False:
             raise ValueError('results_not_ready')
         imported = response.get('result', response)
         snapshot = build_snapshot(imported, payload['platform'], payload['content_id'], entity_ref=payload.get('entity_ref'))
+        media=self.analysis_jobs.media_inputs(imported,snapshot,payload['run_id'],payload.get('derived_refs'))
+        if media['selected']:
+            snapshot=build_snapshot(imported,payload['platform'],payload['content_id'],entity_ref=payload.get('entity_ref'),derived_inputs=media['selected'])
         input_summary = {'scope': snapshot['content']['scope'],
                          'comments': len(snapshot['comments']), 'coverage': snapshot['coverage']}
         if 'entity_ref' in snapshot['content']:
             input_summary.update(entity_ref=snapshot['content']['entity_ref'], kind=snapshot['content']['kind'])
+        if media['selected']:input_summary['derived_inputs']=media['selected']
+        preview={'derived_options':media['options'],'derived_excluded':media['excluded']}
         if action == 'start':
             if payload['allow_model_transfer'] is not True:
                 raise ValueError('analysis_transfer_authorization_required')
             if payload['snapshot_hash'] != snapshot['snapshot_hash']:
                 raise ValueError('analysis_snapshot_changed')
-            return self.analysis_jobs.start(imported, payload['platform'], payload['content_id'], entity_ref=payload.get('entity_ref'))
+            return self.analysis_jobs.start(imported, payload['platform'], payload['content_id'], entity_ref=payload.get('entity_ref'),derived_inputs=media['selected'])
         matching = []
         for folder in self.analysis_jobs.root.iterdir():
             if folder.is_dir() and not folder.is_symlink() and (folder / 'state.json').is_file():
@@ -329,10 +334,10 @@ class Application:
                     matching.append(state)
         if not matching:
             return {'ok': True, 'state': 'not_started', 'snapshot_hash': snapshot['snapshot_hash'],
-                    'input_summary': input_summary}
+                    'input_summary': input_summary,**preview}
         completed = [s for s in matching if s['state'] == 'completed']
         latest = max(completed or matching, key=lambda s: s['created_at'])
-        return {**self.analysis_jobs.status(latest['job_id']), 'input_summary': input_summary}
+        return {**self.analysis_jobs.status(latest['job_id']), 'input_summary': input_summary,**preview}
 
     def tasks(self, action, payload):
         from owner_tasks import OwnerTasks, parse_batch
@@ -465,7 +470,10 @@ class Application:
             platform = candidates[0]['platform']
             if platform in PLATFORMS:
                 platform = PLATFORMS[platform]
-            return self.media_jobs.start(source, platform, payload['content_id'], payload['kind'], payload['run_id'])
+            entity_ref=None
+            if platform=='zhihu':entity_ref='zhihu:content:'+payload['content_id']+':'+candidates[0]['content_type']
+            elif len(candidates)==1 and candidates[0]['kind']=='dynamic':entity_ref=platform+':dynamic:'+payload['content_id']
+            return self.media_jobs.start(source, platform, payload['content_id'], payload['kind'], payload['run_id'],entity_ref=entity_ref)
         raise ValueError('invalid_media_processing_action')
 
 

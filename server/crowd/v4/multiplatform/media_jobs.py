@@ -78,7 +78,7 @@ class MediaJobs:
             state['checkpoint_available'] = state.get('kind') == 'asr' and state['state'] in ('failed', 'cancelled') and bool(list(folder.glob('input*')))
         return state
 
-    def start(self, source, platform, content_id, kind, run_id):
+    def start(self, source, platform, content_id, kind, run_id, entity_ref=None):
         if kind not in ('ocr', 'asr', 'transcript') or platform not in PLATFORMS.values():
             raise ValueError('invalid_media_processor')
         if kind == 'asr' and not self.capabilities()['asr']:
@@ -99,6 +99,10 @@ class MediaJobs:
         identity['processor_files'] = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
             for name in ('local_asr.py', 'fetch_model.py', 'long_media.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
             if (PROCESSOR.parent / name).is_file()}
+        if entity_ref is not None:
+            from results_store import _entity_selector
+            _entity_selector(entity_ref,platform,content_id)
+            identity['entity_ref']=entity_ref
         if kind == 'asr':
             manifest = self.asr_model / 'crowd-model.json'
             if manifest.stat().st_size > 10000:
@@ -134,6 +138,8 @@ class MediaJobs:
                      'platform': platform, 'content_id': content_id, 'kind': kind, 'run_id': run_id,
                      'association': 'owner_selected_content', 'created_at': time.time(),
                      'source_kind': 'authorized_local_file', 'review_status': 'unreviewed', 'uploaded': False}
+            if entity_ref is not None:state['entity_ref']=entity_ref
+            state['processor_files']=identity['processor_files']
             if kind == 'asr':
                 state['model_manifest_sha256'] = identity['model_manifest_sha256']
                 state['processor_files'] = identity['processor_files']
@@ -202,14 +208,15 @@ class MediaJobs:
                 state.update(state='cancelled')
             elif proc.returncode != 0:
                 state.update(state='failed', reason='local_media_processing_failed')
-            elif not result.is_file() or result.stat().st_size > (2_000_000 if state['kind'] == 'asr' else 200000):
+            elif result.is_symlink() or not result.is_file() or result.stat().st_nlink!=1 or result.stat().st_size > (2_000_000 if state['kind'] == 'asr' else 200000):
                 state.update(state='failed', reason='invalid_media_processing_result')
             else:
-                rows = read(result)
+                result_data=result.read_bytes()
+                rows = json.loads(result_data)
                 if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict) or not isinstance(rows[0].get('evidence'), dict) or rows[0].get('platform') != state['platform'] or rows[0].get('content_id') != state['content_id'] or rows[0]['evidence'].get('asset_sha256') != state['asset_sha256']:
                     state.update(state='failed', reason='media_result_identity_mismatch')
                 else:
-                    state.update(state='completed')
+                    state.update(state='completed',result_sha256=hashlib.sha256(result_data).hexdigest())
         except subprocess.TimeoutExpired:
             self._kill(proc); state.update(state='failed', reason='local_media_processing_timeout')
         except (OSError, ValueError, TypeError):
