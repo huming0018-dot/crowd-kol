@@ -22,6 +22,36 @@ SELECTORS = {'xhs': 'a[href*="/explore/"],a[href*="/discovery/item/"]',
              'ks': 'a[href*="/short-video/"]'}
 FEED_PATHS = {'dy': {'/aweme/v1/web/tab/feed/', '/aweme/v1/web/feed/'},
               'wb': {'/ajax/feed/hottimeline'}}
+SAFE_ROUTE_PARTS = set('aweme v1 v2 web tab feed api ajax hottimeline recommend status user profile login passport account check info detail comment comments reply replies list item video search config settings hot trending pc get mblog ad ads recommendation challenge explore'.split())
+
+
+def safe_observed_location(platform, value):
+    """Keep only known route words; dynamic IDs and tokens never enter diagnostics."""
+    try:
+        parsed = urlsplit(value)
+        official = urlsplit(PAGES[platform]).hostname
+        if parsed.scheme != 'https' or parsed.hostname != official or parsed.username or parsed.password or parsed.port not in (None, 443):
+            return {'origin': 'other', 'path': None}
+        parts = parsed.path.split('/')[:20]
+        path = '/'.join(part if part in SAFE_ROUTE_PARTS or not part else ':redacted' for part in parts)
+        return {'origin': 'https://' + official, 'path': path[:500]}
+    except (ValueError, TypeError, KeyError):
+        return {'origin': 'other', 'path': None}
+
+
+def page_diagnostics(value):
+    """Reject arbitrary page data; expose bounded counts and fixed signals only."""
+    if not isinstance(value, dict):
+        return {'state': 'unavailable'}
+    result = {'state': 'available'}
+    for field in ('visible_anchor_total', 'visible_video_count'):
+        count = value.get(field)
+        result[field] = min(10000, max(0, count)) if type(count) is int else None
+    for field in ('title_present', 'login_visible', 'verification_visible'):
+        result[field] = value.get(field) if type(value.get(field)) is bool else None
+    allowed = {'feed-active-video', 'feed-video', 'video-player', 'search-result', 'login-panel', 'video-detail'}
+    result['visible_data_e2e'] = sorted({x for x in value.get('visible_data_e2e', [])[:100] if isinstance(x, str) and x in allowed}) if isinstance(value.get('visible_data_e2e'), list) else []
+    return result
 
 
 def response_candidates(platform, payload, limit):
@@ -175,7 +205,8 @@ def configure_discovery(upstream, request, run):
     async def discover(self):
         page = self.context_page
         source = PAGES['bili_trending'] if mode == 'trending' else PAGES[platform]
-        tasks, received, observations = set(), [], []
+        tasks, received, observations, response_paths = set(), [], [], []
+        last_links, legal_candidates = [], 0
         async def observe(response, path):
             summary = {'path':path, 'http_status':response.status, 'candidate_count':0, 'status':'pending'}
             observations.append(summary)
@@ -202,6 +233,12 @@ def configure_discovery(upstream, request, run):
             except Exception:
                 summary['status'] = 'unreadable'
         def on_response(response):
+            location = safe_observed_location(platform, response.url)
+            resource_type = getattr(getattr(response, 'request', None), 'resource_type', None)
+            if location['origin'] != 'other' and resource_type in ('xhr', 'fetch') and len(response_paths) < 30:
+                status = response.status
+                response_paths.append({'path':location['path'], 'http_status':status if type(status) is int and 100 <= status <= 599 else None,
+                                       'resource_type':resource_type})
             path = feed_response_path(platform, response.url)
             if path is not None and len(observations) + len(tasks) < 8:
                 task = asyncio.create_task(observe(response, path))
@@ -232,6 +269,8 @@ def configure_discovery(upstream, request, run):
                 except asyncio.TimeoutError:
                     raise ValueError('discovery_empty_or_unavailable') from None
                 chosen = select_links(platform, links, request['max_items'])
+                last_links = links if isinstance(links, list) else []
+                legal_candidates = len(select_links(platform, last_links, 100))
                 if chosen:
                     break
                 if received:
@@ -247,8 +286,25 @@ def configure_discovery(upstream, request, run):
             if tasks:
                 await asyncio.gather(*list(tasks), return_exceptions=True)
             if listening:
+                visible = {'state': 'unavailable'}
+                try:
+                    raw = await asyncio.wait_for(page.evaluate('''() => {
+                        const visible=x=>x.getClientRects().length && getComputedStyle(x).visibility!=="hidden";
+                        const count=s=>Array.from(document.querySelectorAll(s)).filter(visible).length;
+                        const enums=['feed-active-video','feed-video','video-player','search-result','login-panel','video-detail'];
+                        return {visible_anchor_total:count('a[href]'), visible_video_count:count('video'),
+                            title_present:!!document.title.trim(), login_visible:!!count('[data-e2e="login-panel"], [data-e2e="login-button"]'),
+                            verification_visible:!!count('[id*="captcha"], [class*="captcha"], [data-e2e="verify-panel"]'),
+                            visible_data_e2e:enums.filter(x=>count('[data-e2e="'+x+'"]'))};
+                    }'''), timeout=1)
+                    visible = page_diagnostics(raw)
+                except Exception:
+                    pass
                 write(run / 'discovery-observation.json', {'schema':'crowd_homefeed_observation_v1',
                       'platform':platform, 'responses':observations, 'source_requests_added':0,
+                      'homepage':safe_observed_location(platform, getattr(page, 'url', None)),
+                      'visible_page':visible, 'sampled_selector_link_count':min(200,len(last_links)),
+                      'legal_sampled_link_count':legal_candidates, 'official_response_paths':response_paths,
                       'selection_policy':'visible_DOM_first_then_same_homepage_response'})
         observed_at = datetime.now(timezone.utc).isoformat()
         # Public metadata has no XHS navigation locator; it stays in this process only.
