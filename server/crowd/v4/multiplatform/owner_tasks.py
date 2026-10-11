@@ -102,8 +102,15 @@ def plan(payload):
     if any(not isinstance(p, str) or p not in mc_runner.PLATFORMS for p in platforms) or len(set(platforms)) != len(platforms):
         raise ValueError('invalid_platforms')
     mode = payload.get('mode')
-    if mode not in ('search', 'detail', 'creator'):
+    if mode not in ('search', 'detail', 'creator', 'homefeed', 'trending'):
         raise ValueError('invalid_mode')
+    discovery_mode = mode in ('homefeed', 'trending')
+    if discovery_mode:
+        from discovery import SUPPORT
+        if any(p not in SUPPORT[mode] for p in platforms):
+            raise ValueError('discovery_not_supported_for_platform')
+        if payload.get('targets') or payload.get('targets_by_platform'):
+            raise ValueError('discovery_does_not_accept_targets')
     total = _integer(payload, 'desired_items', 20, 1, 700)
     requests = _integer(payload, 'max_api_requests', 100, 1, 3500)
     sessions = payload.get('session_by_platform', {})
@@ -114,7 +121,9 @@ def plan(payload):
             mc_runner.uid(value)
         except mc_runner.BridgeError:
             raise ValueError('invalid_session_mapping')
-    if mode == 'search':
+    if discovery_mode:
+        targets = {p: [] for p in platforms}
+    elif mode == 'search':
         if payload.get('targets_by_platform'):
             raise ValueError('search_requires_shared_targets')
         targets = {p: payload.get('targets') for p in platforms}
@@ -130,12 +139,12 @@ def plan(payload):
             raise ValueError('per_platform_budget_limit')
         request = {k: payload[k] for k in ('comments', 'replies', 'media', 'purpose',
                     'authorization_ref', 'timeout_seconds', 'max_comments', 'headless') if k in payload}
-        missing_targets = not targets.get(platform)
+        missing_targets = not discovery_mode and not targets.get(platform)
         unsupported_media = request.get('media') is True and platform not in mc_runner.MEDIA
         if unsupported_media:
             request['media'] = False
         placeholders = {'xhs': '0' * 24, 'dy': '1', 'ks': 'placeholder', 'bili': 'BV1234567890' if mode == 'detail' else '1', 'wb': '1', 'tieba': '1', 'zhihu': 'https://www.zhihu.com/question/1/answer/1' if mode == 'detail' else 'placeholder'}
-        request.update(platform=platform, mode=mode, targets=targets.get(platform) or [placeholders[platform]],
+        request.update(platform=platform, mode=mode, targets=[] if discovery_mode else targets.get(platform) or [placeholders[platform]],
                        max_items=max(count, 20 if mode == 'search' else 1),
                        max_api_requests=max(budget, 1))
         if platform in sessions:
@@ -162,7 +171,7 @@ def plan(payload):
     digest = hashlib.sha256(mc_runner.canonical(normalized).encode()).hexdigest()
     return {'request': normalized, 'request_hash': digest, 'children': children,
             'desired_items': total, 'max_api_requests': requests,
-            'mode': mode, 'display_title': {'search': '多平台关键词采集', 'detail': '多平台指定内容采集', 'creator': '多平台博主采集'}[mode],
+            'mode': mode, 'display_title': {'search': '多平台关键词采集', 'detail': '多平台指定内容采集', 'creator': '多平台博主采集', 'homefeed': '平台推荐内容采集', 'trending': '平台热门内容采集'}[mode],
             'storage_scope': 'local_only', 'coverage': 'unverified',
             'quantity_semantics': 'expected_entities_not_hard_source_limit',
             'request_limit_scope': 'Python httpx/requests attempts; browser resources excluded'}
@@ -293,7 +302,7 @@ class OwnerTasks:
             if desired == 'running':
                 for child in task['children']:
                     if child['state'] in ('failed', 'stopped', 'waiting') and not child['active_run_id']:
-                        if child['reason_code'] in ('source_outcome_unknown', 'dispatch_outcome_unknown', 'budget_not_allocated', 'upstream_search_minimum_20', 'missing_targets', 'media_not_supported_by_upstream'):
+                        if child['reason_code'] in ('source_outcome_unknown', 'dispatch_outcome_unknown', 'budget_not_allocated', 'upstream_search_minimum_20', 'missing_targets', 'media_not_supported_by_upstream', 'login_required', 'account_changed'):
                             continue
                         remaining = child['request_quota'] - child['requests_spent'] - child['requests_reserved']
                         if remaining > 0 and child['contents'] < child['item_quota']:
@@ -339,6 +348,9 @@ class OwnerTasks:
             child.update(state='unknown', reason_code='source_outcome_unknown')
             return
         state = result.get('state')
+        child['session_login_state'] = result.get('account_state', child.get('session_login_state', 'unverified'))
+        if 'account_generation' in result:
+            child['account_generation'] = result['account_generation']
         if state not in TERMINAL | {'starting', 'running', 'waiting_login', 'collecting', 'comments', 'media'}:
             child.update(state='unknown', reason_code='source_outcome_unknown')
             return
@@ -377,7 +389,7 @@ class OwnerTasks:
         child['active_run_id'] = None
         child['delivery_state'] = 'local_only' if keys or child['comments'] else 'none'
         if state == 'login_required':
-            child.update(state='waiting', reason_code='login_required')
+            child.update(state='waiting', reason_code='account_changed' if result.get('reason') == 'account_changed' else 'login_required')
         elif state == 'stopped':
             child.update(state='stopped', reason_code='user_stop')
         elif state == 'failed':
@@ -411,6 +423,27 @@ class OwnerTasks:
             return
         child['session_selection'] = 'new_isolated'
 
+    def _recover_login(self, task, child):
+        if (task['desired_state'] != 'running' or child['active_run_id'] or child['state'] != 'waiting'
+                or child['reason_code'] not in ('login_required', 'account_changed')
+                or not child['request'].get('session_id') or not child['runs']):
+            return
+        status = self._call('account_status', {'session_id': child['request']['session_id'],
+                                             'platform': child['platform']})
+        if status.get('ok') is False:
+            return
+        child['session_login_state'] = status.get('state', 'unverified')
+        if (status.get('state') not in ('resumed', 'authenticated')
+                or status.get('authorized_for_run') != child['runs'][-1]
+                or not status.get('login_verified') or time.time() - status.get('verified_at', 0) > 180):
+            return
+        remaining = child['request_quota'] - child['requests_spent'] - child['requests_reserved']
+        if remaining <= 0:
+            child['reason_code'] = 'budget_exhausted'
+            return
+        child.update(state='queued', reason_code=None)
+        child['account_generation'] = status.get('generation', 0)
+
     def poll(self):
         """One bounded scheduling pass, protected against concurrent processes."""
         with self.lock, open(self.root / 'scheduler.lock', 'a+') as lock:
@@ -423,6 +456,7 @@ class OwnerTasks:
                 active = False
                 for task in tasks:
                     for child in task['children']:
+                        self._recover_login(task, child)
                         if child['state'] == 'dispatching' and not child['active_run_id']:
                             child.update(state='unknown', reason_code='dispatch_outcome_unknown')
                         if child['state'] == 'unknown' and child['requests_reserved']:

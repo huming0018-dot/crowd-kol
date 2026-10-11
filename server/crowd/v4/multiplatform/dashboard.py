@@ -31,6 +31,8 @@ class Application:
         self.owner_tasks = None
         self.results_store = None
         self.media_jobs = None
+        self.cloud_worker = None
+        self.cloud_client = None
         config = {}
         try:
             config = json.loads(self.config_path.read_text())
@@ -57,12 +59,69 @@ class Application:
                 self.mc_root = str(candidates[0].resolve())
         if collector_roots:
             self._save_config()
-        from owner_tasks import OwnerTasks
-        self.owner_tasks = OwnerTasks(self.root, self.task_run)
+        cloud_config = self.root / 'cloud-config.json'
+        if cloud_config.exists() or cloud_config.is_symlink():
+            from cloud_sync import CloudClient, CloudOwnerAdapter, CloudWorker
+            self.cloud_client = CloudClient(cloud_config, 'owner')
+            self.owner_tasks = CloudOwnerAdapter(self.cloud_client)
+            worker_client = CloudClient(cloud_config, 'worker')
+            self.cloud_worker = CloudWorker(self.root, worker_client, self.task_run,
+                                           self._cloud_session, self._cloud_existing)
+            self.cloud_worker.start_scheduler()
+        else:
+            from owner_tasks import OwnerTasks
+            self.owner_tasks = OwnerTasks(self.root, self.task_run)
         self.owner_tasks.start_scheduler()
         from watchlists import Watchlists
         self.watchlists = Watchlists(self.root, self.owner_tasks)
         self.watchlists.start_scheduler()
+
+    def _cloud_session(self, lease):
+        from account_sessions import AccountSessions
+        candidates = []
+        for root in self._roots():
+            for item in AccountSessions(root).list()['sessions']:
+                if item['platform'] == lease['platform'] and item['state'] not in (
+                        'account_changed', 'identity_unverified', 'waiting_login', 'checking',
+                        'logged_out', 'check_failed'):
+                    candidates.append(item)
+        ready = [item for item in candidates if item.get('authorized_for_run')]
+        choices = ready or candidates
+        if len(choices) > 1:
+            raise ValueError('collector_session_ambiguous')
+        if not choices:
+            raise ValueError('login_session_required')
+        return choices[0]['session_id']
+
+    def _cloud_existing(self, lease):
+        from results_store import ResultsStore
+        from mc_runner import PLATFORMS
+        platform = PLATFORMS[lease['platform']]
+        records = []
+        for ref in lease.get('record_refs', []):
+            if ref.get('version_hash'):
+                records.append(ResultsStore(self.root).saved_version(platform, ref['content_id'],
+                               ref.get('kind', 'content'), ref['version_hash']))
+                continue
+            result = ResultsStore(self.root).list_results(
+                filters={'platform': platform, 'content_id': ref['content_id'],
+                         'kind': ref.get('kind', 'content')}, limit=200)
+            chosen = result['items']
+            if len(chosen) != 1:
+                raise ValueError('existing_saved_selection_unavailable')
+            records.extend(chosen)
+        return records
+
+    def cloud(self, action, payload):
+        if not isinstance(payload, dict):
+            raise ValueError('invalid_cloud_request')
+        if action == 'status' and not payload:
+            if self.cloud_worker is None:
+                return {'ok': True, 'storage_scope': 'local', 'worker_state': 'not_connected'}
+            return {'ok': True, 'storage_scope': 'cloud', **self.cloud_worker.status()}
+        if action == 'results' and set(payload) == {'task_id'} and self.cloud_client:
+            return {'ok': True, **self.cloud_client.call('results', payload)}
+        raise ValueError('invalid_cloud_action')
 
     def configure(self, body):
         if set(body) != {'mc_root'} or not isinstance(body['mc_root'], str):
@@ -187,6 +246,8 @@ class Application:
 
     def task_run(self, action, payload):
         """A parent cannot report success before its library write succeeds."""
+        if action == 'account_status':
+            return self.accounts('status', payload)
         response = self.run(action, payload)
         imported = response.get('result', response)
         if action == 'import' and imported.get('local_results_error'):
@@ -194,6 +255,36 @@ class Application:
             # and retries this read/import, without starting another source action.
             return {'ok': False, 'error': 'local_results_persistence_failed'}
         return response
+
+    def accounts(self, action, payload):
+        from account_sessions import AccountSessions, identifier
+        if not isinstance(payload, dict):
+            raise ValueError('invalid_account_request')
+        if action == 'list' and not payload:
+            sessions = []
+            for root in self._roots():
+                sessions.extend(AccountSessions(root).list()['sessions'])
+            ids = [s['session_id'] for s in sessions]
+            if len(ids) != len(set(ids)):
+                raise ValueError('collector_session_ambiguous')
+            return {'ok': True, 'sessions': sessions}
+        session_id = identifier(payload.get('session_id'))
+        matches = [root for root in self._roots() if (root/'sessions'/session_id).is_dir()
+                   and not (root/'sessions'/session_id).is_symlink()]
+        if len(matches) != 1:
+            raise ValueError('collector_session_ambiguous' if matches else 'session_not_found')
+        store = AccountSessions(matches[0])
+        if action == 'status' and set(payload) in ({'session_id'}, {'session_id', 'platform'}):
+            return store.status(session_id, payload.get('platform'))
+        if action == 'open_login' and set(payload) == {'session_id', 'platform'}:
+            return store.open_login(session_id, payload['platform'], self.mc_root)
+        if action == 'cancel_login' and set(payload) == {'session_id'}:
+            return store.cancel_login(session_id)
+        if action == 'confirm_same_account' and set(payload) == {'session_id', 'expected_generation', 'confirm_same_account'}:
+            return store.confirm_same_account(**payload)
+        if action == 'accept_account_switch' and set(payload) == {'session_id', 'expected_generation', 'acknowledge_new_scope'}:
+            return store.accept_account_switch(**payload)
+        raise ValueError('invalid_account_action')
 
     def analysis(self, action, payload):
         from analysis_contract import build_snapshot
@@ -325,7 +416,7 @@ class Application:
             return self.media_jobs.capabilities()
         if action == 'list' and set(payload) == {'run_id'}:
             return self.media_jobs.list(payload['run_id'])
-        if action in ('status', 'cancel') and set(payload) == {'job_id'}:
+        if action in ('status', 'cancel', 'resume') and set(payload) == {'job_id'}:
             return getattr(self.media_jobs, action)(payload['job_id'])
         if action == 'start' and set(payload) == {'run_id', 'path', 'content_id', 'kind'}:
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
@@ -369,7 +460,7 @@ def make_server(app, port=45937):
             if path == '/':
                 document = (HERE / 'dashboard.html').read_text()
                 return self.send(document.replace('__NONCE__', app.token), html=True)
-            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js'):
+            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js', '/accounts-ui.js', '/cloud-ui.js'):
                 data = (HERE / path[1:]).read_bytes()
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/javascript; charset=utf-8')
@@ -396,6 +487,10 @@ def make_server(app, port=45937):
                     raise ValueError('invalid_request')
                 if self.path == '/api/config':
                     return self.send(app.configure(body))
+                if self.path == '/api/cloud':
+                    if set(body) != {'action', 'payload'}:
+                        raise ValueError('invalid_cloud_request')
+                    return self.send(app.cloud(body['action'], body['payload']))
                 if self.path == '/api/analysis':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_analysis_request')
@@ -408,6 +503,10 @@ def make_server(app, port=45937):
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_watchlist_request')
                     return self.send(app.watches(body['action'], body['payload']))
+                if self.path == '/api/accounts':
+                    if set(body) != {'action', 'payload'}:
+                        raise ValueError('invalid_account_request')
+                    return self.send(app.accounts(body['action'], body['payload']))
                 if self.path == '/api/results':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_results_request')
@@ -462,6 +561,8 @@ def make_server(app, port=45937):
             app.watchlists.close()
             if app.owner_tasks is not None:
                 app.owner_tasks.close()
+            if app.cloud_worker is not None:
+                app.cloud_worker.close()
             if app.media_jobs is not None:
                 app.media_jobs.close()
             super().server_close()

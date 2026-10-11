@@ -2,6 +2,12 @@
 // Uses the same saved tasks through HTTP and CLI; collection stays in the existing runner.
 const ownerView = (() => {
   const call = (action, payload = {}) => api('/api/tasks', {action, payload});
+  const receiptDialog=node('dialog');receiptDialog.setAttribute('aria-label','云端采集结果与回执');
+  const receiptClose=button('关闭',()=>receiptDialog.close()),receiptBody=node('div');receiptBody.className='dialog-body';
+  receiptDialog.append(receiptClose,receiptBody);document.body.append(receiptDialog);let receiptGeneration=0;
+  receiptDialog.addEventListener('close',()=>receiptGeneration++);
+  async function receipts(task){const ticket=++receiptGeneration;receiptBody.replaceChildren(node('p','正在读取云端回执…'));receiptDialog.showModal();try{const value=await api('/api/cloud',{action:'results',payload:{task_id:task.task_id}});if(ticket!==receiptGeneration||!receiptDialog.open)return;receiptBody.replaceChildren(node('h2','云端已接收 '+value.items.length+' 份记录'));if(task.delivery_basis==='existing_saved')receiptBody.append(node('p','这是已有素材的云端回传，本任务没有发起新采集。'));for(const item of value.items){const record=item.record||{},article=node('article');article.className='task';article.append(node('h3',record.title||record.content_id||record.kind),node('p',record.body||record.text||''),node('small','机器采集 · '+(item.receipt?.status||'待核对')+' · '+(item.receipt?.capture_id||'')));const detail=node('details');detail.append(node('summary','记录与入库回执'),node('pre',JSON.stringify(item,null,2)));article.append(detail);receiptBody.append(article);}}catch(error){if(ticket===receiptGeneration&&receiptDialog.open)receiptBody.replaceChildren(node('p','云端结果读取失败：'+error.message));}}
+
   const names = {observing:'本轮正在观察',blocked:'需要处理',budget_exhausted:'跟踪总额已用完',unknown:'结果未知，待核对',dispatching:'正在分配',scheduled:'等待下个周期',observed_only:'本轮观察已保存',queued:'等待分配',running:'正在采集',waiting:'需要处理',paused:'已暂停',stopped:'已停止',completed:'执行已结束',partial:'部分结果',failed:'需要处理',interrupted_unknown:'中断，待核对'};
   const reasons = {missing_targets:'此平台没有匹配目标；在新任务中补入本平台链接。',budget_not_allocated:'总额度不足以分配此平台；不会暗增额度。',budget_exhausted:'该平台额度已用完，已保存结果保留。',no_content_observed:'本轮没有取得可展示内容；检查登录和目标。',observed_window_partial:'已取得部分内容；需要继续时仅使用剩余额度。',result_import_failed:'已采结果尚未保存到资料库；核对本机存储后重试导入，不重新采集。',dispatch_outcome_unknown:'启动结果未知；先核对原执行进程，不会自动重开。',source_outcome_unknown:'执行状态未知；先核对原任务与文件。',upstream_search_minimum_20:'每个平台搜索至少需配置20条；总量不足时不会自动扩大。',login_required:'需要本人重新登录；已有结果保留。',session_busy:'本平台登录资料正在使用，等待空闲。',unsupported_target:'此平台没有匹配的目标。',start_outcome_unknown:'启动结果未知，请先核对，不会自动重开。',media_not_supported_by_upstream:'该平台暂不支持所选媒体下载。',watch_budget_exhausted:'跟踪计划总额已用完；已有资料保留。',insufficient_cycle_budget:'剩余额度不足以执行完整一轮；不会扩大预算。',prior_task_outcome_unknown:'上一轮结果未知；先核对原任务。',prior_task_manually_stopped:'上一轮已被本人停止；不会自动恢复。',prior_cycle_unknown:'上一轮结果未知；先核对原任务。',prior_cycle_requires_action:'上一轮需要处理；打开原任务核对具体平台。',prior_cycle_failed:'上一轮执行失败；已有资料保留。',owner_task_user_stop:'原采集任务已被本人停止，不会自动恢复。',total_request_budget_exhausted:'整个跟踪计划额度已用完；已有资料保留。',user_stop:'本人已暂停。'};
   let watches = [], items = [], busy = false, preview = null, previewRequest = null, generation = 0, listPromise = null;
@@ -10,7 +16,7 @@ const ownerView = (() => {
   const dialog = node('dialog'); dialog.id = 'owner_dialog'; dialog.setAttribute('aria-labelledby','owner_title');
   dialog.innerHTML = `<div class="dialog-head"><h2 id="owner_title">新建多平台任务</h2><button type="button" id="owner_close">关闭</button></div>
   <form id="owner_form" class="dialog-body"><p class="hint">1. 采什么　2. 在哪采　3. 采多少</p><p id="owner_error" class="error" role="status"></p>
-  <label>采集方式<select id="owner_mode"><option value="search">搜索关键词</option><option value="detail">指定内容</option><option value="creator">指定博主作品</option></select></label>
+  <label>采集方式<select id="owner_mode"><option value="search">搜索关键词</option><option value="detail">指定内容</option><option value="creator">指定博主作品</option><option value="homefeed">首页推荐内容</option><option value="trending">热门内容</option></select></label>
   <label>关键词、链接或博主名单<textarea id="owner_targets" required rows="4" placeholder="搜索关键词，每行一个"></textarea><small id="owner_target_help">搜索词共享给所选平台；链接会按所属平台分配。</small></label>
   <label>导入 CSV / 文本文件<input id="owner_file" type="file" accept=".csv,.txt,text/csv,text/plain"><small>CSV 格式为 platform,target。导入后先预览，不启动采集。</small></label>
   <fieldset style="border:0;padding:0"><legend>采集平台（可多选）</legend><div id="owner_platforms" class="choices"></div></fieldset>
@@ -28,7 +34,17 @@ const ownerView = (() => {
   function invalidate() { preview=null; previewRequest=null; $('owner_preview').hidden=true; $('owner_create').disabled=true; generation++; }
   $('owner_form').addEventListener('input', invalidate);
   $('owner_form').addEventListener('change', invalidate);
-  $('owner_mode').onchange = () => { $('owner_watch_options').hidden=$('owner_mode').value!=='creator';if($('owner_mode').value!=='creator')$('owner_continuous').checked=false;$('owner_target_help').textContent=$('owner_mode').value==='search'?'搜索词共享给所选平台；链接会按所属平台分配。':'链接按所属平台分配；裸ID请写平台代码,ID。';$('owner_targets').placeholder=$('owner_mode').value==='search'?'搜索关键词，每行一个':'内容/博主链接，每行一个；裸ID请写成平台代码,ID'; };
+  $('owner_mode').onchange = () => {
+    const mode=$('owner_mode').value, discovery=['homefeed','trending'].includes(mode);
+    $('owner_watch_options').hidden=mode!=='creator'; if(mode!=='creator')$('owner_continuous').checked=false;
+    $('owner_targets').required=!discovery; $('owner_targets').parentElement.hidden=discovery; $('owner_file').parentElement.hidden=discovery;
+    $('owner_target_help').textContent=mode==='search'?'搜索词共享给所选平台；链接会按所属平台分配。':'链接按所属平台分配；裸ID请写平台代码,ID。';
+    $('owner_targets').placeholder=mode==='search'?'搜索关键词，每行一个':'内容/博主链接，每行一个；裸ID请写成平台代码,ID';
+    for(const input of $('owner_platforms').querySelectorAll('input')) { input.disabled=discovery&&!((mode==='homefeed'?['xhs','bili']:['bili']).includes(input.value)); if(input.disabled)input.checked=false; }
+    if(![...$('owner_platforms').querySelectorAll('input:checked')].length) $('owner_platforms').querySelector('input:not(:disabled)').checked=true;
+    if(discovery&&Number($('owner_total').value)>10)$('owner_total').value=2;
+    invalidate();
+  };
   $('owner_file').onchange = () => guarded(async () => {
     const file=$('owner_file').files[0]; if(!file)return;
     if(file.size>24000)throw Error('导入文件最多24KB。'); $('owner_targets').value=await file.text(); invalidate();
@@ -37,7 +53,7 @@ const ownerView = (() => {
     const p={idempotency_key:crypto.randomUUID(),platforms:[...$('owner_platforms').querySelectorAll('input:checked')].map(x=>x.value),mode:$('owner_mode').value,desired_items:Number($('owner_total').value),max_api_requests:Number($('owner_requests').value),max_comments:Number($('owner_comment_limit').value),comments:$('owner_comments').checked,replies:$('owner_replies').checked,media:$('owner_media').checked,purpose:$('purpose').value};
     if($('authorization_ref').value.trim())p.authorization_ref=$('authorization_ref').value.trim();
     if(p.mode==='search')p.targets=$('owner_targets').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-    else {const parsed=await call('parse_batch',{text:$('owner_targets').value,mode:p.mode});if(parsed.errors?.length)throw Error(parsed.errors.map(x=>'第'+(x.line||x.row||'?')+'行：'+(x.error||x.reason||'格式错误')).join('；'));p.targets_by_platform=parsed.targets_by_platform;}
+    else if(!['homefeed','trending'].includes(p.mode)) {const parsed=await call('parse_batch',{text:$('owner_targets').value,mode:p.mode});if(parsed.errors?.length)throw Error(parsed.errors.map(x=>'第'+(x.line||x.row||'?')+'行：'+(x.error||x.reason||'格式错误')).join('；'));p.targets_by_platform=parsed.targets_by_platform;}
     if(p.mode==='creator'&&$('owner_continuous').checked){p.per_cycle_items=p.desired_items;p.per_cycle_requests=p.max_api_requests;delete p.desired_items;delete p.max_api_requests;delete p.mode;p.interval_minutes=Number($('owner_watch_interval').value);p.window_days=Number($('owner_watch_window').value);p.total_request_budget=Number($('owner_watch_budget').value);}
     return p;
   }
@@ -62,13 +78,13 @@ const ownerView = (() => {
     for(const task of shown){const card=node('article');card.className='task';card.style.marginBottom='12px';const title=(task.display_title||task.title||task.request?.title||'多平台 '+(modeNames[task.mode||task.request?.mode]||'采集'));
       const head=node('div');head.className='task-heading';head.append(node('h3',title),node('span',names[task.state]||task.state));head.lastChild.className='pill';card.append(head);
       for(const c of task.children||[]){const row=node('p');row.append(node('strong',(platformNames[c.platform]||c.platform)+'：'),node('span',(names[c.state]||labels[c.state]||c.state)+' '+(reasons[c.reason_code||c.reason]||c.reason_code||c.reason||'')));
-        for(const runId of c.runs||[c.active_run_id].filter(Boolean)){const run=runs.find(r=>idOf(r)===runId)||{run_id:runId,platform:c.platform,state:'interrupted_unknown'};const b=button('查看结果',()=>show(run));b.disabled=!terminal.has(run.state);row.append(b);}card.append(row);}
-      const actions=node('div');actions.className='actions';for(const [name,text]of [['stop','停止任务'],['resume','继续未启动平台']]){const b=button(text,async()=>{b.disabled=true;try{await call(name,{task_id:task.task_id});await reload();}finally{b.disabled=false;}});b.dataset.taskKey=task.task_id+':'+name;b.disabled=name==='stop'?['stopped','completed'].includes(task.state):!['waiting','paused','stopped','partial','failed'].includes(task.state);actions.append(b);}card.append(actions);const diagnostic=node('details');diagnostic.append(node('summary','分配与预算详情'),node('pre',JSON.stringify(task,null,2)));card.append(diagnostic);section.append(card);
+        if(task.storage_scope==='cloud')row.append(node('small',' · 云端已收 '+(c.received_captures||0)+' 份（正文 '+(c.contents||0)+' / 评论 '+(c.comments||0)+'）'));for(const runId of (task.storage_scope==='cloud'?[c.local_run_id].filter(Boolean):c.runs||[c.active_run_id].filter(Boolean))){const run=runs.find(r=>idOf(r)===runId)||{run_id:runId,platform:c.platform,state:'interrupted_unknown'};const b=button('查看结果',()=>show(run));b.disabled=!terminal.has(run.state);row.append(b);}card.append(row);}
+      const actions=node('div');actions.className='actions';for(const [name,text]of [['stop','停止任务'],['resume','继续未启动平台']]){const b=button(text,async()=>{b.disabled=true;try{await call(name,{task_id:task.task_id});await reload();}finally{b.disabled=false;}});b.dataset.taskKey=task.task_id+':'+name;b.disabled=name==='stop'?['stopped','completed'].includes(task.state):!['waiting','paused','stopped','partial','failed'].includes(task.state);actions.append(b);}card.append(actions);if(task.storage_scope==='cloud')actions.append(button('查看云端结果与回执',()=>guarded(()=>receipts(task))));const diagnostic=node('details');diagnostic.append(node('summary','分配与预算详情'),node('pre',JSON.stringify(task,null,2)));card.append(diagnostic);section.append(card);
     }
     if(key)[...section.querySelectorAll('button')].find(b=>b.dataset.taskKey===key)?.focus({preventScroll:true});
     renderRuns();
   }
-  async function reload(){if(listPromise)return listPromise;listPromise=(async()=>{const [value,watchValue]=await Promise.all([call('list'),api('/api/watchlists',{action:'list',payload:{}})]);items=Array.isArray(value)?value:value.tasks||[];watches=watchValue.watchlists||watchValue.watches||[];groupedRunIds=new Set(items.flatMap(t=>(t.children||[]).flatMap(c=>c.runs||[c.active_run_id].filter(Boolean))));ownerTaskCounts={all:items.length+watches.length,attention:items.filter(t=>['waiting','failed','partial','unknown','interrupted_unknown'].includes(t.state)).length+watches.filter(w=>['waiting','failed','paused','blocked','budget_exhausted','interrupted_unknown'].includes(w.state)).length};render();})().finally(()=>listPromise=null);return listPromise;}
+  async function reload(){if(listPromise)return listPromise;listPromise=(async()=>{const [value,watchValue]=await Promise.all([call('list'),api('/api/watchlists',{action:'list',payload:{}})]);items=Array.isArray(value)?value:value.tasks||[];watches=watchValue.watchlists||watchValue.watches||[];groupedRunIds=new Set(items.flatMap(t=>(t.children||[]).flatMap(c=>t.storage_scope==='cloud'?[c.local_run_id].filter(Boolean):c.runs||[c.active_run_id].filter(Boolean))));ownerTaskCounts={all:items.length+watches.length,attention:items.filter(t=>['waiting','failed','partial','unknown','interrupted_unknown'].includes(t.state)).length+watches.filter(w=>['waiting','failed','paused','blocked','budget_exhausted','interrupted_unknown'].includes(w.state)).length};render();})().finally(()=>listPromise=null);return listPromise;}
   $('new_task').onclick=open;
   for(const name of ['all','attention'])$('filter_'+name).addEventListener('click',()=>render());
   $('refresh').addEventListener('click',()=>guarded(reload));

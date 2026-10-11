@@ -88,7 +88,7 @@ python3 fetch_model.py --output-dir ./asr-model-tiny
   --output /绝对路径/asr-evidence.json
 ```
 
-已存在模型目录时不重新下载，不覆盖；转录会校验原清单。解码仅限本地支持的音视频容器，禁止播放列表/外部协议，最多25MB、60秒、单进程150秒。支持MP4/WebM中的音轨，但不自动获取需要登录或分段协议的源视频。输出时间段和原始识别文字，明确 `processor=faster_whisper_local`。
+已存在模型目录时不重新下载，不覆盖；转录会校验原清单。解码仅限本地支持的音视频容器，禁止播放列表/外部协议。原单片转录器最多25MB、60秒、单进程150秒；下述长媒体路径按55秒窗口调用它。支持MP4/WebM中的音轨，但不自动获取需要登录或分段协议的源视频。输出时间段和原始识别文字，明确 `processor=faster_whisper_local`。
 
 依据：[Faster Whisper官方项目及MIT许可](https://github.com/SYSTRAN/faster-whisper)、[固定模型版本](https://huggingface.co/Systran/faster-whisper-tiny/tree/d90ca5fe260221311c53c58e660288d3deb8d356)。我们提供调用代码，安装时获取官方依赖；安装包不包含这些第三方库或模型。既有Apple Speech仍可选择，不自动降级或替用户弹权限请求。
 
@@ -107,3 +107,30 @@ python3 fetch_model.py --output-dir ./asr-model-tiny
 3. 将 `asset-1/evidence.json`、`asset-2/evidence.json` 中实际成功的文件依次导入插件；下载文件本身不上传。`manifest.json`及逐项`receipt-N.json`记录下载、处理或失败，不把“下载成功”记成“已入库”。没有对应内容时先完成原文入库。
 
 现场证据：2026-10-09在Apple芯片Mac用自制中文音频完成Faster Whisper本地转录。识别有错字，属于工作链路验证；不是生产音频语义质量验收。媒体网络边界与部分失败已做隔离测试，实际平台CDN/真实媒体仍须逐源验证。
+
+## 长视频与可恢复本地转录
+
+`long_media.py` 复用原本地模型转录器。普通 PCM WAV 可由标准库处理；其他音视频需要明确配置音频解码完整的 FFmpeg。Playwright 自带 FFmpeg 仅用于录像，不支持本路径所需音轨解码，不能用来声称抽轨可用。
+
+```sh
+export CROWD_FFMPEG=/绝对路径/完整的ffmpeg
+.asr-venv/bin/python long_media.py --input /绝对路径/已有授权视频.mp4 \
+  --asr-model /绝对路径/已验证本地模型 --work-dir /绝对路径/独立转录检查点 \
+  --platform bilibili --content-id BV1xx411c7mD --authorization-ref 本地素材授权 \
+  --output /绝对路径/新的转录结果.json
+```
+
+输入仍最多25MiB，音轨最多3600秒；抽取16kHz单声道PCM，分为55秒窗口，相邻重叠2秒。每片结果先原子持久化，再开始下一片。时间戳转为原素材的绝对秒；仅对时间重叠且文本规范化相同的片段去重，不做语义猜测，也不会删除不同时间重复说的话。静音或无识别文字的窗口另计数，其他窗口结果保留。
+
+检查点包括输入SHA、每片音频SHA、模型清单SHA和处理代码版本。取消/失败保留原任务的专用副本、音轨和已完成片段；重新执行同一检查点复用已验证片段。模型、代码、输入或缓存损坏时明确拒绝复用。CLI SIGTERM/INT或工作台取消终止处理；工作台 `MediaJobs.resume(job_id)` 恢复同一已取消/失败任务，不重新下载原视频。原始素材只读。工作台成功后删除输入副本，保留派生音轨/检查点；1小时音轨及重叠片段合计可能约230MB，须为独立运行目录留足空间。
+
+工作台沿用 `kind=asr`，新增 `completed_chunks`、`total_chunks`、`checkpoint_available` 进度及恢复入口。缺模型时返回 `local_asr_model_not_configured`，能力状态 `local_model_unavailable`；缺FFmpeg时仅支持兼容PCM WAV。库的缺模型处理状态为 `model_unavailable`，不伪造转录文本、不下载模型或自动外发音视频。正文预览仍有24000字上限，完整结构化时间轴单独保留，`truncated` 明确标记预览裁剪；转录完整性与识别质量仍需人工检查。
+
+本轮真实本机验证使用70秒自制音调视频，验证FFmpeg抽轨、两片分段、绝对时间、重叠去重、断点复用与原文件SHA不变。ASR片段文字使用明确的离线替身，以验证合并算法；没有冒充实际模型识别。
+
+```sh
+CROWD_FFMPEG=/绝对路径/完整的ffmpeg python3 verify_long_media.py --output-dir /绝对路径/新验证目录
+```
+### 分段ASR时标边界
+
+本地provider尾段end若超实际音轨不超过0.5秒、start仍在音轨内，可裁到实际结尾；原文本及原provider时标保存在timing_adjustments。这是产品有界容错策略，不是模型精度保证。更大越界、倒序、非有限值仍失败。短证据及长缓存均校验并保留调整，长结果标明chunk局部与绝对秒数。源码/模型哈希改变后旧缓存明确身份失配，不自动重算未知任务；保持原检查点，使用新的处理任务。

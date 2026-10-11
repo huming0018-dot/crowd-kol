@@ -61,6 +61,18 @@ class WatchTests(unittest.TestCase):
     def create(self, **extra):
         return self.service.create(self.payload(**extra))['watchlist']['watch_id']
 
+    def test_manual_cloud_parent_pause_does_not_dispatch_next_cycle(self):
+        watch_id = self.create()
+        self.service.poll()
+        task_id = self.service.status(watch_id)['watchlist']['active_task_id']
+        self.owners.finish(task_id)
+        self.owners.tasks[task_id]['desired_state'] = 'paused'
+        self.now += 7200
+        self.service.poll()
+        self.service.poll()
+        self.assertEqual(len(self.owners.requests), 1)
+        self.assertEqual(self.service.status(watch_id)['watchlist']['desired_state'], 'stopped')
+
     def test_create_and_dispatch_same_injected_owner(self):
         watch_id = self.create()
         self.assertEqual(self.owners.requests, [])

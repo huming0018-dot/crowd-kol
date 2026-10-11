@@ -1,0 +1,560 @@
+"""Scoped cloud task adapter and durable machine delivery. No participant rewards."""
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from decimal import Decimal
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sqlite3
+import threading
+import time
+import urllib.error
+import urllib.request
+from urllib.parse import urlsplit
+import uuid
+
+import mc_runner
+
+SCHEMA = 'crowd-machine-capture-v1'
+HEX = re.compile(r'[a-f0-9]{64}\Z')
+RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible','coverage','origin',
+ 'comment_id','parent_comment_id','text','reported_reply_count','title','body','content_type',
+ 'canonical_id_scheme','platform_fields','author','author_id','author_id_scheme','author_id_status',
+ 'title_status','title_truncated','metrics','upstream_transport','parent_status',
+ 'reply_count_semantics','published_at_reported','entity_key','text_status','text_truncated',
+ 'text_completeness','upstream_truncation_risk','record_hash','media','url','sha256','size_bytes'}
+
+
+class CloudError(ValueError):
+    pass
+
+
+def canonical(value, depth=0, budget=None):
+    """crowd-json-int-v1: codepoint keys, integer numbers, explicit control escapes."""
+    budget = [0, 5000] if budget is None else budget
+    budget[0] += 1
+    if depth > 12 or budget[0] > budget[1]:
+        raise CloudError('encoding_limit')
+    if value is None:
+        return 'null'
+    if type(value) is bool:
+        return 'true' if value else 'false'
+    if type(value) in (int, float, Decimal):
+        try:
+            integer = int(value)
+            valid = value == integer and abs(integer) <= 9007199254740991
+        except (ValueError, OverflowError):
+            valid = False
+        if not valid:
+            raise CloudError('integer_required')
+        return str(integer)
+    if isinstance(value, str):
+        output = []
+        for character in value:
+            number = ord(character)
+            if 0xd800 <= number <= 0xdfff:
+                raise CloudError('invalid_unicode')
+            output.append('\\"' if character == '"' else '\\\\' if character == '\\' else
+                          '\\u%04x' % number if number < 32 else character)
+        return '"' + ''.join(output) + '"'
+    if isinstance(value, list):
+        return '[' + ','.join(canonical(v, depth + 1, budget) for v in value) + ']'
+    if isinstance(value, dict) and all(isinstance(k, str) for k in value):
+        return '{' + ','.join(canonical(k, depth + 1, budget) + ':' + canonical(value[k], depth + 1, budget)
+                              for k in sorted(value)) + '}'
+    raise CloudError('invalid_encoding')
+
+
+def _hash(domain, value):
+    return hashlib.sha256((domain + '\n' + canonical(value)).encode('utf8')).hexdigest()
+
+
+def _strict_json(data, max_nodes=5000):
+    def pairs(values):
+        result = {}
+        for key, value in values:
+            if key in result:
+                raise CloudError('duplicate_json_key')
+            result[key] = value
+        return result
+    try:
+        value = json.loads(data, object_pairs_hook=pairs, parse_float=Decimal,
+                           parse_constant=lambda _: (_ for _ in ()).throw(CloudError('invalid_encoding')))
+        canonical(value, budget=[0, max_nodes])
+        return value
+    except (UnicodeError, json.JSONDecodeError):
+        raise CloudError('invalid_cloud_response') from None
+
+
+def _private_root(root, name):
+    base = Path(root).expanduser()
+    if base.is_symlink():
+        raise CloudError('unsafe_cloud_root')
+    path = base.resolve() / name
+    if path.is_symlink():
+        raise CloudError('unsafe_cloud_root')
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(path, 0o700)
+    return path
+
+
+def _private_file(path):
+    if path.is_symlink():
+        raise CloudError('unsafe_cloud_file')
+    if not path.exists():
+        os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    os.chmod(path, 0o600)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        raise CloudError('cloud_redirect_denied')
+
+
+class CloudClient:
+    def __init__(self, config_path, role='owner', allow_test_loopback=False):
+        path = Path(config_path)
+        if path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o077:
+            raise CloudError('cloud_config_requires_0600')
+        self.config = _strict_json(path.read_bytes())
+        self.role = role
+        if role not in ('owner', 'worker'):
+            raise CloudError('invalid_cloud_role')
+        self.endpoint = self.config.get('endpoint', '')
+        url = urlsplit(self.endpoint)
+        production = url.scheme == 'https' and url.hostname and url.hostname.endswith('.supabase.co') and not url.port
+        testing = allow_test_loopback and url.scheme == 'http' and url.hostname in ('127.0.0.1', 'localhost')
+        if not (production or testing) or url.username or url.password or url.query or url.fragment or not url.path.endswith('/functions/v1/crowd-machine'):
+            raise CloudError('invalid_cloud_endpoint')
+        key = self.config.get(role + '_key', '')
+        if not isinstance(key, str) or not HEX.fullmatch(key):
+            raise CloudError('cloud_role_key_missing')
+        project_key = self.config.get('project_key')
+        if not isinstance(project_key, str) or not project_key.startswith('sb_publishable_'):
+            raise CloudError('active_project_publishable_key_required')
+        self.headers = {'Content-Type': 'application/json', 'apikey': project_key,
+                        'X-Crowd-' + role.title() + '-Key': key}
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+
+    def call(self, action, payload=None):
+        body = canonical({'action': action, 'payload': payload or {}}).encode('utf8')
+        if len(body) > 300000:
+            raise CloudError('capture_size_limit')
+        request = urllib.request.Request(self.endpoint, body, self.headers, method='POST')
+        try:
+            try:
+                response = self.opener.open(request, timeout=15)
+            except urllib.error.HTTPError as error:
+                response = error
+            with response:
+                raw = response.read(2000001)
+                if len(raw) > 2000000:
+                    raise CloudError('cloud_response_size_limit')
+                result = _strict_json(raw, max_nodes=100000)
+            if not isinstance(result, dict) or result.get('ok') is not True or not isinstance(result.get('result'), dict):
+                code = result.get('error') if isinstance(result, dict) else None
+                raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
+            return result['result']
+        except (urllib.error.URLError, TimeoutError, OSError):
+            raise CloudError('cloud_outcome_unknown') from None
+
+
+class CloudOwnerAdapter:
+    """OwnerTasks-compatible UI/watch adapter. Cloud alone owns dispatch."""
+    def __init__(self, client):
+        self.client = client
+
+    def preview(self, payload):
+        return {'ok': True, **self.client.call('task_preview', payload)}
+
+    def create(self, payload):
+        return {'ok': True, **self.client.call('task_create', payload)}
+
+    def list(self):
+        return {'ok': True, **self.client.call('task_list')}
+
+    def status(self, task_id):
+        return {'ok': True, **self.client.call('task_status', {'task_id': task_id})}
+
+    def _control(self, task_id, desired):
+        current = self.status(task_id)['task']
+        return {'ok': True, **self.client.call('task_control', {'task_id': task_id,
+            'desired_state': desired, 'expected_revision': current['revision']})}
+
+    def stop(self, task_id):
+        return self._control(task_id, 'stopped')
+
+    def resume(self, task_id):
+        return self._control(task_id, 'running')
+
+    def start_scheduler(self):
+        pass
+
+    def close(self):
+        pass
+
+
+class CloudOutbox:
+    def __init__(self, root, client):
+        self.root = _private_root(root, 'cloud-outbox')
+        self.path = self.root / 'outbox.sqlite3'
+        _private_file(self.path)
+        self.client = client
+        with self._db() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS captures(id TEXT PRIMARY KEY, run_id TEXT NOT NULL, envelope TEXT NOT NULL, digest TEXT NOT NULL, state TEXT NOT NULL, receipt TEXT, error TEXT)')
+
+    @contextmanager
+    def _db(self):
+        if self.path.is_symlink():
+            raise CloudError('unsafe_cloud_file')
+        db = sqlite3.connect(self.path, timeout=15)
+        db.execute('PRAGMA synchronous=FULL')
+        try:
+            yield db
+            db.commit()
+        except BaseException:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def stage_imported(self, records, lease):
+        if isinstance(records, dict):
+            records = records.get('records')
+        if not isinstance(records, list) or len(records) > 2000:
+            raise CloudError('invalid_imported_records')
+        for key in ('run_id', 'task_id', 'child_id'):
+            mc_runner.uid(lease.get(key))
+        platform = mc_runner.PLATFORMS[lease['platform']]
+        ids = []
+        with self._db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            for value in records:
+                if not isinstance(value, dict):
+                    raise CloudError('invalid_imported_records')
+                # ResultsStore.detail returns a wrapper; transport only the original normalized row.
+                original = value.get('record', value)
+                record = {k: v for k, v in original.items() if k in RECORD_FIELDS}
+                if record.get('platform') != platform or record.get('source_kind') != 'mediacrawler_api' or record.get('reward_eligible') is not False:
+                    raise CloudError('invalid_machine_provenance')
+                if record.get('kind') not in ('content', 'dynamic', 'comment', 'author', 'media') or not isinstance(record.get('content_id'), str):
+                    raise CloudError('invalid_capture_record')
+                from results_store import _safe
+                _safe(record)
+                capture_id = str(uuid.uuid5(uuid.UUID(lease['run_id']), canonical(record)))
+                ids.append(capture_id)
+                old = db.execute('SELECT envelope FROM captures WHERE id=?', (capture_id,)).fetchone()
+                if old:
+                    continue  # Persisted timestamp/bytes stay identical after a crash or repeated import.
+                envelope = {'schema': SCHEMA, 'capture_id': capture_id, 'task_id': lease['task_id'],
+                    'child_id': lease['child_id'], 'run_id': lease['run_id'], 'lease_epoch': lease['lease_epoch'],
+                    'platform': platform, 'delivery_basis': lease['delivery_basis'], 'source_kind': 'machine_api',
+                    'record': record, 'adapter_version': 'cloud-machine-v1', 'normalizer_version': 'mc-normalized-v2',
+                    'packaged_at': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')}
+                encoded = canonical(envelope)
+                if len(encoded.encode('utf8')) > 262144:
+                    raise CloudError('capture_size_limit')
+                db.execute('INSERT INTO captures VALUES(?,?,?,?,?,?,?)',
+                    (capture_id, lease['run_id'], encoded, _hash(SCHEMA, envelope), 'pending', None, None))
+        return list(dict.fromkeys(ids))
+
+    def flush(self, run_id=None):
+        with self._db() as db:
+            rows = db.execute('SELECT id,envelope,digest FROM captures WHERE state=?' +
+                (' AND run_id=?' if run_id else '') + ' ORDER BY rowid LIMIT 2000',
+                ('pending', run_id) if run_id else ('pending',)).fetchall()
+        for capture_id, encoded, digest in rows:
+            envelope = json.loads(encoded)
+            binding = {'run_id': envelope['run_id'], 'lease_epoch': envelope['lease_epoch']}
+            try:
+                receipt = self.client.call('receipt', {**binding, 'capture_id': capture_id, 'envelope_hash': digest}).get('receipt')
+                if receipt is None:
+                    receipt = self.client.call('capture', {**binding, 'envelope': envelope, 'envelope_hash': digest}).get('receipt')
+                if not isinstance(receipt, dict) or any(receipt.get(k) != v for k, v in {
+                    'capture_id': capture_id, 'envelope_hash': digest, **binding, 'task_id': envelope['task_id'],
+                    'child_id': envelope['child_id'], 'status': 'received', 'source_kind': 'machine_api', 'reward_eligible': False}.items()):
+                    raise CloudError('invalid_cloud_ack')
+                with self._db() as db:
+                    db.execute('UPDATE captures SET state=?,receipt=?,error=NULL WHERE id=? AND digest=?',
+                               ('acknowledged', canonical(receipt), capture_id, digest))
+            except (CloudError, ValueError) as error:
+                code = str(error) if re.fullmatch(r'[a-z_]{1,80}', str(error)) else 'cloud_outcome_unknown'
+                with self._db() as db:
+                    db.execute('UPDATE captures SET error=? WHERE id=?', (code, capture_id))
+                # A lost response never deletes data or causes another source dispatch.
+                if code in ('worker_revoked', 'principal_denied', 'cloud_outcome_unknown'):
+                    break
+        return self.stats(run_id)
+
+    def stats(self, run_id=None):
+        with self._db() as db:
+            rows = db.execute('SELECT id,state,error FROM captures' + (' WHERE run_id=?' if run_id else ''),
+                              (run_id,) if run_id else ()).fetchall()
+        return {'pending': sum(r[1] == 'pending' for r in rows),
+                'acknowledged': sum(r[1] == 'acknowledged' for r in rows),
+                'capture_ids': [r[0] for r in rows], 'errors': list(dict.fromkeys(r[2] for r in rows if r[2]))}
+
+
+class CloudWorker:
+    """One durable dispatch controller, backed by cloud leases and the existing runner."""
+    def __init__(self, root, client, runner_callback, session_selector=None, existing_reader=None, interval=5):
+        self.root = _private_root(root, 'cloud-worker')
+        self.path = self.root / 'state.json'
+        self.lock_path = self.root / 'worker.lock'
+        _private_file(self.lock_path)
+        if self.path.is_symlink():
+            raise CloudError('unsafe_cloud_file')
+        self.client, self.runner = client, runner_callback
+        self.session_selector, self.existing_reader = session_selector, existing_reader
+        self.outbox = CloudOutbox(root, client)
+        self.interval = interval
+        self.closed = threading.Event()
+        self.thread = None
+        self.last_error = None
+
+    def _save(self, state):
+        if self.path.exists() and 'waiting_logins' not in state:
+            state['waiting_logins'] = mc_runner.read(self.path).get('waiting_logins', [])
+        mc_runner.write(self.path, state)
+
+    def _runner(self, action, payload):
+        try:
+            value = self.runner(action, payload)
+        except Exception:
+            raise CloudError('runner_outcome_unknown') from None
+        if not isinstance(value, dict) or value.get('ok') is False:
+            raise CloudError('runner_outcome_unknown')
+        result = value.get('result', value)
+        if not isinstance(result, dict):
+            raise CloudError('invalid_runner_result')
+        return result
+
+    def _heartbeat(self, state):
+        lease = state['lease']
+        state['sequence'] = state.get('sequence', 0) + 1
+        self._save(state)
+        payload = {'run_id': lease['run_id'], 'lease_epoch': lease['lease_epoch'], 'sequence': state['sequence']}
+        if state.get('local_run_id'):
+            payload['local_run_id'] = state['local_run_id']
+        response = self.client.call('heartbeat', payload)
+        updated = response.get('lease')
+        if not isinstance(updated, dict) or any(updated.get(k) != lease[k] for k in ('run_id','task_id','child_id','lease_epoch','worker_id')):
+            raise CloudError('invalid_cloud_lease')
+        state['lease'] = updated
+        self._save(state)
+        return updated
+
+    def tick(self):
+        with open(self.lock_path, 'r+') as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return {'state': 'controller_busy'}
+            state = {'phase': 'state_unreadable'}
+            try:
+                state = mc_runner.read(self.path) if self.path.exists() else {'phase': 'idle'}
+                result = self._tick(state)
+                self.last_error = result.get('error')
+                result['waiting_login_count'] = sum(v.get('desired_state','running') == 'running' for v in mc_runner.read(self.path).get('waiting_logins', []))
+                return result
+            except (CloudError, ValueError, OSError, sqlite3.Error) as error:
+                code = str(error) if re.fullmatch(r'[a-z_]{1,80}', str(error)) else 'cloud_worker_failed'
+                self.last_error = code
+                try:
+                    state = mc_runner.read(self.path) if self.path.exists() else state
+                except (ValueError, OSError):
+                    pass
+                # Fail closed if authorization cannot be renewed. Never start another run.
+                lease = state.get('lease')
+                if lease and state.get('local_run_id') and state.get('phase') == 'running':
+                    try:
+                        self._runner('stop', {'run_id': state['local_run_id']})
+                    except CloudError:
+                        state['phase'] = 'local_stop_unknown'
+                        self._save(state)
+                return {'state': state.get('phase'), 'error': code}
+
+    def status(self):
+        """Safe UI summary. Private lease targets/account bindings never leave this module."""
+        try:
+            state = mc_runner.read(self.path) if self.path.exists() else {'phase':'idle'}
+            count = sum(v.get('desired_state','running') == 'running' for v in state.get('waiting_logins', []))
+            phase = 'waiting_login' if state.get('phase') == 'idle' and count else state.get('phase')
+            return {'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error,
+                    'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats()}
+        except (ValueError, OSError, sqlite3.Error):
+            return {'phase':'state_unreadable','last_error':'cloud_worker_failed'}
+
+    def _tick(self, state):
+        # A login wait owns no running executor; other platforms may continue.
+        waiting = state.get('waiting_logins', [])
+        for pending in list(waiting):
+            try:
+                if self._resume_login(pending):
+                    waiting.remove(pending)
+            except CloudError:
+                continue
+        state['waiting_logins'] = waiting
+        self._save(state)
+        if state['phase'] == 'idle':
+            state = {'phase': 'claiming', 'claim_id': str(uuid.uuid4()), 'waiting_logins': waiting,
+                     'unavailable_platforms': sorted({v['lease']['platform'] for v in waiting if v.get('desired_state','running') == 'running'})}
+            self._save(state)
+        if state['phase'] == 'claiming':
+            response = self.client.call('claim', {'claim_id': state['claim_id'],
+                                                'unavailable_platforms': state.get('unavailable_platforms', [])})
+            lease = response.get('lease')
+            if lease is None:
+                self._save({'phase': 'idle', 'waiting_logins': waiting})
+                return {'state': 'waiting_login' if waiting else 'idle', 'waiting_login_count': len(waiting)}
+            if not isinstance(lease, dict) or not all(k in lease for k in ('run_id','task_id','child_id','worker_id','lease_epoch','platform','request','delivery_basis')):
+                raise CloudError('invalid_cloud_lease')
+            if lease['platform'] not in mc_runner.PLATFORMS or type(lease['lease_epoch']) is not int or lease['lease_epoch'] < 1 or lease['delivery_basis'] not in ('live_capture','existing_saved'):
+                raise CloudError('invalid_cloud_lease')
+            for key in ('run_id','task_id','child_id','worker_id'):
+                mc_runner.uid(lease[key])
+            state.update(phase='authorized', lease=lease, sequence=0)
+            self._save(state)
+        if state['phase'] in ('dispatching','local_stop_unknown'):
+            # A crash between source start and persistence cannot be resolved by another start.
+            return {'state': state['phase'], 'error': 'source_outcome_unknown'}
+        lease = state['lease']
+        if state['phase'] == 'waiting_login':
+            # Upgrade the previous single-wait durable state without discarding context.
+            if self._resume_login(state):
+                self._save({'phase': 'idle', 'last_resumed_run_id': lease['run_id'], 'waiting_logins': waiting})
+                return {'state': 'resumed'}
+            pending = {k:v for k,v in state.items() if k != 'waiting_logins'}
+            self._save({'phase':'idle', 'waiting_logins': [*waiting, pending]})
+            return {'state': 'waiting_login'}
+        if state['phase'] == 'authorized':
+            lease = self._heartbeat(state)
+            if lease.get('may_dispatch') is not True:
+                state.update(phase='finishing', outcome='unknown', api_attempts=0)
+                self._save(state)
+            elif lease['delivery_basis'] == 'existing_saved':
+                if self.existing_reader is None:
+                    raise CloudError('existing_saved_reader_missing')
+                records = self.existing_reader(lease)
+                if isinstance(records, dict):
+                    records = records.get('records')
+                refs = lease.get('record_refs', [])
+                if not isinstance(records, list) or any(not any((r.get('record', r).get('content_id') == ref['content_id'] and r.get('record', r).get('kind') == ref.get('kind','content')) for ref in refs) for r in records):
+                    raise CloudError('existing_saved_selection_mismatch')
+                self.outbox.stage_imported(records, lease)
+                state.update(phase='delivering', outcome='completed', api_attempts=0)
+                self._save(state)
+            else:
+                request = dict(lease['request'])
+                if not request.get('session_id') and self.session_selector:
+                    session = self.session_selector(lease)
+                    if session:
+                        request['session_id'] = mc_runner.uid(session)
+                request = mc_runner.validate(request)
+                state['session_id'] = request['session_id']
+                state['phase'] = 'dispatching'
+                self._save(state)  # Commit authorization before the first source call.
+                result = self._runner('start', request)
+                run_id = result.get('run_id') or result.get('run', {}).get('run_id')
+                mc_runner.uid(run_id)
+                state.update(phase='running', local_run_id=run_id)
+                self._save(state)
+        if state['phase'] == 'running':
+            lease = self._heartbeat(state)
+            if lease.get('may_dispatch') is not True:
+                self._runner('stop', {'run_id': state['local_run_id']})
+            current = self._runner('status', {'run_id': state['local_run_id']})
+            stage = current.get('state') or current.get('stage') or current.get('status')
+            if stage not in mc_runner.FINAL | {'starting','running','waiting_login','collecting','comments','media'}:
+                raise CloudError('invalid_runner_result')
+            if stage not in mc_runner.FINAL:
+                return {'state': 'running', 'local_stage': stage}
+            state.update(phase='importing', outcome='unknown' if stage == 'interrupted' else stage,
+                         api_attempts=current.get('api_requests', current.get('api_attempts', 0)))
+            if state['outcome'] not in ('completed','stopped','failed','login_required'):
+                state['outcome'] = 'unknown'
+            if state['outcome'] == 'login_required':
+                account = self._runner('account_status', {'session_id': state['session_id'], 'platform': lease['platform']})
+                state['account_context'] = {'session_id': state['session_id'],
+                    'generation': account.get('generation', 0), 'account_ref': account.get('account_ref')}
+            self._save(state)
+        if state['phase'] == 'importing':
+            records = self._runner('import', {'run_id': state['local_run_id']})
+            self.outbox.stage_imported(records, state['lease'])
+            state['phase'] = 'delivering'
+            self._save(state)
+        if state['phase'] == 'delivering':
+            status = self.outbox.flush(state['lease']['run_id'])
+            if status['pending']:
+                return {'state': 'delivering', **status}
+            state['phase'] = 'finishing'
+            self._save(state)
+        if state['phase'] == 'finishing':
+            status = self.outbox.stats(state['lease']['run_id'])
+            payload = {'run_id': state['lease']['run_id'], 'lease_epoch': state['lease']['lease_epoch'],
+                       'capture_ids': status['capture_ids'], 'outcome': state['outcome'],
+                       'api_attempts': state.get('api_attempts', 0)}
+            if state.get('account_context'):
+                payload['account_context'] = state['account_context']
+            if status['pending']:
+                raise CloudError('unacknowledged_capture')
+            payload['finish_hash'] = _hash('crowd-machine-finish-v1', payload)
+            response = self.client.call('finish', payload)
+            if state['outcome'] == 'login_required':
+                pending = {k:v for k,v in state.items() if k != 'waiting_logins'}
+                pending['phase'] = 'waiting_login'
+                self._save({'phase': 'idle', 'waiting_logins': [*waiting, pending]})
+            else:
+                self._save({'phase': 'idle', 'last_finished_run_id': state['lease']['run_id'],
+                            'waiting_logins': waiting})
+            return {'state': 'finished', 'task': response.get('task')}
+        return {'state': state['phase']}
+
+    def _resume_login(self, state):
+        context, lease = state.get('account_context', {}), state['lease']
+        status = self.client.call('heartbeat', {'run_id':lease['run_id'],
+            'lease_epoch':lease['lease_epoch'],'sequence':state.get('sequence',0)+1}).get('lease')
+        if not isinstance(status, dict) or status.get('run_id') != lease['run_id'] or status.get('lease_epoch') != lease['lease_epoch']:
+            raise CloudError('invalid_cloud_lease')
+        state['desired_state'] = status.get('desired_state')
+        if status.get('desired_state') != 'running':
+            return False  # Retain context for explicit Owner continuation, without blocking other tasks.
+        account = self._runner('account_status', {'session_id': context['session_id'], 'platform': lease['platform']})
+        same = account.get('generation') == context.get('generation') and account.get('account_ref') == context.get('account_ref')
+        identified = account.get('account_ref') is not None or account.get('identity_status') == 'manually_confirmed_same_account'
+        verified_at = account.get('verified_at')
+        fresh = type(verified_at) in (int,float) and 0 <= time.time()-verified_at <= 180
+        authenticated = account.get('state') in ('authenticated','resumed') and account.get('login_verified') is True
+        if not (same and identified and fresh and authenticated and account.get('authorized_for_run') == state.get('local_run_id') and context.get('generation',0)>0):
+            return False
+        self.client.call('resume_login', {'run_id':lease['run_id'],'lease_epoch':lease['lease_epoch'],
+            'local_run_id':state['local_run_id'],'session_id':context['session_id'],
+            'generation':context['generation'],'account_ref':context.get('account_ref'),
+            'identity_status':account.get('identity_status'),'verified_at_ms':int(account['verified_at']*1000),
+            'authorized_for_run':account['authorized_for_run']})
+        return True
+
+    def start_scheduler(self):
+        if self.thread is None and not self.closed.is_set():
+            def loop():
+                while not self.closed.is_set():
+                    self.tick()
+                    self.closed.wait(self.interval)
+            self.thread = threading.Thread(target=loop, daemon=True, name='cloud-machine-worker')
+            self.thread.start()
+
+    def close(self):
+        self.closed.set()
+        if self.thread:
+            self.thread.join(timeout=20)
+        if self.path.exists():
+            state = mc_runner.read(self.path)
+            if state.get('phase') == 'running' and state.get('local_run_id'):
+                try:
+                    self._runner('stop', {'run_id': state['local_run_id']})
+                except CloudError:
+                    state['phase'] = 'local_stop_unknown'
+                    self._save(state)

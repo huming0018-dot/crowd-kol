@@ -3,9 +3,26 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
+
+
+def normalize_timestamps(rows, duration):
+    """Allow only a small provider tail overrun; retain the original estimate."""
+    timeline, adjustments = [], []
+    for row in rows:
+        start, end, text = row['start'], row['end'], row['text']
+        if (not math.isfinite(start) or not math.isfinite(end)
+                or not 0 <= start <= end or start >= duration or end > duration + 0.5):
+            raise ValueError('asr_provider_timestamp_out_of_bounds')
+        if end > duration:
+            adjustments.append({'segment_index': len(timeline), 'provider_start': start,
+                                'provider_end': end, 'adjusted_end': duration,
+                                'reason': 'provider_tail_overrun', 'text': text})
+        timeline.append({'start': start, 'end': min(end, duration), 'text': text})
+    return timeline, adjustments
 
 
 def transcribe(source, model_dir):
@@ -64,14 +81,20 @@ def transcribe(source, model_dir):
                          num_workers=1, local_files_only=True)
     segments, _ = model.transcribe(audio, language='zh', beam_size=3, vad_filter=False,
                                    condition_on_previous_text=False)
-    lines = []
+    raw_timeline = []
     for segment in segments:
-        lines.append('[%.2f–%.2f] %s' % (segment.start, segment.end, segment.text.strip()))
+        value = segment.text.strip()
+        if value:
+            raw_timeline.append({'start': float(segment.start), 'end': float(segment.end), 'text': value})
+    timeline, adjustments = normalize_timestamps(raw_timeline, count / 16000)
+    lines = ['[%.2f–%.2f] %s' % (row['start'], row['end'], row['text']) for row in timeline]
     text = '\n'.join(lines)
     if not text.strip():
         raise ValueError('speech_empty')
     return {'raw_text': text[:24000], 'truncated': len(text) > 24000,
-            'processor': 'faster_whisper_local'}
+            'processor': 'faster_whisper_local', 'segments': timeline,
+            'duration_seconds': count / 16000,
+            'timing_adjustments': adjustments, 'timing_policy': 'tail_overrun_at_most_0.5s'}
 
 
 def main():

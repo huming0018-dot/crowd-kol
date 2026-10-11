@@ -185,7 +185,7 @@ class Watchlists:
             if watch['active_task_id']:
                 try:
                     previous = self.owner_tasks.status(watch['active_task_id'])['task']
-                    if previous.get('desired_state') == 'stopped' and not watch['cycles'][-1].get('stopped_by_watch'):
+                    if previous.get('desired_state') in ('stopped', 'paused') and not watch['cycles'][-1].get('stopped_by_watch'):
                         watch['manual_child_stop'] = True
                 except Exception:
                     watch['unknown_outcome'] = True
@@ -217,7 +217,7 @@ class Watchlists:
                     task = self.owner_tasks.status(watch['active_task_id'])['task']
                 except Exception:
                     raise ValueError('watchlist_unknown_requires_reconciliation') from None
-                if task.get('desired_state') == 'stopped' and not watch['cycles'][-1].get('stopped_by_watch'):
+                if task.get('desired_state') in ('stopped', 'paused') and not watch['cycles'][-1].get('stopped_by_watch'):
                     raise ValueError('watchlist_owner_task_stopped_create_new_watchlist')
                 if any(child.get('state') == 'unknown' for child in task['children']):
                     raise ValueError('watchlist_unknown_requires_reconciliation')
@@ -246,7 +246,7 @@ class Watchlists:
         if any(c.get('state') == 'unknown' or c.get('reason_code') in ('source_outcome_unknown', 'dispatch_outcome_unknown', 'result_import_failed', 'invalid_import_result') for c in children):
             watch.update(state='blocked', reason_code='prior_cycle_unknown', unknown_outcome=True)
             return
-        if task.get('desired_state') == 'stopped' and not cycle.get('stopped_by_watch'):
+        if task.get('desired_state') in ('stopped', 'paused') and not cycle.get('stopped_by_watch'):
             watch.update(desired_state='stopped', state='paused', reason_code='owner_task_user_stop', manual_child_stop=True)
             return
         unsettled = any(c.get('active_run_id') or c.get('state') in ('queued', 'dispatching', 'running') for c in children)

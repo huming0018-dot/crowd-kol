@@ -17,7 +17,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parent
 
 
-def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run, asr_model=None):
+def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run, asr_model=None,
+            work_dir=None, cancel=None):
     identities = {'xiaohongshu': r'[a-f0-9]{24}', 'bilibili': r'BV[A-Za-z0-9]{10}|[0-9]{1,30}',
                   'douyin': r'[0-9]{1,30}', 'kuaishou': r'[A-Za-z0-9_-]{1,100}',
                   'weibo': r'[A-Za-z0-9]{1,100}', 'tieba': r'[0-9]{1,30}',
@@ -59,6 +60,18 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
     elif kind == 'asr':
         if source.suffix.lower() not in ('.wav', '.m4a', '.mp3', '.caf', '.aiff', '.mp4', '.webm', '.ogg'):
             raise ValueError('audio_file_required')
+        if work_dir is not None and asr_model is not None:
+            import long_media
+            work = long_media.safe_work_directory(source, work_dir)
+            # Freeze the bytes already hashed, as in the existing short ASR path.
+            with tempfile.TemporaryDirectory(prefix='crowd-authorized-long-speech-') as directory:
+                audio = Path(directory) / ('input' + source.suffix.lower())
+                with os.fdopen(os.open(audio, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
+                    stream.write(data)
+                parsed = long_media.transcribe_long(audio, asr_model, work, cancel=cancel)
+            evidence.update(parsed, coverage='local_file_all_audio_windows_processed')
+            return {'platform': platform, 'content_id': content_id,
+                    'authorization_ref': authorization_ref.strip(), 'kind': 'transcript', 'evidence': evidence}
         native = ROOT / 'crowd-speech'
         if asr_model is None and (sys.platform != 'darwin' or not native.is_file() or not os.access(native, os.X_OK)):
             raise ValueError('packaged_speech_tool_required')
@@ -71,6 +84,15 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
         if not isinstance(parsed.get('raw_text'), str) or not parsed['raw_text'].strip() or len(parsed['raw_text']) > 24000 or type(parsed.get('truncated')) is not bool:
             raise ValueError('invalid_asr_output')
         evidence.update(raw_text=parsed['raw_text'], truncated=parsed['truncated'], processor='faster_whisper_local' if asr_model else 'apple_speech_ondevice')
+        if asr_model and 'segments' in parsed:
+            import long_media
+            duration = parsed.get('duration_seconds')
+            if type(duration) not in (int, float) or not math.isfinite(duration) or not 0 < duration <= 60:
+                raise ValueError('invalid_asr_duration')
+            rows = long_media.validate_segments(parsed['segments'], duration)
+            adjustments = long_media.validate_adjustments(parsed.get('timing_adjustments', []), rows, duration)
+            evidence.update(segments=rows, duration_seconds=duration, timing_adjustments=adjustments,
+                            timing_policy=parsed.get('timing_policy', 'unadjusted'), timeline='local_file_seconds')
     elif kind == 'transcript':
         if source.suffix.lower() not in ('.txt', '.vtt', '.srt'):
             raise ValueError('authorized_txt_vtt_srt_required')

@@ -65,7 +65,8 @@ def run(job, destination, ocr=False, asr=False, asr_model=None):
                 status['declared_kind_mismatch'] = True
             if kind:
                 row = evidence.prepare(kind, directory / downloaded['file'], job['platform'], job['content_id'],
-                                       job['authorization_ref'], asr_model=asr_model)
+                                       job['authorization_ref'], asr_model=asr_model,
+                                       work_dir=directory / 'long-asr' if kind == 'asr' else None)
                 # Persist each successful result before beginning the next asset.
                 write_new(directory / 'evidence.json', [row])
                 status.update(status='processed', evidence_file='asset-' + str(index + 1) + '/evidence.json')

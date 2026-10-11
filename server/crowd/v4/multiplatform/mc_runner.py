@@ -162,8 +162,12 @@ def validate(payload):
     if not isinstance(payload, dict) or set(payload) - allowed:
         fail('invalid_request')
     p = dict(payload)
-    if not isinstance(p.get('platform'),str) or p.get('platform') not in PLATFORMS or p.get('mode') not in ('search','detail','creator'):
+    if not isinstance(p.get('platform'),str) or p.get('platform') not in PLATFORMS or p.get('mode') not in ('search','detail','creator','homefeed','trending'):
         fail('unsupported_platform_or_mode')
+    from discovery import SUPPORT
+    discovery_mode = p['mode'] in SUPPORT
+    if discovery_mode and p['platform'] not in SUPPORT[p['mode']]:
+        fail('discovery_not_supported_for_platform')
     if p.get('purpose') not in ('noncommercial_research','licensed_use'):
         fail('license_basis_required')
     if p['purpose'] == 'licensed_use' and not isinstance(p.get('authorization_ref'), str):
@@ -171,7 +175,7 @@ def validate(payload):
     if 'authorization_ref' in p and (not isinstance(p['authorization_ref'],str) or not p['authorization_ref'] or len(p['authorization_ref']) > 200 or contains_secret(p['authorization_ref'])):
         fail('invalid_authorization_ref')
     targets = p.get('targets')
-    if not isinstance(targets,list) or not 1 <= len(targets) <= 10 or any(not isinstance(t,str) or not t.strip() or len(t)>1000 or '\x00' in t or ',' in t for t in targets):
+    if not isinstance(targets,list) or (targets != [] if discovery_mode else not 1 <= len(targets) <= 10) or any(not isinstance(t,str) or not t.strip() or len(t)>1000 or '\x00' in t or ',' in t for t in targets):
         fail('invalid_targets')
     hosts={'xhs':('xiaohongshu.com',),'dy':('douyin.com','iesdouyin.com'),'ks':('kuaishou.com','kuaishou.cn'),'bili':('bilibili.com',),'wb':('weibo.com','weibo.cn'),'tieba':('tieba.baidu.com',),'zhihu':('zhihu.com',)}
     for target in targets:
@@ -228,10 +232,13 @@ def capabilities(mc):
     platforms=[]
     for p,name in PLATFORMS.items():
         features=[{'id':'comment_wordcloud','support_state':'implemented','live_verified':False,'notes':'optional upstream local generator; output presence checked separately'}]
+        from discovery import SUPPORT
+        discovery_modes = [mode for mode, platforms in SUPPORT.items() if p in platforms]
+        features.extend({'id':mode,'support_state':'implemented','live_verified':False,'notes':'visible-page sample from normal homepage/ranking navigation; not following feed'} for mode in discovery_modes)
         if p=='bili':
             features.extend([{'id':'creator_dynamics','support_state':'implemented','live_verified':False,'notes':'separate dynamic identity; no dynamic comments or media download'}, {'id':'creator_relations','support_state':'unsupported','live_verified':False,'notes':'installed upstream callbacks do not persist followers/following'}, {'id':'video_quality','support_state':'implemented','live_verified':False,'notes':'requested quality is subject to session and source availability'}])
         if p=='zhihu': features.extend([{'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
-        platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator'],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
+        platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator',*discovery_modes],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
     return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'visible isolated browser; user completes login/captcha; no automatic credential import'}
 
 def configure_executor(config,p):
@@ -249,6 +256,9 @@ def configure_executor(config,p):
         if 'quality' in options: config.BILI_QN=options['quality']
 
 def configure_platform_hooks(upstream,p):
+    if p['mode'] in ('homefeed','trending'):
+        from discovery import configure_discovery
+        configure_discovery(upstream,p,Path.cwd())
     if p['platform']=='bili' and p['mode']=='creator' and set(p.get('platform_options',{}).get('creator_sections',[]))=={'videos','dynamics'}:
         crawler=upstream.CrawlerFactory.CRAWLERS['bili']
         original=crawler.get_creator_videos
@@ -334,7 +344,9 @@ def start(root, mc, payload):
     return {'run_id':run_id,'state':'starting','session_id':p['session_id'],'supervisor_pid':proc.pid,'source_kind':'mediacrawler_api','reward_eligible':False}
 
 def argv_for(p, output):
-    args = ['--platform',p['platform'],'--type',p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--start',str(p.get('start_page',1)),'--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media']).lower(),'--enable_ip_proxy','false']
+    args = ['--platform',p['platform'],'--type','search' if p['mode'] in ('homefeed','trending') else p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--start',str(p.get('start_page',1)),'--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media']).lower(),'--enable_ip_proxy','false']
+    if p['mode'] in ('homefeed','trending'):
+        return args
     targets=[execution_target(p['platform'],p['mode'],t) for t in p['targets']]
     args += [{'search':'--keywords','detail':'--specified_id','creator':'--creator_id'}[p['mode']],','.join(targets)]
     return args
@@ -383,10 +395,10 @@ def worker(root, mc, run_id, lock_fd):
     code = child.wait()
     if (run/'stop.json').exists(): reason='user_stop'
     elif time.monotonic()-started>p['timeout_seconds'] and reason is None: reason='wall_timeout'
-    final = 'stopped' if reason=='user_stop' else 'login_required' if code==77 else 'completed' if code==0 and not reason else 'failed'
+    final = 'stopped' if reason=='user_stop' else 'login_required' if code in (77,78) else 'completed' if code==0 and not reason else 'failed'
     progress = read(run/'phase.json') if (run/'phase.json').exists() else {}
     state.update(progress)
-    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
+    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
     write(run/'status.json',state)
     os.close(lock_fd)
 
@@ -397,6 +409,7 @@ def execute(root, mc, run_id):
     sys.path.insert(0,str(Path(mc).resolve()))
     sys.dont_write_bytecode=True
     attempts=0
+    account_store=None
     response_bytes=0
     resource.setrlimit(resource.RLIMIT_FSIZE,(26214400,26214400))
     phase='running'
@@ -411,7 +424,6 @@ def execute(root, mc, run_id):
             low=text.lower()
             if any(t in low for t in ('qrcode','scan qr','scan the qr','login required','login by')):
                 event('login_required' if p['headless'] else 'waiting_login')
-                if p['headless']: raise SystemExit(77)
             elif 'comment' in low:
                 event('comments')
             elif 'download' in low or 'media file' in low:
@@ -474,13 +486,22 @@ def execute(root, mc, run_id):
             old_requests=requests.sessions.Session.send
             async def async_send(self,*a,**kw):
                 debit()
-                return await old_async(self,*a,**kw)
+                response=await old_async(self,*a,**kw)
+                if account_store is not None:
+                    guard_auth_response(account_store,p['session_id'],p['platform'],run_id,account_event,response)
+                return response
             def sync_send(self,*a,**kw):
                 debit()
-                return old_sync(self,*a,**kw)
+                response=old_sync(self,*a,**kw)
+                if account_store is not None:
+                    guard_auth_response(account_store,p['session_id'],p['platform'],run_id,account_event,response)
+                return response
             def requests_send(self,*a,**kw):
                 debit()
-                return old_requests(self,*a,**kw)
+                response=old_requests(self,*a,**kw)
+                if account_store is not None:
+                    guard_auth_response(account_store,p['session_id'],p['platform'],run_id,account_event,response)
+                return response
             httpx.AsyncClient.send=async_send
             httpx.Client.send=sync_send
             requests.sessions.Session.send=requests_send
@@ -514,6 +535,14 @@ def execute(root, mc, run_id):
             BrowserType.launch=launch
             BrowserType.launch_persistent_context=persistent
             import main as upstream
+            from account_sessions import install_hooks, guard_auth_response
+            def account_event(account_state, account):
+                current=read(run/'phase.json') if (run/'phase.json').exists() else {}
+                write(run/'phase.json',{**current,'account_state':account_state,
+                    'account_generation':account.get('generation',0),
+                    'account_identity_status':account.get('identity_status','unverified')})
+                event('waiting_login' if account_state in ('logged_out','waiting_login','identity_unverified','account_changed','check_failed') else 'running')
+            account_store=install_hooks(root,p['session_id'],p['platform'],run_id,account_event,p['headless'])
             configure_platform_hooks(upstream,p)
             configure_wordcloud(upstream,config,p,mc,run)
             import asyncio
@@ -654,7 +683,11 @@ def import_output(root,payload):
                 artifact_bytes+=size
                 if len(artifacts)>=1000 or size>26214400 or artifact_bytes>104857600: fail('wordcloud_artifact_limit')
                 artifacts.append({'kind':'wordcloud_image' if path.suffix=='.png' else 'word_frequency','path':str(path.relative_to(run)),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':size,'source_kind':'derived_local','status':'generated_by_external_executor'})
-    data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
+    discovery = read(run/'discovery.json') if (run/'discovery.json').is_file() else None
+    if discovery:
+        for record in records:
+            record['discovery_kind'] = discovery['discovery_kind']
+    data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'discovery':discovery,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
     write(run/'normalized.json',data)
     return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'dynamics':sum(r['kind']=='dynamic' for r in records),'media_files':len(media),'rejected_records':rejected,'coverage':'unverified'}}
 

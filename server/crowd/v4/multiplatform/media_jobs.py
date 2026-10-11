@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
 import threading
@@ -14,6 +15,7 @@ import uuid
 from mc_runner import PLATFORMS, uid, write, read
 
 PROCESSOR = Path(__file__).resolve().parent.parent / 'postprocess' / 'evidence.py'
+LONG_PROCESSOR = PROCESSOR.parent / 'long_media.py'
 TERMINAL = {'completed', 'failed', 'cancelled', 'interrupted_unknown'}
 
 
@@ -30,9 +32,15 @@ class MediaJobs:
         self.closed = False
 
     def capabilities(self):
-        return {'ocr': sys.platform == 'darwin', 'asr': self.asr_model is not None and (self.asr_model / 'crowd-model.json').is_file(),
+        model_ready = self.asr_model is not None and (self.asr_model / 'crowd-model.json').is_file()
+        executable = os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
+        return {'ocr': sys.platform == 'darwin', 'asr': model_ready,
+                'asr_model_state': 'configured_unverified' if model_ready else 'local_model_unavailable',
+                'long_audio': True, 'ffmpeg': bool(executable and Path(executable).is_file()),
+                'audio_extraction_state': 'configured_unverified' if executable else 'ffmpeg_unavailable_pcm_wav_only',
                 'transcript': True, 'network': False, 'source': 'saved_task_file',
-                'limits': {'bytes': 25 * 1024 * 1024, 'seconds': 180, 'max_audio_seconds': 60, 'concurrency': 1}}
+                'limits': {'bytes': 25 * 1024 * 1024, 'seconds': 3600, 'max_audio_seconds': 3600,
+                           'segment_seconds': 55, 'overlap_seconds': 2, 'concurrency': 1}}
 
     def status(self, job_id):
         try:
@@ -42,12 +50,22 @@ class MediaJobs:
         folder = self.root / job_id
         if folder.is_symlink() or not (folder / 'state.json').is_file():
             raise ValueError('media_job_not_found')
-        state = read(folder / 'state.json')
         with self.lock:
+            state = read(folder / 'state.json')
             if state['state'] not in TERMINAL and job_id not in self.threads:
                 state = {**state, 'state': 'interrupted_unknown', 'reason': 'processor_restart_check_existing_output'}
-        if state['state'] == 'completed':
-            state['result'] = read(folder / 'result.json')
+            if state['state'] == 'completed':
+                state['result'] = read(folder / 'result.json')
+            progress = folder / 'long-asr' / 'state.json'
+            if progress.is_file():
+                detail = read(progress)
+                for field in ('completed_chunks', 'total_chunks', 'current_chunk'):
+                    if field in detail:
+                        state[field] = detail[field]
+                state['processor_state'] = detail.get('state')
+                if state['state'] == 'failed' and detail.get('reason'):
+                    state['reason'] = detail['reason']
+            state['checkpoint_available'] = state.get('kind') == 'asr' and state['state'] in ('failed', 'cancelled') and bool(list(folder.glob('input*')))
         return state
 
     def start(self, source, platform, content_id, kind, run_id):
@@ -63,11 +81,11 @@ class MediaJobs:
             raise ValueError('media_over_25mb')
         digest = hashlib.sha256(data).hexdigest()
         identity = {'asset_sha256': digest, 'platform': platform, 'content_id': content_id,
-                    'kind': kind, 'processor_schema': 1,
+                    'kind': kind, 'processor_schema': 2,
                     'processor_sha256': hashlib.sha256(PROCESSOR.read_bytes()).hexdigest(),
                     'model': str(self.asr_model) if kind == 'asr' else None}
         identity['processor_files'] = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
-            for name in ('local_asr.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
+            for name in ('local_asr.py', 'long_media.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
             if (PROCESSOR.parent / name).is_file()}
         if kind == 'asr':
             manifest = self.asr_model / 'crowd-model.json'
@@ -104,6 +122,9 @@ class MediaJobs:
                      'platform': platform, 'content_id': content_id, 'kind': kind, 'run_id': run_id,
                      'association': 'owner_selected_content', 'created_at': time.time(),
                      'source_kind': 'authorized_local_file', 'review_status': 'unreviewed', 'uploaded': False}
+            if kind == 'asr':
+                state['model_manifest_sha256'] = identity['model_manifest_sha256']
+                state['processor_files'] = identity['processor_files']
             write(folder / 'state.json', state)
             thread = threading.Thread(target=self._execute, args=(state, snapshot, process_lock), daemon=True)
             self.threads[job_id] = thread; thread.start()
@@ -124,7 +145,10 @@ class MediaJobs:
                    '--platform', state['platform'], '--content-id', state['content_id'],
                    '--authorization-ref', 'owner-selected-saved-media', '--output', str(result)]
         if state['kind'] == 'asr':
-            command += ['--asr-model', str(self.asr_model)]
+            command = [self.python, str(LONG_PROCESSOR), '--input', str(snapshot),
+                       '--platform', state['platform'], '--content-id', state['content_id'],
+                       '--authorization-ref', 'owner-selected-saved-media', '--output', str(result),
+                       '--asr-model', str(self.asr_model), '--work-dir', str(folder / 'long-asr')]
         proc = None
         try:
             with self.lock:
@@ -136,12 +160,12 @@ class MediaJobs:
                 self.processes[job_id] = proc
                 state['processor_pid'] = proc.pid
             write(folder / 'state.json', {**state, 'state': 'running'})
-            proc.wait(timeout=180)
+            proc.wait(timeout=3600 if state['kind'] == 'asr' else 180)
             if job_id in self.cancelled:
                 state.update(state='cancelled')
             elif proc.returncode != 0:
                 state.update(state='failed', reason='local_media_processing_failed')
-            elif not result.is_file() or result.stat().st_size > 200000:
+            elif not result.is_file() or result.stat().st_size > (2_000_000 if state['kind'] == 'asr' else 200000):
                 state.update(state='failed', reason='invalid_media_processing_result')
             else:
                 rows = read(result)
@@ -156,12 +180,13 @@ class MediaJobs:
                 self._kill(proc)
             state.update(state='failed', reason='local_media_processor_unavailable')
         finally:
-            snapshot.unlink(missing_ok=True)
             process_lock.close()
             with self.lock:
                 self.processes.pop(job_id, None)
                 if job_id in self.cancelled:
                     state.update(state='cancelled')
+                if state['kind'] != 'asr' or state.get('state') == 'completed':
+                    snapshot.unlink(missing_ok=True)
                 write(folder / 'state.json', {**state, 'finished_at': time.time()})
 
     @staticmethod
@@ -178,8 +203,53 @@ class MediaJobs:
         with self.lock:
             if state['state'] in TERMINAL:
                 return state
+            (self.root / job_id / 'cancel.requested').touch(mode=0o600, exist_ok=True)
             self.cancelled.add(job_id); self._kill(self.processes.get(job_id))
         return {**state, 'cancel_requested': True}
+
+    def resume(self, job_id):
+        with self.lock:
+            if self.closed:
+                raise ValueError('media_processor_closed')
+            state = self.status(job_id)
+            if not state.get('checkpoint_available'):
+                raise ValueError('media_checkpoint_not_available')
+            if any(thread.is_alive() for thread in self.threads.values()):
+                raise ValueError('media_processor_busy')
+            if not self.capabilities()['asr']:
+                raise ValueError('local_asr_model_not_configured')
+            for other in self.root.iterdir():
+                if other.name != job_id and other.is_dir() and not other.is_symlink() and (other / 'state.json').is_file() and self.status(other.name)['state'] == 'interrupted_unknown':
+                    raise ValueError('media_processor_reconciliation_required')
+            if (self.asr_model / 'crowd-model.json').stat().st_size > 10000:
+                raise ValueError('invalid_local_asr_model_manifest')
+            model_hash = hashlib.sha256((self.asr_model / 'crowd-model.json').read_bytes()).hexdigest()
+            if model_hash != state.get('model_manifest_sha256'):
+                raise ValueError('media_checkpoint_model_changed')
+            current_processors = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
+                                  for name in state.get('processor_files', {}) if (PROCESSOR.parent / name).is_file()}
+            if current_processors != state.get('processor_files'):
+                raise ValueError('media_checkpoint_processor_changed')
+            folder = self.root / job_id
+            snapshots = list(folder.glob('input*'))
+            if len(snapshots) != 1 or snapshots[0].is_symlink() or snapshots[0].stat().st_size > 25 * 1024 * 1024 or hashlib.sha256(snapshots[0].read_bytes()).hexdigest() != state['asset_sha256']:
+                raise ValueError('media_checkpoint_source_changed')
+            process_lock = open(self.root / 'processor.lock', 'a+')
+            try:
+                fcntl.flock(process_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                process_lock.close()
+                raise ValueError('media_processor_busy') from None
+            (folder / 'cancel.requested').unlink(missing_ok=True)
+            (folder / 'result.json').unlink(missing_ok=True)
+            self.cancelled.discard(job_id)
+            state = {k: v for k, v in state.items() if k not in ('result', 'reason', 'finished_at', 'processor_pid', 'checkpoint_available')}
+            state.update(state='queued', resumed_at=time.time())
+            write(folder / 'state.json', state)
+            thread = threading.Thread(target=self._execute, args=(state, snapshots[0], process_lock), daemon=True)
+            self.threads[job_id] = thread
+            thread.start()
+            return state
 
     def close(self):
         with self.lock:

@@ -34,13 +34,22 @@ class RunnerTest(unittest.TestCase):
         (self.mc/'playwright/__init__.py').write_text('')
         (self.mc/'playwright/async_api.py').write_text('class BrowserType:\n async def launch(self,*a,**kw): return None\n async def launch_persistent_context(self,*a,**kw): return None\n')
         (self.mc/'.venv/bin/python').symlink_to(PYTHON if PYTHON.exists() else sys.executable)
-        (self.mc/'httpx.py').write_text('class Response:\n async def aiter_bytes(self,*a,**kw):\n  for _ in range(30): yield b"x"*1048576\nclass AsyncClient:\n async def send(self,*a,**kw): return {}\nclass Client:\n def send(self,*a,**kw): return {}\n')
-        (self.mc/'requests.py').write_text('class Session:\n def send(self,*a,**kw): return {}\nclass sessions:\n Session=Session\n')
+        (self.mc/'httpx.py').write_text('from types import SimpleNamespace\nclass Response:\n request=SimpleNamespace(url="https://fixture.invalid")\n status_code=200\n async def aiter_bytes(self,*a,**kw):\n  for _ in range(30): yield b"x"*1048576\nclass AsyncClient:\n async def send(self,*a,**kw): return Response()\nclass Client:\n def send(self,*a,**kw): return Response()\n')
+        (self.mc/'requests.py').write_text('import httpx\nclass Session:\n def send(self,*a,**kw): return httpx.Response()\nclass sessions:\n Session=Session\n')
+        from account_sessions import CLIENTS
+        for module, name in CLIENTS.values():
+            folder=self.mc/'media_platform'/module;folder.mkdir(parents=True,exist_ok=True)
+            (folder/'client.py').write_text('import config\nclass '+name+':\n async def pong(self,*a,**kw): return config.FAKE_AUTH_LOGGED_IN\n async def update_cookies(self,*a,**kw): return None\n')
         (self.mc/'main.py').write_text('''import asyncio,json,pathlib,sys
 import config,httpx
 async def main():
  args=dict(zip(sys.argv[1::2],sys.argv[2::2]))
  p=args['--platform']; mode=args['--type']; target=args.get('--keywords',args.get('--specified_id',args.get('--creator_id')))
+ config.FAKE_AUTH_LOGGED_IN=target!='slow'
+ import importlib
+ from account_sessions import CLIENTS
+ module,name=CLIENTS[p]
+ await getattr(importlib.import_module('media_platform.'+module+'.client'),name)().pong()
  assert config.ENABLE_CDP_MODE is False and config.COOKIES==''
  assert config.CRAWLER_MAX_SLEEP_SEC==2
  assert config.USER_DATA_DIR=='%s_bridge_profile'

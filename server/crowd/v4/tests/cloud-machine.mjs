@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {randomUUID} from 'node:crypto';
+import {handleMachine} from '../supabase/functions/crowd-machine/core.mjs';
+import {canonical,captureHash,sha,strictJSON,taskPlan} from '../supabase/functions/crowd-machine/contract.mjs';
+
+const {PGlite}=createRequire(import.meta.url)(path.join(process.env.CROWD_TEST_TOOLS||'/private/tmp/crowd-fix-tools','node_modules/@electric-sql/pglite'));
+const directory=fs.mkdtempSync(path.join(os.tmpdir(),'crowd-machine-test-'));
+const db=new PGlite(directory);let cases=0;
+const ownerKey='a'.repeat(64),workerKey='b'.repeat(64),otherKey='c'.repeat(64),ownerHash=await sha(ownerKey);
+const backend={async rpc(name,args){assert.equal(name,'crowd_machine_rpc');try{return {data:(await db.query('select public.crowd_machine_rpc($1,$2,$3,$4,$5) result',[args.p_owner_scope,args.p_actor_kind,args.p_worker_hash,args.p_action,JSON.stringify(args.p_payload)])).rows[0].result};}catch(error){return {error:{message:error.message}};}}};
+async function call(action,payload={},key=ownerKey,role='Owner'){
+ const request=new Request('https://test.supabase.co/functions/v1/crowd-machine',{method:'POST',headers:{'Content-Type':'application/json',['X-Crowd-'+role+'-Key']:key},body:JSON.stringify({action,payload})});
+ const response=await handleMachine(request,backend,ownerHash);return {status:response.status,...await response.json()};
+}
+async function good(action,payload={},key=ownerKey,role='Owner'){const output=await call(action,payload,key,role);assert.equal(output.ok,true,JSON.stringify(output));return output.result;}
+const task=(key=randomUUID())=>({platforms:['xhs'],mode:'detail',targets_by_platform:{xhs:['0123456789abcdef01234567']},desired_items:1,max_api_requests:5,comments:false,purpose:'noncommercial_research',idempotency_key:key});
+function envelope(lease,kind='content',id='0123456789abcdef01234567') {return {schema:'crowd-machine-capture-v1',capture_id:randomUUID(),task_id:lease.task_id,child_id:lease.child_id,run_id:lease.run_id,lease_epoch:lease.lease_epoch,platform:'xiaohongshu',delivery_basis:lease.delivery_basis,source_kind:'machine_api',record:{kind,platform:'xiaohongshu',content_id:id,title:'离线合成样本',body:'不访问来源平台',source_kind:'mediacrawler_api',reward_eligible:false,...(kind==='comment'?{comment_id:'comment-1',text:'合成评论'}:{})},adapter_version:'cloud-machine-v1',normalizer_version:'mc-normalized-v2',packaged_at:new Date().toISOString()};}
+const capture=async value=>({run_id:value.run_id,lease_epoch:value.lease_epoch,envelope:value,envelope_hash:await captureHash(value)});
+const finish=async(lease,ids,outcome='completed')=>{const p={run_id:lease.run_id,lease_epoch:lease.lease_epoch,capture_ids:ids,outcome,api_attempts:2};return {...p,finish_hash:await sha('crowd-machine-finish-v1\n'+canonical(p))};};
+try{
+ await db.exec('create role anon; create role authenticated; create role service_role bypassrls;');
+ await db.exec(fs.readFileSync(new URL('../cloud_machine.sql',import.meta.url),'utf8'));
+ assert.equal((await call('task_list',{},'', 'Owner')).status,403);
+ assert.equal((await call('task_list',{},workerKey,'Worker')).status,403);
+ assert.equal((await call('task_list',{},otherKey)).status,403);cases++;
+ const denied=await handleMachine(new Request('https://test.supabase.co/functions/v1/crowd-machine',{method:'POST',headers:{Origin:'https://evil.test','Content-Type':'application/json','X-Crowd-Owner-Key':ownerKey},body:'{}'}),backend,ownerHash);assert.equal(denied.status,403);cases++;
+ assert.throws(()=>strictJSON('{"action":"a","action":"b"}'),/duplicate_json_key/);
+ assert.throws(()=>strictJSON('{"x":1.0000000000000001}'),/integer_required/);
+ assert.throws(()=>strictJSON('{"x":9007199254740992}'),/integer_required/);
+ assert.equal(canonical(strictJSON('{"a":1.0,"b":-0,"s":"\\n"}')),'{"a":1,"b":0,"s":"\\u000a"}');
+ assert.equal(canonical({'😀':1,'\uE000':2}),'{"":2,"😀":1}');cases++;
+ const preview=await good('task_preview',task());assert.equal(preview.source_actions_started,0);assert.equal(preview.children[0].request,undefined);assert.equal((await good('task_list')).tasks.length,0);cases++;
+ const payload=task(),created=(await good('task_create',payload)).task;assert.equal(created.storage_scope,'cloud');assert.equal(created.children.length,1);assert.equal(created.reward_eligible,false);
+ assert.equal((await good('task_create',payload)).task.task_id,created.task_id);assert.equal((await call('task_create',{...payload,desired_items:2})).error,'idempotency_conflict');cases++;
+ const workerId=randomUUID();await good('worker_pair',{worker_id:workerId,worker_key:workerKey,name:'offline-worker',platforms:['xhs'],expires_at:new Date(Date.now()+86400000).toISOString()});
+ const otherId=randomUUID();await good('worker_pair',{worker_id:otherId,worker_key:otherKey,name:'other',platforms:['dy'],expires_at:new Date(Date.now()+86400000).toISOString()});
+ assert.equal(JSON.stringify(await good('worker_list')).includes(workerKey),false);assert.equal(JSON.stringify(await good('worker_list')).includes(await sha(workerKey)),false);cases++;
+ const claimId=randomUUID(),lease=(await good('claim',{claim_id:claimId},workerKey,'Worker')).lease;assert.equal(lease.task_id,created.task_id);assert.equal(lease.requests_reserved,5);assert.equal(lease.may_dispatch,true);
+ assert.equal((await good('claim',{claim_id:claimId},workerKey,'Worker')).lease.run_id,lease.run_id);assert.equal((await good('claim',{claim_id:randomUUID()},otherKey,'Worker')).lease,null);cases++;
+ const binding={run_id:lease.run_id,lease_epoch:lease.lease_epoch};assert.equal((await call('heartbeat',{...binding,sequence:1},otherKey,'Worker')).error,'lease_binding_denied');
+ assert.equal((await good('heartbeat',{...binding,sequence:1},workerKey,'Worker')).lease.may_dispatch,true);cases++;
+ const value=envelope(lease),captured=await capture(value),first=await good('capture',captured,workerKey,'Worker');assert.equal(first.receipt.status,'received');assert.equal(first.receipt.reward_eligible,false);
+ const repeats=await Promise.all(Array.from({length:5},()=>good('capture',captured,workerKey,'Worker')));for(const r of repeats)assert.deepEqual(r.receipt,first.receipt);
+ assert.equal((await db.query('select count(*)::int n from crowd_machine.captures')).rows[0].n,1);cases++;
+ const changed=structuredClone(value);changed.record.body='different';assert.equal((await call('capture',await capture(changed),workerKey,'Worker')).error,'capture_hash_conflict');
+ const cross=await call('capture',captured,otherKey,'Worker');assert.equal(cross.error,'capture_hash_conflict');cases++;
+ const query={...binding,capture_id:value.capture_id,envelope_hash:captured.envelope_hash};assert.deepEqual((await good('receipt',query,workerKey,'Worker')).receipt,first.receipt);assert.equal((await call('receipt',{...query,envelope_hash:'0'.repeat(64)},workerKey,'Worker')).error,'capture_hash_conflict');cases++;
+ const f=await finish(lease,[value.capture_id]);const complete=await good('finish',f,workerKey,'Worker');assert.equal(complete.task.state,'completed');assert.equal(complete.task.children[0].contents,1);assert.equal(complete.task.contents,1);assert.equal(complete.task.children[0].requests_reserved,0);
+ assert.deepEqual((await good('finish',f,workerKey,'Worker')).task,complete.task);assert.equal((await call('finish',await finish(lease,[], 'failed'),workerKey,'Worker')).error,'finish_conflict');cases++;
+ const saved=task();saved.delivery_basis='existing_saved';saved.max_api_requests=0;saved.record_refs_by_platform={xhs:[{content_id:'0123456789abcdef01234567',kind:'content'}]};const savedTask=(await good('task_create',saved)).task;const savedLease=(await good('claim',{claim_id:randomUUID()},workerKey,'Worker')).lease;assert.equal(savedLease.task_id,savedTask.task_id);assert.equal(savedLease.requests_reserved,0);assert.equal(savedLease.delivery_basis,'existing_saved');cases++;
+ let status=(await good('task_status',{task_id:savedTask.task_id})).task;status=(await good('task_control',{task_id:status.task_id,desired_state:'stopped',expected_revision:status.revision})).task;
+ assert.equal((await good('heartbeat',{run_id:savedLease.run_id,lease_epoch:1,sequence:1},workerKey,'Worker')).lease.may_dispatch,false);assert.equal((await call('task_control',{task_id:status.task_id,desired_state:'running',expected_revision:1})).error,'revision_conflict');cases++;
+ const savedValue=envelope(savedLease);const savedACK=await good('capture',await capture(savedValue),workerKey,'Worker');assert.equal(savedACK.receipt.status,'received');const stopped=await good('finish',await finish(savedLease,[savedValue.capture_id],'stopped'),workerKey,'Worker');assert.equal(stopped.task.state,'stopped');cases++;
+ const expiring=(await good('task_create',task())).task,expireLease=(await good('claim',{claim_id:randomUUID()},workerKey,'Worker')).lease;assert.equal(expireLease.task_id,expiring.task_id);await db.query("update crowd_machine.children set lease_until=clock_timestamp()-interval '1 second' where child_id=$1",[expireLease.child_id]);
+ assert.equal((await good('heartbeat',{run_id:expireLease.run_id,lease_epoch:1,sequence:1},workerKey,'Worker')).lease.state,'unknown');assert.equal((await good('task_status',{task_id:expiring.task_id})).task.state,'interrupted_unknown');assert.equal((await good('claim',{claim_id:randomUUID()},workerKey,'Worker')).lease,null);cases++;
+ await good('worker_revoke',{worker_id:workerId});assert.equal((await call('receipt',query,workerKey,'Worker')).error,'worker_revoked');assert.equal((await call('claim',{claim_id:randomUUID()},workerKey,'Worker')).error,'worker_revoked');cases++;
+ const recoveryKey='d'.repeat(64), recoveryId=randomUUID();await good('worker_pair',{worker_id:recoveryId,worker_key:recoveryKey,name:'recovery',platforms:['xhs'],expires_at:new Date(Date.now()+86400000).toISOString()});
+ const recoveryTask=(await good('task_create',{...task(),desired_items:2})).task, firstClaim=randomUUID(), recoveryLease=(await good('claim',{claim_id:firstClaim},recoveryKey,'Worker')).lease;
+ assert.equal(recoveryLease.task_id,recoveryTask.task_id);const localRun=randomUUID(),session=randomUUID(),context={session_id:session,generation:2,account_ref:'f'.repeat(64)};
+ await good('heartbeat',{run_id:recoveryLease.run_id,lease_epoch:1,sequence:1,local_run_id:localRun},recoveryKey,'Worker');
+ const beforeLogin=envelope(recoveryLease);await good('capture',await capture(beforeLogin),recoveryKey,'Worker');
+ let loginFinish={...(await finish(recoveryLease,[beforeLogin.capture_id],'login_required')),account_context:context};delete loginFinish.finish_hash;loginFinish.finish_hash=await sha('crowd-machine-finish-v1\n'+canonical(loginFinish));
+ const waiting=(await good('finish',loginFinish,recoveryKey,'Worker')).task;assert.equal(waiting.children[0].state,'waiting');assert.equal(waiting.children[0].requests_spent,2);assert.equal(waiting.children[0].requests_reserved,0);cases++;
+ const ownerContinued=(await good('task_control',{task_id:waiting.task_id,desired_state:'running',expected_revision:waiting.revision})).task;assert.equal(ownerContinued.children[0].state,'waiting');assert.equal(ownerContinued.children[0].reason_code,'login_required');
+ const resume={run_id:recoveryLease.run_id,lease_epoch:1,local_run_id:localRun,session_id:session,generation:2,account_ref:context.account_ref,identity_status:'authenticated_self_id',verified_at_ms:Date.now(),authorized_for_run:localRun};
+ assert.equal((await call('resume_login',{...resume,generation:3},recoveryKey,'Worker')).error,'login_resume_denied');assert.equal((await call('resume_login',{...resume,verified_at_ms:Date.now()-181000},recoveryKey,'Worker')).error,'login_resume_denied');
+ assert.equal((await good('resume_login',resume,recoveryKey,'Worker')).resumed,true);assert.equal((await good('resume_login',resume,recoveryKey,'Worker')).replayed,true);const afterLogin=(await good('claim',{claim_id:randomUUID()},recoveryKey,'Worker')).lease;assert.equal(afterLogin.task_id,recoveryTask.task_id);assert.equal(afterLogin.lease_epoch,2);assert.equal(afterLogin.request.max_items,1);assert.equal(afterLogin.request.max_api_requests,3);
+ assert.equal((await good('claim',{claim_id:firstClaim},recoveryKey,'Worker')).lease,null);assert.equal((await good('receipt',{run_id:recoveryLease.run_id,lease_epoch:1,capture_id:beforeLogin.capture_id,envelope_hash:await captureHash(beforeLogin)},recoveryKey,'Worker')).receipt.capture_id,beforeLogin.capture_id);cases++;
+ const secondValue=envelope(afterLogin,'content','0123456789abcdef01234568');await good('capture',await capture(secondValue),recoveryKey,'Worker');const recoveryComplete=(await good('finish',await finish(afterLogin,[secondValue.capture_id]),recoveryKey,'Worker')).task;assert.equal(recoveryComplete.state,'completed');assert.equal(recoveryComplete.children[0].contents,2);assert.equal(recoveryComplete.children[0].requests_spent,4);cases++;
+ const multi=await taskPlan({platforms:['xhs','dy','ks','bili','wb','tieba','zhihu'],mode:'detail',targets_by_platform:{xhs:['0123456789abcdef01234567'],dy:['1'],ks:['1'],bili:['BV1234567890'],wb:['Abc'],tieba:['1'],zhihu:['https://www.zhihu.com/question/1/answer/1']},desired_items:7,max_api_requests:14,purpose:'noncommercial_research',idempotency_key:'all-seven'});assert.equal(multi.children.length,7);assert.equal(multi.children.reduce((n,c)=>n+c.request_quota,0),14);cases++;
+ for(const [mode,platform]of [['homefeed','xhs'],['homefeed','bili'],['trending','bili']]){const p=await taskPlan({platforms:[platform],mode,desired_items:2,max_api_requests:5,purpose:'noncommercial_research',idempotency_key:mode+platform});assert.deepEqual(p.children[0].request.targets,[]);assert.equal(p.children[0].state,'queued');}await assert.rejects(taskPlan({platforms:['wb'],mode:'homefeed',desired_items:2,max_api_requests:5,purpose:'noncommercial_research',idempotency_key:'no'}),/discovery_not_supported/);cases++;
+ const priv=(await db.query("select has_function_privilege('anon','public.crowd_machine_rpc(text,text,text,text,jsonb)','execute') a,has_schema_privilege('anon','crowd_machine','usage') s")).rows[0];assert.equal(priv.a,false);assert.equal(priv.s,false);assert.equal((await db.query("select count(*)::int n from pg_tables where schemaname='crowd_machine' and rowsecurity")).rows[0].n,5);cases++;
+ console.log(JSON.stringify({ok:true,cases,source_requests:0,model_requests:0,database:'PGlite isolated PostgreSQL',production_deployed:false}));
+}finally{await db.close();fs.rmSync(directory,{recursive:true,force:true});}

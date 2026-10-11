@@ -61,6 +61,20 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'verified_local_model_required'):
                 local_asr.transcribe(Path(d) / 'audio.wav', Path(d))
 
+    def test_short_asr_retains_validated_timing_adjustment(self):
+        with tempfile.TemporaryDirectory() as d:
+            source=Path(d)/'own.wav'; source.write_bytes(b'audio')
+            parsed={'raw_text':'original','truncated':False,'duration_seconds':3.,
+                    'segments':[{'start':2.,'end':3.,'text':'original'}],
+                    'timing_adjustments':[{'segment_index':0,'provider_start':2.,'provider_end':3.2,
+                                           'adjusted_end':3.,'reason':'provider_tail_overrun','text':'original'}]}
+            runner=lambda *a,**k: subprocess.CompletedProcess(a,0,stdout=json.dumps(parsed).encode())
+            row=evidence.prepare('asr',source,'bilibili','BV1xx411c7mD','self-owned',runner=runner,asr_model=Path(d))
+            self.assertEqual(row['evidence']['timing_adjustments'],parsed['timing_adjustments'])
+            parsed['timing_adjustments'][0]['provider_end']=4.
+            with self.assertRaisesRegex(ValueError,'invalid_asr_timing_adjustments'):
+                evidence.prepare('asr',source,'bilibili','BV1xx411c7mD','self-owned',runner=runner,asr_model=Path(d))
+
 
 if __name__ == '__main__':
     unittest.main()
