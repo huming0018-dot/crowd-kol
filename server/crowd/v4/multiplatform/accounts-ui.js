@@ -13,12 +13,12 @@ const accountView = (() => {
   const loginErrors={login_browser_timeout:'登录页或二维码等待超时，请打开原会话重试。',login_browser_closed:'登录窗口已关闭，请重新打开。',login_dependency_missing:'登录执行器缺少依赖，请检查设置。',login_flow_ended_before_verification:'登录流程结束，但尚未通过账号核验。',login_executor_failed:'登录执行器未完成核验，请重试；原任务仍保留。'};
   let generation=0,timer=null,sequence=0;
   dialog.addEventListener('close',()=>{generation++;clearTimeout(timer);browserDialog.close();});
-  async function chooseBrowser(session,ticket,restartConnection=false){
+  async function chooseBrowser(session,ticket,restartConnection=false,refreshTargets=false){
     const selection=++browserSequence;let choosing=false;
     const current=()=>ticket===generation&&selection===browserSequence&&browserDialog.open;
     browserDialog.replaceChildren(node('h2','使用已登录浏览器'),node('p','选择原账号所在的平台页面。系统随后核验账号，原浏览器和页面保留。'));
     const feedback=node('p');feedback.setAttribute('role','status');browserDialog.append(feedback,button('取消',()=>browserDialog.close()));browserDialog.showModal();
-    let choices;try{choices=await call('browser_candidates',{session_id:session.session_id,port:9222,...(restartConnection?{restart_connection:true}:{})});}
+    let choices;try{choices=await call('browser_candidates',{session_id:session.session_id,port:9222,...(restartConnection?{restart_connection:true}:{}),...(refreshTargets?{refresh_targets:true}:{})});}
     catch(error){if(current())feedback.textContent=error.message==='browser_connection_pending'?'浏览器连接等待确认。请查看 Chrome 的“允许远程调试”提示；无需重新登录平台。':'原浏览器暂不可连接，请检查本机浏览器连接；不会自动改动浏览器。';return;}
     if(!current())return;
     if(choices.browser_connection_state==='pending'){
@@ -29,7 +29,7 @@ const accountView = (() => {
       feedback.textContent='浏览器连接确认超时，原账号和页面仍保留。尚未核验登录，系统不会自动重连。';
       browserDialog.append(button('重新连接原浏览器',()=>guarded(()=>chooseBrowser(session,ticket,true))));return;
     }
-    if(!choices.targets.length){feedback.textContent='没有识别到普通网页。请在原浏览器打开任意正常网页，再重新选择。';return;}
+    if(!choices.targets.length){feedback.textContent='没有识别到普通网页。请在原浏览器打开账号所在的平台页面，再刷新页面列表。';browserDialog.append(button('刷新页面列表',()=>guarded(()=>chooseBrowser(session,ticket,false,true))));return;}
     for(const target of choices.targets){
       const selected=button((target.selection_kind==='context_anchor'?'已打开的浏览器页面':(platformNames[session.platform]||session.platform)+'页面')+' '+target.page_number,()=>guarded(async()=>{
         if(!current()||choosing)return;choosing=true;

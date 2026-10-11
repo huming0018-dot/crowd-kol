@@ -301,10 +301,12 @@ class Application:
             return store.status(session_id, payload.get('platform'))
         if action == 'open_login' and set(payload) == {'session_id', 'platform'}:
             return store.open_login(session_id, payload['platform'], self.mc_root)
-        if action == 'browser_candidates' and {'session_id'} <= set(payload) <= {'session_id','port','restart_connection'}:
+        if action == 'browser_candidates' and {'session_id'} <= set(payload) <= {'session_id','port','restart_connection','refresh_targets'}:
             if 'restart_connection' in payload and type(payload['restart_connection']) is not bool:
                 raise ValueError('invalid_browser_connection_restart')
-            return store.browser_candidates(session_id,payload.get('port',9222),restart_connection=payload.get('restart_connection',False))
+            if 'refresh_targets' in payload and type(payload['refresh_targets']) is not bool:
+                raise ValueError('invalid_browser_target_refresh')
+            return store.browser_candidates(session_id,payload.get('port',9222),restart_connection=payload.get('restart_connection',False),refresh_targets=payload.get('refresh_targets',False))
         if action == 'bind_browser' and set(payload)=={'session_id','port','target_id','browser_fingerprint','expected_generation'}:
             return self._prefer_session(store.bind_browser(**payload))
         if action=='use_persistent_browser' and set(payload)=={'session_id','expected_generation'}:

@@ -172,7 +172,27 @@ def socket_metadata(port,path,deadline_seconds=10,on_ready=None,hold=None):
             if not isinstance(rows,list) or len(rows)>200:raise BrowserSessionError('invalid_browser_target_list')
             rows=[{**row,'id':row.get('targetId')} if isinstance(row,dict) else row for row in rows]
             if on_ready is not None:on_ready(rows)
-            if hold is not None:hold.wait(max(0,deadline-time.monotonic()))
+            if hold is not None:
+                refresh=getattr(hold,'refresh',None);identity=3
+                while time.monotonic()<deadline and not hold.is_set():
+                    if refresh is None:hold.wait(max(0,deadline-time.monotonic()));break
+                    if not refresh.wait(min(.25,max(0,deadline-time.monotonic()))):continue
+                    refresh.clear()
+                    channel.send(json.dumps({'id':identity,'method':'Target.getTargets'}))
+                    while True:
+                        remaining=deadline-time.monotonic()
+                        if remaining<=0:raise TimeoutError
+                        raw=channel.recv(timeout=remaining);count+=1;size+=len(raw.encode('utf8') if isinstance(raw,str) else raw)
+                        if count>64 or size>262144:raise BrowserSessionError('browser_metadata_too_large')
+                        value=json.loads(raw)
+                        if not isinstance(value,dict):raise BrowserSessionError('invalid_browser_metadata')
+                        if type(value.get('id')) is int and value['id']==identity:
+                            if 'error' in value or not isinstance(value.get('result'),dict):raise BrowserSessionError('invalid_browser_metadata')
+                            targets=value['result'].get('targetInfos')
+                            if not isinstance(targets,list) or len(targets)>200:raise BrowserSessionError('invalid_browser_target_list')
+                            rows=[{**row,'id':row.get('targetId')} if isinstance(row,dict) else row for row in targets]
+                            if on_ready is not None:on_ready(rows)
+                            identity+=1;break
             return rows
     except BrowserSessionError:raise
     except TimeoutError:raise BrowserSessionError('browser_connection_pending') from None
@@ -184,20 +204,23 @@ _metadata_waiters_lock=threading.Lock()
 METADATA_WAIT_SECONDS=120
 
 
-def retained_socket_metadata(port,path,restart_connection=False):
+def retained_socket_metadata(port,path,restart_connection=False,refresh_targets=False):
     """One bounded native-consent connection; polling never opens another socket."""
     validate_port(port)
     if type(restart_connection) is not bool:raise BrowserSessionError('invalid_browser_restart')
+    if type(refresh_targets) is not bool or restart_connection and refresh_targets:raise BrowserSessionError('invalid_browser_refresh')
     if not re.fullmatch(r'/devtools/browser/[A-Za-z0-9-]{16,100}',path):raise BrowserSessionError('invalid_browser_identity')
     key=(port,path)
     with _metadata_waiters_lock:
         state=_metadata_waiters.get(key)
+        if refresh_targets and state is None:raise BrowserSessionError('browser_connection_pending')
         if restart_connection:
             if state is None or time.monotonic()<state['deadline']:raise BrowserSessionError('browser_connection_active')
             state['hold'].set();state=None
         if state is None:
             if key not in _metadata_waiters and len(_metadata_waiters)>=4:raise BrowserSessionError('browser_connection_busy')
-            state={'state':'pending','deadline':time.monotonic()+METADATA_WAIT_SECONDS,'rows':None,'hold':threading.Event()}
+            state={'state':'pending','deadline':time.monotonic()+METADATA_WAIT_SECONDS,'rows':None,'hold':threading.Event(),'refresh_count':0}
+            state['hold'].refresh=threading.Event()
             _metadata_waiters[key]=state
             def ready(rows):
                 with _metadata_waiters_lock:state.update(state='ready',rows=rows)
@@ -210,20 +233,26 @@ def retained_socket_metadata(port,path,restart_connection=False):
                         if state['state'] in ('pending','ready'):state.update(state='expired',rows=None)
             threading.Thread(target=run,name='crowd-browser-metadata',daemon=True).start()
         if time.monotonic()>=state['deadline']:raise BrowserSessionError('browser_connection_expired')
+        if refresh_targets:
+            if state['state']=='failed':raise BrowserSessionError(state['error'])
+            if state['state']!='ready':raise BrowserSessionError('browser_connection_pending')
+            if state['refresh_count']>=8:raise BrowserSessionError('browser_refresh_limit')
+            state.update(state='pending',rows=None,refresh_count=state['refresh_count']+1)
+            state['hold'].refresh.set()
         if state['state']=='ready':return state['rows']
         if state['state']=='failed':raise BrowserSessionError(state['error'])
         if state['state']=='expired':raise BrowserSessionError('browser_connection_expired')
         raise BrowserSessionError('browser_connection_pending')
 
 
-def inspect_browser(port,platform,retain_connection=False,restart_connection=False):
+def inspect_browser(port,platform,retain_connection=False,restart_connection=False,refresh_targets=False):
     if platform not in HOSTS:
         raise BrowserSessionError('invalid_browser_platform')
     try:version=metadata(port,'/json/version')
     except BrowserSessionError as error:
         if str(error)!='browser_metadata_endpoint_unavailable':raise
         path=active_socket_path(port)
-        rows=retained_socket_metadata(port,path,restart_connection) if retain_connection else socket_metadata(port,path)
+        rows=retained_socket_metadata(port,path,restart_connection,refresh_targets) if retain_connection else socket_metadata(port,path)
         version={'webSocketDebuggerUrl':'ws://127.0.0.1:'+str(port)+path}
     else:rows=metadata(port,'/json/list')
     try:

@@ -264,11 +264,12 @@ class AccountSessions:
         finally:
             lock.close()
 
-    def browser_candidates(self, session_id, port=9222, restart_connection=False):
+    def browser_candidates(self, session_id, port=9222, restart_connection=False,refresh_targets=False):
         from browser_session import inspect_browser
         _,platform=self._session(session_id)
         if type(restart_connection) is not bool:raise ValueError('invalid_browser_restart')
-        try:value=inspect_browser(port,platform,retain_connection=True,restart_connection=restart_connection)
+        if type(refresh_targets) is not bool:raise ValueError('invalid_browser_refresh')
+        try:value=inspect_browser(port,platform,retain_connection=True,restart_connection=restart_connection,refresh_targets=refresh_targets)
         except ValueError as error:
             if str(error) not in ('browser_connection_pending','browser_connection_expired'):raise
             return {'ok':True,'session_id':session_id,'port':port,'targets':[],

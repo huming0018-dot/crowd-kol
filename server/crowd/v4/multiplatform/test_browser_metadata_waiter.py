@@ -76,5 +76,34 @@ class WaiterTests(unittest.TestCase):
                     self.assertTrue(result['ok']);self.assertEqual(result['targets'],[]);self.assertEqual(result['reason_code'],code)
                     self.assertEqual(before,store.status(session_id))
 
+    def test_same_live_socket_explicit_target_refresh_without_extending_deadline(self):
+        import json
+        calls=[];queue=[];closed=threading.Event()
+        class Channel:
+            def __enter__(self):return self
+            def __exit__(self,*args):closed.set()
+            def send(self,raw):
+                value=json.loads(raw);calls.append(value['method'])
+                result={'product':'Chrome/144.0'} if value['method']=='Browser.getVersion' else {'targetInfos':[] if value['id']==2 else [{'targetId':TARGET,'type':'page','url':'https://www.bilibili.com/'}]}
+                queue.append(json.dumps({'id':value['id'],'result':result}))
+            def recv(self,timeout):return queue.pop(0)
+        def ready():
+            deadline=time.monotonic()+1
+            while browser._metadata_waiters[(9222,SOCKET)]['state']!='ready' and time.monotonic()<deadline:time.sleep(.001)
+        with patch('websockets.sync.client.connect',return_value=Channel()) as connect:
+            with self.assertRaisesRegex(browser.BrowserSessionError,'connection_pending'):browser.retained_socket_metadata(9222,SOCKET,refresh_targets=True)
+            connect.assert_not_called()
+            with self.assertRaisesRegex(browser.BrowserSessionError,'connection_pending'):browser.retained_socket_metadata(9222,SOCKET)
+            ready();state=browser._metadata_waiters[(9222,SOCKET)];deadline=state['deadline']
+            self.assertEqual(browser.retained_socket_metadata(9222,SOCKET),[])
+            for _ in range(8):
+                with self.assertRaisesRegex(browser.BrowserSessionError,'connection_pending'):browser.retained_socket_metadata(9222,SOCKET,refresh_targets=True)
+                ready();self.assertEqual(browser.retained_socket_metadata(9222,SOCKET)[0]['id'],TARGET)
+            with self.assertRaisesRegex(browser.BrowserSessionError,'refresh_limit'):browser.retained_socket_metadata(9222,SOCKET,refresh_targets=True)
+            self.assertEqual(connect.call_count,1);self.assertEqual(state['deadline'],deadline);self.assertFalse(closed.is_set())
+            self.assertEqual(calls,['Browser.getVersion']+['Target.getTargets']*9)
+            state['hold'].set()
+            self.assertTrue(closed.wait(1))
+
 
 if __name__=='__main__':unittest.main()
