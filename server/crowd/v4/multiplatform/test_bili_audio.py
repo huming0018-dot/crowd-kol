@@ -38,6 +38,15 @@ class AudioTest(unittest.TestCase):
    native=info();native['dash']['audio'][0]['baseUrl']='https://audio.bilivideo.cn:443/a'
    client=Client();r=asyncio.run(m.download_audio(native,'BV443',Path(td).resolve(),client=client))
    self.assertEqual(r['status'],'downloaded');self.assertEqual(len(client.calls),1)
+ def test_native_http_locator_upgrades_without_http_request(self):
+  with tempfile.TemporaryDirectory() as td:
+   native=info();native['dash']['audio'][0]['baseUrl']='http://audio.bilivideo.cn:80/a?token=original_locator'
+   client=Client();r=asyncio.run(m.download_audio(native,'BVHTTPS',Path(td).resolve(),client=client))
+   self.assertEqual(r['status'],'downloaded');self.assertEqual(client.calls[0][0][1],'https://audio.bilivideo.cn/a?token=original_locator')
+   self.assertEqual(len(client.calls),1);self.assertNotIn('original_locator',json.dumps(r))
+  for value in ('http://evil.example/a','http://audio.bilivideo.cn:81/a','http://user:secret@audio.bilivideo.cn/a','http://audio.bilivideo.cn/a#frag'):
+   self.assertIsNone(m.transport_audio_url(value))
+  self.assertEqual(m.stream_audio_url({'base_url':'http://audio.bilivideo.cn:80/a','backup_url':[URL]}),URL)
  def test_download_hash_scope(self):
   with tempfile.TemporaryDirectory() as td:
    client=Client();r=asyncio.run(m.download_audio(info(),'BV123',Path(td).resolve(),client=client))

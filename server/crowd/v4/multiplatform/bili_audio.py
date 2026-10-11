@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 import secrets
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from tieba_media import safe_directory
 
@@ -25,6 +25,27 @@ def public_audio_url(value):
     except ValueError:return None
 
 
+def transport_audio_url(value):
+    """Native Bili DASH may report HTTP CDN locators; always request HTTPS."""
+    strict=public_audio_url(value)
+    if strict:return strict
+    if not isinstance(value,str) or len(value)>4000:return None
+    try:
+        parsed=urlsplit(value)
+        if parsed.scheme!='http' or parsed.username or parsed.password or parsed.port not in (None,80) or parsed.fragment:return None
+        secure=urlunsplit(('https',parsed.hostname or '',parsed.path,parsed.query,''))
+        return public_audio_url(secure)
+    except ValueError:return None
+
+
+def stream_audio_url(row):
+    values=[row.get('baseUrl') or row.get('base_url')]
+    backups=row.get('backupUrl') or row.get('backup_url')
+    if isinstance(backups,list):values.extend(backups[:10])
+    # Prefer a native HTTPS locator; otherwise upgrade only an approved HTTP CDN.
+    return next((url for value in values if (url:=public_audio_url(value))),None) or next((url for value in values if (url:=transport_audio_url(value))),None)
+
+
 def audio_selection_diagnostics(play_info):
     """Counts only: never persist a signed CDN URL or query parameters."""
     dash=play_info.get('dash') if isinstance(play_info,dict) else None
@@ -35,7 +56,7 @@ def audio_selection_diagnostics(play_info):
         if not isinstance(row,dict):counts['invalid_entry']+=1;continue
         rate=row.get('bandwidth')
         if type(rate) is not int or rate<=0:counts['invalid_bandwidth']+=1;continue
-        if not public_audio_url(row.get('baseUrl') or row.get('base_url')):counts['rejected_url']+=1;continue
+        if not stream_audio_url(row):counts['rejected_url']+=1;continue
         counts['eligible']+=1
     return counts
 
@@ -49,7 +70,7 @@ def select_audio(play_info,duration_seconds=None):
     selected=[]
     for row in dash.get('audio',[]) if isinstance(dash.get('audio'),list) else []:
         if not isinstance(row,dict):continue
-        rate=row.get('bandwidth');url=public_audio_url(row.get('baseUrl') or row.get('base_url'))
+        rate=row.get('bandwidth');url=stream_audio_url(row)
         if type(rate) is int and rate>0 and url:selected.append((rate,url))
     if not selected:raise ValueError('dash_audio_unavailable')
     rate,url=min(selected,key=lambda row:row[0])
