@@ -20,7 +20,8 @@ class PlayDiagnosticsTest(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
         work=Path(temporary.name)
         m.write(work/'phase.json',{'api_attempts':5,'phase':'comments'})
-        client=SimpleNamespace(get_video_play_url=AsyncMock(return_value=response,side_effect=error))
+        client=SimpleNamespace(get_video_play_url=AsyncMock(return_value=response,side_effect=error),
+                               headers={'User-Agent':'Native UA','Cookie':'private cookie'})
         class Crawler:
             bili_client=client
             async def download_media(self,*args):raise AssertionError('native download must not run')
@@ -62,13 +63,14 @@ class PlayDiagnosticsTest(unittest.TestCase):
         self.assertEqual(phase['media_play_response'],{'status':'native_success','source':'native_bilibili_client','dash_present':True,'audio_list_present':True,'audio_entries':1,'durl_present':True})
         self.assertNotIn('private',str(phase));self.assertNotIn('baseUrl',str(phase))
         self.assertEqual(download.await_args.args[0],play)
+        self.assertEqual(download.await_args.kwargs,{'user_agent':'Native UA'})
         self.assertEqual(client.get_video_play_url.await_count,1)
         self.assertEqual(phase['api_attempts'],5);self.assertEqual(phase['phase'],'comments')
 
     def test_successful_empty_or_durl_response_is_unavailable_without_fallback(self):
         for play in ({},{'durl':[{'url':'https://private.invalid/token'}]},{'dash':{'audio':[]}}):
             with self.subTest(play=play):
-                async def actual_selector(data,content_id,output_dir,duration):
+                async def actual_selector(data,content_id,output_dir,duration,user_agent=None):
                     try:bili_audio.select_audio(data,duration)
                     except ValueError as exc:return {'status':'unavailable','reason':str(exc)}
                     raise AssertionError('unexpected audio')

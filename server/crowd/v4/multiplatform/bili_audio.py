@@ -78,7 +78,7 @@ def select_audio(play_info,duration_seconds=None):
     return {'url':url,'bandwidth_reported':rate,'duration_seconds_reported':duration_seconds}
 
 
-async def download_audio(play_info,content_id,output_dir,duration_seconds=None,client=None):
+async def download_audio(play_info,content_id,output_dir,duration_seconds=None,client=None,user_agent=None):
     if not isinstance(content_id,str) or not re.fullmatch('[A-Za-z0-9_-]{1,200}',content_id):raise ValueError('audio_content_id_invalid')
     folder=safe_directory(Path(output_dir)/'bili/media'/content_id)
     try:stream=select_audio(play_info,duration_seconds)
@@ -87,11 +87,21 @@ async def download_audio(play_info,content_id,output_dir,duration_seconds=None,c
     if client is None:
         import httpx
         async with httpx.AsyncClient(timeout=30,follow_redirects=False,trust_env=False) as own:
-            return await download_audio(play_info,content_id,output_dir,duration_seconds,own)
+            return await download_audio(play_info,content_id,output_dir,duration_seconds,own,user_agent)
     target=folder/'audio.m4a';temporary=folder/('.audio-'+secrets.token_hex(8))
     if target.exists() or target.is_symlink():raise ValueError('audio_asset_already_exists')
+    headers={'Referer':'https://www.bilibili.com/'}
+    # Match the native client's public media headers; never forward its Cookie.
+    if isinstance(user_agent,str) and 0<len(user_agent)<=1024 and all(32<=ord(c)<=126 for c in user_agent):
+        headers['User-Agent']=user_agent
+    diagnostics={'selection_diagnostics':audio_selection_diagnostics(play_info),
+                 'duration_seconds_reported':stream['duration_seconds_reported'],
+                 'bandwidth_reported':stream['bandwidth_reported'],'http_status':None,
+                 'native_user_agent_used':'User-Agent' in headers}
     try:
-        async with client.stream('GET',stream['url'],headers={'Referer':'https://www.bilibili.com/'}) as response:
+        async with client.stream('GET',stream['url'],headers=headers) as response:
+            if type(response.status_code) is int and 100<=response.status_code<=599:
+                diagnostics['http_status']=response.status_code
             if response.status_code!=200:raise ValueError('audio_http_status')
             size=0;head=b'';digest=hashlib.sha256();token=AUDIO_RESPONSE_ACTIVE.set(True)
             try:
@@ -105,9 +115,9 @@ async def download_audio(play_info,content_id,output_dir,duration_seconds=None,c
         os.replace(temporary,target)
         return {'status':'downloaded','kind':'audio','content_id':content_id,'path':str(target),'bytes':size,'sha256':digest.hexdigest(),
                 'duration_seconds_reported':stream['duration_seconds_reported'],'bandwidth_reported':stream['bandwidth_reported'],
-                'single_file_limit_bytes':MAX_AUDIO_BYTES,'credentials_used':False,'source':'same_native_bilibili_dash_response'}
+                'single_file_limit_bytes':MAX_AUDIO_BYTES,'credentials_used':False,'source':'same_native_bilibili_dash_response',**diagnostics}
     except ValueError as error:
         reason=str(error) if str(error) in ('audio_http_status','audio_single_file_size_limit','audio_container_not_mp4') else 'audio_download_failed'
-        return {'status':'limited' if 'size_limit' in reason else 'failed','reason':reason,'kind':'audio','content_id':content_id}
-    except Exception:return {'status':'failed','reason':'audio_download_failed','kind':'audio','content_id':content_id}
+        return {'status':'limited' if 'size_limit' in reason else 'failed','reason':reason,'kind':'audio','content_id':content_id,**diagnostics}
+    except Exception:return {'status':'failed','reason':'audio_download_failed','kind':'audio','content_id':content_id,**diagnostics}
     finally:temporary.unlink(missing_ok=True)

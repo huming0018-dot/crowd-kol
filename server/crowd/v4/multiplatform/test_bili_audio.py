@@ -58,6 +58,21 @@ class AudioTest(unittest.TestCase):
   with tempfile.TemporaryDirectory() as td:
    client=Client();r=asyncio.run(m.download_audio({'durl':[{'url':URL}]},'BV123',Path(td).resolve(),client=client))
    self.assertEqual(r['reason'],'dash_audio_unavailable');self.assertEqual(client.calls,[])
+ def test_native_public_header_and_safe_status(self):
+  class Denied(Response):status_code=403
+  with tempfile.TemporaryDirectory() as td:
+   client=Client(Denied());r=asyncio.run(m.download_audio(info(),'BV403',Path(td).resolve(),client=client,user_agent='Native browser UA'))
+   self.assertEqual(client.calls[0][1]['headers'],{'Referer':'https://www.bilibili.com/','User-Agent':'Native browser UA'})
+   self.assertEqual(r['http_status'],403);self.assertEqual(r['reason'],'audio_http_status')
+   self.assertEqual(r['duration_seconds_reported'],100);self.assertEqual(r['selection_diagnostics']['eligible'],1)
+   self.assertNotIn('deadline',json.dumps(r));self.assertNotIn('Native browser UA',json.dumps(r));self.assertEqual(len(client.calls),1)
+   self.assertFalse((Path(td)/'bili/media/BV403/audio.m4a').exists())
+ def test_header_injection_never_forwarded(self):
+  for value in ['UA\r\nCookie: secret','x'*1025,{'Cookie':'secret'},'非ASCII']:
+   with tempfile.TemporaryDirectory() as td:
+    client=Client();r=asyncio.run(m.download_audio(info(),'BVUA',Path(td).resolve(),client=client,user_agent=value))
+    self.assertEqual(client.calls[0][1]['headers'],{'Referer':'https://www.bilibili.com/'})
+    self.assertFalse(r['native_user_agent_used']);self.assertEqual(r['status'],'downloaded')
  def test_budget_exit_preserved(self):
   class Limited(Response):
    async def aiter_bytes(self,*a):

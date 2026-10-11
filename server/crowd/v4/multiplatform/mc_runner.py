@@ -305,13 +305,17 @@ def configure_platform_hooks(upstream,p):
                                                  'audio_entries':min(len(audio),1000) if isinstance(audio,list) else 0,
                                                  'durl_present':isinstance(play.get('durl'),list) and bool(play['durl'])})
                             try:
-                                result=await download_audio(play,content_id,Path.cwd()/'output',view.get('duration'))
+                                client_headers=getattr(self.bili_client,'headers',{})
+                                user_agent=client_headers.get('User-Agent') if isinstance(client_headers,dict) else None
+                                result=await download_audio(play,content_id,Path.cwd()/'output',view.get('duration'),user_agent=user_agent)
                             except Exception:
                                 result={'status':'failed','reason':'audio_adapter_failed'}
                 phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
                 write(phase,{**previous,'media_status':result['status'],'media_reason':result.get('reason'),
                              'media_play_response':play_evidence,
                              'media_audio_selection':result.get('selection_diagnostics'),
+                             'media_http_status':result.get('http_status'),
+                             'media_native_user_agent_used':result.get('native_user_agent_used'),
                              'media_kind':'audio','media_single_file_limit_bytes':67108864,
                              'media_duration_seconds_reported':result.get('duration_seconds_reported')})
             original_media=audio_only
