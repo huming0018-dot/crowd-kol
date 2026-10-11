@@ -95,6 +95,7 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
             rows = long_media.validate_segments(parsed['segments'], duration)
             adjustments = long_media.validate_adjustments(parsed.get('timing_adjustments', []), rows, duration)
             evidence.update(segments=rows, duration_seconds=duration, timing_adjustments=adjustments,
+                            native_alignment=local_asr.validate_native_alignment(parsed.get('native_alignment'),rows,duration),
                             timing_policy=parsed.get('timing_policy', 'unadjusted'), timeline='local_file_seconds',
                             quality_diagnostics=local_asr.quality_diagnostics(rows, parsed.get('segment_metrics')))
     elif kind == 'transcript':

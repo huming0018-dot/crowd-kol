@@ -254,6 +254,7 @@ def merge_chunks(manifest, results):
         raise ValueError('incomplete_asr_chunk_results')
     merged, removed, adjustments, decisions, diagnostics = [], 0, [], [], []
     total_segments = 0
+    native_alignment_windows = []
     windows = {chunk['index']: chunk for chunk in manifest['chunks']}
 
     def normalized(text):
@@ -266,6 +267,10 @@ def merge_chunks(manifest, results):
         return 'prefix' if longer.startswith(short) else 'suffix' if longer.endswith(short) else None
     for chunk, result in zip(manifest['chunks'], results):
         rows = validate_segments(result['segments'], chunk['end'] - chunk['start'])
+        alignment=local_asr.validate_native_alignment(result.get('native_alignment'),rows,chunk['end']-chunk['start'])
+        native_alignment_windows.append({'chunk_index':chunk['index'],'chunk_start_seconds':chunk['start'],
+            'status':'recorded' if alignment is not None else 'unknown',
+            'time_basis':'chunk_local_seconds','receipt':alignment})
         total_segments += len(rows)
         quality = local_asr.quality_diagnostics(rows, result.get('segment_metrics'))
         # Scores belong to the original window text, including fragments later removed.
@@ -338,6 +343,7 @@ def merge_chunks(manifest, results):
             'deduplicated_overlap_segments': removed, 'timeline': 'absolute_seconds',
             'overlap_decisions': decisions,
             'timing_adjustments': adjustments,
+            'native_alignment_windows':native_alignment_windows,
             'quality_diagnostics': {**local_asr.diagnostic_summary(diagnostics, total_segments),
                                     'time_basis': 'original_audio_seconds'},
             'segment_seconds': SEGMENT_SECONDS, 'overlap_seconds': OVERLAP_SECONDS}
@@ -378,7 +384,8 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                                   + digest(Path(__file__).with_name('fetch_model.py')))
                 key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA)).encode()).hexdigest()
                 result = json.loads(target.read_text()) if target.is_file() else None
-                if result is not None and (not isinstance(result, dict) or set(result) != {'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'} or result.get('input_hash') != key):
+                if result is not None and (not isinstance(result, dict) or set(result) not in ({'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'},
+                                            {'segments', 'input_hash', 'timing_adjustments', 'segment_metrics', 'native_alignment'}) or result.get('input_hash') != key):
                     raise ValueError('long_media_chunk_cache_identity_mismatch')
                 if result is None:
                     try:
@@ -386,7 +393,7 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                     except ValueError as error:
                         if str(error) != 'speech_empty':
                             raise
-                        result = {'segments': [], 'truncated': False}
+                        result = {'segments': [], 'truncated': False,'native_alignment':getattr(error,'native_alignment',None)}
                     except ImportError:
                         raise ValueError('local_asr_dependencies_unavailable') from None
                     except RuntimeError:
@@ -400,8 +407,12 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                     import local_asr
                     metrics = local_asr.normalize_metrics(result.get('segment_metrics'), len(rows))
                     result = {'segments': rows, 'input_hash': key, 'timing_adjustments': adjustments,
-                              'segment_metrics': metrics}
+                              'segment_metrics': metrics,
+                              'native_alignment': local_asr.validate_native_alignment(result.get('native_alignment'),rows,chunk['end']-chunk['start'])}
                     save(target, result)
+                import local_asr
+                local_asr.validate_native_alignment(result.get('native_alignment'),
+                    validate_segments(result['segments'],chunk['end']-chunk['start']),chunk['end']-chunk['start'])
                 results.append(result)
                 state['completed_chunks'] += 1
                 save(work / 'state.json', state)

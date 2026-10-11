@@ -79,7 +79,16 @@ class DiagnosticTests(unittest.TestCase):
         provider = [SimpleNamespace(text=' ', start=0., end=.2),
                     SimpleNamespace(text='原文', start=.3, end=1.2,
                                     avg_logprob=-1.2, compression_ratio=2.6, no_speech_prob=.7)]
-        model = SimpleNamespace(transcribe=lambda *a, **k: (iter(provider), None))
+        model=SimpleNamespace(feature_extractor=SimpleNamespace(time_per_frame=.01,nb_max_frames=3000))
+        model._split_segments_by_timestamps=lambda *a,**k:([
+            {'start':p.start,'end':p.end,'tokens':p.text,'seek':0} for p in provider],0,True)
+        def transcribe(*args,**kwargs):
+            self.assertIs(kwargs['word_timestamps'],True)
+            self.assertIs(kwargs['vad_filter'],False)
+            model._split_segments_by_timestamps(SimpleNamespace(decode=lambda tokens:tokens))
+            return iter(provider),None
+        original_split=model._split_segments_by_timestamps
+        model.transcribe=transcribe
         module = SimpleNamespace(WhisperModel=lambda *a, **k: model)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'own.wav'
@@ -89,10 +98,32 @@ class DiagnosticTests(unittest.TestCase):
             with patch.object(local_asr, 'verify_model', return_value=(Path(directory), 'test',
                               {'repository':'offline-test', 'revision':'test'})), patch.dict(sys.modules, {'faster_whisper':module}):
                 result = local_asr.transcribe(path, Path(directory))
+        self.assertIs(model._split_segments_by_timestamps,original_split)
         self.assertEqual(result['segments'], [{'start':.3, 'end':1., 'text':'原文'}])
         self.assertEqual(result['segment_metrics'][0]['segment_index'], 0)
         self.assertEqual(result['quality_diagnostics']['segments'][0]['end'], 1.)
         self.assertEqual(result['timing_adjustments'][0]['provider_end'], 1.2)
+        self.assertEqual(result['native_alignment']['method'],'faster_whisper_word_timestamps')
+        self.assertEqual(result['native_alignment']['token_candidates'][0]['end'],1.2)
+        self.assertEqual(result['native_alignment']['aligned_estimates'][0]['end'],1.2)
+
+    def test_provider_failure_restores_observer_without_retaining_model_cycle(self):
+        model=SimpleNamespace(feature_extractor=SimpleNamespace(time_per_frame=.01,nb_max_frames=3000))
+        original=lambda *a,**k:([],0,True)
+        model._split_segments_by_timestamps=original
+        def failed(*args,**kwargs):raise RuntimeError('provider_failed')
+        model.transcribe=failed
+        module=SimpleNamespace(WhisperModel=lambda *a,**k:model)
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/'own.wav'
+            with wave.open(str(source),'wb') as stream:
+                stream.setnchannels(1);stream.setsampwidth(2);stream.setframerate(16000)
+                stream.writeframes(b'\x00\x00'*16000)
+            with patch.object(local_asr,'verify_model',return_value=(Path(directory),'test',{})), \
+                    patch.dict(sys.modules,{'faster_whisper':module}):
+                with self.assertRaisesRegex(RuntimeError,'provider_failed'):
+                    local_asr.transcribe(source,Path(directory))
+        self.assertIs(model._split_segments_by_timestamps,original)
 
     def test_overlap_diagnostics_remain_original_not_final_score(self):
         manifest = {'duration_seconds':60., 'chunks':[

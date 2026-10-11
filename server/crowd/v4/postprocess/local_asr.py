@@ -120,6 +120,49 @@ def normalize_timestamps(rows, duration, provider_padding_ends=None):
     return timeline, adjustments
 
 
+def validate_native_alignment(value, rows, duration):
+    if value is None:
+        return None  # Old caches did not record native alignment provenance.
+    def finite(value):
+        try:return type(value) in (int,float) and math.isfinite(value)
+        except OverflowError:return False
+    fields = {'method','source','pcm_duration_seconds','token_candidates','aligned_estimates','text_sequence_equal','semantic_status'}
+    if (not isinstance(value,dict) or set(value)!=fields
+            or value['method']!='faster_whisper_word_timestamps'
+            or value['source']!='same_native_decode_before_word_alignment'
+            or value['semantic_status']!='not_reviewed'
+            or type(value['text_sequence_equal']) is not bool
+            or not finite(value['pcm_duration_seconds'])
+            or not math.isclose(value['pcm_duration_seconds'],duration,rel_tol=0,abs_tol=1e-6)):
+        raise ValueError('invalid_native_asr_alignment')
+    raw, aligned = value['token_candidates'],value['aligned_estimates']
+    if not isinstance(raw,list) or len(raw)>1000 or not isinstance(aligned,list) or len(aligned)!=len(rows):
+        raise ValueError('invalid_native_asr_alignment')
+    chars=0
+    for group in (raw,aligned):
+        for index,row in enumerate(group):
+            keys={'start','end','text'} | ({'seek_frames','padding_end'} if group is raw else set())
+            if (not isinstance(row,dict) or set(row)!=keys
+                    or any(not finite(row[k]) for k in ('start','end'))
+                    or not 0<=row['start']<=row['end']<=duration+30
+                    or not isinstance(row['text'],str) or not row['text'] or len(row['text'])>24000):
+                raise ValueError('invalid_native_asr_alignment')
+            chars+=len(row['text'])
+            if group is raw:
+                if (type(row['seek_frames']) is not int or not 0<=row['seek_frames']<=math.ceil(duration*100)
+                        or not finite(row['padding_end'])
+                        or not math.isclose(row['padding_end'],row['seek_frames']/100+30,rel_tol=0,abs_tol=1e-6)
+                        or row['end']>row['padding_end']):
+                    raise ValueError('invalid_native_asr_alignment')
+            elif (row['text']!=rows[index]['text'] or row['start']!=rows[index]['start']
+                  or not rows[index]['end']<=row['end']<=rows[index]['end']+.5):
+                raise ValueError('invalid_native_asr_alignment')
+    if (chars>48000 or len(json.dumps(value,ensure_ascii=False,allow_nan=False).encode())>200000
+            or value['text_sequence_equal']!=([r['text'] for r in raw]==[r['text'] for r in aligned])):
+        raise ValueError('invalid_native_asr_alignment')
+    return value
+
+
 def verify_model(model_dir):
     model_dir = Path(model_dir).resolve()
     manifest_path = model_dir / 'crowd-model.json'
@@ -184,32 +227,57 @@ def transcribe(source, model_dir):
     audio = np.concatenate(samples).astype(np.float32) / 32768.0
     model = WhisperModel(str(model_dir), device='cpu', compute_type='int8', cpu_threads=2,
                          num_workers=1, local_files_only=True)
-    segments, _ = model.transcribe(audio, language='zh', beam_size=3, vad_filter=False,
-                                   condition_on_previous_text=False)
-    raw_timeline, metrics, padding_ends = [], [], []
-    for segment in segments:
-        value = segment.text.strip()
-        if value:
-            raw_timeline.append({'start': float(segment.start), 'end': float(segment.end), 'text': value})
-            # Native seek is in mel frames; its encoder window is padded to 30 seconds.
-            seek = getattr(segment, 'seek', None)
-            padding_ends.append((seek + model.feature_extractor.nb_max_frames)
-                                * model.feature_extractor.time_per_frame
-                                if type(seek) is int and seek >= 0 else None)
-            metrics.append({'segment_index': len(metrics), **{
-                field: getattr(segment, field, None) for field in METRIC_FIELDS}})
-    timeline, adjustments = normalize_timestamps(raw_timeline, count / 16000, padding_ends)
+    extractor=getattr(model,'feature_extractor',None)
+    if getattr(extractor,'time_per_frame',None)!=.01 or getattr(extractor,'nb_max_frames',None)!=3000:
+        raise ValueError('native_asr_alignment_unavailable')
+    original_split=getattr(model,'_split_segments_by_timestamps',None)
+    if not callable(original_split):raise ValueError('native_asr_alignment_unavailable')
+    had_split_override='_split_segments_by_timestamps' in vars(model)
+    token_candidates=[]
+    def observe_split(*args,**kwargs):
+        result=original_split(*args,**kwargs)
+        tokenizer=kwargs.get('tokenizer') or args[0]
+        for item in result[0]:
+            text=tokenizer.decode(item['tokens']).strip()
+            if text:
+                token_candidates.append({'start':float(item['start']),'end':float(item['end']),'text':text,
+                    'seek_frames':item['seek'],'padding_end':item['seek']/100+30})
+                if len(token_candidates)>1000:raise ValueError('invalid_native_asr_alignment')
+        return result
+    model._split_segments_by_timestamps=observe_split
+    raw_timeline, metrics = [], []
+    try:
+        segments, _ = model.transcribe(audio, language='zh', beam_size=3, vad_filter=False,
+                                       condition_on_previous_text=False,word_timestamps=True)
+        for segment in segments:
+            value = segment.text.strip()
+            if value:
+                raw_timeline.append({'start': float(segment.start), 'end': float(segment.end), 'text': value})
+                metrics.append({'segment_index': len(metrics), **{
+                    field: getattr(segment, field, None) for field in METRIC_FIELDS}})
+    finally:
+        # Remove the observer cycle so each long-file window can release its model.
+        if had_split_override:model._split_segments_by_timestamps=original_split
+        else:del model._split_segments_by_timestamps
+    timeline, adjustments = normalize_timestamps(raw_timeline, count / 16000)
+    alignment=validate_native_alignment({'method':'faster_whisper_word_timestamps',
+        'source':'same_native_decode_before_word_alignment','pcm_duration_seconds':count/16000,
+        'token_candidates':token_candidates,'aligned_estimates':raw_timeline,
+        'text_sequence_equal':[r['text'] for r in token_candidates]==[r['text'] for r in raw_timeline],
+        'semantic_status':'not_reviewed'},timeline,count/16000)
     metrics = normalize_metrics(metrics, len(timeline))
     lines = ['[%.2f–%.2f] %s' % (row['start'], row['end'], row['text']) for row in timeline]
     text = '\n'.join(lines)
     if not text.strip():
-        raise ValueError('speech_empty')
+        error=ValueError('speech_empty');error.native_alignment=alignment
+        raise error
     return {'raw_text': text[:24000], 'truncated': len(text) > 24000,
             'processor': 'faster_whisper_local', 'segments': timeline,
             'duration_seconds': count / 16000,
             'model': name, 'model_repository': profile['repository'], 'model_revision': profile['revision'],
             'segment_metrics': metrics, 'quality_diagnostics': quality_diagnostics(timeline, metrics),
-            'timing_adjustments': adjustments, 'timing_policy': 'tail_0.5s_or_proven_native_padding_below_1s'}
+            'timing_adjustments': adjustments, 'native_alignment': alignment,
+            'timing_policy': 'native_word_alignment_with_retained_token_candidates'}
 
 
 def main():
