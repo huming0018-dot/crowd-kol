@@ -19,7 +19,7 @@ const accountView = (() => {
     browserDialog.replaceChildren(node('h2','使用已登录浏览器'),node('p','选择原账号所在的平台页面。系统随后核验账号，原浏览器和页面保留。'));
     const feedback=node('p');feedback.setAttribute('role','status');browserDialog.append(feedback,button('取消',()=>browserDialog.close()));browserDialog.showModal();
     let choices;try{choices=await call('browser_candidates',{session_id:session.session_id,port:9222});}
-    catch(error){if(current())feedback.textContent='原浏览器暂不可连接，请检查本机浏览器连接；不会自动改动浏览器。';return;}
+    catch(error){if(current())feedback.textContent=error.message==='browser_connection_pending'?'浏览器连接等待确认。请查看 Chrome 的“允许远程调试”提示；无需重新登录平台。':'原浏览器暂不可连接，请检查本机浏览器连接；不会自动改动浏览器。';return;}
     if(!current())return;
     if(!choices.targets.length){feedback.textContent='没有识别到普通网页。请在原浏览器打开任意正常网页，再重新选择。';return;}
     for(const target of choices.targets){

@@ -273,13 +273,16 @@ class AccountSessions:
         return {'ok':True,'session_id':session_id,**value,'credentials_imported':False}
 
     def bind_browser(self, session_id, port, target_id, browser_fingerprint, expected_generation):
+        return self._bind_browser_candidate(session_id,port,target_id,browser_fingerprint,expected_generation)
+
+    def _bind_browser_candidate(self, session_id, port, target_id, browser_fingerprint, expected_generation, current=None):
         from browser_session import BrowserSessionError
         session,platform=self._session(session_id)
         if type(expected_generation) is not int:raise ValueError('account_generation_changed')
         with open(session/'active.lock','a+') as lock:
             try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             except BlockingIOError:raise ValueError('session_busy') from None
-            current=self.browser_candidates(session_id,port)
+            if current is None:current=self.browser_candidates(session_id,port)
             if current['browser_fingerprint']!=browser_fingerprint or target_id not in {row['target_id'] for row in current['targets']}:
                 raise BrowserSessionError('browser_selection_changed')
             selected=next(row for row in current['targets'] if row['target_id']==target_id)
@@ -308,7 +311,7 @@ class AccountSessions:
             session.mkdir(parents=True,mode=0o700)
             with os.fdopen(os.open(session/'identity.json',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'w') as stream:
                 json.dump({'platform':platform},stream);stream.flush();os.fsync(stream.fileno())
-            return self.bind_browser(session_id,port,target_id,browser_fingerprint,0)
+            return self._bind_browser_candidate(session_id,port,target_id,browser_fingerprint,0,candidate)
 
     def use_persistent_browser(self, session_id, expected_generation):
         session,platform=self._session(session_id)

@@ -330,7 +330,7 @@ finally:gate.restore()
         store=Store(binding)
         try:
             install_browser_reuse(store,'sid','bili',BrowserType)
-            with patch('browser_session.inspect_browser',side_effect=BrowserSessionError('browser_unreachable')):
+            with patch('browser_session.metadata',side_effect=BrowserSessionError('browser_unreachable')):
                 with self.assertRaisesRegex(BrowserSessionError,'browser_unreachable'):asyncio.run(BrowserType().launch_persistent_context('ignored'))
             self.assertEqual(store.events[0],'check_failed');self.assertFalse(store.events[1]['login_verified'])
         finally:BrowserType.launch_persistent_context=old

@@ -6,9 +6,12 @@ import importlib
 import json
 import re
 import os
+import stat
 import signal
 import time
+import urllib.error
 import urllib.request
+from pathlib import Path
 from urllib.parse import urlsplit
 
 HOSTS={'xhs':{'www.xiaohongshu.com'},'dy':{'www.douyin.com','douyin.com'},
@@ -108,14 +111,80 @@ def metadata(port,path):
         return json.loads(body)
     except BrowserSessionError:
         raise
+    except urllib.error.HTTPError as error:
+        raise BrowserSessionError('browser_metadata_endpoint_unavailable' if error.code==404 else 'browser_unreachable') from None
     except Exception:
         raise BrowserSessionError('browser_unreachable') from None
+
+
+def active_socket_path(port):
+    """Read only Chrome's public endpoint metadata, never its profile state."""
+    validate_port(port)
+    base=Path.home()/'Library/Application Support'
+    paths=[base/'Google/Chrome/DevToolsActivePort',base/'Google/Chrome Canary/DevToolsActivePort',base/'Chromium/DevToolsActivePort']
+    found=set()
+    for path in paths:
+        try:
+            if any(parent.is_symlink() for parent in [path,*path.parents]):continue
+            fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+        except (FileNotFoundError,OSError):continue
+        try:
+            info=os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_nlink!=1 or not 1<=info.st_size<=512:continue
+            raw=os.read(fd,513)
+            after=os.fstat(fd)
+            if (info.st_size,info.st_mtime_ns)!=(after.st_size,after.st_mtime_ns):continue
+            try:lines=raw.decode('ascii').splitlines()
+            except UnicodeError:continue
+            if len(lines)!=2 or lines[0]!=str(port) or not re.fullmatch(r'/devtools/browser/[A-Za-z0-9-]{16,100}',lines[1]):continue
+            found.add(lines[1])
+        finally:os.close(fd)
+    if len(found)>1:raise BrowserSessionError('browser_endpoint_ambiguous')
+    if not found:raise BrowserSessionError('browser_metadata_endpoint_unavailable')
+    return found.pop()
+
+
+def socket_metadata(port,path):
+    """Bounded metadata-only CDP; Chrome retains its native consent prompt."""
+    validate_port(port)
+    if not re.fullmatch(r'/devtools/browser/[A-Za-z0-9-]{16,100}',path):raise BrowserSessionError('invalid_browser_identity')
+    try:from websockets.sync.client import connect
+    except ImportError:raise BrowserSessionError('browser_transport_dependency_missing') from None
+    deadline=time.monotonic()+10
+    try:
+        with connect('ws://127.0.0.1:'+str(port)+path,proxy=None,open_timeout=10,close_timeout=1,max_size=262144,max_queue=4) as channel:
+            responses=[];count=0;size=0
+            for identity,method in enumerate(('Browser.getVersion','Target.getTargets'),1):
+                channel.send(json.dumps({'id':identity,'method':method}))
+                while True:
+                    remaining=deadline-time.monotonic()
+                    if remaining<=0:raise TimeoutError
+                    raw=channel.recv(timeout=remaining);count+=1;size+=len(raw.encode('utf8') if isinstance(raw,str) else raw)
+                    if count>64 or size>262144:raise BrowserSessionError('browser_metadata_too_large')
+                    value=json.loads(raw)
+                    if not isinstance(value,dict):raise BrowserSessionError('invalid_browser_metadata')
+                    if type(value.get('id')) is int and value['id']==identity:
+                        if 'error' in value or not isinstance(value.get('result'),dict):raise BrowserSessionError('invalid_browser_metadata')
+                        responses.append(value['result']);break
+            if not isinstance(responses[0].get('product'),str) or not re.fullmatch(r'(?:Chrome|Chromium)/[0-9.]+',responses[0]['product']):raise BrowserSessionError('invalid_browser_identity')
+            rows=responses[1].get('targetInfos')
+            if not isinstance(rows,list) or len(rows)>200:raise BrowserSessionError('invalid_browser_target_list')
+            return [{**row,'id':row.get('targetId')} if isinstance(row,dict) else row for row in rows]
+    except BrowserSessionError:raise
+    except TimeoutError:raise BrowserSessionError('browser_connection_pending') from None
+    except Exception:raise BrowserSessionError('browser_connection_failed') from None
 
 
 def inspect_browser(port,platform):
     if platform not in HOSTS:
         raise BrowserSessionError('invalid_browser_platform')
-    version=metadata(port,'/json/version')
+    try:version=metadata(port,'/json/version')
+    except BrowserSessionError as error:
+        if str(error)!='browser_metadata_endpoint_unavailable':raise
+        path=active_socket_path(port)
+        rows=socket_metadata(port,path)
+        version={'webSocketDebuggerUrl':'ws://127.0.0.1:'+str(port)+path}
+    else:rows=metadata(port,'/json/list')
     try:
         socket=urlsplit(version['webSocketDebuggerUrl'])
         if socket.scheme!='ws' or socket.hostname not in ('127.0.0.1','localhost') or socket.port!=port or socket.username or socket.password or socket.query or socket.fragment or not re.fullmatch(r'/devtools/browser/[A-Za-z0-9-]{16,100}',socket.path):
@@ -123,7 +192,6 @@ def inspect_browser(port,platform):
     except (KeyError,TypeError,ValueError):
         raise BrowserSessionError('invalid_browser_identity') from None
     fingerprint=hashlib.sha256(socket.path.encode()).hexdigest()
-    rows=metadata(port,'/json/list')
     if not isinstance(rows,list) or len(rows)>200:
         raise BrowserSessionError('invalid_browser_target_list')
     choices=[];anchors=[]
@@ -199,10 +267,17 @@ class BorrowedContext:
 
 async def connect_context(chromium,binding,platform):
     validate_binding(binding,platform)
-    current=await asyncio.to_thread(inspect_browser,binding['port'],platform)
+    # Modern Chrome exposes its direct socket while the HTTP metadata routes return 404.
+    try:
+        await asyncio.to_thread(metadata,binding['port'],'/json/version')
+    except BrowserSessionError as error:
+        if str(error)!='browser_metadata_endpoint_unavailable':raise
+        path=await asyncio.to_thread(active_socket_path,binding['port'])
+        current={'browser_fingerprint':hashlib.sha256(path.encode()).hexdigest(),'_socket_path':path}
+    else:current=await asyncio.to_thread(inspect_browser,binding['port'],platform)
     if current['browser_fingerprint']!=binding['browser_fingerprint']:
         raise BrowserSessionError('browser_identity_changed')
-    if binding['target_id'] not in {row['target_id'] for row in current['_all_targets']}:
+    if '_all_targets' in current and binding['target_id'] not in {row['target_id'] for row in current['_all_targets']}:
         raise BrowserSessionError('browser_selected_page_unavailable')
     try:
         browser=await chromium.connect_over_cdp('ws://127.0.0.1:'+str(binding['port'])+current['_socket_path'],timeout=5000)
