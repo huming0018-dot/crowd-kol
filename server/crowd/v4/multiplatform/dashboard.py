@@ -321,11 +321,16 @@ class Application:
         from analysis_contract import build_snapshot
         from full_analysis import build_analysis_snapshot
         from analysis_jobs import AnalysisJobs
-        if not isinstance(payload, dict) or action not in ('start', 'status', 'cancel', 'lookup'):
+        if not isinstance(payload, dict) or action not in ('start', 'status', 'cancel', 'lookup', 'publish'):
             raise ValueError('invalid_analysis_action')
         with self.lock:
             if self.analysis_jobs is None:
                 self.analysis_jobs = AnalysisJobs(self.root)
+        if action == 'publish':
+            if set(payload) != {'job_id'}:
+                raise ValueError('invalid_analysis_request')
+            from analysis_artifact import publish_analysis_artifact
+            return publish_analysis_artifact(self.analysis_jobs, self.cloud_client, payload['job_id'])
         if action in ('status', 'cancel'):
             if set(payload) != {'job_id'}:
                 raise ValueError('invalid_analysis_request')

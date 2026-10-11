@@ -47,6 +47,15 @@ const analysisView = (() => {
       start.disabled=job.state==='interrupted_unknown'||!current?.snapshot_hash;panel.append(start);return;
     }
     const result=job.result,snapshot=result.input_snapshot,analysis=result.content_analysis,statistics=result.comment_statistics;
+    if(result.full_analysis_coverage){
+      const receiptText=node('p','完整分析可保存到云端，不会重新采集或调用模型。');
+      const publish=button('保存完整分析到云端',async()=>{
+        publish.disabled=true;receiptText.textContent='正在保存完整分析…';
+        try{const saved=await request('publish',{job_id:job.job_id});receiptText.textContent='云端已确认分析 · '+saved.receipt.artifact_id+' · '+saved.receipt.report_sha256;}
+        catch(error){receiptText.textContent='分析尚未确认保存：'+error.message;}
+        finally{publish.disabled=false;}
+      });panel.append(publish,receiptText);
+    }
     if(result.full_analysis_coverage)panel.append(node('p',`已分析全部 ${result.full_analysis_coverage.selected_segments} 个所选转写段，${result.full_analysis_coverage.batches_completed} 批；音频识别准确性仍待校对。`));
     panel.append(node('p',snapshot.derived_inputs?.length?'素材范围：原文字、评论及明确勾选的ASR/OCR候选，均需核对':snapshot.content.scope==='title_only'?'素材范围：仅标题':snapshot.content.kind==='dynamic'?'素材范围：原动态文字；不含视频、画面、音轨或动态评论':'素材范围：原正文或视频简介；不含画面、音轨分析'),node('p',analysis.summary));
     panel.append(section('内容结构',analysis.segments,row=>{const d=node('div');d.append(node('strong',row.role),node('p',row.observation),citation(snapshot,row.paragraph));return d;}));
