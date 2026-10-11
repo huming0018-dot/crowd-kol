@@ -167,8 +167,10 @@ class FiveDiscoveryTests(unittest.TestCase):
                         return json.dumps(payload).encode()
                 if invalid=='wrong_path':Response.url='https://weibo.com/ajax/search/all'
                 class Page:
-                    def on(self,event,callback):self.callback=callback
-                    def remove_listener(self,event,callback):self.removed=callback is self.callback
+                    def on(self,event,callback):
+                        if event=='response':self.callback=callback
+                    def remove_listener(self,event,callback):
+                        if event=='response':self.removed=callback is self.callback
                     async def goto(self,url,**kwargs):navigation.append(url);self.callback(Response())
                     async def wait_for_selector(self,*args,**kwargs):raise AssertionError('absent DOM must not prevent response observation')
                     async def eval_on_selector_all(self,*args):return ['/video/7590708381897651999'] if invalid=='dom' else ['/login']

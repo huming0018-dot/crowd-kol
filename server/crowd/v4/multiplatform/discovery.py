@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlsplit, parse_qsl, urlencode
 SUPPORT = {'homefeed': {'xhs', 'bili', 'dy', 'wb', 'tieba', 'zhihu', 'ks'}, 'trending': {'bili'}}
 PAGES = {'xhs': 'https://www.xiaohongshu.com/explore',
          'bili': 'https://www.bilibili.com/',
-         'dy': 'https://www.douyin.com/', 'wb': 'https://weibo.com/hot/recommend',
+         'dy': 'https://www.douyin.com/', 'wb': 'https://m.weibo.cn/',
          'tieba': 'https://tieba.baidu.com/', 'zhihu': 'https://www.zhihu.com/',
          'ks': 'https://www.kuaishou.com/?isHome=1',
          'bili_trending': 'https://www.bilibili.com/v/popular/all/'}
@@ -22,19 +22,29 @@ SELECTORS = {'xhs': 'a[href*="/explore/"],a[href*="/discovery/item/"]',
              'ks': 'a[href*="/short-video/"]'}
 FEED_PATHS = {'dy': {'/aweme/v1/web/tab/feed/', '/aweme/v1/web/feed/'},
               'wb': {'/ajax/feed/hottimeline'}}
-SAFE_ROUTE_PARTS = set('aweme v1 v2 web tab feed api ajax hottimeline recommend status user profile login passport account check info detail comment comments reply replies list item video search config settings hot trending pc get mblog ad ads recommendation challenge explore'.split())
+SAFE_ROUTE_PARTS = set('aweme v1 v2 web tab feed api ajax hottimeline recommend status user profile login passport account check info detail comment comments reply replies list item video search config settings hot trending pc get mblog ad ads recommendation challenge explore container getIndex statuses sso signin'.split())
 
 
 def safe_observed_location(platform, value):
     """Keep only known route words; dynamic IDs and tokens never enter diagnostics."""
     try:
         parsed = urlsplit(value)
+        if value == 'about:blank':
+            return {'origin': 'other', 'path': None, 'location_kind': 'blank'}
+        if parsed.scheme == 'chrome-error' and parsed.hostname == 'chromewebdata':
+            return {'origin': 'other', 'path': None, 'location_kind': 'browser_error'}
         official = urlsplit(PAGES[platform]).hostname
-        if parsed.scheme != 'https' or parsed.hostname != official or parsed.username or parsed.password or parsed.port not in (None, 443):
+        aliases = ('m.weibo.cn', 'weibo.com', 'www.weibo.com') if platform == 'wb' else (official,)
+        if parsed.scheme != 'https' or parsed.username or parsed.password or parsed.port not in (None, 443):
+            return {'origin': 'other', 'path': None}
+        if parsed.hostname not in aliases:
+            # This fixed native login destination is known; arbitrary foreign URLs stay hidden.
+            if platform == 'wb' and parsed.hostname == 'passport.weibo.com' and parsed.path == '/sso/signin':
+                return {'origin': 'other', 'path': None, 'location_kind': 'official_login'}
             return {'origin': 'other', 'path': None}
         parts = parsed.path.split('/')[:20]
         path = '/'.join(part if part in SAFE_ROUTE_PARTS or not part else ':redacted' for part in parts)
-        return {'origin': 'https://' + official, 'path': path[:500]}
+        return {'origin': 'https://' + parsed.hostname, 'path': path[:500]}
     except (ValueError, TypeError, KeyError):
         return {'origin': 'other', 'path': None}
 
@@ -44,13 +54,14 @@ def page_diagnostics(value):
     if not isinstance(value, dict):
         return {'state': 'unavailable'}
     result = {'state': 'available'}
-    for field in ('visible_anchor_total', 'visible_video_count'):
+    for field in ('visible_anchor_total', 'visible_video_count', 'script_element_count', 'frame_element_count'):
         count = value.get(field)
         result[field] = min(10000, max(0, count)) if type(count) is int else None
     for field in ('title_present', 'login_visible', 'verification_visible'):
         result[field] = value.get(field) if type(value.get(field)) is bool else None
     allowed = {'feed-active-video', 'feed-video', 'video-player', 'search-result', 'login-panel', 'video-detail'}
     result['visible_data_e2e'] = sorted({x for x in value.get('visible_data_e2e', [])[:100] if isinstance(x, str) and x in allowed}) if isinstance(value.get('visible_data_e2e'), list) else []
+    result['document_ready_state'] = value.get('document_ready_state') if value.get('document_ready_state') in ('loading','interactive','complete') else 'unknown'
     return result
 
 
@@ -207,6 +218,9 @@ def configure_discovery(upstream, request, run):
         source = PAGES['bili_trending'] if mode == 'trending' else PAGES[platform]
         tasks, received, observations, response_paths = set(), [], [], []
         last_links, legal_candidates = [], 0
+        load_failures = {'total':0, 'script':0, 'document':0, 'xhr':0, 'fetch':0, 'other':0}
+        page_error_count = 0
+        document_response_status = None
         async def observe(response, path):
             summary = {'path':path, 'http_status':response.status, 'candidate_count':0, 'status':'pending'}
             observations.append(summary)
@@ -233,8 +247,11 @@ def configure_discovery(upstream, request, run):
             except Exception:
                 summary['status'] = 'unreadable'
         def on_response(response):
+            nonlocal document_response_status
             location = safe_observed_location(platform, response.url)
             resource_type = getattr(getattr(response, 'request', None), 'resource_type', None)
+            if resource_type == 'document' and (location['origin'] != 'other' or location.get('location_kind') == 'official_login'):
+                document_response_status = response.status if type(response.status) is int and 100 <= response.status <= 599 else None
             if location['origin'] != 'other' and resource_type in ('xhr', 'fetch') and len(response_paths) < 30:
                 status = response.status
                 response_paths.append({'path':location['path'], 'http_status':status if type(status) is int and 100 <= status <= 599 else None,
@@ -244,9 +261,19 @@ def configure_discovery(upstream, request, run):
                 task = asyncio.create_task(observe(response, path))
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
+        def on_request_failed(request):
+            load_failures['total'] = min(10000,load_failures['total']+1)
+            kind = getattr(request, 'resource_type', None)
+            kind = kind if kind in ('script','document','xhr','fetch') else 'other'
+            load_failures[kind] = min(10000,load_failures[kind]+1)
+        def on_page_error(_error):
+            nonlocal page_error_count
+            page_error_count = min(10000,page_error_count+1)
         listening = platform in FEED_PATHS and hasattr(page, 'on')
         if listening:
             page.on('response', on_response)
+            page.on('requestfailed', on_request_failed)
+            page.on('pageerror', on_page_error)
         # New platforms may finish login on a search warm-up/desktop page. Navigate
         # their normal homepage explicitly; never relabel that warm-up as a feed.
         basis = 'visible_page_sample'
@@ -281,6 +308,8 @@ def configure_discovery(upstream, request, run):
         finally:
             if listening:
                 page.remove_listener('response', on_response)
+                page.remove_listener('requestfailed', on_request_failed)
+                page.remove_listener('pageerror', on_page_error)
             for task in list(tasks):
                 task.cancel()
             if tasks:
@@ -293,6 +322,9 @@ def configure_discovery(upstream, request, run):
                         const count=s=>Array.from(document.querySelectorAll(s)).filter(visible).length;
                         const enums=['feed-active-video','feed-video','video-player','search-result','login-panel','video-detail'];
                         return {visible_anchor_total:count('a[href]'), visible_video_count:count('video'),
+                            script_element_count:document.querySelectorAll('script').length,
+                            frame_element_count:document.querySelectorAll('iframe,frame').length,
+                            document_ready_state:document.readyState,
                             title_present:!!document.title.trim(), login_visible:!!count('[data-e2e="login-panel"], [data-e2e="login-button"]'),
                             verification_visible:!!count('[id*="captcha"], [class*="captcha"], [data-e2e="verify-panel"]'),
                             visible_data_e2e:enums.filter(x=>count('[data-e2e="'+x+'"]'))};
@@ -305,6 +337,8 @@ def configure_discovery(upstream, request, run):
                       'homepage':safe_observed_location(platform, getattr(page, 'url', None)),
                       'visible_page':visible, 'sampled_selector_link_count':min(200,len(last_links)),
                       'legal_sampled_link_count':legal_candidates, 'official_response_paths':response_paths,
+                      'failed_request_counts':load_failures, 'page_error_count':page_error_count,
+                      'document_response_status':document_response_status,
                       'selection_policy':'visible_DOM_first_then_same_homepage_response'})
         observed_at = datetime.now(timezone.utc).isoformat()
         # Public metadata has no XHS navigation locator; it stays in this process only.

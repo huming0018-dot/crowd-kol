@@ -6,10 +6,20 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from discovery import configure_discovery, page_diagnostics, safe_observed_location
+from discovery import PAGES, configure_discovery, page_diagnostics, safe_observed_location
 
 
 class DiagnosticTests(unittest.TestCase):
+    def test_mobile_environment_alias_and_fixed_native_login_classification(self):
+        self.assertEqual(PAGES['wb'],'https://m.weibo.cn/')
+        for host in ['m.weibo.cn','weibo.com','www.weibo.com']:
+            self.assertEqual(safe_observed_location('wb','https://'+host+'/')['origin'],'https://'+host)
+        value=safe_observed_location('wb','https://passport.weibo.com/sso/signin?uid=SECRET')
+        self.assertEqual(value,{'origin':'other','path':None,'location_kind':'official_login'})
+        self.assertNotIn('SECRET',json.dumps(value))
+        self.assertEqual(safe_observed_location('wb','https://passport.weibo.com/user/SECRET'),{'origin':'other','path':None})
+        self.assertEqual(safe_observed_location('dy','about:blank')['location_kind'],'blank')
+        self.assertEqual(safe_observed_location('dy','chrome-error://chromewebdata/?url=SECRET')['location_kind'],'browser_error')
     def test_url_dynamic_identity_query_and_foreign_host_never_saved(self):
         for url in ['https://www.douyin.com/user/123456?token=SECRET#SECRET',
                     'https://www.douyin.com/api/SECRET',
@@ -42,17 +52,23 @@ class DiagnosticTests(unittest.TestCase):
             async def header_value(self,*args):raise AssertionError('non-feed headers must never be read')
         class Page:
             url='https://www.douyin.com/user/123456?token=SECRET'
-            def on(self,event,callback):self.callback=callback
-            def remove_listener(self,event,callback):actions.append('cleanup')
+            def on(self,event,callback):
+                if not hasattr(self,'callbacks'):self.callbacks={}
+                self.callbacks[event]=callback
+            def remove_listener(self,event,callback):
+                self.callbacks.pop(event);actions.append('cleanup')
             async def goto(self,*args,**kwargs):
                 actions.append('goto')
-                for index in range(50):self.callback(Response(index))
-                foreign=Response(0);foreign.url='https://foreign.invalid/SECRET';self.callback(foreign)
+                for index in range(50):self.callbacks['response'](Response(index))
+                foreign=Response(0);foreign.url='https://foreign.invalid/SECRET';self.callbacks['response'](foreign)
+                self.callbacks['requestfailed'](SimpleNamespace(resource_type='script',url='https://SECRET',failure='SECRET'))
+                self.callbacks['pageerror'](Exception('SECRET'))
             async def eval_on_selector_all(self,*args):return ['/login','/user/123456']
             async def evaluate(self,script):
                 actions.append('local_signals')
                 return {'visible_anchor_total':19,'visible_video_count':0,'title_present':True,
-                        'login_visible':False,'verification_visible':True,'visible_data_e2e':['SECRET','feed-video']}
+                        'login_visible':False,'verification_visible':True,'visible_data_e2e':['SECRET','feed-video'],
+                        'document_ready_state':'complete','script_element_count':3,'frame_element_count':0}
         class Crawler:
             context_page=Page()
             async def get_specified_awemes(self):raise AssertionError('empty discovery must not dispatch')
@@ -68,8 +84,11 @@ class DiagnosticTests(unittest.TestCase):
             self.assertEqual(value['responses'],[])
             self.assertEqual(value['legal_sampled_link_count'],0)
             self.assertEqual(value['visible_page']['verification_visible'],True)
+            self.assertEqual(value['visible_page']['document_ready_state'],'complete')
+            self.assertEqual(value['failed_request_counts']['script'],1)
+            self.assertEqual(value['page_error_count'],1)
             self.assertNotIn('SECRET',json.dumps(value));self.assertNotIn('123456',json.dumps(value))
-            self.assertEqual(actions,['goto','cleanup','local_signals'])
+            self.assertEqual(actions,['goto','cleanup','cleanup','cleanup','local_signals'])
             self.assertFalse((root/'discovery.json').exists())
 
 
