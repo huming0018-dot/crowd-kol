@@ -60,8 +60,8 @@ class AnalysisJobs:
                 state['result'] = read(folder / 'result.json')
         return {'ok': True, **state}
 
-    def start(self, imported, platform, content_id):
-        snapshot = build_snapshot(imported, platform, content_id)
+    def start(self, imported, platform, content_id, entity_ref=None):
+        snapshot = build_snapshot(imported, platform, content_id, entity_ref=entity_ref)
         if not self.executable:
             raise ValueError('analysis_provider_missing')
         cache_key = hashlib.sha256(canonical({
@@ -99,6 +99,8 @@ class AnalysisJobs:
                          'prompt_version': PROMPT_VERSION, 'provider': 'codex_cli',
                          'provider_version': self.provider_version, 'created_at': time.time(),
                          'review_status': 'unreviewed_model_analysis'}
+                if entity_ref is not None:
+                    state['entity_ref'] = entity_ref
                 write(folder / 'state.json', state)
                 record = {'cancel': threading.Event(), 'process': None}
                 self.running[job_id] = record
@@ -258,13 +260,14 @@ def main():
     parser.add_argument('--input', type=Path, required=True)
     parser.add_argument('--platform', required=True)
     parser.add_argument('--content-id', required=True)
+    parser.add_argument('--entity-ref', help='Exact saved content/dynamic identity; optional for legacy callers')
     parser.add_argument('--allow-model-transfer', action='store_true')
     args = parser.parse_args()
     if not args.allow_model_transfer:
         parser.error('analysis_transfer_authorization_required')
     manager = AnalysisJobs(args.root)
     try:
-        job = manager.start(read(args.input), args.platform, args.content_id)
+        job = manager.start(read(args.input), args.platform, args.content_id, entity_ref=args.entity_ref)
         while job['state'] in ('queued', 'running'):
             time.sleep(0.5)
             job = manager.status(job['job_id'])

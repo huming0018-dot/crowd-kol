@@ -5,15 +5,15 @@ const analysisView = (() => {
   const states = {not_started:'尚未分析',queued:'等待分析',running:'正在分析',completed:'分析完成',failed:'分析未完成',cancelled:'已取消分析',interrupted_unknown:'分析中断，等待核对'};
   const errors = {analysis_provider_missing:'本机未找到可用的 Codex CLI。采集结果仍可查看。',analysis_busy:'已有分析正在运行，请等待或取消它。',analysis_timeout:'分析超过时限，已停止；原始采集结果保留。',analysis_provider_failed:'Codex 分析失败，请检查其登录、网络或额度；不会自动重试。',analysis_interrupted_check_before_retry:'工作台曾中断，尚不能确认模型请求是否完成。请先核对，系统不会自动重复调用。',analysis_comment_limit_exceeded:'这篇内容超过单次200条评论的分析范围，请先分批处理。',analysis_text_limit_exceeded:'这份正文和评论超过单次50000字范围，请先分批处理。',truncated_content_text:'正文已截断，暂不对残缺正文生成完整分析。'};
   const request = (action,payload) => api('/api/analysis',{action,payload});
-  Object.assign(errors,{analysis_environment_denied:'当前运行环境限制了 Codex 分析。已有正文和评论仍可查看。',analysis_login_required:'Codex 需要重新登录；登录后再分析，不影响平台采集结果。',analysis_quota_exceeded:'Codex 额度或调用频率已达到限制。请等待额度恢复后再分析。',analysis_network_unavailable:'暂时无法连接 Codex 模型服务。请检查网络后再分析。',analysis_provider_incompatible:'当前 Codex 版本不支持这份分析接口，请更新客户端后再试。',analysis_transfer_authorization_required:'发送前需要明确授权本次材料范围。',analysis_snapshot_changed:'已保存材料发生变化，请刷新范围后再分析。'});
+  Object.assign(errors,{ambiguous_analysis_entity:'相同数字 ID 对应多种内容，请选择具体类型再分析。',analysis_entity_not_found:'所选内容类型在这份结果中不存在，请刷新结果。',invalid_results_entity_ref:'所选内容身份不匹配，不能分析其他平台或内容。',analysis_environment_denied:'当前运行环境限制了 Codex 分析。已有正文和评论仍可查看。',analysis_login_required:'Codex 需要重新登录；登录后再分析，不影响平台采集结果。',analysis_quota_exceeded:'Codex 额度或调用频率已达到限制。请等待额度恢复后再分析。',analysis_network_unavailable:'暂时无法连接 Codex 模型服务。请检查网络后再分析。',analysis_provider_incompatible:'当前 Codex 版本不支持这份分析接口，请更新客户端后再试。',analysis_transfer_authorization_required:'发送前需要明确授权本次材料范围。',analysis_snapshot_changed:'已保存材料发生变化，请刷新范围后再分析。'});
   function stopPolling(){clearTimeout(timer);timer=null;}
-  function target(){return {run_id:idOf(selectedRun),platform:current.platform,content_id:current.content_id};}
+  function target(){return {run_id:idOf(selectedRun),platform:current.platform,content_id:current.content_id,...(current.entity_ref?{entity_ref:current.entity_ref}:{})};}
   function section(label, rows, render){const d=node('details');d.open=true;d.append(node('summary',label));for(const row of rows)d.append(render(row));return d;}
   function paragraph(snapshot,index){return snapshot.paragraphs.find(row=>row.paragraph===index)?.text;}
   function citation(snapshot,index){const d=node('details');d.append(node('summary','原文依据 · '+snapshot.content.source_ref+' · '+(index===0?'标题':'段落 '+index)),node('p',paragraph(snapshot,index)||'未取得原文'));return d;}
   function render(job){
     if(job.snapshot_hash&&current)current.snapshot_hash=job.snapshot_hash;
-    const panel=$('analysis_panel');panel.hidden=false;panel.replaceChildren(node('h3','正文与评论分析'),node('p',states[job.state]||job.state));
+    const panel=$('analysis_panel');panel.hidden=false;panel.replaceChildren(node('h3',current?.kind==='dynamic'?'动态文字分析':'正文与评论分析'),node('p',states[job.state]||job.state));
     panel.append(node('p','正文与评论会发送给已登录的 Codex 模型服务进行分析；报告为模型判断，统计由程序计算。'));
     panel.lastChild.className='hint';
     if(job.error)panel.append(node('p',errors[job.error]||('分析失败：'+job.error)));
@@ -23,11 +23,14 @@ const analysisView = (() => {
     }
     if(job.state!=='completed'){
       if(job.input_summary)panel.append(node('p',`本次范围：这篇已保存的文字与 ${job.input_summary.comments} 条评论；排除 ${job.input_summary.coverage.excluded_comments} 条无效记录。`));
+      const excluded=job.input_summary?.coverage?.excluded_reasons||{};
+      if(excluded.unconfirmed_content_type||excluded.different_content_type)panel.append(node('p',`已排除 ${excluded.unconfirmed_content_type||0} 条类型归属不明及 ${excluded.different_content_type||0} 条其他类型评论，不混入所选正文。`));
+      if(current?.kind==='dynamic')panel.append(node('p','只分析已保存的动态文字；当前不支持动态评论，不混入同数字 ID 的视频评论。'));
       const start=button('发送所选文字并分析',()=>startAnalysis(),'primary');
       start.disabled=job.state==='interrupted_unknown'||!current?.snapshot_hash;panel.append(start);return;
     }
     const result=job.result,snapshot=result.input_snapshot,analysis=result.content_analysis,statistics=result.comment_statistics;
-    panel.append(node('p',snapshot.content.scope==='title_only'?'素材范围：仅标题':'素材范围：原正文或视频简介；不含画面、音轨分析'),node('p',analysis.summary));
+    panel.append(node('p',snapshot.content.scope==='title_only'?'素材范围：仅标题':snapshot.content.kind==='dynamic'?'素材范围：原动态文字；不含视频、画面、音轨或动态评论':'素材范围：原正文或视频简介；不含画面、音轨分析'),node('p',analysis.summary));
     panel.append(section('内容结构',analysis.segments,row=>{const d=node('div');d.append(node('strong',row.role),node('p',row.observation),citation(snapshot,row.paragraph));return d;}));
     panel.append(section('原文声称 · 尚未核实',analysis.claims,row=>{const d=node('div');d.append(node('p',row.claim),citation(snapshot,row.paragraph));return d;}));
     panel.append(section('可借鉴的方法',analysis.reusable_methods,row=>{const d=node('div');d.append(node('p',row.method),citation(snapshot,row.paragraph));return d;}));
@@ -52,7 +55,8 @@ const analysisView = (() => {
   }
   async function startAnalysis(){stopPolling();const ticket=++generation;const panel=$('analysis_panel');panel.replaceChildren(node('p','正在提交分析…'));try{const job=await request('start',{...target(),snapshot_hash:current.snapshot_hash,allow_model_transfer:true});await poll(job,ticket);}catch(error){if(ticket===generation){if(error.message==='analysis_snapshot_changed'){await poll(await request('lookup',target()),ticket);if(ticket===generation)panel.prepend(node('p','采集结果已更新。请核对刷新后的材料范围，再决定是否发送。'));return;}render({state:'failed',error:error.message});}throw error;}}
   async function open(row){
-    stopPolling();const ticket=++generation;current={platform:row.platform,content_id:row.content_id};
+    stopPolling();const ticket=++generation;current={platform:row.platform,content_id:row.content_id,kind:row.kind};
+    current.entity_ref=row.entity_ref||(row.platform==='zhihu'&&['answer','article','zvideo'].includes(row.content_type)?'zhihu:content:'+row.content_id+':'+row.content_type:row.kind==='dynamic'?'bilibili:dynamic:'+row.content_id:null);
     const panel=$('analysis_panel');panel.hidden=false;panel.replaceChildren(node('p','正在读取已有分析…'));panel.scrollIntoView({behavior:'smooth',block:'start'});
     try{await poll(await request('lookup',target()),ticket);}catch(error){if(ticket===generation)render({state:'failed',error:error.message});throw error;}
   }

@@ -304,21 +304,23 @@ class Application:
         fields = {'run_id', 'platform', 'content_id'}
         if action == 'start':
             fields |= {'snapshot_hash', 'allow_model_transfer'}
-        if set(payload) != fields:
+        if set(payload) - {'entity_ref'} != fields:
             raise ValueError('invalid_analysis_request')
         response = self.run('import', {'run_id': payload['run_id']})
         if response.get('ok') is False:
             raise ValueError('results_not_ready')
         imported = response.get('result', response)
-        snapshot = build_snapshot(imported, payload['platform'], payload['content_id'])
+        snapshot = build_snapshot(imported, payload['platform'], payload['content_id'], entity_ref=payload.get('entity_ref'))
         input_summary = {'scope': snapshot['content']['scope'],
                          'comments': len(snapshot['comments']), 'coverage': snapshot['coverage']}
+        if 'entity_ref' in snapshot['content']:
+            input_summary.update(entity_ref=snapshot['content']['entity_ref'], kind=snapshot['content']['kind'])
         if action == 'start':
             if payload['allow_model_transfer'] is not True:
                 raise ValueError('analysis_transfer_authorization_required')
             if payload['snapshot_hash'] != snapshot['snapshot_hash']:
                 raise ValueError('analysis_snapshot_changed')
-            return self.analysis_jobs.start(imported, payload['platform'], payload['content_id'])
+            return self.analysis_jobs.start(imported, payload['platform'], payload['content_id'], entity_ref=payload.get('entity_ref'))
         matching = []
         for folder in self.analysis_jobs.root.iterdir():
             if folder.is_dir() and not folder.is_symlink() and (folder / 'state.json').is_file():
