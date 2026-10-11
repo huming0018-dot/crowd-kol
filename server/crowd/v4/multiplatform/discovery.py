@@ -284,21 +284,32 @@ def configure_discovery(upstream, request, run):
         document_response_status = None
         navigation={'visible_labels':{'推荐':False,'热门':False,'关注':False},'clicked_label':None,'click_state':'not_attempted'}
         async def observe(response, path):
-            summary = {'path':path, 'http_status':response.status, 'candidate_count':0, 'status':'pending'}
+            limit = 8*1024*1024 if platform=='dy' else 1048576
+            summary = {'path':path, 'http_status':response.status, 'candidate_count':0, 'status':'pending',
+                       'parser_limit_bytes':limit, 'declared_body_bytes':None, 'actual_body_bytes':None}
             if platform=='wb' and path=='/api/container/getIndex':summary['scope']='mobile_public_hot_channel_102803'
             observations.append(summary)
             if response.status != 200:
                 summary['status'] = 'http_failed'
                 return
+            stage = 'header'
             try:
                 length = await response.header_value('content-length')
-                if length is not None and (not str(length).isdigit() or int(length) > 1048576):
-                    summary['status'] = 'size_rejected'
-                    return
+                if length is not None:
+                    if not isinstance(length,str) or not re.fullmatch(r'[0-9]{1,16}',length) or int(length)>9007199254740991:
+                        summary.update(status='unreadable',failure_kind='invalid_content_length')
+                        return
+                    summary['declared_body_bytes']=int(length)
+                    if int(length)>limit:
+                        summary.update(status='size_rejected',failure_kind='declared_size_exceeds_limit')
+                        return
+                stage = 'body'
                 body = await response.body()  # Reads an already received browser response; no request.
-                if len(body) > 1048576:
-                    summary['status'] = 'size_rejected'
+                summary['actual_body_bytes']=len(body)
+                if len(body) > limit:
+                    summary.update(status='size_rejected',failure_kind='actual_size_exceeds_limit')
                     return
+                stage = 'decode'
                 candidates = response_candidates(platform, json.loads(body), request['max_items'], path=path)
                 summary.update(status='matched' if candidates else 'shape_unmatched', candidate_count=len(candidates))
                 for item in candidates:
@@ -307,8 +318,12 @@ def configure_discovery(upstream, request, run):
             except asyncio.CancelledError:
                 summary['status'] = 'cancelled_at_observation_end'
                 raise
+            except UnicodeDecodeError:
+                summary.update(status='unreadable',failure_kind='invalid_encoding')
+            except json.JSONDecodeError:
+                summary.update(status='unreadable',failure_kind='invalid_json')
             except Exception:
-                summary['status'] = 'unreadable'
+                summary.update(status='unreadable',failure_kind={'header':'header_read_failed','body':'body_read_failed','decode':'decode_failed'}[stage])
         def on_response(response):
             nonlocal document_response_status
             location = safe_observed_location(platform, response.url)
