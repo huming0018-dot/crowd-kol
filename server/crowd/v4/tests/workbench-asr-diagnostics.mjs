@@ -55,6 +55,24 @@ assert.match(elements.get('media_process_quality').textContent,/仍不代表识�
 await show(completed({...quality,segments:Array.from({length:21},()=>entry)}));
 assert.match(elements.get('media_process_quality').textContent,/仅显示前 20 条；其余 1 条保留/);
 
+const repeatedRows=Array.from({length:4},(_,index)=>({...entry,chunk_index:0,segment_index:index,start:index,end:index+1,text:'老闆娘',flags:[],avg_logprob:-.575,compression_ratio:1.367,no_speech_prob:.325}));
+const originalRows=JSON.stringify(repeatedRows);
+await show(completed({...quality,segments:repeatedRows}));
+assert.match(elements.get('media_process_quality').textContent,/同窗口连续重复候选，可能是真实重复/);
+assert.match(elements.get('media_process_quality').textContent,/没有删除内容或修正词句/);
+assert.equal(JSON.stringify(repeatedRows),originalRows);
+assert.equal(elements.get('media_process_result').textContent,'[53–55] '+text);
+await show(completed({...quality,segments:repeatedRows.slice(0,2)}));
+assert.doesNotMatch(elements.get('media_process_quality').textContent,/同窗口连续重复候选/);
+await show(completed({...quality,segments:repeatedRows.map((row,index)=>({...row,chunk_index:index}))}));
+assert.doesNotMatch(elements.get('media_process_quality').textContent,/同窗口连续重复候选/);
+await show(completed({...quality,time_basis:'original_audio_seconds',segments:repeatedRows.map(({chunk_index,...row})=>row)}));
+assert.doesNotMatch(elements.get('media_process_quality').textContent,/同窗口连续重复候选/);
+await show(completed({...quality,time_basis:'local_file_seconds',segments:repeatedRows.map(({chunk_index,...row})=>row)}));
+assert.match(elements.get('media_process_quality').textContent,/同窗口连续重复候选/);
+await show(completed({...quality,segments:[null,entry]}));
+assert.match(elements.get('media_process_quality').textContent,/本条诊断未记录/);
+
 let resolve;
 response=new Promise(done=>{resolve=done;});
 await view.open({path:'output/old.mp4'});
@@ -69,4 +87,4 @@ await view.open({path:'output/old.mp4'});
 const closed=elements.get('media_process_start').onclick();
 elements.get('media_process_close').onclick();resolve(completed(quality));await closed;
 assert.equal(elements.get('media_process_quality').textContent,'');
-console.log(JSON.stringify({ok:true,diagnostic_cases:7,raw_text_preserved:true,late_and_closed_responses_ignored:true,source_requests:0,model_calls:0,environment:'Node VM DOM substitute'}));
+console.log(JSON.stringify({ok:true,diagnostic_cases:13,raw_text_preserved:true,late_and_closed_responses_ignored:true,source_requests:0,model_calls:0,environment:'Node VM DOM substitute'}));

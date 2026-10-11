@@ -19,6 +19,34 @@ def metric(index=0, **values):
 
 
 class DiagnosticTests(unittest.TestCase):
+    def test_adjacent_repeat_is_review_candidate_without_text_or_scores_changed(self):
+        rows = [{'start':float(i), 'end':float(i + 1), 'text':text}
+                for i, text in enumerate(['老闆娘', '老闆娘！', '老闆娘', '原后文'])]
+        before = json.loads(json.dumps(rows))
+        metrics = [metric(i) for i in range(len(rows))]
+        result = local_asr.quality_diagnostics(rows, metrics)
+        self.assertEqual([r['flags'] for r in result['segments']],
+                         [['repeated_adjacent_text']] * 3 + [[]])
+        self.assertEqual(rows, before)
+        self.assertEqual([{k:r[k] for k in ('start','end','text')} for r in result['segments']], before)
+        self.assertEqual([{k:r[k] for k in metric()} for r in result['segments']], metrics)
+        self.assertEqual(result['review_status'], 'not_reviewed')
+        self.assertEqual(local_asr.quality_diagnostics(rows)['segments'], [])
+
+    def test_repeat_rule_does_not_cross_windows_gaps_or_short_repeats(self):
+        rows = [{'start':float(i), 'end':float(i + 1), 'text':'谢谢大家'} for i in range(3)]
+        self.assertEqual(local_asr.repeated_text_indices(rows[:2]), set())
+        self.assertEqual(local_asr.repeated_text_indices([{**r,'text':'啊'} for r in rows]), set())
+        self.assertEqual(local_asr.repeated_text_indices([{**r,'chunk_index':i} for i,r in enumerate(rows)]), set())
+        self.assertEqual(local_asr.repeated_text_indices([{**r,'start':i*10.,'end':i*10.+1.} for i,r in enumerate(rows)]), set())
+        self.assertEqual(local_asr.repeated_text_indices([{**r,'start':i*7.,'end':i*7.+7.} for i,r in enumerate(rows)]), set())
+        invalid = [{**rows[0],'start':10**1000}, *rows[1:]]
+        self.assertEqual(local_asr.repeated_text_indices(invalid), set())
+        # Genuine repetition remains present: a hint does not prove hallucination.
+        real = local_asr.quality_diagnostics(rows, [metric(i) for i in range(3)])
+        self.assertEqual(len(real['segments']), 3)
+        self.assertEqual([r['text'] for r in real['segments']], ['谢谢大家'] * 3)
+
     def test_finite_metrics_and_combined_silence_hint(self):
         rows = [{'start':0., 'end':1., 'text':'保留原文'}]
         for field, values in [('avg_logprob', [True, '0', float('nan'), float('inf'), 10 ** 1000]),

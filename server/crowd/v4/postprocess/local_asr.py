@@ -7,6 +7,7 @@ import math
 import os
 from pathlib import Path
 import sys
+import unicodedata
 from fetch_model import FILES, model_profile
 
 
@@ -47,6 +48,36 @@ def diagnostic_summary(entries, total):
             'association': 'original_window_segments_not_merged_text', 'segments': entries}
 
 
+def repeated_text_indices(rows):
+    """Review candidate only: three adjacent equal phrases within one short window."""
+    flagged, streak, previous = set(), [], None
+    for index, row in enumerate(rows):
+        text, start, end = row.get('text'), row.get('start'), row.get('end')
+        chunk = row.get('chunk_index')
+        try:
+            valid = (isinstance(text, str) and type(start) in (int, float)
+                     and type(end) in (int, float) and math.isfinite(start) and math.isfinite(end)
+                     and 0 <= start <= end and (chunk is None or type(chunk) is int and chunk >= 0))
+        except OverflowError:
+            valid = False
+        normal = ''.join(char for char in unicodedata.normalize('NFKC', text).lower()
+                         if not char.isspace() and not unicodedata.category(char).startswith('P')) if valid else ''
+        if not 2 <= len(normal) <= 200:
+            streak, previous = [], None
+            continue
+        key = (chunk, normal)
+        if (previous is not None and key == previous[0]
+                and previous[1] <= start <= previous[2] + 1
+                and end - rows[streak[0]]['start'] <= 15):
+            streak.append(index)
+        else:
+            streak = [index]
+        previous = (key, start, end)
+        if len(streak) >= 3:
+            flagged.update(streak)
+    return flagged
+
+
 def quality_diagnostics(rows, metrics=None):
     metrics = normalize_metrics(metrics, len(rows))
     entries = []
@@ -60,6 +91,8 @@ def quality_diagnostics(rows, metrics=None):
         if low and metric['no_speech_prob'] is not None and metric['no_speech_prob'] > .6:
             flags.append('possible_no_speech')
         entries.append({**row, **metric, 'flags': flags})
+    for index in repeated_text_indices(entries):
+        entries[index]['flags'].append('repeated_adjacent_text')
     return {**diagnostic_summary(entries, len(rows)), 'time_basis': 'local_file_seconds'}
 
 

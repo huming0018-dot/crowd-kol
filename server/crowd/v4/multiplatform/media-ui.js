@@ -28,16 +28,31 @@ const mediaView = (() => {
     if(!Array.isArray(rows)||!rows.length)return;playbackPanel.hidden=false;
     for(const [index,row]of rows.entries())if(row&&typeof row.start==='number'&&typeof row.end==='number'&&Number.isFinite(row.start)&&Number.isFinite(row.end)&&0<=row.start&&row.start<row.end&&row.end<=7200)playbackPanel.append(button('试听片段 '+(index+1)+' · '+row.start+'–'+row.end+' 秒',()=>listen(state,row)));
   }
+  function repeatedTextIndices(rows,requireChunk=false){
+    const flagged=new Set();let streak=[],previous=null;
+    for(let index=0;index<rows.length;index++){
+      const row=rows[index];if(!row||typeof row!=='object'){streak=[];previous=null;continue;}const chunk=row.chunk_index??null;
+      const valid=typeof row.text==='string'&&Number.isFinite(row.start)&&Number.isFinite(row.end)&&0<=row.start&&row.start<=row.end&&(!requireChunk&&chunk===null||Number.isInteger(chunk)&&chunk>=0);
+      const normal=valid?row.text.normalize('NFKC').toLowerCase().replace(/[\p{P}\s]/gu,''):'';
+      if(Array.from(normal).length<2||Array.from(normal).length>200){streak=[];previous=null;continue;}
+      if(previous&&chunk===previous.chunk&&normal===previous.normal&&previous.start<=row.start&&row.start<=previous.end+1&&row.end-rows[streak[0]].start<=15)streak.push(index);else streak=[index];
+      previous={chunk,normal,start:row.start,end:row.end};
+      if(streak.length>=3)for(const item of streak)flagged.add(item);
+    }
+    return flagged;
+  }
   function qualityText(evidence){
     const quality=evidence.quality_diagnostics;
     if(!quality||quality.schema_version!==1||!['available','partial'].includes(quality.status)||!Array.isArray(quality.segments)||!quality.segments.length)return '模型诊断：未记录（unknown）。旧结果或本次处理缺少原生诊断，仍需听音核对。';
-    const labels={low_logprob:'平均对数概率偏低',high_compression:'压缩比偏高，建议检查重复',possible_no_speech:'可能没有语音，需听音核对'};
+    const labels={low_logprob:'平均对数概率偏低',high_compression:'压缩比偏高，建议检查重复',possible_no_speech:'可能没有语音，需听音核对',repeated_adjacent_text:'同窗口连续重复候选，可能是真实重复，需听音核对'};
     const metric=value=>typeof value==='number'&&Number.isFinite(value)?String(value):'未记录';
     const lines=['模型诊断仅供复核，不代表准确率。以下是原始窗口片段，可能包含已去重的文字；正文保留。'];
     if(quality.status==='partial')lines.push('部分片段或数值未记录（unknown）。');
-    for(const row of quality.segments.slice(0,20)){
+    const repeated=repeatedTextIndices(quality.segments,quality.time_basis!=='local_file_seconds');
+    if(repeated.size)lines.push('连续重复是文字规则提示，可能是真实重复；没有删除内容或修正词句。');
+    for(const [index,row] of quality.segments.slice(0,20).entries()){
       if(!row||typeof row!=='object'){lines.push('本条诊断未记录（unknown）。');continue;}
-      lines.push('['+row.start+'–'+row.end+'] '+(Number.isInteger(row.chunk_index)?'窗口 '+row.chunk_index+' · ':'')+'片段 '+row.segment_index+'：'+row.text+'\n  avg_logprob='+metric(row.avg_logprob)+'；compression_ratio='+metric(row.compression_ratio)+'；no_speech_prob='+metric(row.no_speech_prob)+'\n  '+((Array.isArray(row.flags)?row.flags:[]).map(flag=>labels[flag]).filter(Boolean).join('；')||'没有触发复核提示，仍不代表识别正确。'));
+      lines.push('['+row.start+'–'+row.end+'] '+(Number.isInteger(row.chunk_index)?'窗口 '+row.chunk_index+' · ':'')+'片段 '+row.segment_index+'：'+row.text+'\n  avg_logprob='+metric(row.avg_logprob)+'；compression_ratio='+metric(row.compression_ratio)+'；no_speech_prob='+metric(row.no_speech_prob)+'\n  '+([...new Set([...(Array.isArray(row.flags)?row.flags:[]),...(repeated.has(index)?['repeated_adjacent_text']:[])])].map(flag=>labels[flag]).filter(Boolean).join('；')||'没有触发复核提示，仍不代表识别正确。'));
     }
     if(quality.segments.length>20)lines.push('仅显示前 20 条；其余 '+(quality.segments.length-20)+' 条保留在处理结果中。');
     return lines.join('\n');
