@@ -46,7 +46,7 @@ const accountView = (() => {
       if(session.login_error_code)row.append(node('p',loginErrors[session.login_error_code]||'登录核验尚未完成。'));
       if(session.browser_connection)row.append(node('p','复用本人选择的已登录浏览器'));
       if(session.browser_connection_error)row.append(node('p','原浏览器连接暂不可用；任务仍保留，请恢复原窗口或重新选择。'));
-      if(session.login_wait_reason==='verification_paused')row.append(node('p','核验已暂停，原登录窗口保留。完成登录后点下方按钮继续核验。'));
+      if(session.login_wait_reason==='verification_paused'&&session.login_in_progress===true)row.append(node('p','核验已暂停，原登录窗口保留。完成登录后点下方按钮继续核验。'));
       const actions=node('div');actions.className='actions';
       const openLogin=button('打开原会话登录',()=>guarded(async()=>{await operate('open_login',{session_id:session.session_id,platform:session.platform},ticket);}));
       openLogin.disabled=session.login_in_progress===true;actions.append(openLogin);

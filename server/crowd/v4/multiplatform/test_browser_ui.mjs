@@ -54,4 +54,13 @@ const flush=()=>new Promise(r=>setImmediate(r));
   assert.equal(calls.filter(x=>x==='create_browser_session').length,1);
   assert.equal(calls.filter(x=>x==='open_login').length,0);
 }
-console.log('3 actual accounts UI browser-selection and late-response checks PASS');
+for(const active of [true,false]){
+  const e=environment(async()=>({sessions:[{...session,state:active?'checking':'authenticated',login_wait_reason:'verification_paused',login_in_progress:active}]}));
+  await e.ctx.view.open();const list=e.ids.get('accounts_list');
+  const texts=parent=>[parent.textContent,...parent.children.flatMap(texts)];
+  assert.equal(texts(list).some(text=>text.includes('核验已暂停，原登录窗口保留')),active);
+  assert.equal(e.buttons(list).some(button=>button.textContent==='我已登录，继续核验'),active);
+  assert.equal(e.buttons(list).find(button=>button.textContent==='打开原会话登录').disabled,active);
+  if(!active)assert(texts(list).includes('登录已核验'));
+}
+console.log('5 actual accounts UI browser-selection, late-response and active/ended verification checks PASS');
