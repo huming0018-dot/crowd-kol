@@ -223,7 +223,8 @@ def validate_adjustments(adjustments, rows, duration):
     seen = set()
     for item in adjustments:
         fields = {'segment_index', 'provider_start', 'provider_end', 'adjusted_end', 'reason', 'text'}
-        if not isinstance(item, dict) or set(item) != fields:
+        padding = isinstance(item, dict) and item.get('reason') == 'provider_padding_tail'
+        if not isinstance(item, dict) or set(item) != fields | ({'provider_padding_end'} if padding else set()):
             raise ValueError('invalid_asr_timing_adjustments')
         index = item['segment_index']
         if type(index) is not int or index in seen or not 0 <= index < len(rows):
@@ -231,11 +232,18 @@ def validate_adjustments(adjustments, rows, duration):
         seen.add(index)
         start, end, adjusted = item['provider_start'], item['provider_end'], item['adjusted_end']
         if (any(type(value) not in (int, float) or not math.isfinite(value) for value in (start,end,adjusted))
-                or not 0 <= start < duration < end <= duration + 0.5
+                or not 0 <= start < duration < end
+                or (not padding and end > duration + .5)
+                or (padding and not duration + .5 < end < duration + 1.)
+                or (padding and (type(item['provider_padding_end']) not in (int,float)
+                    or not math.isfinite(item['provider_padding_end'])
+                    or not duration < item['provider_padding_end'] <= duration + 30
+                    or end > item['provider_padding_end']))
                 or not math.isclose(adjusted, duration, rel_tol=0, abs_tol=1e-6)
                 or rows[index]['start'] != start
                 or not math.isclose(rows[index]['end'], adjusted, rel_tol=0, abs_tol=1e-6)
-                or rows[index]['text'] != item['text'] or item['reason'] != 'provider_tail_overrun'):
+                or rows[index]['text'] != item['text']
+                or item['reason'] not in ('provider_tail_overrun','provider_padding_tail')):
             raise ValueError('invalid_asr_timing_adjustments')
     return adjustments
 

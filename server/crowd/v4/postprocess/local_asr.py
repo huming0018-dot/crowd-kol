@@ -96,18 +96,26 @@ def quality_diagnostics(rows, metrics=None):
     return {**diagnostic_summary(entries, len(rows)), 'time_basis': 'local_file_seconds'}
 
 
-def normalize_timestamps(rows, duration):
+def normalize_timestamps(rows, duration, provider_padding_ends=None):
     """Allow only a small provider tail overrun; retain the original estimate."""
     timeline, adjustments = [], []
-    for row in rows:
+    if provider_padding_ends is not None and len(provider_padding_ends) != len(rows):
+        raise ValueError('invalid_asr_padding_evidence')
+    for index, row in enumerate(rows):
         start, end, text = row['start'], row['end'], row['text']
+        padding_end = provider_padding_ends[index] if provider_padding_ends is not None else None
+        padded_tail = (type(padding_end) in (int, float) and math.isfinite(padding_end)
+                       and duration < padding_end <= duration + 30
+                       and end <= padding_end and end < duration + 1.)
         if (not math.isfinite(start) or not math.isfinite(end)
-                or not 0 <= start <= end or start >= duration or end > duration + 0.5):
+                or not 0 <= start <= end or start >= duration
+                or end > duration + 0.5 and not padded_tail):
             raise ValueError('asr_provider_timestamp_out_of_bounds')
         if end > duration:
             adjustments.append({'segment_index': len(timeline), 'provider_start': start,
                                 'provider_end': end, 'adjusted_end': duration,
-                                'reason': 'provider_tail_overrun', 'text': text})
+                                'reason': 'provider_padding_tail' if end > duration + .5 else 'provider_tail_overrun', 'text': text,
+                                **({'provider_padding_end': padding_end} if end > duration + .5 else {})})
         timeline.append({'start': start, 'end': min(end, duration), 'text': text})
     return timeline, adjustments
 
@@ -178,14 +186,19 @@ def transcribe(source, model_dir):
                          num_workers=1, local_files_only=True)
     segments, _ = model.transcribe(audio, language='zh', beam_size=3, vad_filter=False,
                                    condition_on_previous_text=False)
-    raw_timeline, metrics = [], []
+    raw_timeline, metrics, padding_ends = [], [], []
     for segment in segments:
         value = segment.text.strip()
         if value:
             raw_timeline.append({'start': float(segment.start), 'end': float(segment.end), 'text': value})
+            # Native seek is in mel frames; its encoder window is padded to 30 seconds.
+            seek = getattr(segment, 'seek', None)
+            padding_ends.append((seek + model.feature_extractor.nb_max_frames)
+                                * model.feature_extractor.time_per_frame
+                                if type(seek) is int and seek >= 0 else None)
             metrics.append({'segment_index': len(metrics), **{
                 field: getattr(segment, field, None) for field in METRIC_FIELDS}})
-    timeline, adjustments = normalize_timestamps(raw_timeline, count / 16000)
+    timeline, adjustments = normalize_timestamps(raw_timeline, count / 16000, padding_ends)
     metrics = normalize_metrics(metrics, len(timeline))
     lines = ['[%.2f–%.2f] %s' % (row['start'], row['end'], row['text']) for row in timeline]
     text = '\n'.join(lines)
@@ -196,7 +209,7 @@ def transcribe(source, model_dir):
             'duration_seconds': count / 16000,
             'model': name, 'model_repository': profile['repository'], 'model_revision': profile['revision'],
             'segment_metrics': metrics, 'quality_diagnostics': quality_diagnostics(timeline, metrics),
-            'timing_adjustments': adjustments, 'timing_policy': 'tail_overrun_at_most_0.5s'}
+            'timing_adjustments': adjustments, 'timing_policy': 'tail_0.5s_or_proven_native_padding_below_1s'}
 
 
 def main():

@@ -45,3 +45,19 @@ class TimestampTests(unittest.TestCase):
         self.assertEqual(merged['segments'][0]['end'], duration)
         self.assertTrue(all(0 <= row['start'] <= row['end'] <= duration for row in merged['segments']))
         self.assertEqual(merged['timing_adjustments'][0]['provider_absolute_end'], 70.)
+
+    def test_native_padded_tail_is_explicit_and_bounded(self):
+        raw = [{'start':54.72,'end':55.72,'text':'retained'}]
+        with self.assertRaisesRegex(ValueError,'timestamp_out_of_bounds'):
+            normalize_timestamps(raw,55.)
+        rows, adjustments = normalize_timestamps(raw,55.,[60.])
+        self.assertEqual(rows,[{'start':54.72,'end':55.,'text':'retained'}])
+        self.assertEqual(adjustments[0]['provider_end'],55.72)
+        self.assertEqual(adjustments[0]['provider_padding_end'],60.)
+        self.assertEqual(validate_adjustments(adjustments,rows,55.),adjustments)
+        for start,end,padding in [(55.,55.72,60.),(54.,56.,60.),(54.,55.72,55.5),(54.,55.72,86.),(54.,55.72,float('nan'))]:
+            with self.assertRaises(ValueError):
+                normalize_timestamps([{'start':start,'end':end,'text':'retained'}],55.,[padding])
+        for field,value in [('provider_end',56.),('provider_padding_end',55.5),('provider_padding_end',True),('reason','unknown')]:
+            with self.assertRaises(ValueError):
+                validate_adjustments([{**adjustments[0],field:value}],rows,55.)
