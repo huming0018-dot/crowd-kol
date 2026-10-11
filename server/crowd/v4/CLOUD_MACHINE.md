@@ -32,7 +32,7 @@
 
 迁移/Edge 的实际部署、云数据库小试和正式上线由统筹执行。SQL/Python 隔离通过不等于生产已部署，也不等于七平台重新实采。`existing_saved` 小试证明旧内容进入云库与逐条 ACK；不得说成新的来源采集。
 
-2026-10-11已实际部署：项目bdwrhshgdeghgyzwpxnl，crowd-machine ACTIVE v1，迁移历史20261011033423/crowd_machine。CLI本地文件20261011031941与远端历史号不同，SQL内容相同；后续未经迁移历史对齐不得直接db push。历史任务6f8bf0c6收到2ACK，新采首页推荐任务6287526d收到1ACK、2API尝试。完整证据见工作区outputs/unified-cloud-execution-2026-10-11与reviews/49；不代表七平台全量验收。
+2026-10-11已实际部署：项目bdwrhshgdeghgyzwpxnl，crowd-machine ACTIVE v1，迁移历史20261011033423/crowd_machine。CLI最初生成20261011031941；MCP执行后本地文件已按实际远端历史重命名为20261011033423_crowd_machine.sql，SQL内容不变，没有repair历史或重跑DDL。后续先用supabase migration list及db push --dry-run核对已有迁移，再生成新迁移。历史任务6f8bf0c6收到2ACK，新采首页推荐任务6287526d收到1ACK、2API尝试。完整证据见工作区outputs/unified-cloud-execution-2026-10-11与reviews/49；不代表七平台全量验收。
 
 ## 测试与边界
 
