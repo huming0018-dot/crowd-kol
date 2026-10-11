@@ -44,7 +44,7 @@ const ownerView = (() => {
     $('owner_targets').required=!discovery; $('owner_targets').parentElement.hidden=discovery; $('owner_file').parentElement.hidden=discovery;
     $('owner_target_help').textContent=mode==='search'?'搜索词共享给所选平台；链接会按所属平台分配。':'链接按所属平台分配；裸ID请写平台代码,ID。';
     $('owner_targets').placeholder=mode==='search'?'搜索关键词，每行一个':'内容/博主链接，每行一个；裸ID请写成平台代码,ID';
-    for(const input of $('owner_platforms').querySelectorAll('input')) { input.disabled=discovery&&!((mode==='homefeed'?['xhs','bili']:['bili']).includes(input.value)); if(input.disabled)input.checked=false; }
+    for(const input of $('owner_platforms').querySelectorAll('input')) { input.disabled=mode==='trending'&&input.value!=='bili'; if(input.disabled)input.checked=false; }
     if(![...$('owner_platforms').querySelectorAll('input:checked')].length) $('owner_platforms').querySelector('input:not(:disabled)').checked=true;
     if(discovery&&Number($('owner_total').value)>10)$('owner_total').value=2;
     invalidate();

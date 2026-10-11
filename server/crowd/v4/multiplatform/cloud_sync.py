@@ -24,7 +24,8 @@ WORKER_ERRORS = mc_runner.STOP_ERRORS | {'source_outcome_unknown','invalid_cloud
     'invalid_machine_provenance','invalid_capture_record','existing_saved_reader_missing','existing_saved_selection_mismatch',
     'capture_size_limit','cloud_response_size_limit','invalid_cloud_response','cloud_redirect_denied','unacknowledged_capture',
     'supplemental_account_binding_denied','invalid_cloud_reconciliation','invalid_encoding','integer_required',
-    'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown'}
+    'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown',
+    'runner_status_unavailable'}
 RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible','coverage','origin','discovery_kind',
  'comment_id','parent_comment_id','text','reported_reply_count','title','body','content_type',
  'canonical_id_scheme','platform_fields','author','author_id','author_id_scheme','author_id_status',
@@ -254,7 +255,7 @@ class CloudOutbox:
                     raise CloudError('invalid_capture_record')
                 if 'discovery_kind' in record:
                     entry = record['discovery_kind']
-                    if not isinstance(entry, str) or entry not in mc_runner.DISCOVERY_KINDS or entry == 'homefeed' and platform not in ('xiaohongshu','bilibili') or entry == 'trending' and platform != 'bilibili':
+                    if not isinstance(entry, str) or entry not in mc_runner.DISCOVERY_KINDS or entry == 'trending' and platform != 'bilibili':
                         raise CloudError('invalid_capture_record')
                 from results_store import _safe
                 _safe(record)
@@ -471,7 +472,8 @@ class CloudWorker:
             count = sum(v.get('desired_state','running') == 'running' for v in state.get('waiting_logins', []))
             phase = 'waiting_login' if state.get('phase') == 'idle' and count else state.get('phase')
             if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:phase='local_stop_unknown'
-            summary={'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error,
+            observation_error='runner_status_unavailable' if state.get('phase')=='running' and state.get('status_read_error')=='runner_status_unavailable' else None
+            summary={'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error or observation_error,
                     'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats()}
             last=self._stop_summary(self.last_stop or state.get('last_stop'))
             if last:summary['last_stop']=last
@@ -599,10 +601,20 @@ class CloudWorker:
             lease = self._heartbeat(state)
             if lease.get('may_dispatch') is not True:
                 self._stop_local(state, 'owner_stop_requested' if lease.get('desired_state')=='stopped' else 'cloud_dispatch_denied')
-            current = self._runner('status', {'run_id': state['local_run_id']})
-            stage = current.get('state') or current.get('stage') or current.get('status')
-            if stage not in mc_runner.FINAL | {'starting','running','waiting_login','collecting','comments','media'}:
-                raise CloudError('invalid_runner_result')
+            try:
+                current = self._runner('status', {'run_id': state['local_run_id']})
+                stage = current.get('state') or current.get('stage') or current.get('status')
+                if not isinstance(stage,str) or stage not in mc_runner.FINAL | {'starting','running','waiting_login','collecting','comments','media'}:
+                    raise CloudError('invalid_runner_result')
+            except CloudError:
+                if lease.get('may_dispatch') is not True:
+                    raise
+                # A successful renewal authorizes this exact run. A failed read is not revocation.
+                state['status_read_error']='runner_status_unavailable'
+                self._save(state)
+                return {'state':'running','error':'runner_status_unavailable'}
+            state.pop('status_read_error',None)
+            self._save(state)
             if stage not in mc_runner.FINAL:
                 return {'state': 'running', 'local_stage': stage}
             state.update(phase='importing', outcome='unknown' if stage == 'interrupted' else stage,

@@ -33,7 +33,7 @@ try{
     const value=await call('capture',{run_id:lease.run_id,lease_epoch:lease.lease_epoch,envelope,envelope_hash:await captureHash(envelope)},true);
     assert.equal(value.error,'invalid_capture_record');assert.equal(rpcCalls,before);cases++;
   }
-  for(const [platform,kind] of [['weibo','homefeed'],['xiaohongshu','trending']]){
+  for(const [platform,kind] of [['weibo','trending'],['xiaohongshu','trending']]){
     const envelope={...base,platform,record:{...base.record,platform,discovery_kind:kind}},before=rpcCalls;
     const value=await call('capture',{run_id:lease.run_id,lease_epoch:lease.lease_epoch,envelope,envelope_hash:await captureHash(envelope)},true);
     assert.equal(value.error,'invalid_capture_record');assert.equal(rpcCalls,before);cases++;

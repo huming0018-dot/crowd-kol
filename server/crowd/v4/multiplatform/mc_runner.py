@@ -838,14 +838,15 @@ def import_output(root,payload):
                 if len(artifacts)>=1000 or size>26214400 or artifact_bytes>104857600: fail('wordcloud_artifact_limit')
                 artifacts.append({'kind':'wordcloud_image' if path.suffix=='.png' else 'word_frequency','path':str(path.relative_to(run)),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':size,'source_kind':'derived_local','status':'generated_by_external_executor'})
     discovery = read(run/'discovery.json') if (run/'discovery.json').is_file() else None
+    from discovery import SUPPORT as discovery_support
     discovery_version = manifest.get('discovery_contract_version')
     discovery_kind = manifest['request'].get('mode') if type(discovery_version) is int and discovery_version == 1 else None
     if discovery:
         discovery_kind = discovery.get('discovery_kind')
-        if discovery_kind not in ('homefeed','trending') or discovery_kind != manifest['request'].get('mode') or p not in ('xhs','bili') or discovery_kind == 'trending' and p != 'bili':
+        if discovery_kind not in discovery_support or discovery_kind != manifest['request'].get('mode') or p not in discovery_support[discovery_kind]:
             fail('invalid_discovery_provenance')
     if discovery_kind is not None:
-        if discovery_kind not in DISCOVERY_KINDS or discovery_kind == 'homefeed' and p not in ('xhs','bili') or discovery_kind == 'trending' and p != 'bili':
+        if discovery_kind not in DISCOVERY_KINDS or discovery_kind in discovery_support and p not in discovery_support[discovery_kind]:
             fail('invalid_discovery_provenance')
         for record in records:
             # Metadata is outside the established normalized record_hash; the capture hash covers it.

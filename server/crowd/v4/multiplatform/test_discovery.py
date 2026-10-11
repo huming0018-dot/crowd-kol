@@ -37,7 +37,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(result['children'][0]['state'], 'queued')
         self.assertEqual(result['children'][0]['request']['targets'], [])
         with self.assertRaises(ValueError):
-            plan({'platforms': ['wb'], 'mode': 'homefeed', 'desired_items': 1,
+            plan({'platforms': ['wb'], 'mode': 'trending', 'desired_items': 1,
                   'max_api_requests': 5, 'purpose': 'noncommercial_research',
                   'idempotency_key': 'unsupported-discovery'})
 

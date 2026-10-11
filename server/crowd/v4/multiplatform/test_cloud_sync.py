@@ -351,6 +351,68 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.actions[-1][0],'stop')
         self.assertEqual(sum(a=='start' for a,_ in self.actions),1)
 
+    def test_renewed_authorization_status_read_failure_never_stops_or_restarts_source(self):
+        for failure in ('timeout', 'bad_shape', 'unknown_stage', 'non_string_stage'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
+                cloud=FakeCloud(); actions=[]; local_id=uid(); reads=0
+                cloud.lease['request']['max_api_requests']=11
+                original_request=json.loads(json.dumps(cloud.lease['request']))
+                def runner(action,payload):
+                    nonlocal reads
+                    actions.append((action,payload))
+                    if action=='status':
+                        reads+=1
+                        if reads==1:
+                            if failure=='timeout':raise TimeoutError('secret_cookie_value')
+                            if failure=='bad_shape':return {'ok':True,'result':[]}
+                            if failure=='non_string_stage':return {'ok':True,'result':{'state':['secret_state']}}
+                            return {'ok':True,'result':{'state':'unexpected_secret_state'}}
+                        return {'ok':True,'result':{'state':'completed','api_attempts':6}}
+                    if action=='import':return {'ok':True,'result':{'records':[row()]}}
+                    raise AssertionError('status observation must not dispatch or stop source')
+                worker=CloudWorker(Path(folder),cloud,runner)
+                worker._save({'phase':'running','lease':cloud.lease,'local_run_id':local_id,'sequence':2})
+                result=worker.tick()
+                self.assertEqual(result['state'],'running')
+                self.assertEqual(result['error'],'runner_status_unavailable')
+                self.assertEqual(worker.status()['last_error'],'runner_status_unavailable')
+                state=mc_runner.read(worker.path)
+                self.assertEqual(state['local_run_id'],local_id)
+                self.assertEqual(state['status_read_error'],'runner_status_unavailable')
+                self.assertEqual(state['sequence'],3)
+                self.assertNotIn('secret',json.dumps(state))
+                worker=CloudWorker(Path(folder),cloud,runner)
+                self.assertEqual(worker.status()['last_error'],'runner_status_unavailable')
+                self.assertEqual(worker.tick()['state'],'finished')
+                self.assertIsNone(worker.status()['last_error'])
+                self.assertEqual([a for a,_ in actions],['status','status','import'])
+                self.assertEqual(sum(a=='heartbeat' for a,_ in cloud.calls),2)
+                self.assertEqual(next(p for a,p in cloud.calls if a=='finish')['api_attempts'],6)
+                self.assertEqual(cloud.lease['request'],original_request)
+                self.assertFalse(any(a in ('claim','resume_login') for a,_ in cloud.calls))
+
+    def test_status_read_failure_cannot_continue_after_next_renewal_denial(self):
+        for revoked in ('unavailable','denied','owner_stop'):
+            with self.subTest(revoked=revoked), tempfile.TemporaryDirectory() as folder:
+                cloud=FakeCloud();actions=[];local_id=uid()
+                def runner(action,payload):
+                    actions.append((action,payload))
+                    if action=='status':raise TimeoutError('secret_cookie_value')
+                    if action=='stop':return {'ok':True,'result':{'stop_requested':True}}
+                    raise AssertionError('must not start source')
+                worker=CloudWorker(Path(folder),cloud,runner)
+                worker._save({'phase':'running','lease':cloud.lease,'local_run_id':local_id,'sequence':2})
+                self.assertEqual(worker.tick()['error'],'runner_status_unavailable')
+                if revoked=='unavailable':cloud.fail_heartbeat=True
+                else:
+                    cloud.lease['may_dispatch']=False
+                    if revoked=='owner_stop':cloud.lease['desired_state']='stopped'
+                worker.tick()
+                stop=next(p for a,p in actions if a=='stop')
+                self.assertEqual(stop['run_id'],local_id)
+                self.assertEqual(stop['reason'],{'unavailable':'cloud_controller_error','denied':'cloud_dispatch_denied','owner_stop':'owner_stop_requested'}[revoked])
+                self.assertFalse(any(a=='start' for a,_ in actions))
+
     def test_login_recovery_binds_same_account_and_run(self):
         session=uid(); account={'generation':2,'account_ref':'f'*64,'identity_status':'authenticated_self_id','state':'logged_out','authorized_for_run':None,'login_verified':True,'verified_at':time.time()}
         def runner(action,payload):
