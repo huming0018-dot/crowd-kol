@@ -131,6 +131,26 @@ class OwnerTaskTests(unittest.TestCase):
         self.service.resume(task['task_id'])
         self.assertEqual(self.service.status(task['task_id'])['task']['children'][0]['requests_spent'], 3)
 
+    def test_system_or_legacy_stopped_child_is_not_reported_as_owner_stop(self):
+        for reason in ('cloud_controller_error','cloud_dispatch_denied','cloud_worker_shutdown','legacy_stop_requested','user_stop'):
+            with self.subTest(reason=reason):
+                task=self.create(platforms=['xhs'],targets_by_platform={'xhs':['66fad51c000000001b0224b8']},desired_items=1,max_api_requests=3,idempotency_key='systemstop-'+reason);self.service.poll()
+                child=self.service.status(task['task_id'])['task']['children'][0]
+                self.responses[child['active_run_id']]={'state':'stopped','reason':reason,'api_attempts':1,'records':[]}
+                self.service.poll();current=self.service.status(task['task_id'])['task']['children'][0]
+                self.assertEqual(current['state'],'stopped')
+                self.assertEqual(current['reason_code'],reason if reason!='user_stop' else 'legacy_stop_requested')
+
+    def test_first_typed_cause_survives_later_owner_stop_and_direct_user_is_proven(self):
+        for origin,reason in [('cloud_worker','cloud_controller_error'),('user','user_stop')]:
+            task=self.create(platforms=['xhs'],targets_by_platform={'xhs':['66fad51c000000001b0224b8']},desired_items=1,max_api_requests=3,idempotency_key='typed-'+origin)
+            self.service.poll();child=self.service.status(task['task_id'])['task']['children'][0]
+            self.service.stop(task['task_id'])
+            self.responses[child['active_run_id']]={'state':'stopped','reason':reason,'api_attempts':1,
+                'stop_context':{'origin':origin,'reason':reason},'records':[]}
+            self.service.poll();current=self.service.status(task['task_id'])['task']['children'][0]
+            self.assertEqual(current['reason_code'],reason)
+
     def test_restart_dispatching_persistence_blocks_replay(self):
         task = self.create()
         with self.service._db() as db:

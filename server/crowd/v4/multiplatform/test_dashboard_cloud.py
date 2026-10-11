@@ -3,6 +3,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import uuid
+import threading
+import urllib.request
+import urllib.error
 from unittest.mock import patch, MagicMock
 
 from dashboard import Application, make_server
@@ -66,6 +70,40 @@ class CloudDashboardTests(unittest.TestCase):
         self.assertEqual(value['storage_scope'], 'cloud')
         self.assertEqual(value['outbox']['pending'], 1)
         self.assertNotIn('private', json.dumps(value))
+
+    def test_owner_stop_projection_matches_only_stopped_child_without_history_rewrite(self):
+        app=self.app();rid=str(uuid.uuid4());run=app.runner_root/'runs'/rid;run.mkdir(parents=True)
+        (run/'status.json').write_text('{"state":"stopped","reason":"user_stop","updated_at":1}')
+        (run/'stop.json').write_text('{"requested_at":1}')
+        original_status=(run/'status.json').read_bytes();original_marker=(run/'stop.json').read_bytes()
+        value={'ok':True,'task':{'children':[{'state':'stopped','local_run_id':rid},
+                                           {'state':'completed','local_run_id':rid},
+                                           {'state':'stopped','local_run_id':str(uuid.uuid4())}]}}
+        original=json.dumps(value,sort_keys=True);projected=app._task_stop_projection(value)
+        children=projected['task']['children']
+        self.assertEqual(children[0]['local_stop_reason'],'legacy_stop_requested')
+        self.assertEqual(children[0]['local_stop_context']['origin'],'unknown')
+        self.assertNotIn('local_stop_reason',children[1]);self.assertNotIn('local_stop_reason',children[2])
+        self.assertEqual(json.dumps(value,sort_keys=True),original)
+        self.assertEqual((run/'status.json').read_bytes(),original_status);self.assertEqual((run/'stop.json').read_bytes(),original_marker)
+
+    def test_http_stop_marks_explicit_user_and_rejects_system_impersonation(self):
+        app=Application(self.root);server=make_server(app,0)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        url='http://127.0.0.1:'+str(server.server_port);rid=str(uuid.uuid4())
+        def post(payload):
+            request=urllib.request.Request(url+'/api/action',json.dumps({'action':'stop','payload':payload}).encode(),
+                {'Content-Type':'application/json','Origin':url,'X-Crowd-CSRF':app.token},method='POST')
+            return urllib.request.urlopen(request,timeout=5)
+        try:
+            with patch.object(app,'run',return_value={'ok':True,'result':{'stop_requested':True}}) as run:
+                with post({'run_id':rid}) as response:self.assertTrue(json.load(response)['ok'])
+                run.assert_called_once_with('stop',{'run_id':rid,'origin':'user','reason':'user_stop'})
+                with self.assertRaises(urllib.error.HTTPError) as error:
+                    post({'run_id':rid,'origin':'cloud_worker','reason':'cloud_controller_error','error_code':'secret_cookie_value'})
+                self.assertEqual(error.exception.code,400)
+                self.assertNotIn('secret_cookie_value',error.exception.read().decode());self.assertEqual(run.call_count,1)
+        finally:server.shutdown();thread.join(2);server.server_close()
 
 
 if __name__ == '__main__':

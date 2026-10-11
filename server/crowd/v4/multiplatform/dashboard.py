@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local-only task UI for a separately installed MediaCrawler executor."""
 import argparse
+from copy import deepcopy
 import base64
 import json
 import os
@@ -352,10 +353,26 @@ class Application:
                 raise ValueError('supplemental_requires_cloud_task')
             return method(payload)
         if action == 'list' and not payload:
-            return self.owner_tasks.list()
+            return self._task_stop_projection(self.owner_tasks.list())
         if action in ('status', 'stop', 'resume') and set(payload) == {'task_id'}:
-            return getattr(self.owner_tasks, action)(payload['task_id'])
+            return self._task_stop_projection(getattr(self.owner_tasks, action)(payload['task_id']))
         raise ValueError('invalid_task_action')
+
+    def _task_stop_projection(self, value):
+        # Local diagnostics supplement only the matching cloud child; cloud history stays authoritative.
+        from mc_runner import status, BridgeError
+        value=deepcopy(value)
+        for task in ([value['task']] if isinstance(value.get('task'),dict) else value.get('tasks',[])):
+            for child in task.get('children',[]):
+                if child.get('state')!='stopped' or not child.get('local_run_id'):continue
+                try:
+                    root=self._registered_run_root(child['local_run_id'])
+                    current=status(root,{'run_id':child['local_run_id']})
+                    if current.get('state')=='stopped' and current.get('stop_context'):
+                        child['local_stop_context']=current['stop_context']
+                        child['local_stop_reason']=current['stop_context']['reason']
+                except (BridgeError,ValueError,OSError):pass
+        return value
 
     def results(self, action, payload):
         from results_store import ResultsStore
@@ -563,6 +580,10 @@ def make_server(app, port=45937):
                     return
                 if self.path != '/api/action' or set(body) != {'action', 'payload'}:
                     raise ValueError('invalid_request')
+                if body['action']=='stop':
+                    if not isinstance(body['payload'],dict) or set(body['payload'])!={'run_id'}:
+                        raise ValueError('invalid_stop_request')
+                    body['payload']={**body['payload'],'origin':'user','reason':'user_stop'}
                 return self.send(app.run(body['action'], body['payload']))
             except sqlite3.Error:
                 return self.send({'ok': False, 'error': 'local_storage_unavailable'}, 503)

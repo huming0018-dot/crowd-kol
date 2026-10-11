@@ -20,6 +20,11 @@ import mc_runner
 
 SCHEMA = 'crowd-machine-capture-v1'
 HEX = re.compile(r'[a-f0-9]{64}\Z')
+WORKER_ERRORS = mc_runner.STOP_ERRORS | {'source_outcome_unknown','invalid_cloud_ack','invalid_imported_records',
+    'invalid_machine_provenance','invalid_capture_record','existing_saved_reader_missing','existing_saved_selection_mismatch',
+    'capture_size_limit','cloud_response_size_limit','invalid_cloud_response','cloud_redirect_denied','unacknowledged_capture',
+    'supplemental_account_binding_denied','invalid_cloud_reconciliation','invalid_encoding','integer_required',
+    'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown'}
 RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible','coverage','origin',
  'comment_id','parent_comment_id','text','reported_reply_count','title','body','content_type',
  'canonical_id_scheme','platform_fields','author','author_id','author_id_scheme','author_id_status',
@@ -317,10 +322,17 @@ class CloudWorker:
         self.closed = threading.Event()
         self.thread = None
         self.last_error = None
+        self.last_stop = None
+        self.stop_unknown_run_id = None
 
     def _save(self, state):
-        if self.path.exists() and 'waiting_logins' not in state:
-            state['waiting_logins'] = mc_runner.read(self.path).get('waiting_logins', [])
+        if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:
+            state['phase']='local_stop_unknown'
+        if self.path.exists():
+            prior=mc_runner.read(self.path)
+            if 'waiting_logins' not in state:state['waiting_logins']=prior.get('waiting_logins',[])
+            if 'last_stop' not in state and 'last_stop' in prior:state['last_stop']=prior['last_stop']
+        if self.last_stop is not None:state['last_stop']=self.last_stop
         mc_runner.write(self.path, state)
 
     def _runner(self, action, payload):
@@ -350,6 +362,42 @@ class CloudWorker:
         self._save(state)
         return updated
 
+    def _stop_local(self, state, reason, error_code=None):
+        context={'origin':'cloud_worker','reason':reason,'lease_epoch':state['lease']['lease_epoch'],
+                 'heartbeat_sequence':state.get('sequence',0)}
+        desired=state['lease'].get('desired_state')
+        if desired in ('running','paused','stopped'):context['desired_state']=desired
+        if error_code is not None:
+            context['error_code']=error_code if error_code in mc_runner.STOP_ERRORS else 'cloud_worker_failed'
+        context=mc_runner.stop_metadata(context)
+        request_context=context
+        state.setdefault('stop_context',{**context,'requested_at':time.time()})
+        context=state['stop_context']
+        state['last_stop']={**context,'local_run_id':state['local_run_id'],'cloud_run_id':state['lease']['run_id'],
+                            'task_id':state['lease']['task_id'],'delivery':'request_pending'}
+        def persist():
+            self.last_stop=dict(state['last_stop'])
+            try:self._save(state)
+            except (OSError,ValueError,sqlite3.Error):
+                state['last_stop']['persistence']='write_failed';self.last_stop=dict(state['last_stop'])
+                self.last_error='cloud_stop_persistence_failed'
+        persist()
+        try:payload=mc_runner.stop_metadata(context)
+        except mc_runner.BridgeError:payload=request_context
+        try:result=self._runner('stop',{'run_id':state['local_run_id'],**payload})
+        except CloudError:
+            self.stop_unknown_run_id=state['local_run_id']
+            state['phase']='local_stop_unknown'
+            state['last_stop']['delivery']='request_unknown';persist();raise
+        state['last_stop']['delivery']='requested' if result.get('stop_requested') else 'already_terminal'
+        actual=result.get('stop_context')
+        if isinstance(actual,dict):
+            state['stop_context']=mc_runner.safe_stop_context(actual)
+            previous=state['last_stop']
+            state['last_stop']={**state['stop_context'],**{key:previous[key] for key in ('local_run_id','cloud_run_id','task_id','delivery','persistence') if key in previous}}
+        persist()
+        return result
+
     def tick(self):
         with open(self.lock_path, 'r+') as lock:
             try:
@@ -359,25 +407,30 @@ class CloudWorker:
             state = {'phase': 'state_unreadable'}
             try:
                 state = mc_runner.read(self.path) if self.path.exists() else {'phase': 'idle'}
+                if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:
+                    state['phase']='local_stop_unknown'
                 result = self._tick(state)
                 self.last_error = result.get('error')
                 result['waiting_login_count'] = sum(v.get('desired_state','running') == 'running' for v in mc_runner.read(self.path).get('waiting_logins', []))
                 return result
             except (CloudError, mc_runner.BridgeError, ValueError, OSError, sqlite3.Error) as error:
-                code = str(error) if re.fullmatch(r'[a-z_]{1,80}', str(error)) else 'cloud_worker_failed'
+                code = str(error) if str(error) in WORKER_ERRORS else 'cloud_worker_failed'
                 self.last_error = code
                 try:
                     state = mc_runner.read(self.path) if self.path.exists() else state
                 except (ValueError, OSError):
                     pass
+                if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:
+                    state['phase']='local_stop_unknown'
                 # Fail closed if authorization cannot be renewed. Never start another run.
                 lease = state.get('lease')
                 if lease and state.get('local_run_id') and state.get('phase') == 'running':
                     try:
-                        self._runner('stop', {'run_id': state['local_run_id']})
+                        self._stop_local(state, 'cloud_controller_error', code)
                     except CloudError:
                         state['phase'] = 'local_stop_unknown'
-                        self._save(state)
+                        try:self._save(state)
+                        except (OSError,ValueError,sqlite3.Error):self.last_error='cloud_stop_persistence_failed'
                 return {'state': state.get('phase'), 'error': code}
 
     def status(self):
@@ -386,10 +439,28 @@ class CloudWorker:
             state = mc_runner.read(self.path) if self.path.exists() else {'phase':'idle'}
             count = sum(v.get('desired_state','running') == 'running' for v in state.get('waiting_logins', []))
             phase = 'waiting_login' if state.get('phase') == 'idle' and count else state.get('phase')
-            return {'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error,
+            if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:phase='local_stop_unknown'
+            summary={'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error,
                     'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats()}
+            last=self._stop_summary(self.last_stop or state.get('last_stop'))
+            if last:summary['last_stop']=last
+            return summary
         except (ValueError, OSError, sqlite3.Error):
-            return {'phase':'state_unreadable','last_error':'cloud_worker_failed'}
+            summary={'phase':'local_stop_unknown' if self.stop_unknown_run_id else 'state_unreadable','last_error':self.last_error or 'cloud_worker_failed'}
+            last=self._stop_summary(self.last_stop)
+            if last:summary['last_stop']=last
+            return summary
+
+    @staticmethod
+    def _stop_summary(last):
+        if not isinstance(last,dict):return None
+        try:
+            value={**mc_runner.safe_stop_context(last),
+                   **{k:mc_runner.uid(last.get(k)) for k in ('local_run_id','cloud_run_id','task_id')},
+                   'delivery':last['delivery'] if last.get('delivery') in ('request_pending','request_unknown','requested','already_terminal') else 'request_unknown'}
+            if last.get('persistence')=='write_failed':value['persistence']='write_failed'
+            return value
+        except mc_runner.BridgeError:return None
 
     def _tick(self, state):
         # A login wait owns no running executor; other platforms may continue.
@@ -496,7 +567,7 @@ class CloudWorker:
         if state['phase'] == 'running':
             lease = self._heartbeat(state)
             if lease.get('may_dispatch') is not True:
-                self._runner('stop', {'run_id': state['local_run_id']})
+                self._stop_local(state, 'owner_stop_requested' if lease.get('desired_state')=='stopped' else 'cloud_dispatch_denied')
             current = self._runner('status', {'run_id': state['local_run_id']})
             stage = current.get('state') or current.get('stage') or current.get('status')
             if stage not in mc_runner.FINAL | {'starting','running','waiting_login','collecting','comments','media'}:
@@ -641,7 +712,8 @@ class CloudWorker:
             state = mc_runner.read(self.path)
             if state.get('phase') == 'running' and state.get('local_run_id'):
                 try:
-                    self._runner('stop', {'run_id': state['local_run_id']})
+                    self._stop_local(state, 'cloud_worker_shutdown')
                 except CloudError:
                     state['phase'] = 'local_stop_unknown'
-                    self._save(state)
+                    try:self._save(state)
+                    except (OSError,ValueError,sqlite3.Error):self.last_error='cloud_stop_persistence_failed'

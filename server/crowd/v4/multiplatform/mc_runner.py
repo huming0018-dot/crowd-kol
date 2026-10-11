@@ -24,6 +24,10 @@ MEDIA = NATIVE_MEDIA | {'tieba','zhihu'}
 # JSONL writer names differ from CLI platform codes; retain older bridge output aliases.
 JSONL_DIRS = {'dy':('douyin','dy'),'ks':('kuaishou','ks'),'wb':('weibo','wb')}
 FINAL = {'completed','failed','stopped','interrupted_unknown','login_required'}
+STOP_REASONS = {'user': {'user_stop'}, 'cloud_worker': {'cloud_controller_error','cloud_dispatch_denied','cloud_worker_shutdown','owner_stop_requested'},
+                'docker_worker': {'worker_shutdown'}}
+STOP_ERRORS = {'cloud_outcome_unknown','invalid_cloud_lease','runner_outcome_unknown','invalid_runner_result',
+               'worker_revoked','principal_denied','cloud_worker_failed'}
 ID_KEYS = {'xhs':'note_id','dy':'aweme_id','ks':'video_id','bili':'video_id','wb':'note_id','tieba':'note_id','zhihu':'content_id'}
 SECRET = re.compile(r'(?i)(?:cookie|authorization|access_token|refresh_token|xsec_token|token|password|passwd|secret|sessionid|api_key|x-amz-signature|x-amz-credential)\s*[=:]')
 
@@ -421,9 +425,49 @@ def argv_for(p, output):
     args += [{'search':'--keywords','detail':'--specified_id','creator':'--creator_id'}[p['mode']],','.join(targets)]
     return args
 
+def stop_metadata(payload):
+    origin=payload.get('origin','user');reason=payload.get('reason','user_stop')
+    if not isinstance(origin,str) or not isinstance(reason,str) or reason not in STOP_REASONS.get(origin,set()):
+        fail('invalid_stop_request')
+    value={'origin':origin,'reason':reason}
+    for key in ('lease_epoch','heartbeat_sequence'):
+        if key in payload:
+            number=payload[key]
+            if origin!='cloud_worker' or type(number) is not int or not (1 if key=='lease_epoch' else 0)<=number<=9007199254740991:
+                fail('invalid_stop_request')
+            value[key]=number
+    if 'error_code' in payload:
+        if reason!='cloud_controller_error' or not isinstance(payload['error_code'],str) or payload['error_code'] not in STOP_ERRORS:
+            fail('invalid_stop_request')
+        value['error_code']=payload['error_code']
+    if 'desired_state' in payload:
+        if origin!='cloud_worker' or payload['desired_state'] not in ('running','paused','stopped'):fail('invalid_stop_request')
+        value['desired_state']=payload['desired_state']
+    return value
+
+def safe_stop_context(marker):
+    try:
+        value=stop_metadata(marker) if isinstance(marker,dict) and 'origin' in marker and 'reason' in marker else {'origin':'unknown','reason':'legacy_stop_requested'}
+        requested=marker.get('requested_at') if isinstance(marker,dict) else None
+        if type(requested) in (int,float) and 0<=requested<=9007199254740991:value['requested_at']=requested
+        return value
+    except (BridgeError,ValueError,OSError,TypeError):
+        return {'origin':'unknown','reason':'legacy_stop_requested'}
+
+def stop_context(run):
+    path=Path(run)/'stop.json'
+    if not path.exists():return {}
+    if path.is_symlink():fail('unsafe_stop_marker')
+    try:return safe_stop_context(read(path))
+    except (ValueError,OSError):return {'origin':'unknown','reason':'legacy_stop_requested'}
+
 def status(root, payload):
     run = run_dir(root,payload.get('run_id'))
     state = read(run/'status.json')
+    context=stop_context(run)
+    if context:
+        state={**state,'stop_context':context,'stop_origin':context['origin']}
+        if state['state']=='stopped':state['reason']=context['reason']
     # No inference of success from the supervisor or browser disappearing.
     if state['state'] not in FINAL and time.time()-state['updated_at'] > 8:
         state = {**state,'state':'interrupted_unknown','reason':'supervisor_heartbeat_missing'}
@@ -431,11 +475,24 @@ def status(root, payload):
 
 def stop(root,payload):
     run = run_dir(root,payload.get('run_id'))
+    if set(payload)-{'run_id','origin','reason','lease_epoch','heartbeat_sequence','error_code','desired_state'}:fail('invalid_stop_request')
+    metadata=stop_metadata(payload)
     s = status(root,payload)
     if s['state'] in ('completed','failed','stopped','login_required'):
         return s
-    write(run/'stop.json',{'requested_at':time.time()})
-    return {**s,'stop_requested':True}
+    marker=run/'stop.json'
+    if marker.is_symlink():fail('unsafe_stop_marker')
+    # Link a complete private snapshot exclusively: the first stop cause is immutable.
+    temp=run/('stop.'+uuid.uuid4().hex+'.tmp')
+    try:
+        with open(temp,'x',encoding='utf8') as stream:
+            os.chmod(temp,0o600);stream.write(canonical({'requested_at':time.time(),**metadata}));stream.flush();os.fsync(stream.fileno())
+        try:os.link(temp,marker)
+        except FileExistsError:pass
+    finally:
+        if temp.exists():temp.unlink()
+    context=stop_context(run)
+    return {**s,'stop_requested':True,'stop_context':context,'stop_origin':context['origin']}
 
 def worker(root, mc, run_id, lock_fd):
     run = run_dir(root,run_id)
@@ -449,7 +506,7 @@ def worker(root, mc, run_id, lock_fd):
     while child.poll() is None:
         output_bytes=sum(f.stat().st_size for f in (run/'output').rglob('*') if f.is_file() and not f.is_symlink())
         if (run/'stop.json').exists() or time.monotonic()-started > p['timeout_seconds'] or output_bytes>104857600:
-            reason = 'user_stop' if (run/'stop.json').exists() else 'output_byte_limit' if output_bytes>104857600 else 'wall_timeout'
+            reason = stop_context(run)['reason'] if (run/'stop.json').exists() else 'output_byte_limit' if output_bytes>104857600 else 'wall_timeout'
             os.killpg(child.pid, signal.SIGTERM)
             try:
                 child.wait(5)
@@ -463,9 +520,10 @@ def worker(root, mc, run_id, lock_fd):
         write(run/'status.json',state)
         time.sleep(0.5)
     code = child.wait()
-    if (run/'stop.json').exists(): reason='user_stop'
+    if (run/'stop.json').exists():
+        context=stop_context(run);reason=context['reason'];state.update(stop_context=context,stop_origin=context['origin'])
     elif time.monotonic()-started>p['timeout_seconds'] and reason is None: reason='wall_timeout'
-    final = 'stopped' if reason=='user_stop' else 'login_required' if code in (77,78) else 'completed' if code==0 and not reason else 'failed'
+    final = 'stopped' if (run/'stop.json').exists() else 'login_required' if code in (77,78) else 'completed' if code==0 and not reason else 'failed'
     progress = read(run/'phase.json') if (run/'phase.json').exists() else {}
     state.update(progress)
     state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')

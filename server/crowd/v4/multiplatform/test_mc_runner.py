@@ -22,6 +22,76 @@ MC=Path(os.environ.get('MC_EXTERNAL_ROOT','/Users/hubowen/WorkBuddy/2026-10-08-2
 PYTHON=MC/'.venv/bin/python'
 
 class RunnerTest(unittest.TestCase):
+    def stop_run(self):
+        rid=str(uuid.uuid4());run=self.root/'runs'/rid;(run/'output').mkdir(parents=True)
+        m.write(run/'manifest.json',{'request':{'timeout_seconds':180}})
+        m.write(run/'status.json',{'state':'running','updated_at':time.time()})
+        m.write(run/'phase.json',{'phase':'comments','api_attempts':2})
+        return rid,run
+
+    def test_typed_stop_real_supervisor_reasons_and_first_marker_wins(self):
+        from unittest.mock import Mock,patch
+        cases=[{'origin':'user','reason':'user_stop'},
+               *[{'origin':'cloud_worker','reason':reason,'lease_epoch':2,'heartbeat_sequence':4}
+                 for reason in ('cloud_controller_error','cloud_dispatch_denied','cloud_worker_shutdown','owner_stop_requested')],
+               {'origin':'docker_worker','reason':'worker_shutdown'}]
+        for metadata in cases:
+            with self.subTest(reason=metadata['reason']):
+                rid,run=self.stop_run();m.stop(self.root,{'run_id':rid,**metadata})
+                original=(run/'stop.json').read_bytes()
+                m.stop(self.root,{'run_id':rid,'origin':'cloud_worker','reason':'cloud_dispatch_denied'})
+                self.assertEqual((run/'stop.json').read_bytes(),original)
+                child=Mock();child.poll.return_value=None;child.wait.return_value=-15
+                with patch.object(m.subprocess,'Popen',return_value=child),patch.object(m.os,'killpg'),patch.object(m.os,'close'):
+                    m.worker(self.root,self.mc,rid,99)
+                state=m.status(self.root,{'run_id':rid})
+                self.assertEqual((state['state'],state['reason'],state['stop_origin']),('stopped',metadata['reason'],metadata['origin']))
+                self.assertEqual(state['api_attempts'],2);self.assertEqual(state['exit_code'],-15)
+                self.assertEqual((run/'stop.json').read_bytes(),original)
+
+    def test_legacy_stop_is_read_only_unknown_and_hardlink_untouched(self):
+        rid,run=self.stop_run();outside=self.base/'original-marker';outside.write_text('{"requested_at":1}')
+        os.link(outside,run/'stop.json');original=outside.read_bytes()
+        m.write(run/'status.json',{'state':'stopped','reason':'user_stop','updated_at':time.time()})
+        status_bytes=(run/'status.json').read_bytes()
+        state=m.status(self.root,{'run_id':rid});self.assertEqual(state['reason'],'legacy_stop_requested')
+        self.assertEqual(state['stop_origin'],'unknown');m.stop(self.root,{'run_id':rid})
+        self.assertEqual(outside.read_bytes(),original);self.assertEqual((run/'stop.json').read_bytes(),original)
+        self.assertEqual((run/'status.json').read_bytes(),status_bytes)
+
+    def test_stop_rejects_untrusted_metadata_and_atomic_failure_leaves_no_marker(self):
+        from unittest.mock import patch
+        rid,run=self.stop_run()
+        for value in ({'origin':'secret_origin'},{'origin':[]},{'reason':'private_secret_value'},
+                      {'origin':'cloud_worker','reason':'cloud_controller_error','error_code':'secret_cookie_value'},
+                      {'origin':'cloud_worker','reason':'cloud_controller_error','error_code':{}},
+                      {'origin':'cloud_worker','reason':'cloud_dispatch_denied','lease_epoch':True},
+                      {'origin':'cloud_worker','reason':'cloud_dispatch_denied','heartbeat_sequence':-1},
+                      {'private_token':'secret'}):
+            with self.subTest(value=value),self.assertRaises(m.BridgeError):m.stop(self.root,{'run_id':rid,**value})
+        self.assertFalse((run/'stop.json').exists())
+        with patch.object(m.os,'link',side_effect=OSError('fixture disk failure')):
+            with self.assertRaises(OSError):m.stop(self.root,{'run_id':rid})
+        self.assertFalse((run/'stop.json').exists());self.assertEqual(list(run.glob('stop.*.tmp')),[])
+        outside=self.base/'outside';outside.write_bytes(b'original');(run/'stop.json').symlink_to(outside)
+        with self.assertRaises(m.BridgeError):m.stop(self.root,{'run_id':rid})
+        self.assertEqual(outside.read_bytes(),b'original')
+
+    def test_docker_shutdown_calls_typed_system_stop_on_original_run(self):
+        from unittest.mock import Mock,patch
+        spec=importlib.util.spec_from_file_location('own_docker_worker',HERE/'docker/worker.py')
+        docker=importlib.util.module_from_spec(spec);spec.loader.exec_module(docker)
+        rid,run=self.stop_run();signals={};commands=[]
+        def register(sig,callback):signals[sig]=callback
+        def sleep(_):signals[docker.signal.SIGTERM]()
+        def execute(command,**kwargs):commands.append((command,json.loads(kwargs['input'])))
+        with patch.object(docker.signal,'signal',side_effect=register),patch.object(docker.time,'sleep',side_effect=sleep),\
+             patch.object(docker.os,'waitpid',side_effect=ChildProcessError),patch.object(docker.subprocess,'run',side_effect=execute),\
+             patch('builtins.print'):
+            docker.serve(self.mc,self.root)
+        self.assertEqual(len(commands),1);self.assertEqual(commands[0][1],{'run_id':rid,'origin':'docker_worker','reason':'worker_shutdown'})
+        self.assertEqual(commands[0][0][-1],'stop')
+
     def test_account_event_publishes_one_complete_phase_snapshot(self):
         tree=ast.parse((HERE/'mc_runner.py').read_text())
         node=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name=='account_event')

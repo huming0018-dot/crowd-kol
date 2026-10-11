@@ -67,7 +67,7 @@ def serve(mc, runtime):
             if state.get('state') not in FINAL:
                 subprocess.run([sys.executable, str(BRIDGE), '--root', str(runtime),
                                 '--mc-root', str(mc), 'stop'],
-                               input=json.dumps({'run_id': folder.name}).encode(),
+                               input=json.dumps({'run_id': folder.name,'origin':'docker_worker','reason':'worker_shutdown'}).encode(),
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
         except (OSError, ValueError, subprocess.SubprocessError):
             pass

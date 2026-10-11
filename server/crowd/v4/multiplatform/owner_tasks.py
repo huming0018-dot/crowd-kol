@@ -396,7 +396,11 @@ class OwnerTasks:
         if state == 'login_required':
             child.update(state='waiting', reason_code='account_changed' if result.get('reason') == 'account_changed' else 'login_required')
         elif state == 'stopped':
-            child.update(state='stopped', reason_code='user_stop')
+            reason=result.get('reason')
+            known={r for values in mc_runner.STOP_REASONS.values() for r in values}|{'legacy_stop_requested'}
+            context=mc_runner.safe_stop_context(result.get('stop_context'))
+            child.update(state='stopped',reason_code=context['reason'] if isinstance(result.get('stop_context'),dict) else reason if reason in known and reason!='user_stop' else 'legacy_stop_requested')
+            if isinstance(result.get('stop_context'),dict):child['stop_context']=context
         elif state == 'failed':
             child.update(state='failed', reason_code=result.get('reason') or 'executor_error')
         elif not keys:

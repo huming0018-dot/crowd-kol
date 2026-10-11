@@ -7,7 +7,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 import uuid
 
 from cloud_sync import CloudClient, CloudError, CloudOutbox, CloudOwnerAdapter, CloudWorker, canonical, _hash, _strict_json
@@ -95,6 +95,94 @@ class Tests(unittest.TestCase):
         if action=='import':return {'ok':True,'result':{'records':[row()]}}
         if action=='stop':return {'ok':True,'result':{'state':'stopped'}}
         raise ValueError('unexpected_action')
+
+    def test_system_stop_callers_preserve_typed_cause_across_idle_and_restarts(self):
+        for trigger,reason in [('error','cloud_controller_error'),('denied','cloud_dispatch_denied'),
+                               ('close','cloud_worker_shutdown'),('owner','owner_stop_requested')]:
+            with self.subTest(trigger=trigger),tempfile.TemporaryDirectory() as folder:
+                root=Path(folder);rid=uid();run=root/'runs'/rid;(run/'output').mkdir(parents=True)
+                mc_runner.write(run/'manifest.json',{'request':{'timeout_seconds':180}})
+                mc_runner.write(run/'status.json',{'state':'running','updated_at':time.time()})
+                mc_runner.write(run/'phase.json',{'phase':'comments','api_attempts':2})
+                cloud=FakeCloud();cloud.fail_heartbeat=trigger=='error'
+                if trigger in ('denied','owner'):cloud.lease['may_dispatch']=False
+                if trigger=='owner':cloud.lease['desired_state']='stopped'
+                original=cloud.call
+                def call(action,payload=None):
+                    return {'lease':None} if action=='claim' else original(action,payload)
+                cloud.call=call;actions=[]
+                def runner(action,payload):
+                    actions.append((action,payload))
+                    if action=='stop':value=mc_runner.stop(root,payload)
+                    elif action=='status':value=mc_runner.status(root,payload)
+                    elif action=='import':value={'records':[row()]}
+                    else:raise AssertionError('no source dispatch')
+                    return {'ok':True,'result':value}
+                worker=CloudWorker(root,cloud,runner)
+                worker._save({'phase':'running','lease':cloud.lease,'local_run_id':rid,'sequence':2})
+                worker.close() if trigger=='close' else worker.tick()
+                marker=mc_runner.read(run/'stop.json');self.assertEqual(marker['reason'],reason)
+                self.assertEqual(marker['origin'],'cloud_worker');self.assertEqual(marker['lease_epoch'],1)
+                self.assertEqual(marker['heartbeat_sequence'],2 if trigger=='close' else 3)
+                original_marker=(run/'stop.json').read_bytes()
+                child=Mock();child.poll.return_value=None;child.wait.return_value=-15
+                with patch.object(mc_runner.subprocess,'Popen',return_value=child),patch.object(mc_runner.os,'killpg'),patch.object(mc_runner.os,'close'):
+                    mc_runner.worker(root,root,rid,99)
+                cloud.fail_heartbeat=False;worker.tick();worker.tick()
+                self.assertEqual(mc_runner.read(worker.path)['phase'],'idle')
+                self.assertEqual(worker.status()['last_stop']['reason'],reason)
+                restored=CloudWorker(root,cloud,runner)
+                self.assertEqual(restored.status()['last_stop']['local_run_id'],rid)
+                self.assertEqual(restored.status()['last_stop']['reason'],reason)
+                self.assertFalse(any(a=='start' for a,_ in actions));self.assertEqual((run/'stop.json').read_bytes(),original_marker)
+
+    def test_diagnostic_disk_failure_still_stops_and_transport_unknown_blocks_restart(self):
+        for stop_fails in (False,True):
+            with self.subTest(stop_fails=stop_fails):
+                cloud=FakeCloud();cloud.fail_heartbeat=True;actions=[]
+                def runner(action,payload):
+                    actions.append((action,payload))
+                    if action=='stop' and stop_fails:raise RuntimeError('secret_cookie_value')
+                    return {'ok':True,'result':{'state':'running','stop_requested':action=='stop'}}
+                worker=CloudWorker(self.root,cloud,runner)
+                worker._save({'phase':'running','lease':cloud.lease,'local_run_id':self.local_id,'sequence':2})
+                with patch.object(worker,'_save',side_effect=OSError('secret_cookie_value')):
+                    result=worker.tick();self.assertEqual(len(actions),1)
+                    self.assertEqual(actions[0][1]['run_id'],self.local_id)
+                    self.assertEqual(actions[0][1]['reason'],'cloud_controller_error')
+                    summary=worker.status();self.assertEqual(summary['last_stop']['persistence'],'write_failed')
+                    if stop_fails:
+                        self.assertEqual(result['state'],'local_stop_unknown')
+                        self.assertEqual(summary['last_stop']['delivery'],'request_unknown')
+                        worker.tick();self.assertEqual(len(actions),1)
+                    self.assertNotIn('secret_cookie_value',json.dumps(summary));self.assertFalse(any(a=='start' for a,_ in actions))
+                worker._save(mc_runner.read(worker.path))
+                restored=CloudWorker(self.root,cloud,runner)
+                self.assertEqual(restored.status()['last_stop']['persistence'],'write_failed')
+                if stop_fails:self.assertEqual(mc_runner.read(worker.path)['phase'],'local_stop_unknown')
+
+    def test_unknown_error_text_cannot_become_stop_diagnostic_or_ui_error(self):
+        cloud=FakeCloud();worker=CloudWorker(self.root,cloud,self.runner)
+        worker._save({'phase':'running','lease':cloud.lease,'local_run_id':self.local_id})
+        with patch.object(cloud,'call',side_effect=ValueError('secret_cookie_value')):
+            result=worker.tick()
+        self.assertEqual(result['error'],'cloud_worker_failed')
+        self.assertEqual(self.actions[-1][1]['error_code'],'cloud_worker_failed')
+        self.assertNotIn('secret_cookie_value',json.dumps(mc_runner.read(worker.path)))
+        self.assertNotIn('secret_cookie_value',json.dumps(worker.status()))
+
+    def test_existing_user_marker_keeps_exact_context_without_stale_system_metadata(self):
+        rid=uid();run=self.root/'runs'/rid;run.mkdir(parents=True)
+        mc_runner.write(run/'status.json',{'state':'running','updated_at':time.time()})
+        mc_runner.stop(self.root,{'run_id':rid});original=(run/'stop.json').read_bytes()
+        def runner(action,payload):
+            self.assertEqual(action,'stop');return {'ok':True,'result':mc_runner.stop(self.root,payload)}
+        worker=CloudWorker(self.root,self.cloud,runner)
+        state={'phase':'running','lease':self.cloud.lease,'local_run_id':rid,'sequence':4}
+        worker._stop_local(state,'cloud_controller_error','cloud_outcome_unknown')
+        value=worker.status()['last_stop'];self.assertEqual((value['origin'],value['reason']),('user','user_stop'))
+        self.assertNotIn('error_code',value);self.assertNotIn('desired_state',value);self.assertNotIn('lease_epoch',value)
+        self.assertEqual((run/'stop.json').read_bytes(),original)
 
     def test_canonical_cross_language_and_strict_numbers(self):
         self.assertEqual(canonical({'😀':1,'\ue000':2,'line':'\n\t','a':-0.0}),'{"a":0,"line":"\\u000a\\u0009","":2,"😀":1}')
