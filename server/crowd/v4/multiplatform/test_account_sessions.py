@@ -519,6 +519,96 @@ class KsDiagnosticTests(unittest.TestCase):
 
 
 class FreshCookiePauseTests(unittest.TestCase):
+    def test_xhs_native_missing_qr_keeps_page_and_one_continue_refreshes_session(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();sid=str(uuid.uuid4());session=root/'sessions'/sid
+            session.mkdir(parents=True);(session/'identity.json').write_text('{"platform":"xhs"}')
+            (session/'browser_data').mkdir();(session/'browser_data/untouched').write_bytes(b'original-xhs-profile')
+            store=AccountSessions(root);store.observe(sid,'xhs','authenticated',account_id='original')
+            mc=root/'fake-native'
+            for name in ['.venv/bin','libs','tools','playwright','media_platform/xhs','media_platform/kuaishou/graphql']:(mc/name).mkdir(parents=True)
+            (mc/'.venv/bin/python').symlink_to(sys.executable);(mc/'config.py').write_text('')
+            (mc/'playwright/__init__.py').write_text('')
+            (mc/'playwright/async_api.py').write_text('class BrowserType:\n async def launch_persistent_context(self,*a,**kw): pass\n')
+            (mc/'tools/utils.py').write_text('async def find_login_qrcode(*a,**kw): return None\n')
+            (mc/'httpx.py').write_text('''from pathlib import Path
+class AsyncClient:
+ async def send(self,headers):
+  assert Path('ORIGINAL_PAGE_VISIBLE').exists()
+  with Path('SYNTHETIC_REQUESTS').open('a') as log: log.write(headers['synthetic_auth']+'\\n')
+  ok=headers['synthetic_auth']=='human-signed-in'
+  return {'data':{'result':{'success':ok,'user':{'user_id':'original'} if ok else {}}}}
+''')
+            (mc/'media_platform/xhs/client.py').write_text('''from pathlib import Path
+from httpx import AsyncClient
+class XiaoHongShuClient:
+ def __init__(self): self.headers={'synthetic_auth':'guest'}
+ async def query_self(self): return await AsyncClient().send(headers=self.headers.copy())
+ async def pong(self):
+  try: return (await self.query_self())['data']['result']['success']
+  except Exception: return False
+ async def update_cookies(self,browser_context,urls=None):
+  assert urls==['https://www.xiaohongshu.com']
+  self.headers={'synthetic_auth':browser_context.synthetic_cookie()}
+  Path('NATIVE_COOKIE_REFRESH').touch()
+''')
+            (mc/'media_platform/xhs/login.py').write_text('''from pathlib import Path
+from tools import utils
+class XiaoHongShuLogin:
+ async def begin(self):
+  assert await utils.find_login_qrcode() is None
+  Path('NATIVE_QR_MISSING').touch()
+  raise SystemExit(0)
+''')
+            (mc/'main.py').write_text('''import asyncio
+from pathlib import Path
+from media_platform.xhs.client import XiaoHongShuClient
+from media_platform.xhs.login import XiaoHongShuLogin
+real_sleep=asyncio.sleep
+async def fast_sleep(seconds): await real_sleep(min(seconds,.005))
+asyncio.sleep=fast_sleep
+class Page:
+ def is_closed(self): return False
+ async def bring_to_front(self): Path('ORIGINAL_PAGE_VISIBLE').touch()
+ async def goto(self,*a,**kw): raise AssertionError('do not navigate away from original XHS page')
+class Context:
+ def synthetic_cookie(self): return 'human-signed-in' if Path('SYNTHETIC_HUMAN_LOGIN').exists() else 'guest'
+ async def close(self): Path('CLOSED').touch()
+class Crawler:
+ cookie_urls=['https://www.xiaohongshu.com']
+ async def search(self): Path('SOURCE_COLLECTION_SENTINEL').touch()
+ async def start(self):
+  self.browser_context=Context();self.context_page=Page();self.xhs_client=XiaoHongShuClient()
+  if not await self.xhs_client.pong(): await XiaoHongShuLogin().begin()
+  Path('POST_LOGIN_NAVIGATION').touch()
+class CrawlerFactory: CRAWLERS={'xhs':Crawler}
+''')
+            opened=store.open_login(sid,'xhs',mc);pid=opened['login_worker_pid'];reaped=False
+            try:
+                deadline=time.monotonic()+5
+                while time.monotonic()<deadline and not store.status(sid).get('login_verification_paused'):time.sleep(.01)
+                state=store.status(sid);self.assertTrue(state.get('login_verification_paused'))
+                work=next((root/'accounts'/sid).glob('login-*'))
+                self.assertEqual((work/'SYNTHETIC_REQUESTS').read_text().splitlines(),['guest']*8)
+                self.assertTrue((work/'NATIVE_QR_MISSING').exists());self.assertFalse((work/'CLOSED').exists())
+                self.assertTrue(state['login_page_ready']);self.assertTrue(state['login_in_progress']);self.assertFalse(state['login_verified'])
+                time.sleep(.08);self.assertEqual((work/'SYNTHETIC_REQUESTS').read_text().splitlines(),['guest']*8)
+                (work/'SYNTHETIC_HUMAN_LOGIN').touch();store.resume_verification(sid)
+                deadline=time.monotonic()+5
+                while time.monotonic()<deadline:
+                    done,status=os.waitpid(pid,os.WNOHANG)
+                    if done:reaped=True;self.assertEqual(os.waitstatus_to_exitcode(status),0);break
+                    time.sleep(.01)
+                self.assertTrue(reaped,'one explicit continue must refresh original XHS native cookies')
+                state=store.status(sid);self.assertEqual(state['state'],'resumed')
+                self.assertEqual((state['login_verification_round'],state['login_verification_attempts']),(2,1))
+                self.assertEqual((work/'SYNTHETIC_REQUESTS').read_text().splitlines(),['guest']*8+['human-signed-in'])
+                self.assertTrue((work/'NATIVE_COOKIE_REFRESH').exists());self.assertTrue((work/'CLOSED').exists())
+                self.assertFalse((work/'POST_LOGIN_NAVIGATION').exists());self.assertFalse((work/'SOURCE_COLLECTION_SENTINEL').exists())
+                self.assertEqual((session/'browser_data/untouched').read_bytes(),b'original-xhs-profile')
+            finally:
+                if not reaped:store.cancel_login(sid);os.waitpid(pid,0)
+
     def test_real_child_one_continue_refreshes_native_client_headers(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp).resolve();sid=str(uuid.uuid4());session=root/'sessions'/sid
@@ -605,6 +695,12 @@ class VerificationPauseTests(unittest.TestCase):
         self.lock=open(session/'active.lock','a+');fcntl.flock(self.lock,fcntl.LOCK_EX|fcntl.LOCK_NB);self.addCleanup(self.lock.close)
         self.store=AccountSessions(self.root);self.store.observe(self.sid,'zhihu','waiting_login')
         self.store._update(self.sid,'zhihu',lambda v:v.update(login_page_ready=True))
+
+    def xhs_session(self):
+        self.sid=str(uuid.uuid4());session=self.root/'sessions'/self.sid;session.mkdir()
+        (session/'identity.json').write_text('{"platform":"xhs"}');(session/'browser_data').mkdir()
+        self.lock=open(session/'active.lock','a+');fcntl.flock(self.lock,fcntl.LOCK_EX|fcntl.LOCK_NB);self.addCleanup(self.lock.close)
+        self.store.observe(self.sid,'xhs','waiting_login')
 
     def test_eight_checks_pause_without_reset_until_explicit_human_marker(self):
         async def run():
@@ -696,6 +792,64 @@ class VerificationPauseTests(unittest.TestCase):
             with self.assertRaises(LoginFlowError) as error:await asyncio.wait_for(blocked,2)
             self.assertEqual(error.exception.code,'login_user_cancelled')
         asyncio.run(run())
+
+    def test_xhs_180s_expiry_bounds_native_600s_wait_without_closing_page(self):
+        self.xhs_session();events=[]
+        budget=LoginVerificationWindow(self.store,self.sid,'xhs',time.monotonic()-1)
+        class Page:
+            def is_closed(self):return False
+            async def bring_to_front(self):events.append('front')
+            async def goto(self,*a,**kw):raise AssertionError('original XHS page must be retained')
+        class Client:
+            async def pong(self):raise AssertionError('expired round must send no self-check')
+            async def update_cookies(self,*a,**kw):raise AssertionError('refresh requires explicit next round')
+        class Login:
+            async def begin(self):
+                events.append('native_wait_started')
+                try:await asyncio.sleep(600)
+                finally:events.append('native_wait_cancelled')
+        crawler=SimpleNamespace(context_page=Page(),browser_context=object(),cookie_urls=['https://www.xiaohongshu.com'],xhs_client=Client())
+        install_manual_login_fallback(crawler,self.store,self.sid,'xhs',budget.deadline,Login,Client,SimpleNamespace(),verification=budget)
+        async def run():
+            waiter=asyncio.create_task(Login().begin());await asyncio.sleep(.04)
+            self.assertFalse(waiter.done());self.assertTrue(budget.paused)
+            self.assertEqual(budget.attempts,0);self.assertIn('native_wait_cancelled',events)
+            state=self.store.status(self.sid);self.assertTrue(state['login_page_ready']);self.assertTrue(state['login_in_progress'])
+            self.assertEqual(state['login_wait_reason'],'verification_paused');self.assertFalse(state['login_verified'])
+            self.store.cancel_login(self.sid)
+            with self.assertRaises(LoginFlowError) as error:await asyncio.wait_for(waiter,2)
+            self.assertEqual(error.exception.code,'login_user_cancelled')
+        asyncio.run(run());self.assertEqual(self.original.read_bytes(),b'original profile')
+
+    def test_xhs_interactive_network_failure_keeps_page_but_source_stays_strict(self):
+        self.xhs_session()
+        for interactive in (False,True):
+            with self.subTest(interactive=interactive):
+                class Client:
+                    async def query_self(self):raise ValueError('synthetic-private-network-error')
+                    async def pong(self):
+                        try:return bool(await self.query_self())
+                        except Exception:return False
+                    async def update_cookies(self,*a,**kw):pass
+                self.store.observe(self.sid,'xhs','waiting_login')
+                install_hooks(self.root,self.sid,'xhs',None,lambda *_:None,client_class=Client,interactive_login=interactive)
+                if not interactive:
+                    with self.assertRaises(SystemExit) as error:asyncio.run(Client().pong())
+                    self.assertEqual(error.exception.code,77)
+                else:
+                    events=[]
+                    class Page:
+                        def is_closed(self):return False
+                        async def bring_to_front(self):events.append('front')
+                    class Login:
+                        async def begin(self):pass
+                    self.store._update(self.sid,'xhs',lambda value:value.update(login_page_ready=False))
+                    crawler=SimpleNamespace(context_page=Page())
+                    install_manual_login_fallback(crawler,self.store,self.sid,'xhs',time.monotonic()+180,Login,Client,SimpleNamespace())
+                    self.assertFalse(asyncio.run(Client().pong()));self.assertEqual(events,['front'])
+                    state=self.store.status(self.sid);self.assertEqual(state['state'],'waiting_login')
+                    self.assertTrue(state['login_page_ready']);self.assertEqual(state['login_error_code'],'login_verification_unavailable')
+                    self.assertNotIn('synthetic-private',json.dumps(state))
 
 
 class RecoveryTests(unittest.TestCase):

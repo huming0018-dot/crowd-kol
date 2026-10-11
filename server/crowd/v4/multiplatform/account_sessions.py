@@ -463,14 +463,14 @@ def guard_auth_response(store, session_id, platform, run_id, event, response):
 def install_manual_login_fallback(crawler, store, session_id, platform, deadline,
                                   login_class=None, client_class=None, utilities=None, verification=None):
     """Keep the original visible context alive when a native QR selector fails."""
-    if platform not in ('zhihu', 'ks'):
+    if platform not in ('zhihu', 'ks', 'xhs'):
         return
     module, name = CLIENTS[platform]
     if client_class is None:
         client_class = getattr(importlib.import_module('media_platform.' + module + '.client'), name)
     if login_class is None:
         login_class = getattr(importlib.import_module('media_platform.' + module + '.login'),
-                              'ZhiHuLogin' if platform == 'zhihu' else 'KuaishouLogin')
+                              {'zhihu': 'ZhiHuLogin', 'ks': 'KuaishouLogin', 'xhs': 'XiaoHongShuLogin'}[platform])
     if utilities is None:
         from tools import utils as utilities
     checked_pong = client_class.pong
@@ -546,7 +546,7 @@ def install_manual_login_fallback(crawler, store, session_id, platform, deadline
         store.observe(session_id, platform, 'waiting_login')
         store._update(session_id, platform, lambda value: value.update(
             login_flow='manual_original_browser', login_wait_reason='verification_paused' if verification and verification.paused else reason, login_page_ready=True))
-        client = getattr(crawler, 'zhihu_client' if platform == 'zhihu' else 'ks_client')
+        client = getattr(crawler, {'zhihu': 'zhihu_client', 'ks': 'ks_client', 'xhs': 'xhs_client'}[platform])
         while verification or time.monotonic() < deadline:
             if (store.root / session_id / 'login-stop').exists():
                 raise LoginFlowError('login_user_cancelled')
@@ -566,7 +566,7 @@ async def login_worker(args):
     """Use MC's visible human-login path with every content-collection entry disabled."""
     deadline = time.monotonic() + 180
     store = AccountSessions(args.root)
-    verification = LoginVerificationWindow(store, args.session_id, args.platform, deadline) if args.platform in ('zhihu', 'ks') else None
+    verification = LoginVerificationWindow(store, args.session_id, args.platform, deadline) if args.platform in ('zhihu', 'ks', 'xhs') else None
     session, _ = store._session(args.session_id, args.platform)
     folder = store.root / args.session_id
     work = folder / ('login-' + secrets.token_hex(8)); work.mkdir(mode=0o700)
@@ -594,7 +594,7 @@ async def login_worker(args):
         crawler_class.search = no_collection
         def event(_state, _value): pass
         install_hooks(args.root, args.session_id, args.platform, None, event,
-                      interactive_login=args.platform in ('zhihu', 'ks'))
+                      interactive_login=args.platform in ('zhihu', 'ks', 'xhs'))
         from playwright.async_api import BrowserType
         original = BrowserType.launch_persistent_context
         async def persistent(self, *a, **kw):
