@@ -10,6 +10,59 @@ import sys
 from fetch_model import FILES, model_profile
 
 
+METRIC_FIELDS = ('avg_logprob', 'compression_ratio', 'no_speech_prob')
+
+
+def normalize_metrics(metrics, count):
+    if metrics is None:
+        return None
+    if not isinstance(metrics, list) or len(metrics) != count or count > 1000:
+        raise ValueError('invalid_asr_segment_metrics')
+    result = []
+    for index, metric in enumerate(metrics):
+        if (not isinstance(metric, dict) or set(metric) != {'segment_index', *METRIC_FIELDS}
+                or type(metric['segment_index']) is not int or metric['segment_index'] != index):
+            raise ValueError('invalid_asr_segment_metrics')
+        row = {'segment_index': index}
+        for field in METRIC_FIELDS:
+            value = metric[field]
+            try:
+                valid = type(value) in (int, float) and math.isfinite(value)
+            except OverflowError:
+                valid = False
+            if valid and field == 'no_speech_prob':
+                valid = 0 <= value <= 1
+            if valid and field == 'compression_ratio':
+                valid = value >= 0
+            row[field] = float(value) if valid else None
+        result.append(row)
+    return result
+
+
+def diagnostic_summary(entries, total):
+    recorded = sum(row[field] is not None for row in entries for field in METRIC_FIELDS)
+    return {'schema_version': 1, 'status': 'available' if total and recorded == total * 3 else
+            'partial' if recorded else 'unknown', 'review_status': 'not_reviewed',
+            'policy': 'native_metrics_review_hints_v1', 'total_segments': total,
+            'association': 'original_window_segments_not_merged_text', 'segments': entries}
+
+
+def quality_diagnostics(rows, metrics=None):
+    metrics = normalize_metrics(metrics, len(rows))
+    entries = []
+    for row, metric in zip(rows, metrics or []):
+        flags = []
+        low = metric['avg_logprob'] is not None and metric['avg_logprob'] < -1.
+        if low:
+            flags.append('low_logprob')
+        if metric['compression_ratio'] is not None and metric['compression_ratio'] > 2.4:
+            flags.append('high_compression')
+        if low and metric['no_speech_prob'] is not None and metric['no_speech_prob'] > .6:
+            flags.append('possible_no_speech')
+        entries.append({**row, **metric, 'flags': flags})
+    return {**diagnostic_summary(entries, len(rows)), 'time_basis': 'local_file_seconds'}
+
+
 def normalize_timestamps(rows, duration):
     """Allow only a small provider tail overrun; retain the original estimate."""
     timeline, adjustments = [], []
@@ -92,12 +145,15 @@ def transcribe(source, model_dir):
                          num_workers=1, local_files_only=True)
     segments, _ = model.transcribe(audio, language='zh', beam_size=3, vad_filter=False,
                                    condition_on_previous_text=False)
-    raw_timeline = []
+    raw_timeline, metrics = [], []
     for segment in segments:
         value = segment.text.strip()
         if value:
             raw_timeline.append({'start': float(segment.start), 'end': float(segment.end), 'text': value})
+            metrics.append({'segment_index': len(metrics), **{
+                field: getattr(segment, field, None) for field in METRIC_FIELDS}})
     timeline, adjustments = normalize_timestamps(raw_timeline, count / 16000)
+    metrics = normalize_metrics(metrics, len(timeline))
     lines = ['[%.2f–%.2f] %s' % (row['start'], row['end'], row['text']) for row in timeline]
     text = '\n'.join(lines)
     if not text.strip():
@@ -106,6 +162,7 @@ def transcribe(source, model_dir):
             'processor': 'faster_whisper_local', 'segments': timeline,
             'duration_seconds': count / 16000,
             'model': name, 'model_repository': profile['repository'], 'model_revision': profile['revision'],
+            'segment_metrics': metrics, 'quality_diagnostics': quality_diagnostics(timeline, metrics),
             'timing_adjustments': adjustments, 'timing_policy': 'tail_overrun_at_most_0.5s'}
 
 

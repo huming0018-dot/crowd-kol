@@ -85,6 +85,8 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
         if not isinstance(parsed.get('raw_text'), str) or not parsed['raw_text'].strip() or len(parsed['raw_text']) > 24000 or type(parsed.get('truncated')) is not bool:
             raise ValueError('invalid_asr_output')
         evidence.update(raw_text=parsed['raw_text'], truncated=parsed['truncated'], processor='faster_whisper_local' if asr_model else 'apple_speech_ondevice')
+        import local_asr
+        evidence['quality_diagnostics'] = local_asr.quality_diagnostics([])
         if asr_model and 'segments' in parsed:
             import long_media
             duration = parsed.get('duration_seconds')
@@ -93,7 +95,8 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
             rows = long_media.validate_segments(parsed['segments'], duration)
             adjustments = long_media.validate_adjustments(parsed.get('timing_adjustments', []), rows, duration)
             evidence.update(segments=rows, duration_seconds=duration, timing_adjustments=adjustments,
-                            timing_policy=parsed.get('timing_policy', 'unadjusted'), timeline='local_file_seconds')
+                            timing_policy=parsed.get('timing_policy', 'unadjusted'), timeline='local_file_seconds',
+                            quality_diagnostics=local_asr.quality_diagnostics(rows, parsed.get('segment_metrics')))
     elif kind == 'transcript':
         if source.suffix.lower() not in ('.txt', '.vtt', '.srt'):
             raise ValueError('authorized_txt_vtt_srt_required')

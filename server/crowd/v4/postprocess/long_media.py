@@ -241,9 +241,11 @@ def validate_adjustments(adjustments, rows, duration):
 
 
 def merge_chunks(manifest, results):
+    import local_asr
     if len(results) != len(manifest['chunks']):
         raise ValueError('incomplete_asr_chunk_results')
-    merged, removed, adjustments, decisions = [], 0, [], []
+    merged, removed, adjustments, decisions, diagnostics = [], 0, [], [], []
+    total_segments = 0
     windows = {chunk['index']: chunk for chunk in manifest['chunks']}
 
     def normalized(text):
@@ -256,6 +258,15 @@ def merge_chunks(manifest, results):
         return 'prefix' if longer.startswith(short) else 'suffix' if longer.endswith(short) else None
     for chunk, result in zip(manifest['chunks'], results):
         rows = validate_segments(result['segments'], chunk['end'] - chunk['start'])
+        total_segments += len(rows)
+        quality = local_asr.quality_diagnostics(rows, result.get('segment_metrics'))
+        # Scores belong to the original window text, including fragments later removed.
+        for entry in quality['segments']:
+            diagnostics.append({**entry, 'chunk_index': chunk['index'],
+                                'chunk_start_seconds': chunk['start'],
+                                'local_start': entry['start'], 'local_end': entry['end'],
+                                'start': min(round(chunk['start'] + entry['start'], 3), manifest['duration_seconds']),
+                                'end': min(round(chunk['start'] + entry['end'], 3), manifest['duration_seconds'])})
         for adjustment in validate_adjustments(result.get('timing_adjustments', []), rows, chunk['end'] - chunk['start']):
             adjustments.append({**adjustment, 'chunk_index': chunk['index'],
                                 'chunk_start_seconds': chunk['start'],
@@ -319,6 +330,8 @@ def merge_chunks(manifest, results):
             'deduplicated_overlap_segments': removed, 'timeline': 'absolute_seconds',
             'overlap_decisions': decisions,
             'timing_adjustments': adjustments,
+            'quality_diagnostics': {**local_asr.diagnostic_summary(diagnostics, total_segments),
+                                    'time_basis': 'original_audio_seconds'},
             'segment_seconds': SEGMENT_SECONDS, 'overlap_seconds': OVERLAP_SECONDS}
 
 
@@ -357,7 +370,7 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                                   + digest(Path(__file__).with_name('fetch_model.py')))
                 key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA)).encode()).hexdigest()
                 result = json.loads(target.read_text()) if target.is_file() else None
-                if result is not None and (not isinstance(result, dict) or set(result) != {'segments', 'input_hash', 'timing_adjustments'} or result.get('input_hash') != key):
+                if result is not None and (not isinstance(result, dict) or set(result) != {'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'} or result.get('input_hash') != key):
                     raise ValueError('long_media_chunk_cache_identity_mismatch')
                 if result is None:
                     try:
@@ -376,7 +389,10 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                     rows = validate_segments(result.get('segments'), chunk['end'] - chunk['start'])
                     adjustments = result.get('timing_adjustments', [])
                     validate_adjustments(adjustments, rows, chunk['end'] - chunk['start'])
-                    result = {'segments': rows, 'input_hash': key, 'timing_adjustments': adjustments}
+                    import local_asr
+                    metrics = local_asr.normalize_metrics(result.get('segment_metrics'), len(rows))
+                    result = {'segments': rows, 'input_hash': key, 'timing_adjustments': adjustments,
+                              'segment_metrics': metrics}
                     save(target, result)
                 results.append(result)
                 state['completed_chunks'] += 1
