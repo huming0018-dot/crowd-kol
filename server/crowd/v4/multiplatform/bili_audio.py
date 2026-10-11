@@ -19,10 +19,25 @@ def public_audio_url(value):
     if not isinstance(value,str) or len(value)>4000:return None
     try:
         parsed=urlsplit(value);host=parsed.hostname or ''
-        if parsed.scheme!='https' or parsed.username or parsed.password or parsed.port or parsed.fragment:return None
+        if parsed.scheme!='https' or parsed.username or parsed.password or parsed.port not in (None,443) or parsed.fragment:return None
         if not any(host==domain or host.endswith('.'+domain) for domain in ('bilivideo.com','bilivideo.cn','akamaized.net')):return None
         return value
     except ValueError:return None
+
+
+def audio_selection_diagnostics(play_info):
+    """Counts only: never persist a signed CDN URL or query parameters."""
+    dash=play_info.get('dash') if isinstance(play_info,dict) else None
+    rows=dash.get('audio') if isinstance(dash,dict) else None
+    counts={'entries':0,'eligible':0,'invalid_entry':0,'invalid_bandwidth':0,'rejected_url':0}
+    for row in rows[:1000] if isinstance(rows,list) else []:
+        counts['entries']+=1
+        if not isinstance(row,dict):counts['invalid_entry']+=1;continue
+        rate=row.get('bandwidth')
+        if type(rate) is not int or rate<=0:counts['invalid_bandwidth']+=1;continue
+        if not public_audio_url(row.get('baseUrl') or row.get('base_url')):counts['rejected_url']+=1;continue
+        counts['eligible']+=1
+    return counts
 
 
 def select_audio(play_info,duration_seconds=None):
@@ -46,7 +61,8 @@ async def download_audio(play_info,content_id,output_dir,duration_seconds=None,c
     if not isinstance(content_id,str) or not re.fullmatch('[A-Za-z0-9_-]{1,200}',content_id):raise ValueError('audio_content_id_invalid')
     folder=safe_directory(Path(output_dir)/'bili/media'/content_id)
     try:stream=select_audio(play_info,duration_seconds)
-    except ValueError as error:return {'status':'unavailable','reason':str(error),'kind':'audio','content_id':content_id}
+    except ValueError as error:return {'status':'unavailable','reason':str(error),'kind':'audio','content_id':content_id,
+                                     'selection_diagnostics':audio_selection_diagnostics(play_info)}
     if client is None:
         import httpx
         async with httpx.AsyncClient(timeout=30,follow_redirects=False,trust_env=False) as own:

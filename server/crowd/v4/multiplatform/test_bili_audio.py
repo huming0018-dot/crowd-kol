@@ -19,11 +19,25 @@ class AudioTest(unittest.TestCase):
  def test_select_and_boundaries(self):
   p=info();p['dash']['audio'].append({'bandwidth':128000,'baseUrl':URL})
   self.assertEqual(m.select_audio(p)['bandwidth_reported'],64000)
-  for url in ['http://audio.bilivideo.com/a','https://bilivideo.com.evil/a','https://user:secret@audio.bilivideo.com/a','https://audio.bilivideo.com:443/a']:
+  for url in ['http://audio.bilivideo.com/a','https://bilivideo.com.evil/a','https://user:secret@audio.bilivideo.com/a','https://audio.bilivideo.com:444/a']:
    self.assertIsNone(m.public_audio_url(url))
   for duration in [True,float('nan'),7201,0]:
    with self.assertRaises(ValueError):m.select_audio(info(duration=duration))
   with self.assertRaisesRegex(ValueError,'estimated'):m.select_audio(info(rate=128000,duration=7200))
+ def test_https_default_port_and_private_diagnostics(self):
+  native=info();native['dash']['audio'][0]['baseUrl']='https://audio.bilivideo.cn:443/a?token=private_locator'
+  self.assertEqual(m.select_audio(native)['url'],native['dash']['audio'][0]['baseUrl'])
+  self.assertEqual(m.audio_selection_diagnostics(native)['eligible'],1)
+  native['dash']['audio'] += [{'bandwidth':64000,'baseUrl':'https://audio.bilivideo.cn:444/a?token=private_locator'},
+                             {'bandwidth':True,'baseUrl':URL},None]
+  safe=m.audio_selection_diagnostics(native)
+  self.assertEqual(safe,{'entries':4,'eligible':1,'invalid_entry':1,'invalid_bandwidth':1,'rejected_url':1})
+  self.assertNotIn('private_locator',json.dumps(safe))
+ def test_explicit_default_port_real_download_path(self):
+  with tempfile.TemporaryDirectory() as td:
+   native=info();native['dash']['audio'][0]['baseUrl']='https://audio.bilivideo.cn:443/a'
+   client=Client();r=asyncio.run(m.download_audio(native,'BV443',Path(td).resolve(),client=client))
+   self.assertEqual(r['status'],'downloaded');self.assertEqual(len(client.calls),1)
  def test_download_hash_scope(self):
   with tempfile.TemporaryDirectory() as td:
    client=Client();r=asyncio.run(m.download_audio(info(),'BV123',Path(td).resolve(),client=client))

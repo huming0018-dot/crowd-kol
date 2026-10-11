@@ -311,6 +311,7 @@ def configure_platform_hooks(upstream,p):
                 phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
                 write(phase,{**previous,'media_status':result['status'],'media_reason':result.get('reason'),
                              'media_play_response':play_evidence,
+                             'media_audio_selection':result.get('selection_diagnostics'),
                              'media_kind':'audio','media_single_file_limit_bytes':67108864,
                              'media_duration_seconds_reported':result.get('duration_seconds_reported')})
             original_media=audio_only
