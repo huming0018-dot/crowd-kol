@@ -7,6 +7,7 @@ MAX_SEGMENTS = 8000
 MAX_CHARACTERS = 240000
 MAX_BATCHES = 16
 PROMPT_VERSION = 'content-comments-full-partitioned-v1'
+ASSEMBLY_VERSION = 'full-batch-context-v2'
 
 
 def build_analysis_snapshot(imported, platform, content_id, entity_ref=None, derived_inputs=None):
@@ -73,7 +74,21 @@ def combine_results(snapshot, results):
     global_rows = {row.get('source_ref', ''): row for row in snapshot['paragraphs'] if row.get('source_ref')}
     combined = copy.deepcopy(results[0])
     analysis = combined['content_analysis']
-    summaries = [analysis['summary']]
+    def context(index, batch):
+        rows = [row for row in batch['snapshot']['paragraphs'] if row.get('source_ref', '').startswith('derived:')]
+        if not rows:
+            return '正文与评论批 0（已保存评论 %d 条；不含转写候选）' % len(batch['snapshot']['comments'])
+        times = [row for row in rows if row.get('start') is not None]
+        window = ('；候选时间 %s–%s 秒' % (min(row['start'] for row in times), max(row['end'] for row in times))) if times else ''
+        return ('转写批 %d（%d 个所选候选%s；本批不含评论，不表示全文没有评论；'
+                '自由文字引用使用本批局部编号）') % (index, len(rows), window)
+    summaries = [context(0, batches[0]) + '：\n' + analysis['summary']]
+    analysis['limitations'] = [context(0, batches[0]) + '：' + line for line in analysis['limitations']]
+    for key in ('segments', 'claims', 'reusable_methods'):
+        for row in analysis[key]:
+            row['analysis_context'] = {'batch_index': 0, 'scope': 'base_content_and_comments',
+                                      'local_paragraph': row['paragraph'], 'local_source_ref': row['source_ref'],
+                                      'global_source_ref': row['source_ref']}
     covered = []
     for number, (batch, result) in enumerate(zip(batches[1:], results[1:]), 1):
         local = {row['paragraph']: row for row in batch['snapshot']['paragraphs']}
@@ -82,22 +97,35 @@ def combine_results(snapshot, results):
             return ':'.join((prefix, job_id, str(int(index) + batch['offsets'][job_id])))
         for paragraph in local.values():
             if paragraph.get('source_ref', '').startswith('derived:'):
-                covered.append(global_reference(paragraph['source_ref']))
-        summaries.append('转写分批 ' + str(number) + '：' + result['content_analysis']['summary'])
+                reference = global_reference(paragraph['source_ref'])
+                expected = global_rows.get(reference)
+                if expected is None or {k:v for k,v in paragraph.items() if k not in ('paragraph','source_ref')} != {k:v for k,v in expected.items() if k not in ('paragraph','source_ref')}:
+                    raise ValueError('analysis_full_partition_changed')
+                covered.append(reference)
+        summaries.append(context(number, batch) + '：\n' + result['content_analysis']['summary'])
         for key in ('segments', 'claims', 'reusable_methods'):
             for row in result['content_analysis'][key]:
                 projected = dict(row)
                 source = local[row['paragraph']].get('source_ref', '')
-                if source.startswith('derived:'):
-                    source = global_reference(source)
-                    projected.update(paragraph=global_rows[source]['paragraph'], source_ref=source)
+                # Later prompts contain the base text for context; only batch 0
+                # supplies base judgements in the assembled report.
+                if not source.startswith('derived:'):
+                    continue
+                local_source = source
+                source = global_reference(source)
+                projected.update(paragraph=global_rows[source]['paragraph'], source_ref=source,
+                    analysis_context={'batch_index': number, 'scope': 'selected_derived_window',
+                                      'local_paragraph': row['paragraph'], 'local_source_ref': local_source,
+                                      'global_source_ref': source, 'free_text_reference_basis': 'batch_local'})
                 analysis[key].append(projected)
-        analysis['limitations'].extend(result['content_analysis']['limitations'])
+        analysis['limitations'].extend(context(number, batch) + '：' + line for line in result['content_analysis']['limitations'])
     if len(covered) != len(set(covered)) or set(covered) != set(global_rows):
         raise ValueError('analysis_full_coverage_incomplete')
     analysis['summary'] = '\n\n'.join(summaries)
     analysis['limitations'] = list(dict.fromkeys(analysis['limitations'] + [
         '全文分批分析全部已保存转写段；转写未经听音校对，不保证原音频每句话都被识别。']))
+    analysis['assembly'] = {'version': ASSEMBLY_VERSION, 'base_judgements_batch': 0,
+                            'free_text_reference_basis': 'batch_local', 'structured_reference_basis': 'global'}
     combined['full_analysis_coverage'] = {'state': 'all_selected_segments_analyzed',
         'batches_completed': len(results), 'batches_total': len(batches),
         'selected_segments': len(covered), 'selected_characters': sum(len(row['text']) for row in global_rows.values()),

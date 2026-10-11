@@ -15,8 +15,8 @@ import threading
 import time
 import uuid
 
-from analysis_contract import build_snapshot, make_prompt, validate_result, MODEL_SCHEMA, _platform, _typed_entity, finite_number
-from full_analysis import build_analysis_snapshot, combine_results, MAX_SEGMENTS, MAX_CHARACTERS, PROMPT_VERSION as FULL_PROMPT_VERSION
+from analysis_contract import build_snapshot, make_prompt, validate_result, MODEL_SCHEMA, _platform, _typed_entity, finite_number, _hash, _paragraphs
+from full_analysis import build_analysis_snapshot, combine_results, MAX_SEGMENTS, MAX_CHARACTERS, PROMPT_VERSION as FULL_PROMPT_VERSION, ASSEMBLY_VERSION
 from mc_runner import BridgeError, canonical, read, uid, write, contains_secret as mc_contains_secret
 
 PROMPT_VERSION = 'content-comments-v1'
@@ -185,6 +185,7 @@ class AnalysisJobs:
         cache_key = hashlib.sha256(canonical({
             'snapshot': snapshot['snapshot_hash'], 'prompt': prompt_version,
             'provider_version': self.provider_version,
+            **({'assembly_version': ASSEMBLY_VERSION} if 'analysis_batches' in snapshot else {}),
         }).encode()).hexdigest()
         with self.mutex:
             if self.closed:
@@ -232,6 +233,110 @@ class AnalysisJobs:
                 lock.close()
                 raise
             return {'ok': True, **state, 'cached': False}
+
+    def reassemble(self, job_id):
+        """Create a new report from verified saved batches; never call a provider."""
+        try:
+            return self._reassemble(job_id)
+        except (KeyError, TypeError, IndexError, OSError) as error:
+            raise ValueError('analysis_reassembly_saved_files_invalid') from error
+
+    def _reassemble(self, job_id):
+        from analysis_artifact import _read, _safe_ancestors
+        with self.mutex:
+            if self.closed:
+                raise ValueError('analysis_service_closed')
+            folder = self.folder(job_id)
+            state, _ = _read(folder / 'state.json', 65536)
+            if state.get('state') != 'completed' or state.get('job_id') != job_id:
+                raise ValueError('analysis_reassembly_not_completed')
+            snapshot, snapshot_sha = _read(folder / 'snapshot.json', 8 * 1024 * 1024)
+            original, result_sha = _read(folder / 'result.json', 8 * 1024 * 1024)
+            batches = snapshot.get('analysis_batches')
+            if (not isinstance(batches, list) or not 2 <= len(batches) <= 16
+                    or type(state.get('total_batches')) is not int or state['total_batches'] != len(batches)
+                    or type(state.get('completed_batches')) is not int or state['completed_batches'] != len(batches)):
+                raise ValueError('analysis_reassembly_requires_full_batches')
+            if (snapshot.get('snapshot_hash') != state.get('snapshot_hash')
+                    or _hash({k:v for k,v in snapshot.items() if k != 'snapshot_hash'}) != state.get('snapshot_hash')
+                    or snapshot.get('paragraphs') != _paragraphs(snapshot)
+                    or original.get('input_snapshot') != snapshot
+                    or original.get('snapshot_hash') != state['snapshot_hash']
+                    or _platform(state.get('platform')) != snapshot.get('platform')
+                    or state.get('content_id') != snapshot.get('content_id')
+                    or state.get('entity_ref') is not None and state['entity_ref'] != snapshot['content'].get('entity_ref')
+                    or any(original.get(key) != state.get(key) for key in ('provider', 'provider_version', 'prompt_version'))):
+                raise ValueError('analysis_reassembly_snapshot_changed')
+            results, proofs, saved_batches = [], [], []
+            for index, batch in enumerate(batches):
+                piece = batch['snapshot']
+                saved, saved_sha = _read(folder / ('batch-%04d.json' % index), 8 * 1024 * 1024)
+                if (saved.get('snapshot_hash') != piece.get('snapshot_hash')
+                        or _hash({k:v for k,v in piece.items() if k != 'snapshot_hash'}) != piece.get('snapshot_hash')
+                        or piece.get('paragraphs') != _paragraphs(piece)
+                        or piece.get('content') != snapshot['content']
+                        or piece.get('platform') != snapshot['platform']
+                        or piece.get('content_id') != snapshot['content_id']
+                        or piece.get('comments') != (snapshot['comments'] if index == 0 else [])):
+                    raise ValueError('analysis_reassembly_batch_changed')
+                checked = saved['result']
+                analysis = checked['content_analysis']
+                fields = {'segments': ('paragraph', 'role', 'observation'),
+                          'claims': ('paragraph', 'claim', 'verification'),
+                          'reusable_methods': ('paragraph', 'method')}
+                raw = {'content_analysis': {'summary': analysis['summary'], 'limitations': analysis['limitations'],
+                        **{key:[{field:row[field] for field in selected} for row in analysis[key]]
+                           for key, selected in fields.items()}},
+                       'comment_labels': [{key:row[key] for key in ('comment_id', 'text_sha256', 'sentiment', 'intent', 'aspects', 'rationale')}
+                                          for row in checked['comment_labels']]}
+                if canonical(validate_result(piece, raw)) != canonical(checked):
+                    raise ValueError('analysis_reassembly_result_changed')
+                results.append(checked); saved_batches.append(saved)
+                proofs.append({'batch_index': index, 'file_sha256': saved_sha, 'snapshot_hash': piece['snapshot_hash']})
+            assembled = combine_results(snapshot, results)
+            if (original.get('full_analysis_coverage') != assembled['full_analysis_coverage']
+                    or any(original.get(key) != results[0].get(key) for key in ('comment_labels', 'comment_statistics', 'label_schema', 'labeler', 'review_status'))):
+                raise ValueError('analysis_reassembly_coverage_changed')
+            provenance = {'source_job_id': job_id, 'source_result_sha256': result_sha,
+                          'source_snapshot_file_sha256': snapshot_sha, 'batches': proofs,
+                          'assembly_version': ASSEMBLY_VERSION, 'model_calls': 0, 'source_requests': 0}
+            cache_key = _hash(provenance)
+            assembled.update(snapshot_hash=state['snapshot_hash'], prompt_version=state['prompt_version'],
+                             provider=state['provider'], provider_version=state['provider_version'], input_snapshot=snapshot)
+            _safe_ancestors(self.root)
+            for candidate in self.root.iterdir():
+                if candidate.is_symlink() or not candidate.is_dir():
+                    continue
+                if not (candidate / 'state.json').exists():
+                    continue
+                cached, _ = _read(candidate / 'state.json', 65536)
+                if cached.get('cache_key') == cache_key and cached.get('state') == 'completed':
+                    cached_result, _ = _read(candidate / 'result.json', 8 * 1024 * 1024)
+                    cached_snapshot, _ = _read(candidate / 'snapshot.json', 8 * 1024 * 1024)
+                    if (cached.get('reassembly') != provenance or cached_result != assembled
+                            or cached_snapshot != snapshot or cached.get('job_id') != candidate.name):
+                        raise ValueError('analysis_reassembly_result_changed')
+                    return {'ok': True, **cached, 'result': cached_result, 'cached': True, 'model_calls': 0, 'source_requests': 0}
+            new_id = str(uuid.uuid4())
+            new_folder = self.root / new_id
+            new_folder.mkdir(mode=0o700)
+            now = time.time()
+            new_state = {key:state[key] for key in ('snapshot_hash', 'run_id', 'platform', 'content_id',
+                         'prompt_version', 'provider', 'provider_version', 'review_status', 'total_batches', 'completed_batches')}
+            if 'entity_ref' in state:
+                new_state['entity_ref'] = state['entity_ref']
+            new_state.update(job_id=new_id, state='completed', created_at=now, completed_at=now,
+                             cache_key=cache_key, reassembly=provenance)
+            try:
+                write(new_folder / 'snapshot.json', snapshot)
+                for index, saved in enumerate(saved_batches):
+                    write(new_folder / ('batch-%04d.json' % index), saved)
+                write(new_folder / 'result.json', assembled)
+                write(new_folder / 'state.json', new_state)
+            except BaseException:
+                shutil.rmtree(new_folder)
+                raise
+            return {'ok': True, **new_state, 'result': assembled, 'cached': False, 'model_calls': 0, 'source_requests': 0}
 
     @staticmethod
     def _alive(pid):

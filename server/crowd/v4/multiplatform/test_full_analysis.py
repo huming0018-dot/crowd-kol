@@ -55,7 +55,33 @@ class ContractTests(unittest.TestCase):
         full=build_analysis_snapshot(self.imported,'bili','video1',derived_inputs=[self.item])
         results=[validate_result(batch['snapshot'],fixtures.model_fixture(batch['snapshot'])) for batch in full['analysis_batches']]
         full['analysis_batches'][-1]['offsets'][self.item['job_id']]=0
-        with self.assertRaisesRegex(ValueError,'coverage_incomplete'):combine_results(full,results)
+        with self.assertRaisesRegex(ValueError,'coverage_incomplete|partition_changed'):combine_results(full,results)
+
+    def test_base_analysis_once_batch_context_and_local_references_preserved(self):
+        full=build_analysis_snapshot(self.imported,'bili','video1',derived_inputs=[self.item])
+        results=[]
+        for index,batch in enumerate(full['analysis_batches']):
+            value=fixtures.model_fixture(batch['snapshot'])
+            if index:
+                paragraph=batch['snapshot']['paragraphs'][-1]
+                value['content_analysis']['segments'].append({'paragraph':paragraph['paragraph'],'role':'转写','observation':'局部 '+paragraph['source_ref']})
+                value['content_analysis']['limitations']=['本批没有评论']
+            results.append(validate_result(batch['snapshot'],value))
+        original=copy.deepcopy(results)
+        result=combine_results(full,results)['content_analysis']
+        self.assertEqual(results,original)
+        self.assertEqual(len([r for r in result['segments'] if r['source_ref']=='record:1']),1)
+        self.assertEqual(len(result['claims']),1);self.assertEqual(len(result['reusable_methods']),1)
+        tail=result['segments'][-1]
+        self.assertTrue(tail['observation'].endswith(':109'))
+        self.assertTrue(tail['source_ref'].endswith(':1109'))
+        self.assertTrue(tail['analysis_context']['local_source_ref'].endswith(':109'))
+        self.assertEqual(tail['analysis_context']['global_source_ref'],tail['source_ref'])
+        self.assertIn('正文与评论批 0',result['summary'])
+        self.assertIn('候选时间 1000.0–1110.0 秒',result['summary'])
+        self.assertTrue(all('转写批' in line for line in result['limitations'] if '本批没有评论' in line))
+        full['analysis_batches'][-1]['snapshot']['paragraphs'][-1]['text']='different'
+        with self.assertRaisesRegex(ValueError,'partition_changed'):combine_results(full,results)
 
 
 class JobsTests(fixtures.JobsTests):
