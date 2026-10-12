@@ -160,6 +160,32 @@ class CompleteVideoTests(unittest.TestCase):
             self.assertIsNone(jobs.status(job_id)['network_attempts'])
         finally:jobs.close()
 
+    def test_verified_no_audio_uses_different_current_default_once_with_remaining_three(self):
+        from mc_runner import write
+        ffmpeg=os.environ.get('CROWD_FFMPEG')
+        if not ffmpeg or not Path(ffmpeg).is_file():self.skipTest('existing ffmpeg required')
+        run=self.root/'runs'/self.run_id;sidecar=run/'output/douyin/video-references/123.json';sidecar.parent.mkdir()
+        write(sidecar,{'schema_version':1,'run_id':self.run_id,'platform':'douyin','content_id':'123','source_kind':'same_native_aweme_detail','reported_bytes':1024,'reported_bitrate':1000,'url':'https://www.douyin.com/video-only'})
+        sidecar.chmod(0o600);original=video.source_reference(run,self.run_id,'123');sidecar_hash=hashlib.sha256(sidecar.read_bytes()).hexdigest()
+        source=self.root/'video-only.mp4'
+        subprocess.run([ffmpeg,'-v','error','-f','lavfi','-i','testsrc2=size=64x64:rate=10','-t','1','-c:v','libx264',str(source)],check=True)
+        data=source.read_bytes();previous_id=str(uuid.uuid4());previous=self.root/previous_id;previous.mkdir()
+        opener=Opener([Response(data)])
+        with self.assertRaisesRegex(ValueError,'^complete_audio_stream_missing$'):video.run(original,previous,opener,output_kind='audio')
+        write(previous/'state.json',{'job_id':previous_id,'kind':'complete_audio','state':'failed','reason':'complete_audio_stream_missing','run_id':self.run_id,'platform':'douyin','content_id':'123','source_reference_sha256':original['reference_sha256'],'input_hash':'b'*64})
+        variant=video.source_reference(run,self.run_id,'123',variant='native_default_after_verified_no_audio',previous_job=previous)
+        self.assertEqual(variant['max_request_attempts'],3);self.assertNotEqual(variant['url_sha256'],original['url_sha256'])
+        self.assertEqual(variant['previous_source_sha256'],hashlib.sha256(data).hexdigest());self.assertEqual(variant['previous_job_id'],previous_id)
+        self.assertEqual(hashlib.sha256(sidecar.read_bytes()).hexdigest(),sidecar_hash)
+        progress=json.loads((previous/'video-progress.json').read_text());progress['network_attempts']=2;write(previous/'video-progress.json',progress)
+        with self.assertRaisesRegex(ValueError,'not_proven'):video.source_reference(run,self.run_id,'123',variant=variant['variant'],previous_job=previous)
+        self.assertEqual(len(opener.requests),1)
+        retry=self.root/'one-attempt';retry.mkdir()
+        redirect=urllib.error.HTTPError(variant['url'],302,'',{'Location':'https://www.douyin.com/next'},io.BytesIO())
+        redirected=Opener([redirect])
+        with self.assertRaisesRegex(ValueError,'redirect_limit'):video.run({**variant,'max_request_attempts':1},retry,redirected,output_kind='audio')
+        self.assertEqual(len(redirected.requests),1)
+
     def test_job_real_child_lifecycle_reuse_and_download_hash(self):
         executable=self.root/'fake-local-python'
         executable.write_text('''#!/usr/bin/env python3

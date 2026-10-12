@@ -24,6 +24,7 @@ MAX_REQUESTS=4
 HOSTS=('douyinvod.com','douyincdn.com','bytecdn.cn','ibytedtos.com','pstatp.com')
 ERROR_CODES={'video_source_url_denied','unsafe_complete_video_path','complete_video_existing_asset','complete_video_cancelled','complete_video_timeout','video_redirect_limit','video_source_http_error','video_source_network_error','video_source_length_invalid','video_source_input_limit','video_source_incomplete','video_ffmpeg_unavailable','video_decode_failed','video_duration_unavailable','video_duration_limit','video_output_duration_mismatch','complete_video_failed'}
 ERROR_CODES.add('complete_audio_codec_not_supported')
+ERROR_CODES.add('complete_audio_stream_missing')
 
 def safe_url(value):
     if not isinstance(value,str) or len(value)>4096 or any(ord(c)<32 for c in value):raise ValueError('video_source_url_denied')
@@ -57,7 +58,7 @@ def atomic_json(path,value):
         os.replace(temp,path)
     finally:temp.unlink(missing_ok=True)
 
-def source_reference(run,run_id,content_id):
+def source_reference(run,run_id,content_id,variant=None,previous_job=None):
     if str(uuid.UUID(run_id))!=run_id or not isinstance(content_id,str) or not re.fullmatch(r'[0-9]{1,30}',content_id):raise ValueError('invalid_video_source_identity')
     run=safe_folder(run);output=safe_folder(run/'output'/'douyin'/'jsonl');matches=[]
     files=list(itertools.islice(output.glob('*contents*.jsonl'),33))
@@ -73,6 +74,26 @@ def source_reference(run,run_id,content_id):
     if not matches or len({m[0] for m in matches})!=1:raise ValueError('video_source_reference_ambiguous_or_missing')
     url,file_hash,row=matches[0]
     identity={'run_id':run_id,'platform':'douyin','content_id':content_id,'source_file_sha256':file_hash,'source_record_index':row,'url_sha256':hashlib.sha256(url.encode()).hexdigest()}
+    if variant is not None:
+        if variant!='native_default_after_verified_no_audio' or previous_job is None:raise ValueError('invalid_audio_reference_variant')
+        previous=safe_folder(previous_job);state=json.loads(read_bytes(previous/'state.json',200000));progress=json.loads(read_bytes(previous/'video-progress.json',10000))
+        original=source_reference(run,run_id,content_id)
+        if (state.get('job_id')!=previous.name or state.get('kind')!='complete_audio' or state.get('state')!='failed'
+                or state.get('reason') not in ('complete_audio_stream_missing','complete_audio_codec_not_supported')
+                or state.get('run_id')!=run_id or state.get('content_id')!=content_id or state.get('platform')!='douyin'
+                or state.get('source_reference_sha256')!=original['reference_sha256']
+                or type(progress.get('network_attempts')) is not int or progress['network_attempts']!=1
+                or original['url_sha256']==identity['url_sha256']):raise ValueError('audio_reference_fallback_not_proven')
+        data=read_bytes(previous/'source.mp4',INPUT_LIMIT);source_sha=hashlib.sha256(data).hexdigest()
+        if len(data)!=progress.get('downloaded_bytes') or source_sha!=progress.get('source_sha256'):raise ValueError('audio_reference_fallback_source_changed')
+        ffmpeg=os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
+        if not ffmpeg or not Path(ffmpeg).is_file():raise ValueError('video_ffmpeg_unavailable')
+        proof=subprocess.run([ffmpeg,'-hide_banner','-protocol_whitelist','file,pipe','-f','mov','-i',str(previous/'source.mp4')],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=30)
+        info=proof.stderr.decode('utf8',errors='replace')
+        if len(proof.stderr)>1024*1024 or not re.search(r'Duration: \d+:\d+:',info) or 'Video:' not in info or 'Audio:' in info:raise ValueError('audio_reference_fallback_not_proven')
+        identity.update(variant=variant,previous_job_id=previous.name,previous_source_sha256=source_sha,previous_job_input_hash=state['input_hash'],max_request_attempts=3)
+        reference_hash=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
+        return {**identity,'reference_sha256':reference_hash,'url':url}
     native=run/'output'/'douyin'/'video-references'/(content_id+'.json')
     if native.exists() or native.is_symlink():
         data=read_bytes(native,10000);saved=json.loads(data)
@@ -87,13 +108,15 @@ def source_reference(run,run_id,content_id):
     return {**identity,'reference_sha256':reference_hash,'url':url}
 
 def public_reference(ref):
-    return {k:v for k,v in ref.items() if k!='url'}|{'source_kind':'saved_native_video_reference','network_input_limit_bytes':INPUT_LIMIT,'output_limit_bytes':OUTPUT_LIMIT,'max_request_attempts':MAX_REQUESTS,'max_duration_seconds':MAX_SECONDS,'timeout_seconds':TIMEOUT,'collection_budget_changed':False,'model_calls':0}
+    return {k:v for k,v in ref.items() if k!='url'}|{'source_kind':'saved_native_video_reference','network_input_limit_bytes':INPUT_LIMIT,'output_limit_bytes':OUTPUT_LIMIT,'max_request_attempts':ref.get('max_request_attempts',MAX_REQUESTS),'max_duration_seconds':MAX_SECONDS,'timeout_seconds':TIMEOUT,'collection_budget_changed':False,'model_calls':0}
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
 def run(reference,folder,opener=None,output_kind='video'):
     if output_kind not in ('video','audio'):raise ValueError('invalid_complete_media_kind')
+    max_requests=reference.get('max_request_attempts',MAX_REQUESTS)
+    if type(max_requests) is not int or not 1<=max_requests<=MAX_REQUESTS:raise ValueError('invalid_complete_media_budget')
     folder=safe_folder(folder);safe_url(reference['url'])
     for name in ('source.mp4','source.part','video.mp4','video.partial.mp4','audio.m4a','audio.partial.m4a'):
         if (folder/name).exists() or (folder/name).is_symlink():raise ValueError('complete_video_existing_asset')
@@ -105,14 +128,14 @@ def run(reference,folder,opener=None,output_kind='video'):
         atomic_json(folder/'video-progress.json',{'phase':phase,'network_attempts':attempts,'downloaded_bytes':downloaded,**fields})
     opener=opener or urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     url=reference['url'];response=None
-    for redirect in range(MAX_REQUESTS):
+    for redirect in range(max_requests):
         check();attempts+=1;progress('downloading_video')
         request=urllib.request.Request(safe_url(url),headers={'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36','Referer':'https://www.douyin.com/'})
         try:response=opener.open(request,timeout=20)
         except urllib.error.HTTPError as error:
             if error.code in (301,302,303,307,308):
                 location=error.headers.get('Location');error.close()
-                if not location or redirect==MAX_REQUESTS-1:raise ValueError('video_redirect_limit') from None
+                if not location or redirect==max_requests-1:raise ValueError('video_redirect_limit') from None
                 url=safe_url(urllib.parse.urljoin(url,location));continue
             raise ValueError('video_source_http_error') from None
         except (OSError,urllib.error.URLError):raise ValueError('video_source_network_error') from None
@@ -165,7 +188,8 @@ def run(reference,folder,opener=None,output_kind='video'):
         # Decode only the audio track; video transcoding is unnecessary for ASR.
         info=process(['-hide_banner','-protocol_whitelist','file,pipe','-f','mov','-i',str(folder/'source.mp4')],probe=True)
         audio_stream=re.search(r'Stream[^\n]*Audio: ([^,\s]+)',info)
-        if not audio_stream or audio_stream[1]!='aac':raise ValueError('complete_audio_codec_not_supported')
+        if not audio_stream:raise ValueError('complete_audio_stream_missing')
+        if audio_stream[1]!='aac':raise ValueError('complete_audio_codec_not_supported')
         process(['-v','error','-xerror','-protocol_whitelist','file,pipe','-f','mov','-i',str(folder/'source.mp4'),'-map','0:a:0','-vn','-f','null','-'])
         progress('extracting_complete_audio',source_duration_seconds=original_duration,source_sha256=digest.hexdigest())
         output=folder/'audio.partial.m4a'

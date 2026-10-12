@@ -13,6 +13,7 @@ class Jobs:
   if self.busy:raise ValueError('media_processor_busy')
   job={'job_id':str(uuid.uuid4()),'kind':'complete_audio','state':'queued','run_id':ref['run_id'],'platform':'douyin','content_id':ref['content_id'],
        'source_reference_sha256':ref['reference_sha256'],'created_at':time.time()}
+  if ref.get('variant'):job.update(audio_reference_variant=ref['variant'],previous_audio_job_id=ref['previous_job_id'],network_budget={'max_request_attempts':ref['max_request_attempts']})
   self.states[job['job_id']]=job;self.calls.append('audio')
   if self.lost:raise OSError('lost response')
   return job
@@ -93,6 +94,33 @@ class Tests(unittest.TestCase):
    self.assertEqual(saved['source_requests'],attempts);self.assertEqual(saved['source_requests_upper_bound'],4)
    self.assertEqual(saved['fallback_assets'][0]['budget']['reserved_audio_attempts'],4)
    self.assertEqual(self.jobs.calls,['audio'])
+ def test_verified_no_audio_default_variant_once_total_budget_four(self):
+  self.queue.enqueue(self.f.run);self.queue.tick();old=self.status()['fallback_assets'][0]['audio_job_id']
+  self.jobs.states[old].update(state='failed',reason='complete_audio_codec_not_supported',network_attempts=1)
+  newref={**self.ref,'variant':'native_default_after_verified_no_audio','previous_job_id':old,'max_request_attempts':3,'reference_sha256':'c'*64}
+  with patch.object(self.jobs,'recover_audio_reference_after_no_audio',return_value=newref,create=True):
+   self.queue.tick();self.assertEqual(self.status()['source_requests'],1)
+   self.jobs.busy=True;self.queue.tick();self.assertEqual(self.status()['source_requests'],1)
+   self.jobs.busy=False;self.queue.tick();current=self.status()['fallback_assets'][0]['audio_job_id']
+   self.assertNotEqual(current,old);self.assertEqual(self.jobs.calls,['audio','audio'])
+   self.jobs.states[current].update(state='completed',asset_sha256='b'*64,network_attempts=3)
+   self.queue.tick();self.assertEqual(self.status()['source_requests'],4)
+   self.assertEqual([r['network_attempts'] for r in self.status()['fallback_assets'][0]['audio_attempt_chain']],[1,3])
+   self.queue.tick();self.assertEqual(self.jobs.calls,['audio','audio','asr'])
+ def test_variant_helper_proof_rejected_does_not_retry_codec_failure(self):
+  self.queue.enqueue(self.f.run);self.queue.tick();old=self.status()['fallback_assets'][0]['audio_job_id']
+  self.jobs.states[old].update(state='failed',reason='complete_audio_codec_not_supported',network_attempts=1)
+  with patch.object(self.jobs,'recover_audio_reference_after_no_audio',side_effect=ValueError('source actually has unsupported audio'),create=True) as verify:
+   self.queue.tick();self.queue.tick();self.assertEqual(verify.call_count,1)
+   self.assertEqual(self.jobs.calls,['audio']);self.assertEqual(self.status()['state'],'needs_attention')
+ def test_variant_new_job_more_than_three_never_asr(self):
+  self.queue.enqueue(self.f.run);self.queue.tick();old=self.status()['fallback_assets'][0]['audio_job_id']
+  self.jobs.states[old].update(state='failed',reason='complete_audio_stream_missing',network_attempts=1)
+  newref={**self.ref,'variant':'native_default_after_verified_no_audio','previous_job_id':old,'max_request_attempts':3,'reference_sha256':'c'*64}
+  with patch.object(self.jobs,'recover_audio_reference_after_no_audio',return_value=newref,create=True):
+   self.queue.tick();self.queue.tick();current=self.status()['fallback_assets'][0]['audio_job_id']
+   self.jobs.states[current].update(state='completed',asset_sha256='b'*64,network_attempts=4)
+   self.queue.tick();self.queue.tick();self.assertEqual(self.jobs.calls,['audio','audio']);self.assertEqual(self.status()['state'],'needs_attention')
  def test_terminal_audio_failure_never_asr_or_network_again(self):
   self.queue.enqueue(self.f.run);self.queue.tick();audio=self.status()['fallback_assets'][0]['audio_job_id'];self.jobs.states[audio].update(state='failed',reason='video_source_network_error')
   self.queue.tick();self.queue.tick();self.assertEqual(self.jobs.calls,['audio']);self.assertEqual(self.status()['state'],'needs_attention')

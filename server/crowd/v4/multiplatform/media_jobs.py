@@ -379,6 +379,11 @@ class MediaJobs:
             raise ValueError('complete_audio_reference_changed')
         return self.start_video(reference,output_kind='audio')
 
+    def recover_audio_reference_after_no_audio(self,previous_job_id,run_folder):
+        from complete_video import source_reference
+        state=self.status(previous_job_id)
+        return source_reference(run_folder,state['run_id'],state['content_id'],variant='native_default_after_verified_no_audio',previous_job=self.root/previous_job_id)
+
     def start_asr_from_audio_job(self,job_id,run_folder,entity_ref=None,asr_engine='cpu'):
         from complete_video import read_bytes,source_reference
         from analysis_artifact import _read
@@ -386,7 +391,7 @@ class MediaJobs:
         state=self.status(job_id);folder=self.root/job_id;run_folder=Path(run_folder)
         if state.get('kind')!='complete_audio' or state.get('state')!='completed' or run_folder.name!=state.get('run_id'):
             raise ValueError('complete_audio_identity_mismatch')
-        current=source_reference(run_folder,state['run_id'],state['content_id'])
+        current=source_reference(run_folder,state['run_id'],state['content_id'],variant=state.get('audio_reference_variant'),previous_job=self.root/state['previous_audio_job_id'] if state.get('previous_audio_job_id') else None)
         if current['reference_sha256']!=state['source_reference_sha256']:raise ValueError('complete_audio_reference_changed')
         manifest,_=_read(run_folder/'manifest.json',200000);status,_=_read(run_folder/'status.json',200000)
         normalized,normalized_sha=_read(run_folder/'normalized.json',32*1024*1024)
@@ -431,6 +436,9 @@ class MediaJobs:
                 ref_hash=hashlib.sha256((folder/'input-ref.json').read_bytes()).hexdigest()
                 state={'job_id':job_id,'state':'queued','kind':'complete_video','platform':'douyin','content_id':reference['content_id'],'run_id':reference['run_id'],'input_hash':key,'source_reference_sha256':reference['reference_sha256'],'created_at':time.time(),'source_kind':'authorized_saved_video_reference','uploaded':False,'network_budget':{'max_request_attempts':4,'input_bytes':256*1024*1024,'output_bytes':64*1024*1024},'collection_budget_changed':False,'model_calls':0}
                 if output_kind=='audio':state.update(kind='complete_audio',reported_bytes=reference.get('reported_bytes'),network_attempts=None)
+                if output_kind=='audio' and reference.get('variant'):
+                    state.update(audio_reference_variant=reference['variant'],previous_audio_job_id=reference['previous_job_id'])
+                    state['network_budget']['max_request_attempts']=reference['max_request_attempts']
                 write(folder/'state.json',state)
                 thread=threading.Thread(target=self._execute_video,args=(state,ref_hash,process_lock),daemon=True);self.threads[job_id]=thread;thread.start()
             except BaseException:
