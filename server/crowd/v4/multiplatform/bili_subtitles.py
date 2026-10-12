@@ -111,6 +111,9 @@ def load_job(jobs,job_id):
     path=jobs.root.parent/'subtitle-jobs'/(uid(job_id)+'.json')
     state,state_sha=_read(path,200000)
     if state.get('job_id')!=job_id or state.get('kind')!='subtitle':raise ValueError('subtitle_job_invalid')
+    if state.get('platform')=='douyin':
+        from native_subtitles import load_job as load_platform_job
+        return load_platform_job(jobs,job_id)
     cid=state.get('content_id')
     if (not isinstance(cid,str) or not re.fullmatch('[1-9][0-9]{0,15}',cid) or state.get('platform')!='bilibili'
             or state.get('entity_ref')!='bilibili:content:'+cid or state.get('state')!='completed'
@@ -162,7 +165,11 @@ def load_job(jobs,job_id):
 
 
 def subtitle_report(jobs,job_id):
-    state=load_job(jobs,job_id);evidence=state['result'][0]['evidence'];segments=evidence['segments']
+    state=load_job(jobs,job_id)
+    if state['platform']=='douyin':
+        from native_subtitles import subtitle_report as platform_report
+        return platform_report(jobs,job_id)
+    evidence=state['result'][0]['evidence'];segments=evidence['segments']
     report={'schema':'crowd-subtitle-report-v1','job_id':job_id,'subtitle_source_run_id':state['run_id'],
             'local_run_id':state['run_id'],'platform':'bilibili','content_id':state['content_id'],'entity_ref':state['entity_ref'],
             'asset_sha256':state['asset_sha256'],'input_hash':state['input_hash'],'full_result_file_sha256':state['result_sha256'],

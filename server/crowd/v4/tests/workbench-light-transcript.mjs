@@ -14,14 +14,14 @@ const start=source.indexOf('  async function payload()');const end=source.indexO
 vm.runInContext(source.slice(start,end),context);
 vm.runInContext(source.slice(source.indexOf("  $('owner_long_audio').onchange"),source.indexOf("  $('owner_mode').onchange")),context);
 let payload=await vm.runInContext('payload()',context);assert.equal(payload.platform_options_by_platform,undefined);
-fields.owner_transcript_only.checked=true;fields.owner_transcript_only.onchange();assert.deepEqual(inputs.filter(item=>item.checked).map(item=>item.value),['bili']);assert.equal(fields.owner_media.checked,true);assert.equal(fields.owner_long_audio.checked,true);
+fields.owner_transcript_only.checked=true;fields.owner_transcript_only.onchange();assert.deepEqual(inputs.filter(item=>item.checked).map(item=>item.value),['xhs']);assert.equal(fields.owner_media.checked,true);assert.equal(fields.owner_long_audio.checked,false);await assert.rejects(()=>vm.runInContext('payload()',context),/字幕优先当前支持/);inputs[0].checked=false;inputs[1].checked=true;
 payload=await vm.runInContext('payload()',context);assert.deepEqual(JSON.parse(JSON.stringify(payload.platform_options_by_platform)),{bili:{long_audio:true,transcript_only:true}});
 const planned=await taskPlan(JSON.parse(JSON.stringify(payload)));assert.equal(planned.children[0].request.platform_options.transcript_only,true);assert.equal(planned.max_api_requests,8);
-inputs.find(item=>item.value==='ks').checked=true;await assert.rejects(()=>vm.runInContext('payload()',context),/只支持B站/);
+inputs.find(item=>item.value==='ks').checked=true;await assert.rejects(()=>vm.runInContext('payload()',context),/字幕优先当前支持/);
 for(const bad of [{transcript_only:1,long_audio:true},{transcript_only:true,long_audio:false},{transcript_only:true}])await assert.rejects(()=>taskPlan({...JSON.parse(JSON.stringify(payload)),platform_options_by_platform:{bili:bad}}));
 await assert.rejects(()=>taskPlan({...JSON.parse(JSON.stringify(payload)),platforms:['ks'],targets_by_platform:{ks:['synthetic']},platform_options_by_platform:{ks:{transcript_only:true,long_audio:true}}}));
 fields.owner_media.checked=false;fields.owner_media.onchange();assert.equal(fields.owner_transcript_only.checked,false);assert.equal(fields.owner_long_audio.checked,false);
-assert.match(source,/当前采集器未接平台字幕/);assert.ok(invalidations>=2);
+assert.match(source,/先取平台字幕/);assert.ok(invalidations>=2);
 console.log(JSON.stringify({ok:true,cases:8,actual_owner_payload:true,actual_cloud_plan:true,source_requests:0,model_calls:0}));
 // The real Edge/RPC stores and dispatches the same option without widening source quota.
 const {createRequire}=await import('node:module'),path=(await import('node:path')).default,os=(await import('node:os')).default;

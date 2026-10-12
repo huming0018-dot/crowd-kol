@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parent
 
 
 def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run, asr_model=None,
-            work_dir=None, cancel=None, project_root=None, cache_dir=None):
+            work_dir=None, cancel=None, project_root=None, cache_dir=None, asr_timing_mode='word'):
+    if asr_timing_mode not in ('word','segment') or kind!='asr' and asr_timing_mode!='word':raise ValueError('invalid_asr_timing_mode')
     identities = {'xiaohongshu': r'[a-f0-9]{24}', 'bilibili': r'BV[A-Za-z0-9]{10}|[0-9]{1,30}',
                   'douyin': r'[0-9]{1,30}', 'kuaishou': r'[A-Za-z0-9_-]{1,100}',
                   'weibo': r'[A-Za-z0-9]{1,100}', 'tieba': r'[0-9]{1,30}',
@@ -70,7 +71,7 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
                 with os.fdopen(os.open(audio, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
                     stream.write(data)
                 cache_options = {'project_root': project_root, 'cache_dir': cache_dir} if project_root is not None or cache_dir is not None else {}
-                parsed = long_media.transcribe_long(audio, asr_model, work, cancel=cancel, **cache_options)
+                parsed = long_media.transcribe_long(audio, asr_model, work, cancel=cancel, **cache_options, **({'asr_timing_mode':'segment'} if asr_timing_mode=='segment' else {}))
             evidence.update(parsed, coverage='local_file_all_audio_windows_processed')
             return {'platform': platform, 'content_id': content_id,
                     'authorization_ref': authorization_ref.strip(), 'kind': 'transcript', 'evidence': evidence}
@@ -81,11 +82,14 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
             audio = Path(directory) / ('input' + source.suffix.lower())
             audio.write_bytes(data)
             command = [sys.executable, str(ROOT / 'local_asr.py'), '--model-dir', str(Path(asr_model).resolve()), str(audio)] if asr_model else [str(native), str(audio)]
+            if asr_timing_mode=='segment':
+                if asr_model is None:raise ValueError('mlx_segment_mode_requires_model')
+                command.extend(['--asr-timing-mode','segment'])
             result = runner(command, check=True, capture_output=True, timeout=150)
         parsed = json.loads(result.stdout)
         if not isinstance(parsed.get('raw_text'), str) or not parsed['raw_text'].strip() or len(parsed['raw_text']) > 24000 or type(parsed.get('truncated')) is not bool:
             raise ValueError('invalid_asr_output')
-        evidence.update(raw_text=parsed['raw_text'], truncated=parsed['truncated'], processor='faster_whisper_local' if asr_model else 'apple_speech_ondevice')
+        evidence.update(raw_text=parsed['raw_text'], truncated=parsed['truncated'], processor='mlx_whisper_local' if parsed.get('processor')=='mlx_whisper_local' else 'faster_whisper_local' if asr_model else 'apple_speech_ondevice')
         import local_asr
         evidence['quality_diagnostics'] = local_asr.quality_diagnostics([])
         if asr_model and 'segments' in parsed:
@@ -137,11 +141,12 @@ def main():
     parser.add_argument('--authorization-ref', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--asr-model', type=Path, help='Explicit verified local Faster Whisper model; no automatic download')
+    parser.add_argument('--asr-timing-mode',choices=('word','segment'),default='word')
     args = parser.parse_args()
     if not 1 <= len(args.input) <= (2 if args.kind == 'ocr' else 1):
         parser.error('最多2张图片，其他类型每次1份文件')
     try:
-        output = [prepare(args.kind, path, args.platform, args.content_id, args.authorization_ref, asr_model=args.asr_model) for path in args.input]
+        output = [prepare(args.kind, path, args.platform, args.content_id, args.authorization_ref, asr_model=args.asr_model,asr_timing_mode=args.asr_timing_mode) for path in args.input]
         encoded = json.dumps(output, ensure_ascii=False, indent=2).encode('utf-8')
         if len(encoded) > 200000:
             raise ValueError('evidence_over_200kb')

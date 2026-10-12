@@ -28,6 +28,26 @@ function subtitleReport(report,input){
     &&p.last_seconds<=report.duration_seconds&&p.duration_seconds===report.duration_seconds,'invalid_transcript');
 }
 
+const platformProvenanceFields=['provider','subtitle_kind','language','track_id','coverage','semantic_status','semantic_completeness','source_body_sha256','raw_subtitle_sha256','source_metadata_sha256','extractor_version','extractor_method','content_id','first_seconds','last_seconds','duration_seconds'];
+function platformSubtitleReport(report,input){
+ const p=report.subtitle_provenance;
+ assert(keys(report,subtitleFields)&&report.subtitle_source_run_id===input.local_run_id&&report.platform==='douyin'
+  &&report.entity_ref==='douyin:content:'+report.content_id
+  &&report.processor==='yt_dlp_native_metadata_subtitle_v1'&&report.processing_profile==='yt_dlp_native_metadata_subtitle_v1'
+  &&report.model_manifest_sha256===null&&report.diagnostics_sha256===null&&report.text_revision===null,'invalid_transcript');
+ assert(keys(p,platformProvenanceFields)&&p.provider==='douyin'&&p.content_id===report.content_id
+  &&['human','platform_auto','unknown'].includes(p.subtitle_kind)
+  &&typeof p.language==='string'&&/^[A-Za-z0-9_-]{1,30}$/.test(p.language)
+  &&typeof p.track_id==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(p.track_id)
+  &&p.coverage==='source_track_full_duration_candidate'&&p.semantic_status==='not_reviewed'&&p.semantic_completeness==='unknown'
+  &&['source_body_sha256','raw_subtitle_sha256','source_metadata_sha256'].every(k=>hex(p[k]))
+  &&p.raw_subtitle_sha256===report.asset_sha256&&p.source_body_sha256===report.asset_sha256
+  &&typeof p.extractor_version==='string'&&/^[0-9]{4}\.[0-9]{2}\.[0-9]{2}$/.test(p.extractor_version)
+  &&p.extractor_method==='TikTokBaseIE._get_subtitles'
+  &&Number.isFinite(p.first_seconds)&&Number.isFinite(p.last_seconds)&&p.first_seconds>=0&&p.first_seconds<=p.last_seconds
+  &&p.last_seconds<=report.duration_seconds&&p.duration_seconds===report.duration_seconds,'invalid_transcript');
+}
+
 export async function transcriptPayload(input){
   assert(keys(input,fields),'invalid_transcript');
   assert(['task_id','child_id','run_id','local_run_id','local_job_id'].every(key=>uuid(input[key]))&&positive(input.lease_epoch)&&input.lease_epoch<=2147483647&&hex(input.report_sha256),'invalid_transcript');
@@ -35,6 +55,7 @@ export async function transcriptPayload(input){
   assert(typeof input.report_json==='string'&&new TextEncoder().encode(input.report_json).length<=200000&&!sensitive.test(input.report_json),'transcript_report_limit');
   let report;try{report=JSON.parse(input.report_json);}catch{throw Error('invalid_transcript');}
   if(report.schema==='crowd-subtitle-report-v1')subtitleReport(report,input);
+  else if(report.schema==='crowd-platform-subtitle-report-v1')platformSubtitleReport(report,input);
   else assert(keys(report,reportFields)&&report.schema==='crowd-transcript-report-v1'&&uuid(report.audio_source_job_id),'invalid_transcript');
   assert(report.job_id===input.local_job_id&&report.local_run_id===input.local_run_id&&['xiaohongshu','douyin','kuaishou','bilibili','weibo','tieba','zhihu'].includes(report.platform)&&typeof report.content_id==='string'&&/^[A-Za-z0-9_-]{1,200}$/.test(report.content_id),'invalid_transcript');
   const entities=[report.platform+':content:'+report.content_id,report.platform+':dynamic:'+report.content_id];if(report.platform==='zhihu')entities.push(...['answer','article','zvideo'].map(kind=>'zhihu:content:'+report.content_id+':'+kind));
@@ -43,7 +64,7 @@ export async function transcriptPayload(input){
   assert(report.semantic_review==='not_reviewed'&&report.cer===null&&report.human_groundtruth===false&&Number.isFinite(report.duration_seconds)&&report.duration_seconds>0&&report.duration_seconds<=7200&&positive(report.segment_count)&&report.segment_count<=8000&&positive(report.character_count)&&report.character_count<=240000&&Array.isArray(report.segments)&&report.segments.length===report.segment_count,'invalid_transcript');
   let characters=0;
   for(const row of report.segments){assert(plain(row)&&Object.keys(row).every(key=>['start','end','text','chunk_index'].includes(key))&&['start','end','text'].every(key=>Object.hasOwn(row,key))&&Number.isFinite(row.start)&&Number.isFinite(row.end)&&row.start>=0&&row.start<=row.end&&row.end<=report.duration_seconds&&typeof row.text==='string'&&row.text.trim()&&row.text.length<=24000&&(!Object.hasOwn(row,'chunk_index')||Number.isSafeInteger(row.chunk_index)&&row.chunk_index>=0&&row.chunk_index<512),'invalid_transcript');characters+=[...row.text].length;}
-  if(report.schema==='crowd-subtitle-report-v1'){
+  if(['crowd-subtitle-report-v1','crowd-platform-subtitle-report-v1'].includes(report.schema)){
     let previous=-1,cursor=0;
     for(const row of report.segments){assert(row.start>=previous&&row.start<row.end&&row.start-cursor<=Math.max(120,report.duration_seconds*.15),'invalid_transcript');previous=row.start;cursor=Math.max(cursor,row.end);}
     const p=report.subtitle_provenance,edge=Math.max(10,report.duration_seconds*.03);

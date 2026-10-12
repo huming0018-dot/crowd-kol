@@ -24,7 +24,7 @@ const ownerView = (() => {
   <fieldset style="border:0;padding:0"><legend>采集平台（可多选）</legend><div id="owner_platforms" class="choices"></div></fieldset>
   <div class="choices"><label><input id="owner_comments" type="checkbox">评论</label><label><input id="owner_replies" type="checkbox">二级回复</label><label><input id="owner_media" type="checkbox">媒体文件</label></div>
   <label><input id="owner_long_audio" type="checkbox"> B站只下载音轨，用于长视频转写（最长2小时，64MiB）</label>
-  <label><input id="owner_transcript_only" type="checkbox"> B站轻量采集：只取音轨，采后自动排队生成本地文字稿</label><small>仅B站；当前采集器未接平台字幕，使用本机ASR，不下载大视频、不调用远程大模型。原有文件保留。</small>
+  <label><input id="owner_transcript_only" type="checkbox"> 字幕优先文字稿（B站 / 抖音）</label><small>先取平台字幕；无完整字幕时本地转写。B站取音轨，抖音使用已登记视频；已配置Mac加速时优先使用，原有文件保留。</small>
   <label>所有平台合计内容数量配置<input id="owner_total" type="number" min="1" max="700" value="60"><small>按平台分配；搜索每平台至少20。上游数量配置不保证严格的实体数上限。</small></label>
   <section id="owner_watch_options" hidden><label><input id="owner_continuous" type="checkbox"> 持续跟踪此博主名单</label><div class="grid"><label>间隔（分钟）<input id="owner_watch_interval" type="number" min="1" max="525600" value="720"></label><label>观察窗口（天）<input id="owner_watch_window" type="number" min="1" max="3650" value="3"></label><label>整个跟踪计划接口尝试总额<input id="owner_watch_budget" type="number" min="1" max="1000000" value="120"></label></div><p class="hint">总额跨周期保留，不每天清零；每轮沿用下方接口上限。观察最新作品，当前不保证平台端按日期完整筛选。</p></section><details><summary>更多选项</summary><div class="grid"><label>所有平台合计接口尝试上限<input id="owner_requests" type="number" min="1" max="3500" value="60"></label><label>每篇评论数量配置<input id="owner_comment_limit" type="number" min="0" max="200" value="20"></label></div><p class="hint">自动复用工作台可用登录资料；首次登录需本人完成。浏览器资源请求不计入 Python 接口尝试。</p></details>
   <section id="owner_preview" class="notice" hidden></section><div class="dialog-footer"><button type="button" id="owner_preview_button">预览分配</button><button id="owner_create" class="primary" disabled>按此分配开始</button></div></form>`;
@@ -38,8 +38,8 @@ const ownerView = (() => {
   function invalidate() { preview=null; previewRequest=null; $('owner_preview').hidden=true; $('owner_create').disabled=true; generation++; }
   $('owner_form').addEventListener('input', invalidate);
   $('owner_form').addEventListener('change', invalidate);
-  $('owner_long_audio').onchange=()=>{if($('owner_long_audio').checked)$('owner_media').checked=true;else $('owner_transcript_only').checked=false;invalidate();};
-  $('owner_transcript_only').onchange=()=>{if($('owner_transcript_only').checked){$('owner_media').checked=true;$('owner_long_audio').checked=true;for(const input of $('owner_platforms').querySelectorAll('input'))input.checked=input.value==='bili';}invalidate();};
+  $('owner_long_audio').onchange=()=>{if($('owner_long_audio').checked)$('owner_media').checked=true;invalidate();};
+  $('owner_transcript_only').onchange=()=>{if($('owner_transcript_only').checked){$('owner_media').checked=true;}invalidate();};
   $('owner_media').onchange=()=>{if(!$('owner_media').checked){$('owner_long_audio').checked=false;$('owner_transcript_only').checked=false;}invalidate();};
   $('owner_mode').onchange = () => {
     const mode=$('owner_mode').value, discovery=['homefeed','trending'].includes(mode);
@@ -59,7 +59,7 @@ const ownerView = (() => {
   async function payload() {
     const p={idempotency_key:crypto.randomUUID(),platforms:[...$('owner_platforms').querySelectorAll('input:checked')].map(x=>x.value),mode:$('owner_mode').value,desired_items:Number($('owner_total').value),max_api_requests:Number($('owner_requests').value),max_comments:Number($('owner_comment_limit').value),comments:$('owner_comments').checked,replies:$('owner_replies').checked,media:$('owner_media').checked,purpose:$('purpose').value};
     if($('owner_long_audio').checked){if(!p.platforms.includes('bili'))throw Error('音轨采集需要选择B站。');p.media=true;p.platform_options_by_platform={bili:{long_audio:true}};}
-    if($('owner_transcript_only').checked){if(p.platforms.length!==1||p.platforms[0]!=='bili')throw Error('轻量文字稿模式当前只支持B站，请仅选择B站。');p.platform_options_by_platform.bili.transcript_only=true;}
+    if($('owner_transcript_only').checked){if(!p.platforms.length||p.platforms.some(platform=>!['bili','dy'].includes(platform)))throw Error('字幕优先当前支持B站和抖音，可同时选择；其他平台仍可正常采集。');p.media=true;p.platform_options_by_platform=p.platform_options_by_platform||{};for(const platform of p.platforms)p.platform_options_by_platform[platform]={...(p.platform_options_by_platform[platform]||{}),transcript_only:true,...(platform==='bili'?{long_audio:true}:{})};}
     if($('authorization_ref').value.trim())p.authorization_ref=$('authorization_ref').value.trim();
     if(p.mode==='search')p.targets=$('owner_targets').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     else if(!['homefeed','trending'].includes(p.mode)) {const parsed=await call('parse_batch',{text:$('owner_targets').value,mode:p.mode});if(parsed.errors?.length)throw Error(parsed.errors.map(x=>'第'+(x.line||x.row||'?')+'行：'+(x.error||x.reason||'格式错误')).join('；'));p.targets_by_platform=parsed.targets_by_platform;}

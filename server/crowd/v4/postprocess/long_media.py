@@ -362,7 +362,9 @@ def merge_chunks(manifest, results):
 
 
 def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
-                    project_root=None, cache_dir=None):
+                    project_root=None, cache_dir=None, asr_timing_mode='word'):
+    if asr_timing_mode not in ('word','segment'):
+        raise ValueError('invalid_asr_timing_mode')
     # Gate before lock creation and before any error-state receipt can be written.
     work = safe_work_directory(source, work_dir)
     descriptor = os.open(work / 'active.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -379,7 +381,8 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                 raise ValueError('audio_result_cache_requires_local_provider')
             manifest = prepare_chunks(source, work, cancel)
             state['total_chunks'] = len(manifest['chunks'])
-            if transcriber is None:
+            local_provider = transcriber is None
+            if local_provider:
                 model_dir = Path(model_dir) if model_dir is not None else None
                 if model_dir is None or not (model_dir / 'crowd-model.json').is_file():
                     raise ValueError('local_asr_model_not_configured')
@@ -398,6 +401,11 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                 if candidate.get('engine') == 'mlx_whisper_local':
                     mlx_manifest = candidate
                     processor_names += ('mlx_asr.py',)
+                    if local_provider:
+                        from mlx_asr import VerifiedSession
+                        transcriber = VerifiedSession(model_dir, timing_mode=asr_timing_mode)
+            if asr_timing_mode!='word' and (mlx_manifest is None or not local_provider):
+                raise ValueError('segment_timing_requires_mlx_provider')
             processor_hash = ''.join(digest(Path(__file__).with_name(name)) for name in processor_names)
             shared_cache = None
             if cache_dir is not None:
@@ -411,7 +419,7 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                 target = work / ('result-%04d.json' % chunk['index'])
                 if target.is_symlink() or target.exists() and target.stat().st_size > 2_000_000:
                     raise ValueError('invalid_long_media_chunk_cache')
-                key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA)).encode()).hexdigest()
+                key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA) + ('mlx-segment-timing-v1' if asr_timing_mode=='segment' else '')).encode()).hexdigest()
                 def validate_result(value):
                     import local_asr
                     duration = chunk['end'] - chunk['start']
@@ -463,7 +471,8 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
             if mlx_manifest is not None:
                 result.update(processor='mlx_whisper_local_segmented', model_repository=mlx_manifest['repository'],
                     model_revision=mlx_manifest['revision'], package_version=mlx_manifest['package_version'],
-                    decoding='greedy_temperature_zero', timing_policy='mlx_native_word_timestamps_no_pre_alignment_token_receipt')
+                    decoding='greedy_temperature_zero', asr_timing_mode=asr_timing_mode,
+                    timing_policy='mlx_decoder_segment_timestamps_with_retained_padding' if asr_timing_mode=='segment' else 'mlx_native_word_timestamps_no_pre_alignment_token_receipt')
             result['audio_windows_processed'] = len(results)
             result['no_text_windows'] = sum(not row['segments'] for row in results)
             result['transcript_completeness'] = 'not_independently_verified'
@@ -491,6 +500,7 @@ def main():
     parser.add_argument('--authorization-ref', required=True)
     parser.add_argument('--project-root', type=Path)
     parser.add_argument('--cache-dir', type=Path)
+    parser.add_argument('--asr-timing-mode', choices=('word','segment'), default='word')
     args = parser.parse_args()
     cancelled = False
 
@@ -504,7 +514,7 @@ def main():
         import evidence
         row = evidence.prepare('asr', args.input, args.platform, args.content_id, args.authorization_ref,
                                asr_model=args.asr_model, work_dir=args.work_dir,
-                               project_root=args.project_root, cache_dir=args.cache_dir,
+                               project_root=args.project_root, cache_dir=args.cache_dir, asr_timing_mode=args.asr_timing_mode,
                                cancel=lambda: cancelled or (args.work_dir.parent / 'cancel.requested').exists())
         encoded = json.dumps([row], ensure_ascii=False).encode()
         if len(encoded) > 2_000_000:

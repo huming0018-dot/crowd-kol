@@ -420,7 +420,7 @@ class Application:
             options = payload.get('platform_options_by_platform', {})
             light_requested = isinstance(options, dict) and any(isinstance(value, dict) and value.get('transcript_only') is True for value in options.values())
             if light_requested:
-                if payload.get('platforms') != ['bili']:raise ValueError('transcript_only_bili_only')
+                if not payload.get('platforms') or any(p not in ('bili','dy') for p in payload['platforms']):raise ValueError('transcript_only_platform_unsupported')
                 capabilities = self.process_media('capabilities', {})
                 if not capabilities['asr'] or not capabilities['ffmpeg']:raise ValueError('light_transcript_local_processor_required')
             return getattr(self.owner_tasks, action)(payload)
@@ -549,11 +549,19 @@ class Application:
                 raise ValueError('invalid_transcript_cloud_request')
             from transcript_artifact import transcript_cloud
             return transcript_cloud(self.media_jobs, self.cloud_client, payload['job_id'], action.rsplit('_', 1)[1])
-        if action in ('quality_lookup', 'transcript_revision') or action == 'playback':
+        if action in ('quality_lookup', 'transcript_revision', 'optimization_preview', 'optimization_apply') or action == 'playback':
             spec = importlib.util.spec_from_file_location('crowd_transcript_quality', HERE.parent / 'postprocess' / 'transcript_quality.py')
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             quality = module.TranscriptQuality(self.root)
+        if action in ('optimization_preview', 'optimization_apply'):
+            expected={'job_id'} if action=='optimization_preview' else {'job_id','expected_result_sha256','expected_plan_sha256'}
+            if set(payload)!=expected:raise ValueError('invalid_transcript_optimization_request')
+            from transcript_context import context
+            saved=quality.validate(payload['job_id']);source_context,references=context(self,saved)
+            if action=='optimization_preview':return quality.optimization_preview(payload['job_id'],source_context,references)
+            value=quality.create_optimized_revision(payload['job_id'],payload['expected_result_sha256'],payload['expected_plan_sha256'],source_context,references)
+            return {**self.media_jobs.status(value['job_id']),'source_requests':0,'model_calls':0}
         if action == 'quality_lookup' and set(payload) == {'job_id'}:
             return quality.lookup(payload['job_id'])
         if action == 'transcript_revision' and set(payload) == {'job_id', 'expected_result_sha256', 'edits', 'reviewer_kind', 'acknowledge_new_version'}:
@@ -611,9 +619,9 @@ class Application:
             if payload['reference_sha256']!=reference['reference_sha256']:raise ValueError('video_reference_changed')
             return self.media_jobs.start_video(reference)
         if action in ('start','preview') and set(payload) in ({'run_id', 'path', 'content_id', 'kind'}, {'run_id', 'path', 'content_id', 'kind', 'asr_engine'}):
-            if 'asr_engine' in payload and (payload['kind'] != 'asr' or payload['asr_engine'] not in ('cpu', 'mlx')):
+            if 'asr_engine' in payload and (payload['kind'] != 'asr' or payload['asr_engine'] not in ('cpu', 'mlx', 'mlx_fast')):
                 raise ValueError('invalid_asr_engine')
-            if payload.get('asr_engine') == 'mlx' and 'mlx' not in self.media_jobs.capabilities().get('asr_engines', []):
+            if payload.get('asr_engine') in ('mlx','mlx_fast') and payload['asr_engine'] not in self.media_jobs.capabilities().get('asr_engines', []):
                 raise ValueError('mac_asr_engine_not_configured')
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
             imported = self.run('import', {'run_id': payload['run_id']})

@@ -26,7 +26,8 @@ class MacSelection(unittest.TestCase):
                 self.assertEqual(manager.capabilities()['asr_engines'],['cpu'])
                 (model/'crowd-model.json').write_text(json.dumps({'engine':'mlx_whisper_local'}))
                 self.assertEqual(manager._asr_configuration('mlx'),(model.resolve(),str(executable)))
-                self.assertEqual(manager.capabilities()['asr_engines'],['cpu','mlx'])
+                self.assertEqual(manager._asr_configuration('mlx_fast'),(model.resolve(),str(executable)))
+                self.assertEqual(manager.capabilities()['asr_engines'],['cpu','mlx','mlx_fast'])
                 manager.close()
 
     def test_actual_start_metadata_can_enter_full_analysis(self):
@@ -61,5 +62,25 @@ class MacSelection(unittest.TestCase):
                     result=build_snapshot(body,'douyin','123',derived_inputs=selected)
                     self.assertEqual(result['derived_inputs'][0]['processor'],'mlx_whisper_local_segmented')
                 finally:analysis.close();manager.close()
+
+    def test_fast_worker_explicitly_passes_segment_mode_and_word_does_not(self):
+        import uuid
+        from unittest.mock import MagicMock
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);manager=MediaJobs(root/'runtime')
+            for engine in ('cpu','mlx','mlx_fast'):
+                folder=manager.root/str(uuid.uuid4());folder.mkdir()
+                snapshot=folder/'input.wav';snapshot.write_bytes(b'offline-command-fixture')
+                state={'job_id':folder.name,'kind':'asr','platform':'bili','content_id':'123',
+                       'asr_engine':engine,'asset_sha256':'0'*64}
+                process=MagicMock();process.pid=123;process.returncode=1
+                lock=MagicMock();lock.fileno.return_value=42
+                with patch.object(manager,'_asr_configuration',return_value=(root/'model','offline-python')),patch('media_jobs.subprocess.Popen',return_value=process) as spawn:
+                    manager._execute(state,snapshot,lock)
+                command=spawn.call_args.args[0]
+                self.assertEqual('--asr-timing-mode' in command,engine=='mlx_fast')
+                if engine=='mlx_fast':self.assertEqual(command[-2:],['--asr-timing-mode','segment'])
+                self.assertEqual(state['state'],'failed')
+            manager.close()
 
 if __name__=='__main__':unittest.main()

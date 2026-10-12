@@ -63,6 +63,14 @@ class OwnerTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             plan({**req, 'media': False})
 
+    def test_transcript_only_bili_douyin_multi_platform_preflight(self):
+        options={'bili':{'transcript_only':True,'long_audio':True},'dy':{'transcript_only':True}}
+        req=self.request(platforms=['bili','dy'],targets_by_platform={'bili':['BV1234567890'],'dy':['123']},media=True,platform_options_by_platform=options)
+        children=plan(req)['children']
+        self.assertEqual([child['request']['platform_options'] for child in children],[options['bili'],options['dy']])
+        self.assertEqual(plan({**req,'platforms':['dy'],'targets_by_platform':{'dy':['123']},'platform_options_by_platform':{'dy':options['dy']}})['children'][0]['request']['platform_options'],options['dy'])
+        with self.assertRaises(ValueError):plan({**req,'platforms':['bili','wb'],'targets_by_platform':{'bili':['BV1234567890'],'wb':['123']},'platform_options_by_platform':{'bili':options['bili']}})
+
     def test_idempotency_persistence_and_conflict(self):
         first = self.create()
         self.assertEqual(first['task_id'], self.create()['task_id'])

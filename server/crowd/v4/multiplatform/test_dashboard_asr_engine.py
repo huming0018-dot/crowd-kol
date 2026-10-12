@@ -13,7 +13,7 @@ class Tests(unittest.TestCase):
         self.app = Application.__new__(Application)
         self.app.lock = threading.Lock()
         self.app.media_jobs = SimpleNamespace(
-            capabilities=lambda: {'asr_engines': ['cpu', 'mlx']},
+            capabilities=lambda: {'asr_engines': ['cpu', 'mlx', 'mlx_fast']},
             start=Mock(return_value={'state': 'queued'}),
             preview=Mock(return_value={'native_video_verified': True}))
         self.app._registered_run_root = lambda _: Path('/test-root')
@@ -24,6 +24,8 @@ class Tests(unittest.TestCase):
     def test_explicit_engine_forwarded_and_default_keeps_original_signature(self):
         self.app.process_media('start', {**self.payload, 'asr_engine': 'mlx'})
         self.assertEqual(self.app.media_jobs.start.call_args.kwargs['asr_engine'], 'mlx')
+        self.app.process_media('start', {**self.payload, 'asr_engine': 'mlx_fast'})
+        self.assertEqual(self.app.media_jobs.start.call_args.kwargs['asr_engine'], 'mlx_fast')
         self.app.process_media('start', self.payload)
         self.assertNotIn('asr_engine', self.app.media_jobs.start.call_args.kwargs)
 

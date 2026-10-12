@@ -134,8 +134,8 @@ def plan(payload):
     options = payload.get('platform_options_by_platform', {})
     if not isinstance(options, dict) or set(options) - set(platforms):
         raise ValueError('invalid_platform_options')
-    if any(isinstance(value, dict) and value.get('transcript_only') is True for value in options.values()) and platforms != ['bili']:
-        raise ValueError('transcript_only_bili_only')
+    if any(isinstance(value, dict) and value.get('transcript_only') is True for value in options.values()) and (not platforms or any(platform not in ('bili','dy') for platform in platforms)):
+        raise ValueError('transcript_only_supported_platforms_only')
     children = []
     for index, platform in enumerate(platforms):
         count = total // len(platforms) + (index < total % len(platforms))

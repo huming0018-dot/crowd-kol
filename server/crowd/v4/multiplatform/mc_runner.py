@@ -146,6 +146,11 @@ def execution_target(platform,mode,value):
 def validate_options(p):
     options=p.setdefault('platform_options',{})
     if not isinstance(options,dict): fail('invalid_platform_options')
+    if p['platform']=='dy':
+        if set(options)-{'transcript_only'}:fail('unsupported_platform_options')
+        if 'transcript_only' in options and type(options['transcript_only']) is not bool:fail('invalid_transcript_only')
+        if options.get('transcript_only') and p.get('media') is not True:fail('transcript_only_requires_media')
+        return
     if p['platform']!='bili':
         if options: fail('unsupported_platform_options')
         return
@@ -253,6 +258,7 @@ def capabilities(mc):
             features.append({'id':'long_audio','support_state':'implemented','live_verified':False,'notes':'explicit audio-only DASH option; lowest available bandwidth, fixed 64MiB single audio/100MiB total, at most 2h; DURL-only responses do not trigger another request'})
             features.append({'id':'transcript_only','support_state':'implemented','live_verified':False,'notes':'native Chinese subtitle first; uncertain/missing track falls back audio-only local ASR; no remote LLM or video fallback'})
             features.extend([{'id':'creator_dynamics','support_state':'implemented','live_verified':False,'notes':'separate dynamic identity; no dynamic comments or media download'}, {'id':'creator_relations','support_state':'unsupported','live_verified':False,'notes':'installed upstream callbacks do not persist followers/following'}, {'id':'video_quality','support_state':'implemented','live_verified':False,'notes':'requested quality is subject to session and source availability'}])
+        if p=='dy':features.append({'id':'transcript_only','support_state':'implemented','live_verified':False,'notes':'optional existing native caption metadata via pinned yt-dlp; no caption triggers original video download/local ASR; no audio-only claim'})
         if p=='tieba': features.append({'id':'public_post_media','support_state':'implemented','live_verified':False,'notes':'own adapter downloads at most three public CDN assets from the same native page response; not upstream media support'})
         if p=='zhihu': features.extend([{'id':'public_body_media','support_state':'implemented','live_verified':False,'notes':'own adapter observes at most three public body assets from the same native detail HTML or search/creator JSON; excerpt and CDN availability may limit coverage'}, {'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
         platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator',*discovery_modes],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
@@ -288,6 +294,17 @@ def configure_platform_hooks(upstream,p):
     if p['platform'] in ('dy','ks') and p['media']:
         from native_media_scope import install_hook
         install_hook(upstream.CrawlerFactory.CRAWLERS[p['platform']],p['platform'],Path.cwd()/'output',SingleResponseLimit,read,write)
+    if p['platform']=='dy' and p['media'] and p.get('platform_options',{}).get('transcript_only'):
+        crawler=upstream.CrawlerFactory.CRAWLERS['dy'];original=crawler.download_media
+        async def subtitle_first(self,*args,**kwargs):
+            from native_subtitles import fetch_douyin_subtitles
+            source=kwargs.get('aweme_item') if 'aweme_item' in kwargs else args[0] if args else None
+            result=await fetch_douyin_subtitles(source,Path.cwd()/'output')
+            phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
+            write(phase,{**previous,'subtitle_status':result['status'],'subtitle_reason':result.get('reason'),'subtitle_source_requests':result['source_requests']})
+            if result['status']=='available':return
+            return await original(self,*args,**kwargs)
+        crawler.download_media=subtitle_first
     if p['platform']=='zhihu' and p['media']:
         from media_platform.zhihu.client import ZhiHuClient
         from zhihu_media import install_hook

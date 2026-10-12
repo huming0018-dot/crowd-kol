@@ -1,6 +1,7 @@
 """Read ASR review candidates and save explicit text revisions without inference."""
 import copy
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -60,10 +61,20 @@ def finite(value):
     try:return type(value) in (int,float) and math.isfinite(value)
     except OverflowError:return False
 
+def optimizer():
+    spec=importlib.util.spec_from_file_location('crowd_transcript_optimize',Path(__file__).with_name('transcript_optimize.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
 
 class TranscriptQuality:
     def __init__(self,root):
         ancestors(Path(root));self.root=Path(root).resolve()/'media-processing'
+    def _chunks(self,saved):
+        path=self.root/saved['audio_source_job_id']/'long-asr/chunks.json'
+        return read_json(path,65536)[0]['chunks'] if path.is_file() else []
+    def _removal(self,saved,index,retained):
+        return optimizer().overlap_removal(saved['evidence']['segments'],self._chunks(saved),index,retained)
     def _load(self,identity,chain=()):
         identity=job_id(identity)
         if identity in chain or len(chain)>=8:raise ValueError('transcript_revision_cycle')
@@ -97,24 +108,38 @@ class TranscriptQuality:
                     or any(canonical(state.get(key))!=canonical(parent['state'].get(key)) for key in ('platform','content_id','run_id','asset_sha256','entity_ref'))
                     or canonical(evidence.get('text_revision'))!=canonical(revision)
                     or canonical(evidence.get('quality_diagnostics'))!=canonical(parent['evidence'].get('quality_diagnostics'))
-                    or len(rows)!=len(parent['evidence']['segments'])
-                    or any((row['start'],row['end'])!=(prior['start'],prior['end']) for row,prior in zip(rows,parent['evidence']['segments']))):raise ValueError('transcript_revision_parent_changed')
+                    ):raise ValueError('transcript_revision_parent_changed')
             mutable_evidence={'segments','raw_text','truncated','text_revision'}
             mutable_state={'job_id','created_at','finished_at','input_hash','result_sha256','text_revision','source_job_id','processor_pid','review_status'}
             if (canonical({k:v for k,v in evidence.items() if k not in mutable_evidence})!=canonical({k:v for k,v in parent['evidence'].items() if k not in mutable_evidence})
                     or canonical({k:v for k,v in state.items() if k not in mutable_state})!=canonical({k:v for k,v in parent['state'].items() if k not in mutable_state})
                     or canonical({k:v for k,v in record.items() if k!='evidence'})!=canonical({k:v for k,v in parent['result'][0].items() if k!='evidence'})):
                 raise ValueError('transcript_revision_parent_changed')
-            expected=copy.deepcopy(parent['evidence']['segments']);seen=set()
+            expected=copy.deepcopy(parent['evidence']['segments']);seen=set();removed=set();retained_targets=set()
             for edit in revision['edits']:
                 index=edit.get('segment_index')
-                if (set(edit)!={'segment_index','original_text','original_text_sha256','revised_text_sha256','start','end'}
-                        or type(index) is not int or not 0<=index<len(rows) or index in seen or len(rows[index]['text'])>2000):raise ValueError('transcript_revision_parent_changed')
+                deletion='removed_overlap_with' in edit
+                fields={'segment_index','original_text','original_text_sha256','revised_text_sha256','start','end'}
+                if (set(edit)!=fields|({'removed_overlap_with','overlap_proof'} if deletion else set())
+                        or type(index) is not int or not 0<=index<len(expected) or index in seen):raise ValueError('transcript_revision_parent_changed')
                 seen.add(index);prior=expected[index]
+                if deletion:
+                    target=edit['removed_overlap_with'];proof=self._removal(parent,index,target)
+                    if (proof is None or canonical(proof)!=canonical(edit['overlap_proof'])
+                            or edit['revised_text_sha256'] is not None):raise ValueError('transcript_revision_parent_changed')
+                    removed.add(index);retained_targets.add(target)
+                    revised=prior['text']
+                else:
+                    # Edited positions are parent indexes, even after earlier removals.
+                    final_index=index-sum(value<index for value in removed)
+                    if not 0<=final_index<len(rows) or len(rows[final_index]['text'])>2000:raise ValueError('transcript_revision_parent_changed')
+                    revised=rows[final_index]['text']
                 if (edit.get('original_text')!=prior['text'] or edit.get('original_text_sha256')!=text_hash(prior['text'])
-                        or edit.get('revised_text_sha256')!=text_hash(rows[index]['text'])
+                        or not deletion and edit.get('revised_text_sha256')!=text_hash(revised)
                         or (edit.get('start'),edit.get('end'))!=(prior['start'],prior['end'])):raise ValueError('transcript_revision_parent_changed')
-                prior['text']=rows[index]['text']
+                prior['text']=revised
+            expected=[row for index,row in enumerate(expected) if index not in removed]
+            if removed&retained_targets:raise ValueError('transcript_revision_parent_changed')
             if (canonical(rows)!=canonical(expected) or revision.get('audio_source_job_id')!=parent['audio_source_job_id']
                     or state.get('source_job_id')!=parent['audio_source_job_id']):raise ValueError('transcript_revision_parent_changed')
             text='\n'.join('[%.2f–%.2f] %s'%(row['start'],row['end'],row['text']) for row in rows)
@@ -182,29 +207,52 @@ class TranscriptQuality:
                            'untranscribed_intervals_total':len(gaps),'untranscribed_seconds':sum(row['end']-row['start'] for row in gaps),
                            'automatic_text_replacement':False,'confidence_is_accuracy':False},
                 'text_revision':saved['state'].get('text_revision'),'source_requests':0,'model_calls':0}
-    def create_revision(self,identity,expected_result_sha256,edits,reviewer_kind,acknowledge_new_version):
+    def optimization_preview(self,identity,source_context=None,references=None):
+        saved=self.validate(identity)
+        plan=optimizer().plan(saved['evidence'],self._chunks(saved),source_context,references)
+        return {'ok':True,'job_id':saved['job_id'],'result_sha256':saved['result_sha256'],**plan}
+    def create_optimized_revision(self,identity,expected_result_sha256,expected_plan_sha256,source_context=None,references=None):
+        plan=self.optimization_preview(identity,source_context,references)
+        if plan['result_sha256']!=expected_result_sha256 or plan['plan_sha256']!=expected_plan_sha256:
+            raise ValueError('transcript_optimization_stale_plan')
+        edits=[{key:value for key,value in edit.items() if key!='basis'} for edit in plan['edits']]
+        return self.create_revision(identity,expected_result_sha256,edits,'machine_suggestion',True,optimization_plan=plan)
+    def create_revision(self,identity,expected_result_sha256,edits,reviewer_kind,acknowledge_new_version,optimization_plan=None):
         if (acknowledge_new_version is not True or reviewer_kind not in ('human_manual','machine_suggestion')
                 or not isinstance(expected_result_sha256,str) or not HASH.fullmatch(expected_result_sha256)
                 or not isinstance(edits,list) or not 1<=len(edits)<=MAX_EDITS):raise ValueError('invalid_transcript_revision_request')
         saved=self.validate(identity)
         if saved['revision_depth']>=7:raise ValueError('transcript_revision_chain_limit')
         if saved['result_sha256']!=expected_result_sha256:raise ValueError('transcript_revision_stale_result')
-        result=copy.deepcopy(saved['result']);rows=result[0]['evidence']['segments'];seen=set();proof=[]
+        result=copy.deepcopy(saved['result']);rows=result[0]['evidence']['segments'];seen=set();proof=[];removed=set();retained_targets=set()
+        edits=sorted(edits,key=lambda edit:edit.get('segment_index',-1) if isinstance(edit,dict) and type(edit.get('segment_index')) is int else -1)
         for edit in edits:
-            if (not isinstance(edit,dict) or set(edit)!={'segment_index','expected_text_sha256','text'}
+            deletion=isinstance(edit,dict) and 'remove_overlap_with' in edit
+            if (not isinstance(edit,dict) or set(edit)!={'segment_index','expected_text_sha256'}|({'remove_overlap_with'} if deletion else {'text'})
                     or type(edit['segment_index']) is not int or not 0<=edit['segment_index']<len(rows) or edit['segment_index'] in seen
-                    or not isinstance(edit['text'],str) or not edit['text'].strip() or len(edit['text'])>2000
-                    or re.search(r'(?:cookie|authorization|password|access_token|refresh_token|private_key|api_key|secret)\s*[=:]',edit['text'],re.I)):
+                    or not deletion and (not isinstance(edit['text'],str) or not edit['text'].strip() or len(edit['text'])>2000
+                    or re.search(r'(?:cookie|authorization|password|access_token|refresh_token|private_key|api_key|secret)\s*[=:]',edit['text'],re.I))):
                 raise ValueError('invalid_transcript_revision_edit')
             index=edit['segment_index'];seen.add(index);original=rows[index]
             if text_hash(original['text'])!=edit['expected_text_sha256']:raise ValueError('transcript_revision_stale_segment')
-            proof.append({'segment_index':index,'original_text':original['text'],'original_text_sha256':edit['expected_text_sha256'],
-                          'revised_text_sha256':text_hash(edit['text']),'start':original['start'],'end':original['end']})
-            rows[index]['text']=edit['text']
+            item={'segment_index':index,'original_text':original['text'],'original_text_sha256':edit['expected_text_sha256'],
+                  'revised_text_sha256':None if deletion else text_hash(edit['text']),'start':original['start'],'end':original['end']}
+            if deletion:
+                retained=edit['remove_overlap_with'];overlap=self._removal(saved,index,retained)
+                if overlap is None:raise ValueError('invalid_transcript_overlap_removal')
+                item.update(removed_overlap_with=retained,overlap_proof=overlap);removed.add(index);retained_targets.add(retained)
+            else:rows[index]['text']=edit['text']
+            proof.append(item)
+        if removed&retained_targets or len(removed)==len(rows):raise ValueError('invalid_transcript_overlap_removal')
+        rows=[row for index,row in enumerate(rows) if index not in removed]
+        result[0]['evidence']['segments']=rows
         if sum(len(row['text']) for row in rows)>MAX_CHARACTERS:raise ValueError('transcript_quality_text_limit')
         now=time.time();new_id=str(uuid.uuid4());revision={'source_job_id':saved['job_id'],'audio_source_job_id':saved['audio_source_job_id'],
             'source_result_sha256':saved['result_sha256'],'reviewer_kind':reviewer_kind,'edited_segments':len(proof),'edits':proof,
             'created_at':now,'semantic_status':'not_reviewed','human_groundtruth':False,'model_calls':0,'source_requests':0}
+        if optimization_plan is not None:
+            revision['optimization']={key:copy.deepcopy(optimization_plan[key]) for key in
+                ('schema_version','policy','plan_sha256','input_sha256','reference_binding','lexical_candidates','review_concerns','edits')}
         evidence=result[0]['evidence'];evidence['text_revision']=revision
         raw='\n'.join('[%.2f–%.2f] %s'%(row['start'],row['end'],row['text']) for row in rows)
         evidence.update(raw_text=raw[:24000],truncated=len(raw)>24000)

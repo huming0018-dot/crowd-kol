@@ -121,7 +121,7 @@ def normalize_timestamps(rows, duration, provider_padding_ends=None):
 
 
 def validate_native_alignment(value, rows, duration):
-    if isinstance(value, dict) and value.get('method') == 'mlx_whisper_word_timestamps':
+    if isinstance(value, dict) and value.get('method') in ('mlx_whisper_word_timestamps','mlx_whisper_decoder_timestamps'):
         from mlx_asr import validate_alignment
         return validate_alignment(value, rows, duration)
     if value is None:
@@ -193,17 +193,21 @@ def verify_model(model_dir):
     return model_dir, name, profile
 
 
-def transcribe(source, model_dir):
+def transcribe(source, model_dir, asr_timing_mode='word'):
+    if asr_timing_mode not in ('word','segment'):
+        raise ValueError('invalid_asr_timing_mode')
     manifest = Path(model_dir) / 'crowd-model.json'
     if manifest.is_file() and not manifest.is_symlink() and manifest.stat().st_size <= 10000:
         if json.loads(manifest.read_text()).get('engine') == 'mlx_whisper_local':
-            from mlx_asr import provider
+            from mlx_asr import provider, VerifiedSession
             try:
-                return provider(source, model_dir)
+                return VerifiedSession(model_dir, timing_mode='segment')(source) if asr_timing_mode=='segment' else provider(source, model_dir)
             except ValueError:
                 raise
             except Exception:
                 raise ValueError('mac_native_asr_unavailable') from None
+    if asr_timing_mode!='word':
+        raise ValueError('segment_timing_requires_mlx_provider')
     # A local path and offline mode prevent implicit Hub fetches or auth access.
     os.environ['HF_HUB_OFFLINE'] = '1'
     os.environ['HF_HUB_DISABLE_IMPLICIT_TOKEN'] = '1'
@@ -297,11 +301,12 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model-dir', required=True, type=Path)
     p.add_argument('input', type=Path)
+    p.add_argument('--asr-timing-mode', choices=('word','segment'), default='word')
     a = p.parse_args()
     try:
         if not a.input.is_file() or a.input.stat().st_size > 25 * 1024 * 1024:
             raise ValueError('audio_missing_or_over_25mb')
-        print(json.dumps(transcribe(a.input, a.model_dir), ensure_ascii=False))
+        print(json.dumps(transcribe(a.input, a.model_dir, **({'asr_timing_mode':a.asr_timing_mode} if a.asr_timing_mode!='word' else {})), ensure_ascii=False))
     except Exception as e:
         # External library errors may disclose local paths or model internals.
         p.exit(1, (str(e) if isinstance(e, ValueError) and str(e).replace('_', '').isalnum()

@@ -50,7 +50,8 @@ def validate_context(context,source,state=None,data=None):
         raise ValueError('native_video_asr_snapshot_changed')
     return digest
 
-def prepare(source,model_dir,work_dir,context,cancel=None,project_root=None,cache_dir=None):
+def prepare(source,model_dir,work_dir,context,cancel=None,project_root=None,cache_dir=None,asr_timing_mode='word'):
+    if asr_timing_mode not in ('word','segment'):raise ValueError('invalid_asr_timing_mode')
     import long_media
     # Validate/hash once, then use an exclusive frozen byte snapshot for metadata-free extraction.
     data=read_private(source,MAX_BYTES);context_hash=validate_context(context,source,data=data)
@@ -66,7 +67,7 @@ def prepare(source,model_dir,work_dir,context,cancel=None,project_root=None,cach
             snapshot=Path(directory)/'input.mp4'
             with os.fdopen(os.open(snapshot,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'wb') as stream:stream.write(data)
             cache_options={'project_root':project_root,'cache_dir':cache_dir} if project_root is not None or cache_dir is not None else {}
-            evidence=long_media.transcribe_long(snapshot,model_dir,work,cancel=cancel,**cache_options)
+            evidence=long_media.transcribe_long(snapshot,model_dir,work,cancel=cancel,**cache_options,**({'asr_timing_mode':'segment'} if asr_timing_mode=='segment' else {}))
     finally:long_media.MAX_BYTES=old_bytes;long_media.MAX_SECONDS=old_seconds
     evidence.update(source_kind='authorized_local_file',asset_sha256=context['asset_sha256'],
                     coverage='local_file_all_audio_windows_processed',processing_profile=PROFILE,
@@ -78,6 +79,7 @@ def main():
     for name in ('input','asr-model','work-dir','output','native-video-context'):parser.add_argument('--'+name,required=True,type=Path)
     for name in ('platform','content-id','authorization-ref'):parser.add_argument('--'+name,required=True)
     for name in ('project-root','cache-dir'):parser.add_argument('--'+name,type=Path)
+    parser.add_argument('--asr-timing-mode',choices=('word','segment'),default='word')
     args=parser.parse_args();cancelled=False
     import signal
     def stop(*_):
@@ -91,7 +93,7 @@ def main():
         validate_context(context,args.input,state)
         if context['platform']!=args.platform or context['content_id']!=args.content_id:raise ValueError('invalid_native_video_asr_context')
         evidence=prepare(args.input,args.asr_model,args.work_dir,context,cancel=lambda:cancelled or (args.input.parent/'cancel.requested').exists(),
-                         project_root=args.project_root,cache_dir=args.cache_dir)
+                         project_root=args.project_root,cache_dir=args.cache_dir,asr_timing_mode=args.asr_timing_mode)
         encoded=json.dumps([{'platform':args.platform,'content_id':args.content_id,'authorization_ref':args.authorization_ref,
                              'kind':'transcript','evidence':evidence}],ensure_ascii=False).encode()
         if len(encoded)>2000000:raise ValueError('long_media_result_over_2mb')

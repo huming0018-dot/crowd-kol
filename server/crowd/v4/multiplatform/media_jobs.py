@@ -38,7 +38,7 @@ class MediaJobs:
     def _asr_configuration(self, engine='cpu'):
         if engine == 'cpu':
             return self.asr_model, self.python
-        if engine != 'mlx':
+        if engine not in ('mlx','mlx_fast'):
             raise ValueError('invalid_asr_engine')
         if (sys.platform != 'darwin' or self.mac_asr_model is None or not self.mac_asr_python
                 or not (self.mac_asr_model / 'crowd-model.json').is_file()
@@ -68,7 +68,7 @@ class MediaJobs:
             mac_ready = False
         executable = os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
         return {'ocr': sys.platform == 'darwin', 'asr': model_ready,
-                'asr_engines': ['cpu'] + (['mlx'] if mac_ready else []),
+                'asr_engines': ['cpu'] + (['mlx','mlx_fast'] if mac_ready else []),
                 'mac_asr_state': 'configured_unverified' if mac_ready else 'not_configured',
                 'asr_default_engine': 'cpu',
                 'asr_model_state': 'configured_unverified' if model_ready else 'local_model_unavailable',
@@ -161,7 +161,7 @@ class MediaJobs:
             if hashlib.sha256(read_bytes(snapshots[0], limit)).hexdigest() != state.get('asset_sha256'):return None
             processors = state.get('processor_files', {})
             names = ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py')
-            if state.get('asr_engine') == 'mlx': names += ('mlx_asr.py',)
+            if state.get('asr_engine') in ('mlx','mlx_fast'): names += ('mlx_asr.py',)
             if any(not isinstance(processors.get(name), str) or len(processors[name]) != 64 for name in names):return None
             model_hash = state.get('model_manifest_sha256')
             if not isinstance(model_hash, str) or len(model_hash) != 64:return None
@@ -177,7 +177,7 @@ class MediaJobs:
                 if hashlib.sha256(read_bytes(folder / 'long-asr' / row['file'], 2000000)).hexdigest() != row['sha256']:return None
                 if index < done:
                     cache, cache_hash = _read(folder / 'long-asr' / ('result-%04d.json' % index), 2000000)
-                    expected = hashlib.sha256((row['sha256'] + model_hash + ''.join(processors[name] for name in names) + '1').encode()).hexdigest()
+                    expected = hashlib.sha256((row['sha256'] + model_hash + ''.join(processors[name] for name in names) + '1' + ('mlx-segment-timing-v1' if state.get('asr_engine')=='mlx_fast' else '')).encode()).hexdigest()
                     if (set(cache) not in ({'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'},
                             {'segments', 'input_hash', 'timing_adjustments', 'segment_metrics', 'native_alignment'})
                             or cache.get('input_hash') != expected or not isinstance(cache.get('segments'), list)
@@ -258,7 +258,7 @@ class MediaJobs:
         identity['processor_files'] = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
             for name in ('local_asr.py', 'fetch_model.py', 'long_media.py', 'audio_result_cache.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
             if (PROCESSOR.parent / name).is_file()}
-        if kind == 'asr' and asr_engine == 'mlx':
+        if kind == 'asr' and asr_engine in ('mlx','mlx_fast'):
             identity['processor_files']['mlx_asr.py'] = hashlib.sha256((PROCESSOR.parent/'mlx_asr.py').read_bytes()).hexdigest()
         if context is not None:identity['processor_files']['native_video_asr.py']=hashlib.sha256((PROCESSOR.parent/'native_video_asr.py').read_bytes()).hexdigest()
         if entity_ref is not None:
@@ -453,6 +453,8 @@ class MediaJobs:
                        '--authorization-ref', 'owner-selected-saved-media', '--output', str(result),
                        '--asr-model', str(selected_model), '--work-dir', str(folder / 'long-asr'),
                        '--project-root', str(self.root), '--cache-dir', str(self.root / 'audio-result-cache')]
+            if state.get('asr_engine')=='mlx_fast':
+                command+=['--asr-timing-mode','segment']
             if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s':
                 command+=['--native-video-context',str(folder/'native-asr-context.json')]
         proc = None
