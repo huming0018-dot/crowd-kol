@@ -3,6 +3,7 @@
 import argparse
 from copy import deepcopy
 import base64
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -492,8 +493,20 @@ class Application:
             return self.media_jobs.list(payload['run_id'])
         if action in ('status', 'cancel', 'resume') and set(payload) == {'job_id'}:
             return getattr(self.media_jobs, action)(payload['job_id'])
+        if action in ('quality_lookup', 'transcript_revision') or action == 'playback':
+            spec = importlib.util.spec_from_file_location('crowd_transcript_quality', HERE.parent / 'postprocess' / 'transcript_quality.py')
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            quality = module.TranscriptQuality(self.root)
+        if action == 'quality_lookup' and set(payload) == {'job_id'}:
+            return quality.lookup(payload['job_id'])
+        if action == 'transcript_revision' and set(payload) == {'job_id', 'expected_result_sha256', 'edits', 'reviewer_kind', 'acknowledge_new_version'}:
+            value = quality.create_revision(payload['job_id'], payload['expected_result_sha256'], payload['edits'], payload['reviewer_kind'], payload['acknowledge_new_version'])
+            return {**self.media_jobs.status(value['job_id']), 'source_requests': 0, 'model_calls': 0}
         if action == 'playback' and set(payload) == {'job_id', 'asset_sha256'}:
-            return self.media_jobs.playback(payload['job_id'], payload['asset_sha256'])
+            state = self.media_jobs.status(payload['job_id'])
+            source = quality.lookup(payload['job_id'])['source_job_id'] if state.get('text_revision') else payload['job_id']
+            return self.media_jobs.playback(source, payload['asset_sha256'])
         if action == 'video_file' and set(payload) == {'job_id','asset_sha256'}:
             return self.media_jobs.video_file(payload['job_id'],payload['asset_sha256'])
         if action in ('video_cloud_status','video_cloud_save','video_cloud_file'):

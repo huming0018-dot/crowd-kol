@@ -15,7 +15,7 @@ const mediaView = (() => {
     const item=state.result[0],evidence=item?.evidence,hash=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
     if(!evidence||evidence.asset_sha256!==state.asset_sha256||!hash(state.asset_sha256)||!hash(state.input_hash)||item.platform!==state.platform||item.content_id!==state.content_id||!Array.isArray(evidence.segments)||!evidence.segments.length)return;
     const viewTicket=generation,jobTicket=jobGeneration;
-    const identity=Object.fromEntries(['job_id','run_id','platform','content_id','entity_ref','asset_sha256','input_hash','result_sha256','model_manifest_sha256','processor_files','created_at'].filter(key=>state[key]!==undefined).map(key=>[key,state[key]]));
+    const identity=Object.fromEntries(['job_id','source_job_id','text_revision','run_id','platform','content_id','entity_ref','asset_sha256','input_hash','result_sha256','model_manifest_sha256','processor_files','created_at'].filter(key=>state[key]!==undefined).map(key=>[key,state[key]]));
     const payload={schema_version:1,job:identity,semantic_review:'not_reviewed',full_segments:true,result:state.result};
     const valid=()=>dialog.open&&viewTicket===generation&&jobTicket===jobGeneration&&job===state;
     exportPanel.hidden=false;
@@ -25,7 +25,33 @@ const mediaView = (() => {
         if(!valid())return;
         const lines=['完整转写 · 未人工校对',JSON.stringify(identity,null,2),'',...evidence.segments.map(row=>'['+row.start+'–'+row.end+'] '+row.text),'','原生诊断与时间来源（提示不代表准确率）',JSON.stringify({quality_diagnostics:evidence.quality_diagnostics??null,native_alignment_windows:evidence.native_alignment_windows??null,timing_adjustments:evidence.timing_adjustments??null,overlap_decisions:evidence.overlap_decisions??null},null,2)];
         const url=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'})),a=node('a');a.href=url;a.download='crowd-transcript-'+state.job_id+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      }));
+      }),button('核对转写质量与保存修订',()=>openQuality(state,valid)));
+  }
+  async function openQuality(state,valid){
+    if(!valid())return;
+    const panel=node('div'),message=node('p');panel.append(message);exportPanel.append(panel);
+    message.textContent='读取原生诊断与全文时间段…';let busy=false;
+    try{
+      const value=await call('quality_lookup',{job_id:state.job_id});if(!valid())return;
+      if(value.job_id!==state.job_id||value.asset_sha256!==state.asset_sha256||value.platform!==state.platform||value.content_id!==state.content_id||!Array.isArray(value.segments)||!value.segments.length)throw Error('transcript_quality_identity_mismatch');
+      const q=value.quality;message.textContent='全文 '+value.segments.length+' 段；低置信候选 '+(q.flag_counts.low_logprob||0)+'；连续重复候选 '+(q.flag_counts.repeated_adjacent_text||0)+'；无文字区间 '+q.untranscribed_intervals_total+'。无文字不代表漏词或静音；无人工参考，准确率未知。';
+      const candidates=node('details');candidates.append(node('summary','待听音的原窗口候选与无文字区间'));
+      for(const row of (q.candidates||[]).slice(0,20))candidates.append(node('p','原窗口 '+row.start+'–'+row.end+' 秒：'+row.text+'（原窗口诊断，不是修订句子的评分）'),button('试听原窗口 '+row.start+'–'+row.end+' 秒',()=>{if(valid())listen(state,row);}));
+      for(const row of (q.untranscribed_intervals||[]).slice(0,10))candidates.append(button('试听无文字区间 '+row.start+'–'+row.end+' 秒',()=>{if(valid())listen(state,row);}));
+      panel.append(candidates);
+      const selector=node('select'),editor=node('textarea'),label=node('label','选择时间段并听音校对'),editLabel=node('label','修订文字（另存新版本，原转写保留）'),ack=node('input');ack.type='checkbox';editor.rows=5;editor.maxLength=2000;
+      for(const row of value.segments)selector.append(new Option((row.segment_index+1)+' · '+row.start+'–'+row.end+' 秒 · '+row.text.slice(0,60),String(row.segment_index)));
+      selector.value='0';const selected=()=>value.segments.find(row=>String(row.segment_index)===selector.value);
+      const update=()=>{editor.value=selected()?.text||'';};selector.onchange=update;update();label.append(selector);editLabel.append(editor);const acknowledgment=node('label','我确认另存修订版本；未将其标记为全文已校对。');acknowledgment.append(ack);
+      const save=button('保存为新转写版本',async()=>{
+        if(!valid()||busy)return;const row=selected();if(!row||!ack.checked||!editor.value.trim()||editor.value===row.text){message.textContent='请听音修改文字并勾选另存确认。';return;}
+        busy=true;save.disabled=true;message.textContent='正在保存新转写版本…';
+        try{const revised=await call('transcript_revision',{job_id:state.job_id,expected_result_sha256:value.result_sha256,edits:[{segment_index:row.segment_index,expected_text_sha256:row.text_sha256,text:editor.value}],reviewer_kind:'human_manual',acknowledge_new_version:true});if(!valid())return;render(revised);await history(generation);}
+        catch(error){if(valid())message.textContent='未确认新版本：'+error.message;}
+        finally{busy=false;if(valid())save.disabled=false;}
+      });
+      panel.append(label,button('试听所选时间段',()=>{if(valid()&&selected())listen(state,selected());}),editLabel,acknowledgment,save);
+    }catch(error){if(valid())message.textContent='质量信息读取失败：'+error.message;}
   }
   async function listen(state,row){
     const ticket=++playbackGeneration,viewTicket=generation,jobTicket=jobGeneration;player.pause?.();playbackMessage.textContent='正在核验本任务的原素材快照…';
