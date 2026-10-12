@@ -26,6 +26,7 @@ class Tests(unittest.TestCase):
                     'asset_sha256':self.asset,'total_chunks':2,'completed_chunks':2,'result_sha256':text_hash(canonical(self.result)),
                     'model_manifest_sha256':'a'*64,'processor_files':{},'created_at':1,'finished_at':2,'review_status':'not_reviewed'}
         self.save();(self.folder/'long-asr').mkdir();write_json(self.folder/'long-asr/state.json',{'state':'completed','completed_chunks':2,'total_chunks':2})
+        write_json(self.folder/'long-asr/chunks.json',{'schema':1,'asset_sha256':self.asset,'duration_seconds':2.,'chunks':[{'index':0},{'index':1}]})
     def tearDown(self):self.temp.cleanup()
     def save(self):
         for name,value in [('state.json',self.state),('result.json',self.result)]:
@@ -81,6 +82,34 @@ class Tests(unittest.TestCase):
         try:
             with self.assertRaisesRegex(ValueError,'unsafe_transcript_quality_path'):self.manager.lookup(self.identity)
         finally:root.unlink();backup.rename(root)
+    def test_fresh_parent_without_counters_uses_child_manifest_result_readonly(self):
+        self.state.pop('total_chunks');self.state.pop('completed_chunks');self.save();before=self.fingerprint()
+        self.assertEqual(self.manager.validate(self.identity)['evidence']['segments'],self.result[0]['evidence']['segments'])
+        created=self.revise();self.assertEqual(self.manager.lookup(created['job_id'])['source_job_id'],self.identity)
+        self.assertFalse((self.manager.root/created['job_id']/'long-asr/chunks.json').exists())
+        self.assertEqual(before,self.fingerprint())
+    def test_present_parent_counts_strict_and_fresh_window_proof_mismatch_reject(self):
+        for key in ('total_chunks',):
+            for value in (None,True,2.,1,3):
+                self.state[key]=value;self.save()
+                with self.assertRaisesRegex(ValueError,'checkpoint_incomplete'):self.manager.validate(self.identity)
+            self.state[key]=2
+        self.state['completed_chunks']=1;self.save()
+        self.assertEqual(self.manager.validate(self.identity)['evidence']['audio_windows_processed'],2)
+        self.state.pop('total_chunks');self.state.pop('completed_chunks');self.save()
+        checkpoint=self.folder/'long-asr/state.json';manifest=self.folder/'long-asr/chunks.json'
+        original_checkpoint=checkpoint.read_bytes();original_manifest=manifest.read_bytes()
+        for change in ({'state':'cancelled'},{'total_chunks':True},{'completed_chunks':1}):
+            checkpoint.unlink();write_json(checkpoint,{'state':'completed','completed_chunks':2,'total_chunks':2,**change})
+            with self.assertRaisesRegex(ValueError,'checkpoint_incomplete'):self.manager.validate(self.identity)
+        checkpoint.write_bytes(original_checkpoint)
+        for change in ({'schema':True},{'asset_sha256':'b'*64},{'duration_seconds':3},{'chunks':[{'index':0}]},{'chunks':[{'index':False},{'index':1}]}):
+            manifest.unlink();write_json(manifest,{'schema':1,'asset_sha256':self.asset,'duration_seconds':2.,'chunks':[{'index':0},{'index':1}],**change})
+            with self.assertRaisesRegex(ValueError,'checkpoint_incomplete'):self.manager.validate(self.identity)
+        manifest.write_bytes(original_manifest)
+        for value in (None,True,1,2.):
+            self.result[0]['evidence']['audio_windows_processed']=value;self.state['result_sha256']=text_hash(canonical(self.result));self.save()
+            with self.assertRaisesRegex(ValueError,'checkpoint_incomplete'):self.manager.validate(self.identity)
     def test_old_metrics_unknown_and_invalid_values_not_confidence(self):
         self.result[0]['evidence'].pop('quality_diagnostics');self.state['result_sha256']=text_hash(canonical(self.result));self.save()
         self.assertEqual(self.manager.lookup(self.identity)['quality']['native_metric_status'],'unknown')

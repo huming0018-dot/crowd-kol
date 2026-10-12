@@ -131,10 +131,17 @@ class TranscriptQuality:
             depth=0
         if evidence.get('processor')=='faster_whisper_local_segmented':
             checkpoint,_=read_json(folder/'long-asr/state.json',65536)
-            if (type(state.get('total_chunks')) is not int or not 0<state['total_chunks']<=512
-                    or checkpoint.get('state')!='completed' or type(checkpoint.get('completed_chunks')) is not int
-                    or type(checkpoint.get('total_chunks')) is not int or checkpoint['completed_chunks']!=checkpoint['total_chunks'] or checkpoint['completed_chunks']!=state['total_chunks']
-                    or type(evidence.get('audio_windows_processed')) is not int or evidence['audio_windows_processed']!=state['total_chunks']):raise ValueError('transcript_quality_checkpoint_incomplete')
+            # Fresh parent state need not mirror counters; revisions keep the original audio manifest.
+            manifest,_=read_json(self.root/source/'long-asr/chunks.json',65536)
+            total=checkpoint.get('total_chunks');chunks=manifest.get('chunks')
+            if (checkpoint.get('state')!='completed' or type(total) is not int or not 0<total<=512
+                    or type(checkpoint.get('completed_chunks')) is not int or checkpoint['completed_chunks']!=total
+                    or 'total_chunks' in state and (type(state['total_chunks']) is not int or state['total_chunks']!=total)
+                    or type(evidence.get('audio_windows_processed')) is not int or evidence['audio_windows_processed']!=total
+                    or type(manifest.get('schema')) is not int or manifest['schema']!=1 or manifest.get('asset_sha256')!=state['asset_sha256']
+                    or not finite(manifest.get('duration_seconds')) or manifest['duration_seconds']!=duration
+                    or not isinstance(chunks,list) or len(chunks)!=total
+                    or any(not isinstance(row,dict) or type(row.get('index')) is not int or row['index']!=index for index,row in enumerate(chunks))):raise ValueError('transcript_quality_checkpoint_incomplete')
         return {'job_id':identity,'folder':folder,'state':state,'result':result,'result_sha256':digest,'evidence':evidence,'audio_source_job_id':source,'revision_depth':depth}
     def validate(self,identity):
         try:return self._load(identity)
