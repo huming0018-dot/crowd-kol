@@ -22,7 +22,9 @@ def _job_id(value):
     try:return uid(value)
     except Exception:raise ValueError('invalid_media_job_id') from None
 
-def _hash(value):return hashlib.sha256(('crowd-media-video-v1\n'+canonical(value)).encode()).hexdigest()
+def _hash(value):
+    version=2 if type(value.get('manifest_version')) is int and value['manifest_version']==2 else 1
+    return hashlib.sha256((f'crowd-media-video-v{version}\n'+canonical(value)).encode()).hexdigest()
 def _receipt_folder(jobs):
     folder=jobs.root.parent/'media-cloud-receipts';_safe_ancestors(folder);folder.mkdir(mode=0o700,exist_ok=True)
     if folder.stat().st_mode&0o077:raise ValueError('unsafe_media_cloud_file')
@@ -106,7 +108,11 @@ def publish_media_video(jobs,client,job_id,opener=None,binding=None):
     with _job_lock(jobs,job_id):return _publish_media_video(jobs,client,job_id,opener,binding)
 
 def _publish_media_video(jobs,client,job_id,opener=None,binding=None):
-    payload,data=prepare_media_video(jobs,client,job_id,binding);folder=_receipt_folder(jobs);path=folder/(job_id+'.json');_safe_ancestors(path)
+    payload,data=prepare_media_video(jobs,client,job_id,binding)
+    return _publish_prepared(jobs,client,payload,data,opener)
+
+def _publish_prepared(jobs,client,payload,data,opener=None):
+    job_id=_job_id(payload['local_job_id']);folder=_receipt_folder(jobs);path=folder/(job_id+'.json');_safe_ancestors(path)
     journal={'manifest':payload,'attempted':False,'endpoint_sha256':hashlib.sha256(client.endpoint.encode()).hexdigest()}
     if path.exists():
         saved,_=_read(path,65536)
