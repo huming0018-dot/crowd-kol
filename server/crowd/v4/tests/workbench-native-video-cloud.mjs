@@ -19,7 +19,7 @@ vm.runInContext(fs.readFileSync('crowd-kol/server/crowd/v4/multiplatform/media-u
 const view=vm.runInContext('mediaView',context),dialog=body.children.find(x=>x.attrs['aria-label']==='已采视频云保存'),save=buttons.find(x=>x.textContent==='保存已采视频到云端'),download=buttons.find(x=>x.textContent==='下载云端已采视频');
 await view.cloudVideo(file);assert.equal(calls.length,1);assert.equal(calls[0].action,'native_video_cloud_status');assert.equal(download.hidden,true);assert.equal(save.disabled,false);
 await save.onclick();assert.equal(calls.filter(x=>x.action==='native_video_cloud_save').length,1);assert.equal(save.disabled,true);assert.equal(download.hidden,false);assert.equal(calls.at(-1).payload.asset_sha256,sha);assert.equal('path' in calls.at(-1).payload,false);
-await download.onclick();assert.equal(downloads.length,1);assert.equal(await downloads[0].blob.text(),'full-video');assert.match(downloads[0].name,/\.mp4$/);
+assert.equal(download.disabled,false,'the real download button must become clickable after save finishes');await download.onclick();assert.equal(downloads.length,1);assert.equal(await downloads[0].blob.text(),'full-video');assert.match(downloads[0].name,/\.mp4$/);
 responseHash='b'.repeat(64);await download.onclick();assert.equal(downloads.length,1);responseHash=sha;
 for(const change of [{bytes:50*1048576+1},{path:'cover.jpg'},{source_kind:'derived_local'},{sha256:'bad'}]){const before=calls.length;await view.cloudVideo({...file,...change});assert.equal(calls.length,before);assert.equal(save.disabled,true);}
 status={state:'outcome_unknown',reference_id:ref};await view.cloudVideo(file);assert.equal(save.textContent,'核对已采视频保存结果');assert.equal(calls.filter(x=>x.action==='native_video_cloud_save').length,1);

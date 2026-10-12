@@ -188,7 +188,7 @@ const mediaView = (() => {
   async function nativeSaveVideo(){
     const ticket=nativeGeneration;if(!nativeCurrent(ticket)||nativeBusy||nativeReceived)return;
     nativeBusy=true;nativeSave.disabled=true;nativeMessage.textContent='正在保存并核验云端文件…';
-    try{const value=await call('native_video_cloud_save',nativePayload());if(nativeCurrent(ticket))nativeRender({state:'received',receipt:value.receipt});}catch(error){if(nativeCurrent(ticket))nativeMessage.textContent='云保存未确认：'+error.message;}finally{if(nativeCurrent(ticket)){nativeBusy=false;nativeSave.disabled=nativeReceived;}}
+    try{const value=await call('native_video_cloud_save',nativePayload());if(nativeCurrent(ticket))nativeRender({state:'received',receipt:value.receipt});}catch(error){if(nativeCurrent(ticket))nativeMessage.textContent='云保存未确认：'+error.message;}finally{if(nativeCurrent(ticket)){nativeBusy=false;nativeSave.disabled=nativeReceived;nativeDownload.disabled=!nativeReceived;}}
   }
   async function nativeDownloadVideo(){
     const ticket=nativeGeneration;if(!nativeCurrent(ticket)||nativeBusy||!nativeReceived)return;const expected={...nativeSelection};nativeBusy=true;nativeDownload.disabled=true;
