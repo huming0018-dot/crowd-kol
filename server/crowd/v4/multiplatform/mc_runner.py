@@ -273,6 +273,13 @@ def configure_executor(config,p):
         if 'quality' in options: config.BILI_QN=options['quality']
 
 def configure_platform_hooks(upstream,p):
+    if p['platform']=='zhihu' and p['comments']:
+        from media_platform.zhihu.client import ZhiHuClient
+        from zhihu_comments import install_hook as install_comment_hook
+        def comments_sample(value):
+            phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
+            write(phase,{**previous,'comments_sample':value})
+        install_comment_hook(ZhiHuClient,p['max_comments'],p['replies'],comments_sample)
     if p['platform']=='ks' and p['comments']:
         from media_platform.kuaishou.client import KuaiShouClient
         from store.kuaishou import KuaishouStoreFactory
