@@ -13,7 +13,7 @@ class Tests(unittest.TestCase):
         self.app = Application.__new__(Application)
         self.app.lock = threading.Lock()
         self.app.media_jobs = SimpleNamespace(
-            capabilities=lambda: {'asr_engines': ['cpu', 'mlx', 'mlx_fast']},
+            capabilities=lambda: {'asr_engines': ['cpu', 'mlx']},
             start=Mock(return_value={'state': 'queued'}),
             preview=Mock(return_value={'native_video_verified': True}))
         self.app._registered_run_root = lambda _: Path('/test-root')
@@ -24,8 +24,6 @@ class Tests(unittest.TestCase):
     def test_explicit_engine_forwarded_and_default_keeps_original_signature(self):
         self.app.process_media('start', {**self.payload, 'asr_engine': 'mlx'})
         self.assertEqual(self.app.media_jobs.start.call_args.kwargs['asr_engine'], 'mlx')
-        self.app.process_media('start', {**self.payload, 'asr_engine': 'mlx_fast'})
-        self.assertEqual(self.app.media_jobs.start.call_args.kwargs['asr_engine'], 'mlx_fast')
         self.app.process_media('start', self.payload)
         self.assertNotIn('asr_engine', self.app.media_jobs.start.call_args.kwargs)
 
@@ -37,7 +35,7 @@ class Tests(unittest.TestCase):
             self.app.process_media('start', {**self.payload, 'asr_engine': 'mlx'})
 
     def test_invalid_or_non_asr_engine_rejected_before_source_read(self):
-        for delta in ({'asr_engine': 'remote'}, {'asr_engine': True}, {'kind': 'ocr', 'asr_engine': 'mlx'}):
+        for delta in ({'asr_engine': 'mlx_fast'}, {'asr_engine': 'remote'}, {'asr_engine': True}, {'kind': 'ocr', 'asr_engine': 'mlx'}):
             with self.subTest(delta=delta), self.assertRaisesRegex(ValueError, 'invalid_asr_engine'):
                 self.app.process_media('start', {**self.payload, **delta})
         self.app.media_file.assert_not_called()

@@ -38,6 +38,10 @@ class MediaJobs:
     def _asr_configuration(self, engine='cpu'):
         if engine == 'cpu':
             return self.asr_model, self.python
+        if engine == 'mlx_fast':
+            # Full saved audio failed the timestamp/quality gate; keep old job
+            # evidence readable, but do not offer or start this candidate.
+            raise ValueError('mac_fast_asr_not_accepted')
         if engine not in ('mlx','mlx_fast'):
             raise ValueError('invalid_asr_engine')
         if (sys.platform != 'darwin' or self.mac_asr_model is None or not self.mac_asr_python
@@ -68,7 +72,7 @@ class MediaJobs:
             mac_ready = False
         executable = os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
         return {'ocr': sys.platform == 'darwin', 'asr': model_ready,
-                'asr_engines': ['cpu'] + (['mlx','mlx_fast'] if mac_ready else []),
+                'asr_engines': ['cpu'] + (['mlx'] if mac_ready else []),
                 'mac_asr_state': 'configured_unverified' if mac_ready else 'not_configured',
                 'asr_default_engine': 'cpu',
                 'asr_model_state': 'configured_unverified' if model_ready else 'local_model_unavailable',

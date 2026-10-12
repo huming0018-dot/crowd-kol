@@ -619,9 +619,9 @@ class Application:
             if payload['reference_sha256']!=reference['reference_sha256']:raise ValueError('video_reference_changed')
             return self.media_jobs.start_video(reference)
         if action in ('start','preview') and set(payload) in ({'run_id', 'path', 'content_id', 'kind'}, {'run_id', 'path', 'content_id', 'kind', 'asr_engine'}):
-            if 'asr_engine' in payload and (payload['kind'] != 'asr' or payload['asr_engine'] not in ('cpu', 'mlx', 'mlx_fast')):
+            if 'asr_engine' in payload and (payload['kind'] != 'asr' or payload['asr_engine'] not in ('cpu', 'mlx')):
                 raise ValueError('invalid_asr_engine')
-            if payload.get('asr_engine') in ('mlx','mlx_fast') and payload['asr_engine'] not in self.media_jobs.capabilities().get('asr_engines', []):
+            if payload.get('asr_engine') == 'mlx' and payload['asr_engine'] not in self.media_jobs.capabilities().get('asr_engines', []):
                 raise ValueError('mac_asr_engine_not_configured')
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
             imported = self.run('import', {'run_id': payload['run_id']})

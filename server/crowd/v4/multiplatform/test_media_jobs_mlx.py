@@ -26,8 +26,9 @@ class MacSelection(unittest.TestCase):
                 self.assertEqual(manager.capabilities()['asr_engines'],['cpu'])
                 (model/'crowd-model.json').write_text(json.dumps({'engine':'mlx_whisper_local'}))
                 self.assertEqual(manager._asr_configuration('mlx'),(model.resolve(),str(executable)))
-                self.assertEqual(manager._asr_configuration('mlx_fast'),(model.resolve(),str(executable)))
-                self.assertEqual(manager.capabilities()['asr_engines'],['cpu','mlx','mlx_fast'])
+                with self.assertRaisesRegex(ValueError,'mac_fast_asr_not_accepted'):
+                    manager._asr_configuration('mlx_fast')
+                self.assertEqual(manager.capabilities()['asr_engines'],['cpu','mlx'])
                 manager.close()
 
     def test_actual_start_metadata_can_enter_full_analysis(self):
