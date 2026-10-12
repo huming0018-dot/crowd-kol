@@ -96,6 +96,63 @@ class Tests(unittest.TestCase):
         if action=='stop':return {'ok':True,'result':{'state':'stopped'}}
         raise ValueError('unexpected_action')
 
+    def test_delivery_progress_is_only_new_acks_with_remaining_pending(self):
+        worker=CloudWorker(self.root,self.cloud,self.runner)
+        records=[{**row(),'content_id':str(i)} for i in range(9)]
+        worker.outbox.stage_imported({'records':records},self.cloud.lease)
+        worker._save({'phase':'delivering','lease':self.cloud.lease,'local_run_id':self.local_id,
+                      'outcome':'completed','api_attempts':3,'sequence':1})
+        first=worker.tick()
+        self.assertEqual((first['pending'],first['acknowledged'],first['delivery_progress'],first['errors']),(5,4,True,[]))
+        self.assertFalse(self.actions)
+        self.cloud.bad_ack=True
+        blocked=worker.tick()
+        self.assertEqual((blocked['pending'],blocked['acknowledged'],blocked['delivery_progress']),(5,4,False))
+        self.assertEqual(blocked['errors'],['invalid_cloud_ack'])
+        self.cloud.bad_ack=False
+        resumed=worker.tick()
+        self.assertEqual((resumed['pending'],resumed['delivery_progress'],resumed['errors']),(1,True,[]))
+        self.assertEqual(worker.tick()['state'],'finished')
+        self.assertFalse(self.actions)
+
+    def test_scheduler_only_accelerates_successful_delivery_progress(self):
+        good={'state':'delivering','delivery_progress':True,'pending':4,'errors':[]}
+        cases=[(good,.05),({**good,'delivery_progress':False},5),
+               ({**good,'errors':['invalid_cloud_ack']},5),({**good,'error':'cloud_outcome_unknown'},5),
+               ({**good,'pending':0},5),({**good,'pending':True},5),({**good,'pending':1.0},5),
+               ({**good,'delivery_progress':1},5),({**good,'state':'running'},5),
+               ({'state':'controller_busy'},5),({'state':'finished'},5),
+               ({'state':'delivering','error':'cloud_delivery_lease_unavailable'},5)]
+        class FakeEvent:
+            def __init__(self):self.closed=False;self.waits=[]
+            def is_set(self):return self.closed
+            def wait(self,seconds):self.waits.append(seconds);self.closed=True
+        class InlineThread:
+            def __init__(self,target,**kwargs):self.target=target
+            def start(self):self.target()
+        worker=CloudWorker(self.root,self.cloud,self.runner)
+        for result,delay in cases:
+            with self.subTest(result=result):
+                worker.thread=None;worker.closed=FakeEvent()
+                with patch.object(worker,'tick',return_value=result) as tick,patch('cloud_sync.threading.Thread',InlineThread):
+                    worker.start_scheduler();worker.start_scheduler()
+                self.assertEqual(worker.closed.waits,[delay]);tick.assert_called_once()
+        self.assertEqual(self.cloud.calls,[]);self.assertEqual(self.actions,[])
+
+    def test_delivery_close_and_restart_recovers_only_same_outbox(self):
+        worker=CloudWorker(self.root,self.cloud,self.runner)
+        worker.outbox.stage_imported({'records':[{**row(),'content_id':str(i)} for i in range(6)]},self.cloud.lease)
+        worker._save({'phase':'delivering','lease':self.cloud.lease,'local_run_id':self.local_id,
+                      'outcome':'completed','api_attempts':3,'sequence':1})
+        self.assertTrue(worker.tick()['delivery_progress'])
+        before=worker.path.read_bytes();worker.close()
+        self.assertEqual(worker.path.read_bytes(),before)
+        restarted=CloudWorker(self.root,self.cloud,self.runner)
+        self.assertEqual(restarted.tick()['state'],'finished')
+        self.assertEqual(restarted.outbox.stats()['acknowledged'],6)
+        self.assertFalse(self.actions)
+        self.assertEqual([p['api_attempts'] for a,p in self.cloud.calls if a=='finish'],[3])
+
     def test_delivery_renews_each_request_and_batches_without_expiring_or_redispatch(self):
         class SlowCloud(FakeCloud):
             clock = 0

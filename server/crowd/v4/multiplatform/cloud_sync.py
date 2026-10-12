@@ -711,10 +711,12 @@ class CloudWorker:
             state['phase'] = 'delivering'
             self._save(state)
         if state['phase'] == 'delivering':
+            acknowledged_before = self.outbox.stats(state['lease']['run_id'])['acknowledged']
             status = self.outbox.flush(state['lease']['run_id'], limit=4,
                                        before_send=lambda: self._renew_delivery(state))
             if status['pending']:
-                return {'state': 'delivering', **status}
+                return {'state': 'delivering', **status,
+                        'delivery_progress': status['acknowledged'] > acknowledged_before}
             state['phase'] = 'finishing'
             self._save(state)
         if state['phase'] == 'finishing':
@@ -823,8 +825,13 @@ class CloudWorker:
         if self.thread is None and not self.closed.is_set():
             def loop():
                 while not self.closed.is_set():
-                    self.tick()
-                    self.closed.wait(self.interval)
+                    result = self.tick()
+                    progressing = (result.get('state') == 'delivering'
+                                   and result.get('delivery_progress') is True
+                                   and type(result.get('pending')) is int and result['pending'] > 0
+                                   and result.get('errors') == [] and not result.get('error'))
+                    # Keep a cancellable fairness interval; failures retain the normal backoff.
+                    self.closed.wait(min(self.interval, .05) if progressing else self.interval)
             self.thread = threading.Thread(target=loop, daemon=True, name='cloud-machine-worker')
             self.thread.start()
 
