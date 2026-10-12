@@ -171,7 +171,7 @@ class CloudClient:
                 raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
             return result['result']
         except (urllib.error.URLError, TimeoutError, OSError):
-            code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status') else 'cloud_outcome_unknown'
+            code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get') else 'cloud_outcome_unknown'
             raise CloudError(code) from None
 
 
@@ -358,7 +358,7 @@ class CloudOutbox:
 
 class CloudWorker:
     """One durable dispatch controller, backed by cloud leases and the existing runner."""
-    def __init__(self, root, client, runner_callback, session_selector=None, existing_reader=None, interval=5):
+    def __init__(self, root, client, runner_callback, session_selector=None, existing_reader=None, interval=5, postprocessing_callback=None):
         self.root = _private_root(root, 'cloud-worker')
         self.path = self.root / 'state.json'
         self.lock_path = self.root / 'worker.lock'
@@ -367,6 +367,7 @@ class CloudWorker:
             raise CloudError('unsafe_cloud_file')
         self.client, self.runner = client, runner_callback
         self.session_selector, self.existing_reader = session_selector, existing_reader
+        self.postprocessing_callback = postprocessing_callback
         self.outbox = CloudOutbox(root, client)
         self.interval = interval
         self.closed = threading.Event()
@@ -382,6 +383,7 @@ class CloudWorker:
             prior=mc_runner.read(self.path)
             if 'session_bindings' not in state:state['session_bindings']=prior.get('session_bindings',{})
             if 'waiting_logins' not in state:state['waiting_logins']=prior.get('waiting_logins',[])
+            if 'postprocessing_runs' not in state:state['postprocessing_runs']=prior.get('postprocessing_runs',[])
             if 'last_stop' not in state and 'last_stop' in prior:state['last_stop']=prior['last_stop']
         if self.last_stop is not None:state['last_stop']=self.last_stop
         bindings = state.setdefault('session_bindings', {})
@@ -511,6 +513,15 @@ class CloudWorker:
                 if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:
                     state['phase']='local_stop_unknown'
                 result = self._tick(state)
+                if self.postprocessing_callback:
+                    latest = mc_runner.read(self.path)
+                    for run_id in list(latest.get('postprocessing_runs', [])):
+                        try:self.postprocessing_callback('enqueue', {'run_id': run_id})
+                        except Exception:continue  # Postprocessing cannot stop a separate source lease.
+                        latest['postprocessing_runs'].remove(run_id)
+                        self._save(latest)
+                    try:self.postprocessing_callback('tick', {})
+                    except Exception:pass
                 self.last_error = result.get('error')
                 result['waiting_login_count'] = sum(v.get('desired_state','running') == 'running' for v in mc_runner.read(self.path).get('waiting_logins', []))
                 return result
@@ -731,6 +742,10 @@ class CloudWorker:
                 raise CloudError('unacknowledged_capture')
             payload['finish_hash'] = _hash('crowd-machine-finish-v1', payload)
             response = self.client.call('finish', payload)
+            if (self.postprocessing_callback and state['outcome'] == 'completed' and state.get('local_run_id')
+                    and state['lease'].get('request', {}).get('platform_options', {}).get('transcript_only') is True):
+                state['postprocessing_runs'] = list(dict.fromkeys([*state.get('postprocessing_runs', []), state['local_run_id']]))
+                self._save(state)
             if state['outcome'] == 'login_required':
                 pending = {k:v for k,v in state.items() if k != 'waiting_logins'}
                 pending['phase'] = 'waiting_login'

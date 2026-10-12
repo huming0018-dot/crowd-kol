@@ -10,6 +10,10 @@ const mediaView = (() => {
   playbackPanel.append(node('summary','按时间试听原素材 · 不代表已校对'),player,playbackMessage);playbackPanel.hidden=true;dialog.append(playbackPanel);
   let playbackUrl=null,playbackGeneration=0;
   function clearPlayback(){exportPanel.hidden=true;exportPanel.replaceChildren();playbackGeneration++;player.pause?.();player.removeAttribute?.('src');player.load?.();if(playbackUrl)URL.revokeObjectURL(playbackUrl);playbackUrl=null;player.onloadedmetadata=null;player.ontimeupdate=null;playbackPanel.hidden=true;playbackMessage.textContent='';while(playbackPanel.children.length>3)playbackPanel.lastChild.remove();}
+  function transcriptSrt(rows){
+    const stamp=value=>{if(typeof value!=='number'||!Number.isFinite(value)||value<0||value>7200)throw Error('invalid_transcript_time');const ms=Math.round(value*1000),pad=(n,width=2)=>String(n).padStart(width,'0');return pad(Math.floor(ms/3600000))+':'+pad(Math.floor(ms/60000)%60)+':'+pad(Math.floor(ms/1000)%60)+','+pad(ms%1000,3);};
+    return rows.map((row,index)=>{if(row.end<row.start||typeof row.text!=='string')throw Error('invalid_transcript_time');return (index+1)+'\n'+stamp(row.start)+' --> '+stamp(row.end)+'\n'+row.text.replace(/\r\n?/g,'\n').replace(/\n{2,}/g,'\n')+'\n';}).join('\n');
+  }
   function renderExports(state){
     if(state.state!=='completed'||state.kind!=='asr'||!Array.isArray(state.result)||state.result.length!==1)return;
     const item=state.result[0],evidence=item?.evidence,hash=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
@@ -21,11 +25,31 @@ const mediaView = (() => {
     exportPanel.hidden=false;
     exportPanel.append(node('p','导出全部时间段；不受正文预览截断限制。包含原任务身份与诊断，仍待听音校对。'),
       button('导出完整转写 JSON',()=>{if(valid())download('crowd-transcript-'+state.job_id+'.json',payload);}),
+      button('导出纯文字稿 TXT',()=>{
+        if(!valid())return;
+        const rows=typeof resultData==='object'&&resultData?(resultData.records||resultData.items||[]):[],title=rows.find(row=>row.platform===state.platform&&row.content_id===state.content_id&&['content','dynamic'].includes(row.kind))?.title||'完整文字稿';
+        const text=[title,'转写文字 · 尚未整体人工校对','',...evidence.segments.map(row=>row.text),'','完整时间轴、来源与诊断保留在 JSON。'].join('\n');
+        const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=node('a');a.href=url;a.download='crowd-transcript-text-'+state.job_id+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }),
       button('导出完整转写 TXT',()=>{
         if(!valid())return;
         const lines=['完整转写 · 未人工校对',JSON.stringify(identity,null,2),'',...evidence.segments.map(row=>'['+row.start+'–'+row.end+'] '+row.text),'','原生诊断与时间来源（提示不代表准确率）',JSON.stringify({quality_diagnostics:evidence.quality_diagnostics??null,native_alignment_windows:evidence.native_alignment_windows??null,timing_adjustments:evidence.timing_adjustments??null,overlap_decisions:evidence.overlap_decisions??null},null,2)];
         const url=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'})),a=node('a');a.href=url;a.download='crowd-transcript-'+state.job_id+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }),button('导出完整转写 SRT',()=>{
+        if(!valid())return;
+        const url=URL.createObjectURL(new Blob([transcriptSrt(evidence.segments)],{type:'text/plain;charset=utf-8'})),a=node('a');a.href=url;a.download='crowd-transcript-'+state.job_id+'.srt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
       }),button('核对转写质量与保存修订',()=>openQuality(state,valid)));
+    renderTranscriptCloud(state,valid);
+
+  }
+  function renderTranscriptCloud(state,valid){
+    const message=node('p'),panel=node('div');let received=false,busy=false,uncertain=false;
+    const confirm=value=>{const r=value?.receipt;if(value?.status!=='received'||r?.status!=='received'||r.artifact_kind!=='transcript_report'||r.local_job_id!==state.job_id||r.asset_sha256!==state.asset_sha256||r.segment_count!==state.result[0].evidence.segments.length||r.semantic_review!=='not_reviewed'||r.reward_eligible!==false||!/^[a-f0-9]{64}$/.test(r.text_sha256||'')||!/^[a-f0-9]{64}$/.test(r.report_sha256||''))throw Error('transcript_receipt_mismatch');received=true;uncertain=false;message.textContent='云端已保存完整文字稿 · '+r.segment_count+'段 · 回执 '+String(r.artifact_id).slice(0,8)+' · 仍未人工校对';};
+    const save=button('保存完整文字稿到云端',async()=>{if(!valid()||busy)return;busy=true;save.disabled=true;get.disabled=true;message.textContent='仅上传完整文字稿与来源信息，不上传音轨，不调用远程模型…';try{const value=await call('transcript_cloud_save',{job_id:state.job_id});if(!valid())return;confirm(value);}catch(error){if(valid()){uncertain=error.message==='cloud_outcome_unknown';message.textContent=uncertain?'云保存结果未知，请查询回执，勿重复保存。':'文字稿云保存失败：'+error.message;}}finally{busy=false;if(valid()){save.disabled=received||uncertain;get.disabled=!received;}}});
+    const get=button('取回云端完整文字稿 JSON',async()=>{if(!valid()||busy)return;busy=true;save.disabled=true;get.disabled=true;try{const value=await call('transcript_cloud_get',{job_id:state.job_id});if(!valid())return;confirm(value);if(value.report?.job_id!==state.job_id||value.report.asset_sha256!==state.asset_sha256||value.report.segment_count!==state.result[0].evidence.segments.length)throw Error('transcript_receipt_mismatch');download('crowd-cloud-transcript-'+state.job_id+'.json',value);}catch(error){if(valid())message.textContent='云端文字稿回取失败：'+error.message;}finally{busy=false;if(valid()){save.disabled=received||uncertain;get.disabled=!received;}}});
+    const check=button('查询文字稿云回执',async()=>{if(!valid()||busy)return;busy=true;check.disabled=true;try{const value=await call('transcript_cloud_status',{job_id:state.job_id});if(!valid())return;if(value.status==='received')confirm(value);else message.textContent=uncertain?'尚无回执；保留未知状态，不重复保存。':'云端尚未保存文字稿。';}catch(error){if(valid())message.textContent='云回执查询失败：'+error.message;}finally{busy=false;if(valid()){check.disabled=false;save.disabled=received||uncertain;get.disabled=!received;}}});
+    get.disabled=true;save.disabled=true;panel.append(message,save,get,check);exportPanel.append(panel);
+    call('transcript_cloud_status',{job_id:state.job_id}).then(value=>{if(!valid()||busy||received||uncertain)return;if(value.status==='received')confirm(value);else message.textContent='可直接保存完整文字稿；无需先做远程模型分析。';save.disabled=received;get.disabled=!received;}).catch(error=>{if(valid()&&!busy&&!received&&!uncertain){message.textContent='云端文字稿状态未确认：'+error.message;save.disabled=true;}});
   }
   async function openQuality(state,valid){
     if(!valid())return;

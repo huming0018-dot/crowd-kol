@@ -137,5 +137,13 @@ class InterruptedCheckpointTests(unittest.TestCase):
         self.assertEqual(sha(parent), before);self.assertEqual(sha(outside), before)
         with (self.manager.root / 'processor.lock').open('rb') as stream:fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
+    def test_invalid_pid_bounds_reject_before_process_probe(self):
+        for pid in (False, -1, 0, 2147483648, 10 ** 100):
+            with self.subTest(pid=pid), patch.object(media_jobs.os, 'kill') as probe:
+                media_jobs.write(self.folder / 'state.json', {**self.state, 'processor_pid': pid})
+                self.assertEqual(self.status()['state'], 'interrupted_unknown')
+                self.assertFalse(self.status()['checkpoint_available'])
+                probe.assert_not_called()
+
 
 if __name__ == '__main__':unittest.main()

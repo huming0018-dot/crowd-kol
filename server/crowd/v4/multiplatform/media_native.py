@@ -18,13 +18,14 @@ from media_cloud import LIMIT,_job_id,_job_lock,_publish_prepared,download_media
 HEX=re.compile(r'[a-f0-9]{64}')
 CID=re.compile(r'[A-Za-z0-9_.:-]{1,200}')
 
-def _identity(run_folder,content_id,asset_sha256,entity_ref,*,native_asr=False):
-    if type(native_asr) is not bool:raise ValueError('media_native_identity_invalid')
+def _identity(run_folder,content_id,asset_sha256,entity_ref,*,native_asr=False,native_audio=False):
+    if type(native_asr) is not bool or type(native_audio) is not bool:raise ValueError('media_native_identity_invalid')
     run_folder=Path(run_folder);_safe_ancestors(run_folder);run_id=_job_id(run_folder.name)
     if not isinstance(content_id,str) or not CID.fullmatch(content_id) or not isinstance(asset_sha256,str) or not HEX.fullmatch(asset_sha256):raise ValueError('media_native_identity_invalid')
     manifest,_=_read(run_folder/'manifest.json',200000);status,_=_read(run_folder/'status.json',200000)
     p=manifest.get('request',{}).get('platform');platform=PLATFORMS.get(p)
     if platform is None or manifest.get('run_id')!=run_id or status.get('run_id')!=run_id or status.get('state') not in FINAL:raise ValueError('media_native_not_terminal')
+    if native_audio and (platform!='bilibili' or manifest.get('request',{}).get('platform_options',{}).get('long_audio') is not True or manifest.get('request',{}).get('media') is not True):raise ValueError('media_native_identity_invalid')
     normalized,normalized_sha=_read(run_folder/'normalized.json',32*1024*1024)
     if normalized.get('run_id')!=run_id or normalized.get('source_kind')!='mediacrawler_api' or normalized.get('reward_eligible') is not False:raise ValueError('media_native_identity_invalid')
     bodies=[r for r in normalized.get('records',[]) if isinstance(r,dict) and r.get('platform')==platform and r.get('content_id')==content_id and r.get('kind') in ('content','dynamic')]
@@ -51,7 +52,8 @@ def _identity(run_folder,content_id,asset_sha256,entity_ref,*,native_asr=False):
     media=[r for r in normalized.get('media',[]) if isinstance(r,dict) and r.get('platform')==platform and r.get('content_id')==content_id and r.get('sha256')==asset_sha256]
     if len(media)!=1:raise ValueError('media_native_source_ambiguous')
     item=media[0];ctype=body.get('content_type') if platform=='zhihu' else None
-    if item.get('source_kind')!='mediacrawler_api' or item.get('reward_eligible') is not False or item.get('content_identity_status')!='reported_directory_id' or item.get('kind')=='audio':raise ValueError('media_native_identity_invalid')
+    if item.get('source_kind')!='mediacrawler_api' or item.get('reward_eligible') is not False or item.get('content_identity_status')!='reported_directory_id' or (item.get('kind')!='audio' if native_audio else item.get('kind')=='audio'):raise ValueError('media_native_identity_invalid')
+    if native_audio and body['kind']!='content':raise ValueError('media_native_source_ambiguous')
     if platform=='zhihu' and item.get('source_content_type')!=ctype or platform!='zhihu' and len(identities)!=1:raise ValueError('media_native_source_ambiguous')
     directory_id=content_id
     if platform=='bilibili' and item.get('content_identity_basis')=='same_native_bilibili_view':
@@ -63,9 +65,9 @@ def _identity(run_folder,content_id,asset_sha256,entity_ref,*,native_asr=False):
     path=_relative(run_folder,item.get('path'));parts=path.relative_to(run_folder).parts
     from native_media_scope import temporary_media_path
     if temporary_media_path(parts):raise ValueError('media_native_uncommitted_asset')
-    if len(parts)<5 or parts[0]!='output' or parts[1] not in (p,platform) or parts[2]!='media' or parts[3]!=directory_id or path.suffix.lower()!='.mp4':raise ValueError('media_native_identity_invalid')
+    if len(parts)<5 or parts[0]!='output' or parts[1] not in (p,platform) or parts[2]!='media' or parts[3]!=directory_id or path.suffix.lower()!=('.m4a' if native_audio else '.mp4'):raise ValueError('media_native_identity_invalid')
     if platform=='zhihu' and (len(parts)<6 or parts[4]!=ctype):raise ValueError('media_native_source_ambiguous')
-    data=read_bytes(path,64*1024*1024 if native_asr else LIMIT)
+    data=read_bytes(path,64*1024*1024 if native_asr or native_audio else LIMIT)
     if type(item.get('bytes')) is not int or len(data)!=item['bytes'] or len(data)<12 or data[4:8]!=b'ftyp' or hashlib.sha256(data).hexdigest()!=asset_sha256:raise ValueError('media_native_asset_changed')
     identity={'local_run_id':run_id,'platform':platform,'content_id':content_id,'entity_ref':entity_ref,'asset_sha256':asset_sha256}
     reference_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'crowd-native-video-v2:'+canonical(identity)))
@@ -78,7 +80,7 @@ def _relative(folder,value):
     path=folder/parts;_safe_ancestors(path)
     return path
 
-def _duration(data,*,require_audio=False):
+def _duration(data,*,require_audio=False,audio_only=False):
     ffmpeg=os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
     if not ffmpeg:raise ValueError('media_native_ffmpeg_unavailable')
     with tempfile.TemporaryDirectory(prefix='crowd-native-video-') as directory:
@@ -87,8 +89,10 @@ def _duration(data,*,require_audio=False):
         try:result=subprocess.run([ffmpeg,'-hide_banner','-protocol_whitelist','file,pipe','-f','mov','-i',str(path)],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=15)
         except (OSError,subprocess.TimeoutExpired):raise ValueError('media_native_metadata_unavailable') from None
     text=result.stderr.decode('utf-8','replace');match=re.search(r'Duration: (\d+):(\d+):(\d+(?:\.\d+)?)',text)
-    if not match or not re.search(r'Stream #[^\n]*: Video:',text):raise ValueError('media_native_video_track_missing')
-    if require_audio and not re.search(r'Stream #[^\n]*: Audio:',text):raise ValueError('media_native_audio_track_missing')
+    video=bool(re.search(r'Stream #[^\n]*: Video:',text));audio=bool(re.search(r'Stream #[^\n]*: Audio:',text))
+    if not match or not audio_only and not video:raise ValueError('media_native_video_track_missing')
+    if (require_audio or audio_only) and not audio:raise ValueError('media_native_audio_track_missing')
+    if audio_only and video:raise ValueError('media_native_audio_only_required')
     duration=int(match[1])*3600+int(match[2])*60+float(match[3])
     if not math.isfinite(duration) or not 1<=round(duration*1000)<=7200000:raise ValueError('media_native_duration_invalid')
     return round(duration*1000)

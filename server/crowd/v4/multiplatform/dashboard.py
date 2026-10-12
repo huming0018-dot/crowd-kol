@@ -33,6 +33,7 @@ class Application:
         self.owner_tasks = None
         self.results_store = None
         self.media_jobs = None
+        self.light_transcripts = None
         self.cloud_worker = None
         self.cloud_client = None
         config = {}
@@ -74,11 +75,12 @@ class Application:
             self.owner_tasks = CloudOwnerAdapter(self.cloud_client)
             worker_client = CloudClient(cloud_config, 'worker')
             self.cloud_worker = CloudWorker(self.root, worker_client, self.task_run,
-                                           self._cloud_session, self._cloud_existing)
+                                           self._cloud_session, self._cloud_existing,
+                                           postprocessing_callback=self._light_postprocessing)
             self.cloud_worker.start_scheduler()
         else:
             from owner_tasks import OwnerTasks
-            self.owner_tasks = OwnerTasks(self.root, self.task_run)
+            self.owner_tasks = OwnerTasks(self.root, self.task_run, postprocessing_callback=self._light_postprocessing)
         self.owner_tasks.start_scheduler()
         from watchlists import Watchlists
         self.watchlists = Watchlists(self.root, self.owner_tasks)
@@ -276,7 +278,28 @@ class Application:
             # Original files and the run stay intact. OwnerTasks retains active_run_id
             # and retries this read/import, without starting another source action.
             return {'ok': False, 'error': 'local_results_persistence_failed'}
+        if action == 'import' and self.cloud_worker is None and response.get('ok') is not False:
+            try:self._light_postprocessing('enqueue', payload)
+            except (ValueError, OSError):pass
         return response
+
+    def _light_postprocessing(self, action, payload):
+        if action == 'tick' and self.light_transcripts is None and not (self.root / 'light-transcripts').exists():return
+        if action == 'enqueue':
+            from analysis_artifact import _read
+            folder = self._registered_run_root(payload['run_id']) / 'runs' / payload['run_id']
+            manifest = _read(folder / 'manifest.json', 200000)[0]
+            if manifest.get('request', {}).get('platform_options', {}).get('transcript_only') is not True:return
+        if self.light_transcripts is None:
+            from light_transcripts import LightTranscripts
+            self.process_media('capabilities', {})
+            with self.lock:
+                if self.light_transcripts is None:
+                    self.light_transcripts = LightTranscripts(self.root, self.media_jobs,
+                        lambda run_id: self._registered_run_root(run_id) / 'runs' / run_id)
+        if action == 'enqueue':return self.light_transcripts.enqueue(payload['run_id'])
+        if action == 'tick':return self.light_transcripts.tick()
+        raise ValueError('invalid_light_transcript_action')
 
     def accounts(self, action, payload):
         from account_sessions import AccountSessions, identifier
@@ -394,6 +417,12 @@ class Application:
                 self.owner_tasks = OwnerTasks(self.root, self.task_run)
                 self.owner_tasks.start_scheduler()
         if action in ('preview', 'create'):
+            options = payload.get('platform_options_by_platform', {})
+            light_requested = isinstance(options, dict) and any(isinstance(value, dict) and value.get('transcript_only') is True for value in options.values())
+            if light_requested:
+                if payload.get('platforms') != ['bili']:raise ValueError('transcript_only_bili_only')
+                capabilities = self.process_media('capabilities', {})
+                if not capabilities['asr'] or not capabilities['ffmpeg']:raise ValueError('light_transcript_local_processor_required')
             return getattr(self.owner_tasks, action)(payload)
         if action in ('retry_supplemental', 'reconcile'):
             method = getattr(self.owner_tasks, action, None)
@@ -413,6 +442,12 @@ class Application:
         value=deepcopy(value)
         for task in ([value['task']] if isinstance(value.get('task'),dict) else value.get('tasks',[])):
             for child in task.get('children',[]):
+                run_id = child.get('local_run_id') or next(iter(reversed(child.get('runs', []))), None)
+                if run_id and self.light_transcripts is not None:
+                    try:
+                        summary = self.light_transcripts.status(run_id)
+                        if summary:child['light_transcript'] = summary
+                    except (ValueError, OSError):pass
                 if child.get('state') not in ('stopped','failed') or not child.get('local_run_id'):continue
                 try:
                     root=self._registered_run_root(child['local_run_id'])
@@ -490,9 +525,20 @@ class Application:
         if action == 'capabilities' and not payload:
             return self.media_jobs.capabilities()
         if action == 'list' and set(payload) == {'run_id'}:
-            return self.media_jobs.list(payload['run_id'])
+            value = self.media_jobs.list(payload['run_id'])
+            if self.light_transcripts is not None:
+                queued = self.light_transcripts.status(payload['run_id'])
+                for asset in (queued or {}).get('assets', []):
+                    if asset.get('job_id') and asset['job_id'] not in {job['job_id'] for job in value['jobs']}:
+                        value['jobs'].append(self.media_jobs.status(asset['job_id']))
+            return value
         if action in ('status', 'cancel', 'resume') and set(payload) == {'job_id'}:
             return getattr(self.media_jobs, action)(payload['job_id'])
+        if action in ('transcript_cloud_status', 'transcript_cloud_save', 'transcript_cloud_get'):
+            if set(payload) != {'job_id'}:
+                raise ValueError('invalid_transcript_cloud_request')
+            from transcript_artifact import transcript_cloud
+            return transcript_cloud(self.media_jobs, self.cloud_client, payload['job_id'], action.rsplit('_', 1)[1])
         if action in ('quality_lookup', 'transcript_revision') or action == 'playback':
             spec = importlib.util.spec_from_file_location('crowd_transcript_quality', HERE.parent / 'postprocess' / 'transcript_quality.py')
             module = importlib.util.module_from_spec(spec)

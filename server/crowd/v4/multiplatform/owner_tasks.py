@@ -134,6 +134,8 @@ def plan(payload):
     options = payload.get('platform_options_by_platform', {})
     if not isinstance(options, dict) or set(options) - set(platforms):
         raise ValueError('invalid_platform_options')
+    if any(isinstance(value, dict) and value.get('transcript_only') is True for value in options.values()) and platforms != ['bili']:
+        raise ValueError('transcript_only_bili_only')
     children = []
     for index, platform in enumerate(platforms):
         count = total // len(platforms) + (index < total % len(platforms))
@@ -183,11 +185,12 @@ def plan(payload):
 
 
 class OwnerTasks:
-    def __init__(self, root, runner, interval=1):
+    def __init__(self, root, runner, interval=1, postprocessing_callback=None):
         self.root = Path(root).resolve() / 'owner-tasks'
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.path = self.root / 'tasks.sqlite3'
         self.runner = runner
+        self.postprocessing_callback = postprocessing_callback
         self.interval = interval
         self.lock = threading.RLock()
         self.wakeup = threading.Event()
@@ -520,6 +523,7 @@ class OwnerTasks:
         while not self.closed.is_set():
             try:
                 self.poll()
+                if self.postprocessing_callback:self.postprocessing_callback('tick', {})
             except (OSError, sqlite3.Error, ValueError):
                 # Leave the last durable state intact; a persisted dispatch is never replayed.
                 pass

@@ -98,7 +98,7 @@ class MediaJobs:
         if (state.get('state') != 'running' or state.get('kind') != 'asr'
                 or state.get('processing_profile') != 'registered_native_mp4_asr_64mib_7200s'
                 or state.get('job_id') != folder.name or (folder / 'result.json').exists() or (folder / 'result.json').is_symlink()
-                or type(state.get('processor_pid')) is not int or state['processor_pid'] <= 0):
+                or type(state.get('processor_pid')) is not int or not 0 < state['processor_pid'] <= 2147483647):
             return None
         descriptors = []
         try:

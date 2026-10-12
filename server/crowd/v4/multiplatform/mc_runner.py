@@ -149,7 +149,7 @@ def validate_options(p):
     if p['platform']!='bili':
         if options: fail('unsupported_platform_options')
         return
-    if set(options)-{'creator_sections','search_mode','start_day','end_day','quality','long_audio'}: fail('unsupported_platform_options')
+    if set(options)-{'creator_sections','search_mode','start_day','end_day','quality','long_audio','transcript_only'}: fail('unsupported_platform_options')
     sections=options.get('creator_sections',['videos'])
     if not isinstance(sections,list) or not sections or any(s not in ('videos','dynamics') for s in sections) or len(set(sections))!=len(sections): fail('invalid_creator_sections')
     if 'creator_sections' in options and p['mode']!='creator': fail('creator_options_require_creator_mode')
@@ -163,6 +163,8 @@ def validate_options(p):
     elif 'start_day' in options or 'end_day' in options: fail('date_range_requires_search_mode')
     if 'long_audio' in options and type(options['long_audio']) is not bool: fail('invalid_long_audio')
     if options.get('long_audio') and not p.get('media',False): fail('long_audio_requires_media')
+    if 'transcript_only' in options and type(options['transcript_only']) is not bool:fail('invalid_transcript_only')
+    if options.get('transcript_only') and (options.get('long_audio') is not True or p.get('media') is not True):fail('transcript_only_requires_audio')
     if 'quality' in options and (type(options['quality']) is not int or options['quality'] not in (16,32,64,80,112,116,120)): fail('invalid_bilibili_quality')
     if p['mode']=='creator' and sections==['dynamics']:
         for field in ('comments','replies','media'):
@@ -249,6 +251,7 @@ def capabilities(mc):
         features.extend({'id':mode,'support_state':'implemented','live_verified':False,'notes':'visible-page sample from normal homepage/ranking navigation; not following feed'} for mode in discovery_modes)
         if p=='bili':
             features.append({'id':'long_audio','support_state':'implemented','live_verified':False,'notes':'explicit audio-only DASH option; lowest available bandwidth, fixed 64MiB single audio/100MiB total, at most 2h; DURL-only responses do not trigger another request'})
+            features.append({'id':'transcript_only','support_state':'implemented','live_verified':False,'notes':'optional audio-only collection then local ASR; installed SDK has no subtitle collector; no remote LLM or video fallback'})
             features.extend([{'id':'creator_dynamics','support_state':'implemented','live_verified':False,'notes':'separate dynamic identity; no dynamic comments or media download'}, {'id':'creator_relations','support_state':'unsupported','live_verified':False,'notes':'installed upstream callbacks do not persist followers/following'}, {'id':'video_quality','support_state':'implemented','live_verified':False,'notes':'requested quality is subject to session and source availability'}])
         if p=='tieba': features.append({'id':'public_post_media','support_state':'implemented','live_verified':False,'notes':'own adapter downloads at most three public CDN assets from the same native page response; not upstream media support'})
         if p=='zhihu': features.extend([{'id':'public_body_media','support_state':'implemented','live_verified':False,'notes':'own adapter observes at most three public body assets from the same native detail HTML or search/creator JSON; excerpt and CDN availability may limit coverage'}, {'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
