@@ -2,10 +2,12 @@
 import hashlib
 import fcntl
 import json
+import math
 import os
 from pathlib import Path
 import signal
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -63,8 +65,11 @@ class MediaJobs:
             raise ValueError('media_job_not_found')
         with self.lock:
             state = read(folder / 'state.json')
-            if state['state'] not in TERMINAL and job_id not in self.threads:
-                state = {**state, 'state': 'interrupted_unknown', 'reason': 'processor_restart_check_existing_output'}
+            if state['state'] not in TERMINAL and (job_id not in self.threads or not self.threads[job_id].is_alive()):
+                recovery = self._cancelled_checkpoint(folder, state)
+                state = {**state, 'state': 'failed' if recovery else 'interrupted_unknown',
+                         'reason': 'processor_interrupted_with_cancelled_checkpoint' if recovery else 'processor_restart_check_existing_output'}
+                if recovery is not None:state['interrupted_checkpoint'] = recovery
             if state['state'] == 'completed':
                 if state.get('kind')=='complete_video':
                     from complete_video import read_bytes
@@ -77,7 +82,7 @@ class MediaJobs:
                     if field in detail:
                         state[field] = detail[field]
                 state['processor_state'] = detail.get('state')
-                if state['state'] == 'failed' and detail.get('reason'):
+                if state['state'] == 'failed' and detail.get('reason') and 'interrupted_checkpoint' not in state:
                     state['reason'] = detail['reason']
             state['checkpoint_available'] = state.get('kind') == 'asr' and state['state'] in ('failed', 'cancelled') and bool(list(folder.glob('input*')))
             if state.get('kind')=='complete_video' and (folder/'video-progress.json').is_file():
@@ -87,6 +92,87 @@ class MediaJobs:
                 for field,limit in (('downloaded_bytes',256*1024*1024),('network_attempts',4)):
                     if type(detail.get(field)) is int and 0<=detail[field]<=limit:state[field]=detail[field]
         return state
+
+    def _cancelled_checkpoint(self, folder, state, process_lock_held=False):
+        """Read-only proof for a stopped native child; other unknown outcomes stay blocked."""
+        if (state.get('state') != 'running' or state.get('kind') != 'asr'
+                or state.get('processing_profile') != 'registered_native_mp4_asr_64mib_7200s'
+                or state.get('job_id') != folder.name or (folder / 'result.json').exists() or (folder / 'result.json').is_symlink()
+                or type(state.get('processor_pid')) is not int or state['processor_pid'] <= 0):
+            return None
+        descriptors = []
+        try:
+            try:os.kill(state['processor_pid'], 0)
+            except ProcessLookupError:pass
+            else:return None
+            locks = [folder / 'long-asr' / 'active.lock']
+            if not process_lock_held:locks.insert(0, self.root / 'processor.lock')
+            from analysis_artifact import _read, _safe_ancestors
+            for path in locks:
+                _safe_ancestors(path)
+                descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                descriptors.append(descriptor)
+                info = os.fstat(descriptor)
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid():return None
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            raw, parent_hash = _read(folder / 'state.json', 200000)
+            if raw != state:return None
+            detail, detail_hash = _read(folder / 'long-asr' / 'state.json', 200000)
+            manifest, manifest_hash = _read(folder / 'long-asr' / 'chunks.json', 50000)
+            rows = manifest.get('chunks');done = detail.get('completed_chunks');duration = manifest.get('duration_seconds')
+            if (detail.get('state') != 'cancelled' or detail.get('reason') != 'long_media_cancelled'
+                    or not isinstance(rows, list) or not 1 <= len(rows) <= 136
+                    or type(done) is not int or not 1 <= done <= len(rows)
+                    or type(detail.get('total_chunks')) is not int or detail['total_chunks'] != len(rows)
+                    or type(detail.get('current_chunk')) is not int or detail['current_chunk'] not in (done - 1, done)
+                    or type(manifest.get('schema')) is not int or manifest['schema'] != 1 or manifest.get('asset_sha256') != state.get('asset_sha256')
+                    or type(duration) not in (int, float) or not math.isfinite(duration) or not 0 < duration <= 7200
+                    or manifest.get('segment_seconds') != 55 or manifest.get('overlap_seconds') != 2):return None
+            snapshots = list(folder.glob('input*'))
+            if len(snapshots) != 1 or snapshots[0].name != 'input.mp4':return None
+            from complete_video import read_bytes
+            limit = self._snapshot_limit(state, snapshots[0])
+            if hashlib.sha256(read_bytes(snapshots[0], limit)).hexdigest() != state.get('asset_sha256'):return None
+            processors = state.get('processor_files', {})
+            names = ('long_media.py', 'local_asr.py', 'fetch_model.py')
+            if any(not isinstance(processors.get(name), str) or len(processors[name]) != 64 for name in names):return None
+            model_hash = state.get('model_manifest_sha256')
+            if not isinstance(model_hash, str) or len(model_hash) != 64:return None
+            caches = list((folder / 'long-asr').glob('result-*.json'))
+            if {p.name for p in caches} != {'result-%04d.json' % i for i in range(done)}:return None
+            cache_hashes = []
+            for index, row in enumerate(rows):
+                start = index * 53
+                if (not isinstance(row, dict) or set(row) != {'index', 'start', 'end', 'file', 'sha256'}
+                        or type(row['index']) is not int or row['index'] != index
+                        or row['file'] != 'chunk-%04d.wav' % index or row['start'] != start
+                        or row['end'] != min(duration, start + 55) or not start < row['end']):return None
+                if hashlib.sha256(read_bytes(folder / 'long-asr' / row['file'], 2000000)).hexdigest() != row['sha256']:return None
+                if index < done:
+                    cache, cache_hash = _read(folder / 'long-asr' / ('result-%04d.json' % index), 2000000)
+                    expected = hashlib.sha256((row['sha256'] + model_hash + ''.join(processors[name] for name in names) + '1').encode()).hexdigest()
+                    if (set(cache) not in ({'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'},
+                            {'segments', 'input_hash', 'timing_adjustments', 'segment_metrics', 'native_alignment'})
+                            or cache.get('input_hash') != expected or not isinstance(cache.get('segments'), list)
+                            or len(cache['segments']) > 1000):return None
+                    for segment in cache['segments']:
+                        if (not isinstance(segment, dict) or set(segment) != {'start', 'end', 'text'}
+                                or any(type(segment[key]) not in (int, float) or not math.isfinite(segment[key]) for key in ('start', 'end'))
+                                or not 0 <= segment['start'] <= segment['end'] <= row['end'] - start + .1
+                                or segment['start'] > row['end'] - start or not isinstance(segment['text'], str)
+                                or not segment['text'].strip() or len(segment['text']) > 10000):return None
+                    cache_hashes.append(cache_hash)
+            if rows[-1]['end'] != duration:return None
+            history = state.get('recovery_history', [])
+            if not isinstance(history, list) or len(history) >= 20:return None
+            return {'reason': 'processor_interrupted_with_cancelled_checkpoint', 'trigger_actor': 'unknown',
+                    'original_parent_state': 'running', 'original_processor_pid': state['processor_pid'],
+                    'parent_state_sha256': parent_hash, 'checkpoint_state_sha256': detail_hash,
+                    'chunks_sha256': manifest_hash, 'asset_sha256': state['asset_sha256'],
+                    'completed_chunks': done, 'total_chunks': len(rows), 'cache_sha256': cache_hashes}
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):return None
+        finally:
+            for descriptor in reversed(descriptors):os.close(descriptor)
 
     def _input(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None):
         if kind not in ('ocr', 'asr', 'transcript') or platform not in PLATFORMS.values():
@@ -411,20 +497,54 @@ class MediaJobs:
             if current_processors != state.get('processor_files'):
                 raise ValueError('media_checkpoint_processor_changed')
             folder = self.root / job_id
+            recovery = state.get('interrupted_checkpoint')
             snapshots = list(folder.glob('input*'))
             limit = self._snapshot_limit(state,snapshots[0]) if len(snapshots)==1 else 25*1024*1024
             if len(snapshots) != 1 or snapshots[0].is_symlink() or snapshots[0].stat().st_size > limit or hashlib.sha256(snapshots[0].read_bytes()).hexdigest() != state['asset_sha256']:
                 raise ValueError('media_checkpoint_source_changed')
-            process_lock = open(self.root / 'processor.lock', 'a+')
+            process_lock = os.fdopen(os.open(self.root / 'processor.lock', os.O_RDWR | os.O_NOFOLLOW), 'r+') if recovery else open(self.root / 'processor.lock', 'a+')
             try:
+                if recovery:
+                    info = os.fstat(process_lock.fileno())
+                    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid():
+                        raise ValueError('media_interrupted_checkpoint_not_verified')
                 fcntl.flock(process_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 process_lock.close()
                 raise ValueError('media_processor_busy') from None
+            except (OSError, ValueError):
+                process_lock.close()
+                raise
+            if recovery:
+                from analysis_artifact import _read
+                try:raw = _read(folder / 'state.json', 200000)[0]
+                except (OSError, ValueError):
+                    process_lock.close()
+                    raise ValueError('media_interrupted_checkpoint_not_verified') from None
+                verified = self._cancelled_checkpoint(folder, raw, process_lock_held=True)
+                if verified != recovery:
+                    process_lock.close()
+                    raise ValueError('media_interrupted_checkpoint_not_verified')
+                try:
+                    from complete_video import read_bytes
+                    original = read_bytes(folder / 'state.json', 200000)
+                    if hashlib.sha256(original).hexdigest() != verified['parent_state_sha256']:
+                        raise ValueError('media_interrupted_checkpoint_not_verified')
+                    backup_name = 'recovery-parent-' + verified['parent_state_sha256'] + '.json'
+                    backup = folder / backup_name
+                    if backup.exists() or backup.is_symlink():
+                        if read_bytes(backup, 200000) != original:raise ValueError('media_interrupted_checkpoint_not_verified')
+                    else:
+                        with os.fdopen(os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as stream:
+                            stream.write(original);stream.flush();os.fsync(stream.fileno())
+                except (OSError, ValueError):
+                    process_lock.close()
+                    raise ValueError('media_interrupted_checkpoint_not_verified') from None
+                state['recovery_history'] = [*state.get('recovery_history', []), {**verified, 'parent_backup': backup_name, 'resumed_at': time.time()}]
             (folder / 'cancel.requested').unlink(missing_ok=True)
             (folder / 'result.json').unlink(missing_ok=True)
             self.cancelled.discard(job_id)
-            state = {k: v for k, v in state.items() if k not in ('result', 'reason', 'finished_at', 'processor_pid', 'checkpoint_available')}
+            state = {k: v for k, v in state.items() if k not in ('result', 'reason', 'finished_at', 'processor_pid', 'checkpoint_available', 'interrupted_checkpoint')}
             state.update(state='queued', resumed_at=time.time())
             write(folder / 'state.json', state)
             thread = threading.Thread(target=self._execute, args=(state, snapshots[0], process_lock), daemon=True)
