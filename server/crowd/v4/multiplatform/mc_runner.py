@@ -798,6 +798,11 @@ def normalize(platform, kind, row, origin):
     result={'platform':PLATFORMS[platform],'content_id':cid,'kind':kind,'source_kind':'mediacrawler_api','reward_eligible':False,'coverage':'unverified','origin':origin}
     if kind=='comment':
         result.update(comment_id=opaque(row.get('comment_id')),parent_comment_id=opaque(row.get('parent_comment_id')),text=safe_text(row.get('content')),reported_reply_count=reported_count(row.get('sub_comment_count')))
+        if platform=='zhihu' and row.get('content_type') not in (None,''):
+            content_type=row['content_type']
+            if not isinstance(content_type,str) or content_type not in ('answer','article','zvideo'):
+                fail('invalid_zhihu_comment_content_type')
+            result['content_type']=content_type
         # These stores explicitly use an empty parent for a root; absent stays unknown.
         if platform in ('xhs','tieba') and row.get('parent_comment_id')=='':
             result['parent_comment_id']=''
@@ -805,7 +810,10 @@ def normalize(platform, kind, row, origin):
             result['parent_relation_basis']=row['parent_relation_basis']
         if not result['comment_id']: fail('missing_comment_id')
     else:
-        result.update(title=safe_text(row.get('title'),2000),body=safe_text(next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)),content_type=safe_text(row.get('content_type') or row.get('video_type') or row.get('type'),80))
+        body_value=next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)
+        if platform=='zhihu' and isinstance(row.get('content_text'),str) and row['content_text']:
+            body_value=row['content_text']
+        result.update(title=safe_text(row.get('title'),2000),body=safe_text(body_value),content_type=safe_text(row.get('content_type') or row.get('video_type') or row.get('type'),80))
     result['canonical_id_scheme']='bilibili.dynamic.v1' if kind=='dynamic' else 'bilibili.aid.v1' if platform=='bili' and cid.isdecimal() else 'bilibili.bvid.v1' if platform=='bili' and re.fullmatch(r'BV[A-Za-z0-9]{10}',cid) else PLATFORMS[platform]+'.source_id.v1'
     result['platform_fields']={k:v for k in ('video_type','type','content_type','creator_hash','nickname','user_name') if (v:=safe_text(row.get(k),2000)) is not None}
     author_hash=opaque(safe_text(row.get('creator_hash'),200))
@@ -830,7 +838,7 @@ def normalize(platform, kind, row, origin):
     result['published_at_reported']=next((row[k] for k in ('time','create_time','created_time','publish_time','pub_ts') if type(row.get(k)) is int or isinstance(row.get(k),str) and len(row[k])<=80 and not contains_secret(row[k])),None)
     result['entity_key']=result['platform']+':'+cid+(':'+result['comment_id'] if kind=='comment' else '')
     if kind=='dynamic': result['entity_key']=result['platform']+':dynamic:'+cid
-    text_value = row.get('content') if kind=='comment' else next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)
+    text_value = row.get('content') if kind=='comment' else body_value
     result['text_status']='withheld_sensitive' if isinstance(text_value,str) and contains_secret(text_value) else 'reported' if isinstance(text_value,str) else 'missing'
     result['text_truncated']=isinstance(text_value,str) and len(text_value)>24000
     result['text_completeness']='partial' if result['text_truncated'] else 'unknown'
