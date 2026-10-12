@@ -20,6 +20,9 @@ def uid(value):
 
 def load_transcript(jobs, identity):
     identity = uid(identity)
+    if (jobs.root.parent / 'subtitle-jobs' / (identity + '.json')).exists():
+        from bili_subtitles import subtitle_report
+        return subtitle_report(jobs,identity)
     spec = importlib.util.spec_from_file_location('cloud_transcript_quality', HERE.parent / 'postprocess/transcript_quality.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -36,7 +36,35 @@ class LightTranscripts:
                 or status.get('state') != 'completed'):
             raise ValueError('light_transcript_source_not_completed')
         normalized, normalized_sha = _read(folder / 'normalized.json', 32 * 1024 * 1024)
-        candidates = [r for r in normalized.get('media', []) if isinstance(r, dict) and r.get('kind') == 'audio']
+        subtitle_jobs=[]
+        caption_folder=folder/'output/bili/subtitles'
+        if caption_folder.exists():
+            import hashlib,uuid
+            for caption_path in sorted(caption_folder.glob('*.json')):
+                if caption_path.name.endswith('.source.json'):continue
+                caption,caption_sha=_read(caption_path,200000)
+                if caption.get('status')!='available':continue
+                cid=caption.get('content_id')
+                if not isinstance(cid,str) or not cid.isdecimal() or caption_path.name!=cid+'.json':raise ValueError('subtitle_source_invalid')
+                bodies=[r for r in normalized.get('records',[]) if r.get('platform')=='bilibili' and r.get('kind')=='content' and r.get('content_id')==cid]
+                if len(bodies)!=1:raise ValueError('subtitle_source_ambiguous')
+                identity=str(uuid.uuid5(uuid.UUID(run_id),'subtitle:'+cid+':'+caption_sha))
+                directory=self.root.parent/'subtitle-jobs';_safe_ancestors(directory);directory.mkdir(mode=0o700,exist_ok=True)
+                state={'job_id':identity,'run_id':run_id,'kind':'subtitle','state':'completed','platform':'bilibili',
+                    'content_id':cid,'entity_ref':'bilibili:content:'+cid,'source_record_hash':bodies[0]['record_hash'],
+                    'asset_sha256':caption['subtitle_provenance']['source_body_sha256'],'result_sha256':caption_sha,
+                    'input_hash':hashlib.sha256((run_id+':'+cid+':'+caption_sha).encode()).hexdigest(),
+                    'processing_profile':'native_bilibili_subtitle_json_v1','created_at':time.time()}
+                target=directory/(identity+'.json')
+                created=not target.exists()
+                if created:write(target,state)
+                from bili_subtitles import load_job
+                try:load_job(self.jobs,identity)
+                except (ValueError,KeyError,TypeError,OSError):
+                    if created:target.unlink()
+                    continue
+                subtitle_jobs.append({'content_id':cid,'job_id':identity,'state':'completed','kind':'subtitle'})
+        candidates = [r for r in normalized.get('media', []) if isinstance(r, dict) and r.get('kind') == 'audio' and r.get('content_id') not in {j['content_id'] for j in subtitle_jobs}]
         if len(candidates) > 200:raise ValueError('light_transcript_source_ambiguous')
         assets = []
         for row in candidates:
@@ -65,8 +93,8 @@ class LightTranscripts:
                     raise ValueError('light_transcript_source_changed')
                 return old
             state = {'schema_version': 1, 'run_id': run_id, 'platform': 'bilibili', 'created_at': time.time(),
-                     'mode': 'transcript_only', 'subtitle_state': 'not_available_in_installed_sdk',
-                     'state': 'waiting' if assets else 'audio_unavailable', 'assets': assets,
+                     'mode': 'transcript_only', 'subtitle_state': 'available' if subtitle_jobs else 'not_available_or_partial',
+                     'state': 'waiting' if assets else 'completed' if subtitle_jobs else 'audio_unavailable', 'assets': assets, 'subtitle_jobs':subtitle_jobs,
                      'source_requests': 0, 'remote_model_calls': 0}
             write(path, state)
             return state
@@ -134,6 +162,6 @@ class LightTranscripts:
                 states = [a['state'] for a in state['assets']]
                 state['state'] = ('completed' if states and all(v == 'completed' for v in states)
                                   else 'needs_attention' if any(v in ('failed', 'cancelled', 'interrupted_unknown') for v in states)
-                                  else 'processing' if states else 'audio_unavailable')
+                                  else 'processing' if states else 'completed' if state.get('subtitle_jobs') else 'audio_unavailable')
                 write(path, state)
         finally:self.lock.release()

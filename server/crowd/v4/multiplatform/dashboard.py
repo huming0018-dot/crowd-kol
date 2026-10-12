@@ -522,16 +522,26 @@ class Application:
         with self.lock:
             if self.media_jobs is None:
                 self.media_jobs = MediaJobs(self.root, os.environ.get('CROWD_LOCAL_ASR_MODEL'), os.environ.get('CROWD_LOCAL_ASR_PYTHON'))
+        self.media_jobs.subtitle_run_folder = lambda run_id: self._registered_run_root(run_id) / 'runs' / run_id
         if action == 'capabilities' and not payload:
             return self.media_jobs.capabilities()
         if action == 'list' and set(payload) == {'run_id'}:
             value = self.media_jobs.list(payload['run_id'])
+            from bili_subtitles import load_job
+            from analysis_artifact import _read
+            for path in sorted((self.root/'subtitle-jobs').glob('*.json')):
+                item,_=_read(path,200000)
+                if item.get('run_id')==payload['run_id']:value['jobs'].append(load_job(self.media_jobs,path.stem))
             if self.light_transcripts is not None:
                 queued = self.light_transcripts.status(payload['run_id'])
                 for asset in (queued or {}).get('assets', []):
                     if asset.get('job_id') and asset['job_id'] not in {job['job_id'] for job in value['jobs']}:
                         value['jobs'].append(self.media_jobs.status(asset['job_id']))
             return value
+        if action == 'status' and set(payload)=={'job_id'}:
+            from bili_subtitles import load_job
+            from mc_runner import uid
+            if (self.root/'subtitle-jobs'/(uid(payload['job_id'])+'.json')).exists():return load_job(self.media_jobs,payload['job_id'])
         if action in ('status', 'cancel', 'resume') and set(payload) == {'job_id'}:
             return getattr(self.media_jobs, action)(payload['job_id'])
         if action in ('transcript_cloud_status', 'transcript_cloud_save', 'transcript_cloud_get'):

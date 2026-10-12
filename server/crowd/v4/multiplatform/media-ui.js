@@ -15,7 +15,7 @@ const mediaView = (() => {
     return rows.map((row,index)=>{if(row.end<row.start||typeof row.text!=='string')throw Error('invalid_transcript_time');return (index+1)+'\n'+stamp(row.start)+' --> '+stamp(row.end)+'\n'+row.text.replace(/\r\n?/g,'\n').replace(/\n{2,}/g,'\n')+'\n';}).join('\n');
   }
   function renderExports(state){
-    if(state.state!=='completed'||state.kind!=='asr'||!Array.isArray(state.result)||state.result.length!==1)return;
+    if(state.state!=='completed'||!['asr','subtitle'].includes(state.kind)||!Array.isArray(state.result)||state.result.length!==1)return;
     const item=state.result[0],evidence=item?.evidence,hash=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
     if(!evidence||evidence.asset_sha256!==state.asset_sha256||!hash(state.asset_sha256)||!hash(state.input_hash)||item.platform!==state.platform||item.content_id!==state.content_id||!Array.isArray(evidence.segments)||!evidence.segments.length)return;
     const viewTicket=generation,jobTicket=jobGeneration;
@@ -38,7 +38,7 @@ const mediaView = (() => {
       }),button('导出完整转写 SRT',()=>{
         if(!valid())return;
         const url=URL.createObjectURL(new Blob([transcriptSrt(evidence.segments)],{type:'text/plain;charset=utf-8'})),a=node('a');a.href=url;a.download='crowd-transcript-'+state.job_id+'.srt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      }),button('核对转写质量与保存修订',()=>openQuality(state,valid)));
+      }),...(state.kind==='asr'?[button('核对转写质量与保存修订',()=>openQuality(state,valid))]:[node('p','来源：平台字幕。时间轴来自字幕轨；全文语义与漏字尚未人工校对。')]));
     renderTranscriptCloud(state,valid);
 
   }
@@ -142,6 +142,14 @@ const mediaView = (() => {
     }catch(error){if(ticket===previewGeneration&&view===generation&&dialog.open)$('media_process_hint').textContent='本地视频转写尚不可开始：'+error.message;}
   }
   async function open(file){generation++;jobGeneration++;clearTimeout(timer);clearPlayback();selection={run_id:idOf(selectedRun),path:file.path};nativeSelectionFile=file.source_kind==='mediacrawler_api'&&/\.mp4$/i.test(file.path||'')?file:null;inputPlan=null;previewGeneration++;job=null;qualityOutput.hidden=true;qualityOutput.textContent='';$('media_process_resume').disabled=false;$('media_process_resume').hidden=true;$('media_process_cancel').disabled=true;$('media_process_result').hidden=true;$('media_process_state').textContent='';$('media_content').replaceChildren();for(const row of contentRows(file))$('media_content').append(new Option(row.title||row.content_id,row.content_id));if(file.content_id&&[...$('media_content').options].some(option=>option.value===file.content_id))$('media_content').value=file.content_id;dialog.showModal();const identityMissing=(file.platform==='zhihu'||String(file.path).startsWith('output/zhihu/'))&&!$('media_content').options.length;if(identityMissing)$('media_process_state').textContent='知乎素材缺少唯一类型身份，暂不可处理；仍可下载。';const ticket=generation;let caps;try{caps=await call('capabilities');}catch(error){if(ticket===generation&&dialog.open)$('media_process_state').textContent=error.message;return;}if(ticket!==generation||!dialog.open)return;for(const option of $('media_kind').options)option.disabled=!caps[option.value];const ext=String(file.path).split('.').pop().toLowerCase();$('media_kind').value=['jpg','jpeg','png','webp'].includes(ext)?'ocr':['vtt','srt','txt'].includes(ext)?'transcript':'asr';$('media_process_hint').textContent=caps.asr?'本地 '+(caps.asr_model_name||'语音')+' 模型已配置，结果可按时间核对。最长 '+Math.floor((['m4a','mp3','aac'].includes(ext)?caps.limits?.long_audio_seconds||7200:caps.limits?.max_audio_seconds||3600)/60)+' 分钟、文件'+(['m4a','mp3','aac'].includes(ext)?64:25)+'MiB；分段处理，可从断点继续。':'本机尚未配置语音模型。图片和已有字幕可用；音视频转写需先配置本地模型。';$('media_process_start').disabled=!$('media_content').options.length||$('media_kind').selectedOptions[0]?.disabled;if(nativeSelectionFile)await previewInput();try{await history(ticket);}catch(error){if(ticket===generation&&dialog.open)$('media_process_state').textContent='已保存任务读取失败：'+error.message;}}
+  async function openSaved(runId,jobId){
+    const ticket=++generation,jobTicket=++jobGeneration;clearTimeout(timer);clearPlayback();selection={run_id:runId};nativeSelectionFile=null;inputPlan=null;previewGeneration++;job=null;
+    $('media_process_start').disabled=true;$('media_process_resume').hidden=true;$('media_process_cancel').disabled=true;
+    $('media_process_result').hidden=true;$('media_process_result').textContent='';qualityOutput.hidden=true;qualityOutput.textContent='';exportPanel.hidden=true;exportPanel.replaceChildren();$('media_process_jobs').replaceChildren();$('media_process_state').textContent='正在读取已保存文字稿…';
+    $('media_process_hint').textContent='查看本任务已保存文字稿；来源字幕的语义与漏字仍待校对。';dialog.showModal();
+    const state=await call('status',{job_id:jobId});if(ticket!==generation||jobTicket!==jobGeneration||!dialog.open)return;
+    if(state.run_id!==runId)throw Error('transcript_source_binding_denied');render(state);await history(ticket);
+  }
   $('media_kind').onchange=previewInput;$('media_content').onchange=previewInput;
   $('media_process_start').onclick=()=>guarded(async()=>{if(nativeSelectionFile&&$('media_kind').value==='asr'&&!inputPlan)return;const ticket=generation,jobTicket=++jobGeneration;clearTimeout(timer);clearPlayback();$('media_process_start').disabled=true;try{const state=await call('start',{...selection,content_id:$('media_content').value,kind:$('media_kind').value});if(ticket!==generation||jobTicket!==jobGeneration||!dialog.open)return;render(state);await poll(state.job_id,ticket,jobTicket);}catch(error){if(ticket===generation&&jobTicket===jobGeneration&&dialog.open)$('media_process_state').textContent=error.message;}finally{if(ticket===generation&&jobTicket===jobGeneration)$('media_process_start').disabled=false;}});
   $('media_process_cancel').onclick=()=>guarded(async()=>{if(!job)return;const ticket=generation,jobTicket=jobGeneration;const state=await call('cancel',{job_id:job.job_id});if(ticket===generation&&jobTicket===jobGeneration&&dialog.open)render(state);});
@@ -229,5 +237,5 @@ const mediaView = (() => {
     const ticket=nativeGeneration;if(!nativeCurrent(ticket)||nativeBusy||!nativeReceived)return;const expected={...nativeSelection};nativeBusy=true;nativeDownload.disabled=true;
     try{const response=await fetch('/api/media-processing',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({action:'native_video_cloud_file',payload:nativePayload()})});if(!response.ok)throw Error((await response.json()).error||'media_native_download_failed');const blob=await response.blob();if(!nativeCurrent(ticket))return;if(response.headers.get('X-Content-SHA256')!==expected.asset_sha256||blob.size!==expected.bytes)throw Error('media_native_download_mismatch');const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download='crowd-native-video-'+expected.content_id+'-'+expected.asset_sha256.slice(0,8)+'.mp4';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);nativeMessage.textContent='云端已采视频取回且字节校验通过；未验平台完整时长。';}catch(error){if(nativeCurrent(ticket))nativeMessage.textContent='回取未确认：'+error.message;}finally{if(nativeCurrent(ticket)){nativeBusy=false;nativeDownload.disabled=false;}}
   }
-  return {open,openVideo,cloudVideo};
+  return {open,openSaved,openVideo,cloudVideo};
 })();

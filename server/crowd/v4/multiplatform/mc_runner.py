@@ -251,7 +251,7 @@ def capabilities(mc):
         features.extend({'id':mode,'support_state':'implemented','live_verified':False,'notes':'visible-page sample from normal homepage/ranking navigation; not following feed'} for mode in discovery_modes)
         if p=='bili':
             features.append({'id':'long_audio','support_state':'implemented','live_verified':False,'notes':'explicit audio-only DASH option; lowest available bandwidth, fixed 64MiB single audio/100MiB total, at most 2h; DURL-only responses do not trigger another request'})
-            features.append({'id':'transcript_only','support_state':'implemented','live_verified':False,'notes':'optional audio-only collection then local ASR; installed SDK has no subtitle collector; no remote LLM or video fallback'})
+            features.append({'id':'transcript_only','support_state':'implemented','live_verified':False,'notes':'native Chinese subtitle first; uncertain/missing track falls back audio-only local ASR; no remote LLM or video fallback'})
             features.extend([{'id':'creator_dynamics','support_state':'implemented','live_verified':False,'notes':'separate dynamic identity; no dynamic comments or media download'}, {'id':'creator_relations','support_state':'unsupported','live_verified':False,'notes':'installed upstream callbacks do not persist followers/following'}, {'id':'video_quality','support_state':'implemented','live_verified':False,'notes':'requested quality is subject to session and source availability'}])
         if p=='tieba': features.append({'id':'public_post_media','support_state':'implemented','live_verified':False,'notes':'own adapter downloads at most three public CDN assets from the same native page response; not upstream media support'})
         if p=='zhihu': features.extend([{'id':'public_body_media','support_state':'implemented','live_verified':False,'notes':'own adapter observes at most three public body assets from the same native detail HTML or search/creator JSON; excerpt and CDN availability may limit coverage'}, {'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
@@ -315,6 +315,12 @@ def configure_platform_hooks(upstream,p):
                 view=video_item.get('View') or {}
                 aid=view.get('aid');cid=view.get('cid');content_id=view.get('bvid') or (str(aid) if aid else '')
                 play_evidence={'status':'not_requested','source':'native_bilibili_client'}
+                if options.get('transcript_only'):
+                    from bili_subtitles import fetch_subtitles
+                    subtitle=await fetch_subtitles(view,getattr(self.bili_client,'headers',{}),Path.cwd()/'output')
+                    phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
+                    write(phase,{**previous,'subtitle_status':subtitle['status'],'subtitle_reason':subtitle.get('reason'),'subtitle_source_requests':subtitle['source_requests']})
+                    if subtitle['status']=='available':return
                 if not aid or not cid or not content_id:
                     result={'status':'unavailable','reason':'audio_identity_missing'}
                 else:
