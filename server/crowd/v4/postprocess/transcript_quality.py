@@ -129,7 +129,7 @@ class TranscriptQuality:
             if len(inputs)!=1 or audio_hash(inputs[0])!=state['asset_sha256']:raise ValueError('transcript_quality_audio_unverified')
             source=identity
             depth=0
-        if evidence.get('processor')=='faster_whisper_local_segmented':
+        if evidence.get('processor') in ('faster_whisper_local_segmented','mlx_whisper_local_segmented'):
             checkpoint,_=read_json(folder/'long-asr/state.json',65536)
             # Fresh parent state need not mirror counters; revisions keep the original audio manifest.
             manifest,_=read_json(self.root/source/'long-asr/chunks.json',65536)
@@ -215,7 +215,7 @@ class TranscriptQuality:
         ancestors(self.root);folder=self.root/new_id;folder.mkdir(mode=0o700)
         try:
             write_json(folder/'result.json',result)
-            if evidence.get('processor')=='faster_whisper_local_segmented':
+            if evidence.get('processor') in ('faster_whisper_local_segmented','mlx_whisper_local_segmented'):
                 (folder/'long-asr').mkdir(mode=0o700);checkpoint,_=read_json(saved['folder']/'long-asr/state.json',65536)
                 write_json(folder/'long-asr/state.json',checkpoint)
             write_json(folder/'state.json',state)

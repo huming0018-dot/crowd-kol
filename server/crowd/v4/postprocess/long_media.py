@@ -389,8 +389,16 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
             else:
                 # Test injection never claims an actual model provider.
                 model_hash = 'injected-offline-test-provider'
-            processor_hash = ''.join(digest(Path(__file__).with_name(name)) for name in
-                                     ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py'))
+            processor_names = ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py')
+            mlx_manifest = None
+            if isinstance(model_dir, Path) and (model_dir / 'crowd-model.json').is_file():
+                if (model_dir / 'crowd-model.json').stat().st_size > 10000:
+                    raise ValueError('invalid_local_asr_model_manifest')
+                candidate = json.loads((model_dir / 'crowd-model.json').read_text())
+                if candidate.get('engine') == 'mlx_whisper_local':
+                    mlx_manifest = candidate
+                    processor_names += ('mlx_asr.py',)
+            processor_hash = ''.join(digest(Path(__file__).with_name(name)) for name in processor_names)
             shared_cache = None
             if cache_dir is not None:
                 from audio_result_cache import AudioResultCache
@@ -452,6 +460,10 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                 state['completed_chunks'] += 1
                 save(work / 'state.json', state)
             result = merge_chunks(manifest, results)
+            if mlx_manifest is not None:
+                result.update(processor='mlx_whisper_local_segmented', model_repository=mlx_manifest['repository'],
+                    model_revision=mlx_manifest['revision'], package_version=mlx_manifest['package_version'],
+                    decoding='greedy_temperature_zero', timing_policy='mlx_native_word_timestamps_no_pre_alignment_token_receipt')
             result['audio_windows_processed'] = len(results)
             result['no_text_windows'] = sum(not row['segments'] for row in results)
             result['transcript_completeness'] = 'not_independently_verified'

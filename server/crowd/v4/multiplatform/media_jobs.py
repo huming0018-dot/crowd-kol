@@ -27,11 +27,30 @@ class MediaJobs:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.asr_model = Path(asr_model).resolve() if asr_model else None
         self.python = python or sys.executable
+        self.mac_asr_model = Path(os.environ['CROWD_MAC_ASR_MODEL']).resolve() if os.environ.get('CROWD_MAC_ASR_MODEL') else None
+        self.mac_asr_python = os.environ.get('CROWD_MAC_ASR_PYTHON')
         self.lock = threading.RLock()
         self.processes = {}
         self.threads = {}
         self.cancelled = set()
         self.closed = False
+
+    def _asr_configuration(self, engine='cpu'):
+        if engine == 'cpu':
+            return self.asr_model, self.python
+        if engine != 'mlx':
+            raise ValueError('invalid_asr_engine')
+        if (sys.platform != 'darwin' or self.mac_asr_model is None or not self.mac_asr_python
+                or not (self.mac_asr_model / 'crowd-model.json').is_file()
+                or not Path(self.mac_asr_python).is_file() or not os.access(self.mac_asr_python, os.X_OK)):
+            raise ValueError('mac_asr_engine_not_configured')
+        manifest = self.mac_asr_model / 'crowd-model.json'
+        if manifest.is_symlink() or manifest.stat().st_size > 10000:
+            raise ValueError('invalid_mac_asr_model_manifest')
+        data = read(manifest)
+        if not isinstance(data, dict) or data.get('engine') != 'mlx_whisper_local':
+            raise ValueError('invalid_mac_asr_model_manifest')
+        return self.mac_asr_model, self.mac_asr_python
 
     def capabilities(self):
         model_ready = self.asr_model is not None and (self.asr_model / 'crowd-model.json').is_file()
@@ -43,8 +62,15 @@ class MediaJobs:
                     model_name = read(manifest).get('repository', '').rsplit('/', 1)[-1]
             except (OSError, ValueError, TypeError, AttributeError):
                 model_name = None
+        try:
+            self._asr_configuration('mlx'); mac_ready = True
+        except (ValueError, OSError):
+            mac_ready = False
         executable = os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
         return {'ocr': sys.platform == 'darwin', 'asr': model_ready,
+                'asr_engines': ['cpu'] + (['mlx'] if mac_ready else []),
+                'mac_asr_state': 'configured_unverified' if mac_ready else 'not_configured',
+                'asr_default_engine': 'cpu',
                 'asr_model_state': 'configured_unverified' if model_ready else 'local_model_unavailable',
                 'asr_model_name': model_name,
                 'long_audio': True, 'ffmpeg': bool(executable and Path(executable).is_file()),
@@ -135,6 +161,7 @@ class MediaJobs:
             if hashlib.sha256(read_bytes(snapshots[0], limit)).hexdigest() != state.get('asset_sha256'):return None
             processors = state.get('processor_files', {})
             names = ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py')
+            if state.get('asr_engine') == 'mlx': names += ('mlx_asr.py',)
             if any(not isinstance(processors.get(name), str) or len(processors[name]) != 64 for name in names):return None
             model_hash = state.get('model_manifest_sha256')
             if not isinstance(model_hash, str) or len(model_hash) != 64:return None
@@ -214,28 +241,32 @@ class MediaJobs:
                 'audio_duration_ms':context['audio_duration_ms'] if context else None,
                 'source_requests':0,'model_calls':0}
 
-    def start(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None):
-        if kind == 'asr' and not self.capabilities()['asr']:
+    def start(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None, asr_engine='cpu'):
+        selected_model, selected_python = self._asr_configuration(asr_engine) if kind == 'asr' else (None, None)
+        if kind == 'asr' and asr_engine == 'cpu' and not self.capabilities()['asr']:
             raise ValueError('local_asr_model_not_configured')
         data,digest,profile,context=self._input(source,platform,content_id,kind,run_id,entity_ref,native_run_folder)
         identity = {'asset_sha256': digest, 'platform': platform, 'content_id': content_id,
                     'processing_profile':profile,
                     'kind': kind, 'processor_schema': 2,
                     'processor_sha256': hashlib.sha256(PROCESSOR.read_bytes()).hexdigest(),
-                    'model': str(self.asr_model) if kind == 'asr' else None}
+                    'model': str(selected_model) if kind == 'asr' else None}
+        if kind == 'asr': identity['asr_engine'] = asr_engine
         if context is not None:
             identity['native_video_context_sha256']=hashlib.sha256(json.dumps(context,sort_keys=True,separators=(',',':')).encode()).hexdigest()
             entity_ref=context['entity_ref']
         identity['processor_files'] = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
             for name in ('local_asr.py', 'fetch_model.py', 'long_media.py', 'audio_result_cache.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
             if (PROCESSOR.parent / name).is_file()}
+        if kind == 'asr' and asr_engine == 'mlx':
+            identity['processor_files']['mlx_asr.py'] = hashlib.sha256((PROCESSOR.parent/'mlx_asr.py').read_bytes()).hexdigest()
         if context is not None:identity['processor_files']['native_video_asr.py']=hashlib.sha256((PROCESSOR.parent/'native_video_asr.py').read_bytes()).hexdigest()
         if entity_ref is not None:
             from results_store import _entity_selector
             _entity_selector(entity_ref,platform,content_id)
             identity['entity_ref']=entity_ref
         if kind == 'asr':
-            manifest = self.asr_model / 'crowd-model.json'
+            manifest = selected_model / 'crowd-model.json'
             if manifest.stat().st_size > 10000:
                 raise ValueError('invalid_local_asr_model_manifest')
             identity['model_manifest_sha256'] = hashlib.sha256(manifest.read_bytes()).hexdigest()
@@ -275,6 +306,8 @@ class MediaJobs:
             if entity_ref is not None:state['entity_ref']=entity_ref
             state['processor_files']=identity['processor_files']
             if kind == 'asr':
+                state['asr_engine'] = asr_engine
+                state['asr_model'] = str(selected_model)
                 state['model_manifest_sha256'] = identity['model_manifest_sha256']
                 state['processor_files'] = identity['processor_files']
             write(folder / 'state.json', state)
@@ -407,11 +440,18 @@ class MediaJobs:
                    '--platform', state['platform'], '--content-id', state['content_id'],
                    '--authorization-ref', 'owner-selected-saved-media', '--output', str(result)]
         if state['kind'] == 'asr':
+            try:
+                selected_model, selected_python = self._asr_configuration(state.get('asr_engine', 'cpu'))
+            except (ValueError, OSError):
+                state.update(state='failed', reason='asr_engine_configuration_changed')
+                write(folder / 'state.json', state)
+                process_lock.close()
+                return
             processor=PROCESSOR.parent/'native_video_asr.py' if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s' else LONG_PROCESSOR
-            command = [self.python, str(processor), '--input', str(snapshot),
+            command = [selected_python, str(processor), '--input', str(snapshot),
                        '--platform', state['platform'], '--content-id', state['content_id'],
                        '--authorization-ref', 'owner-selected-saved-media', '--output', str(result),
-                       '--asr-model', str(self.asr_model), '--work-dir', str(folder / 'long-asr'),
+                       '--asr-model', str(selected_model), '--work-dir', str(folder / 'long-asr'),
                        '--project-root', str(self.root), '--cache-dir', str(self.root / 'audio-result-cache')]
             if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s':
                 command+=['--native-video-context',str(folder/'native-asr-context.json')]
@@ -483,14 +523,15 @@ class MediaJobs:
                 raise ValueError('media_checkpoint_not_available')
             if any(thread.is_alive() for thread in self.threads.values()):
                 raise ValueError('media_processor_busy')
-            if not self.capabilities()['asr']:
+            selected_model, selected_python = self._asr_configuration(state.get('asr_engine', 'cpu'))
+            if state.get('asr_engine', 'cpu') == 'cpu' and not self.capabilities()['asr']:
                 raise ValueError('local_asr_model_not_configured')
             for other in self.root.iterdir():
                 if other.name != job_id and other.is_dir() and not other.is_symlink() and (other / 'state.json').is_file() and self.status(other.name)['state'] == 'interrupted_unknown':
                     raise ValueError('media_processor_reconciliation_required')
-            if (self.asr_model / 'crowd-model.json').stat().st_size > 10000:
+            if (selected_model / 'crowd-model.json').stat().st_size > 10000:
                 raise ValueError('invalid_local_asr_model_manifest')
-            model_hash = hashlib.sha256((self.asr_model / 'crowd-model.json').read_bytes()).hexdigest()
+            model_hash = hashlib.sha256((selected_model / 'crowd-model.json').read_bytes()).hexdigest()
             if model_hash != state.get('model_manifest_sha256'):
                 raise ValueError('media_checkpoint_model_changed')
             current_processors = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()

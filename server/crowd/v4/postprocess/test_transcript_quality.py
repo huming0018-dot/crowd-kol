@@ -70,6 +70,17 @@ class Tests(unittest.TestCase):
             path=folder/name;path.unlink();write_json(path,value)
         self.result[0]['evidence']['segments'][1]['text']='parent changed';self.state['result_sha256']=text_hash(canonical(self.result));self.save()
         with self.assertRaisesRegex(ValueError,'parent_changed'):self.manager.lookup(created['job_id'])
+    def test_mlx_full_window_gate_matches_cpu(self):
+        self.result[0]['evidence']['processor']='mlx_whisper_local_segmented'
+        self.state['result_sha256']=text_hash(canonical(self.result))
+        self.save()
+        self.assertEqual(self.manager.validate(self.identity)['evidence']['processor'],'mlx_whisper_local_segmented')
+        self.assertEqual(self.manager.lookup(self.identity)['source_job_id'],self.identity)
+        path=self.folder/'long-asr/state.json';path.unlink()
+        write_json(path,{'state':'completed','completed_chunks':1,'total_chunks':2})
+        with self.assertRaisesRegex(ValueError,'checkpoint_incomplete'):
+            self.manager.validate(self.identity)
+
     def test_incomplete_audio_mismatch_and_links(self):
         (self.folder/'input.m4a').write_bytes(b'changed')
         with self.assertRaisesRegex(ValueError,'audio_unverified'):self.manager.lookup(self.identity)

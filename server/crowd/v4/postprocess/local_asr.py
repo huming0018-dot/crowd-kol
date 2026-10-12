@@ -121,6 +121,9 @@ def normalize_timestamps(rows, duration, provider_padding_ends=None):
 
 
 def validate_native_alignment(value, rows, duration):
+    if isinstance(value, dict) and value.get('method') == 'mlx_whisper_word_timestamps':
+        from mlx_asr import validate_alignment
+        return validate_alignment(value, rows, duration)
     if value is None:
         return None  # Old caches did not record native alignment provenance.
     def finite(value):
@@ -191,6 +194,16 @@ def verify_model(model_dir):
 
 
 def transcribe(source, model_dir):
+    manifest = Path(model_dir) / 'crowd-model.json'
+    if manifest.is_file() and not manifest.is_symlink() and manifest.stat().st_size <= 10000:
+        if json.loads(manifest.read_text()).get('engine') == 'mlx_whisper_local':
+            from mlx_asr import provider
+            try:
+                return provider(source, model_dir)
+            except ValueError:
+                raise
+            except Exception:
+                raise ValueError('mac_native_asr_unavailable') from None
     # A local path and offline mode prevent implicit Hub fetches or auth access.
     os.environ['HF_HUB_OFFLINE'] = '1'
     os.environ['HF_HUB_DISABLE_IMPLICIT_TOKEN'] = '1'

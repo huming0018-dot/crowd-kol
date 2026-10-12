@@ -115,7 +115,7 @@ class AnalysisJobs:
                     asset=state.get('asset_sha256')
                     # raw_text is a display preview. Completed segmented ASR carries
                     # its whole candidate text in segments; do not rewrite that preview.
-                    full_segments=(state['kind']=='asr' and evidence.get('processor')=='faster_whisper_local_segmented'
+                    full_segments=(state['kind']=='asr' and evidence.get('processor') in ('faster_whisper_local_segmented','mlx_whisper_local_segmented')
                         and evidence.get('coverage')=='local_file_all_audio_windows_processed'
                         and type(state.get('total_chunks')) is int and 0<state['total_chunks']<=512
                         and type(evidence.get('audio_windows_processed')) is int
@@ -171,9 +171,9 @@ class AnalysisJobs:
                             value.update(start=start,end=end)
                         projected.append(value)
                     processor=evidence.get('processor') or ('apple_vision_local' if kind=='ocr' else None)
-                    if processor not in ('faster_whisper_local','faster_whisper_local_segmented','apple_speech_ondevice','apple_vision_local'):raise ValueError('analysis_media_processor_unknown')
+                    if processor not in ('faster_whisper_local','faster_whisper_local_segmented','mlx_whisper_local','mlx_whisper_local_segmented','apple_speech_ondevice','apple_vision_local'):raise ValueError('analysis_media_processor_unknown')
                     files=state.get('processor_files',{})
-                    if not isinstance(files,dict) or any(k not in ('local_asr.py','fetch_model.py','long_media.py','vision.swift','speech.swift','crowd-vision','crowd-speech') or not isinstance(v,str) or len(v)!=64 or any(c not in '0123456789abcdef' for c in v) for k,v in files.items()):raise ValueError('invalid_analysis_media_processor')
+                    if not isinstance(files,dict) or any(k not in ('local_asr.py','fetch_model.py','long_media.py','audio_result_cache.py','native_video_asr.py','mlx_asr.py','vision.swift','speech.swift','crowd-vision','crowd-speech') or not isinstance(v,str) or len(v)!=64 or any(c not in '0123456789abcdef' for c in v) for k,v in files.items()):raise ValueError('invalid_analysis_media_processor')
                     model=state.get('model_manifest_sha256')
                     if model is not None and (not isinstance(model,str) or len(model)!=64 or any(c not in '0123456789abcdef' for c in model)):raise ValueError('invalid_analysis_media_processor')
                     item={'job_id':job_id,'kind':kind,'result_sha256':digest,'asset_sha256':asset,'processor':processor,'model_manifest_sha256':model,'processor_files':files,'review_status':'not_reviewed','segments':projected}
