@@ -509,6 +509,22 @@ class Application:
             return self.media_jobs.playback(source, payload['asset_sha256'])
         if action == 'video_file' and set(payload) == {'job_id','asset_sha256'}:
             return self.media_jobs.video_file(payload['job_id'],payload['asset_sha256'])
+        if action in ('native_video_cloud_status', 'native_video_cloud_save', 'native_video_cloud_file'):
+            if set(payload) not in ({'run_id', 'content_id', 'asset_sha256'}, {'run_id', 'content_id', 'asset_sha256', 'entity_ref'}):
+                raise ValueError('invalid_native_video_cloud_request')
+            from media_native import prepare_native_video, publish_native_video, native_video_cloud_status, download_native_video
+            folder = self._registered_run_root(payload['run_id']) / 'runs' / payload['run_id']
+            args = (self.media_jobs, self.cloud_client, folder, payload['content_id'], payload['asset_sha256'], payload.get('entity_ref'))
+            if action == 'native_video_cloud_status':
+                return native_video_cloud_status(*args)
+            if self.cloud_client is None:
+                raise ValueError('cloud_configuration_required')
+            if action == 'native_video_cloud_save':
+                # Validate local identity and the video track before any storage initialization.
+                prepare_native_video(*args)
+                self.cloud_client.call('media_storage_init', {})
+                return publish_native_video(*args)
+            return download_native_video(*args)
         if action in ('video_cloud_status','video_cloud_save','video_cloud_file'):
             fields={'job_id'}|({'asset_sha256'} if action=='video_cloud_file' else set())
             if set(payload)!=fields:raise ValueError('invalid_media_cloud_request')
@@ -660,7 +676,7 @@ def make_server(app, port=45937):
                 if self.path == '/api/media-processing':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_media_processing_request')
-                    if body['action'] in ('playback', 'video_file', 'video_cloud_file'):
+                    if body['action'] in ('playback', 'video_file', 'video_cloud_file', 'native_video_cloud_file'):
                         value = app.process_media(body['action'], body['payload'])
                         self.send_response(200)
                         self.send_header('Content-Type', value['mime'])

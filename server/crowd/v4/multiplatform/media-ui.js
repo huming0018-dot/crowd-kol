@@ -163,5 +163,36 @@ const mediaView = (() => {
     catch(error){if(videoCloudCurrent(state,ticket))$('complete_video_cloud_state').textContent='云端取回未完成：'+error.message;}
     finally{if(videoCloudCurrent(state,ticket)){videoCloudBusy=false;$('complete_video_cloud_download').disabled=false;}}
   };
-  return {open,openVideo};
+  const nativeDialog=node('dialog');nativeDialog.setAttribute('aria-label','已采视频云保存');
+  const nativeMessage=node('p'),nativeSave=button('保存已采视频到云端',()=>nativeSaveVideo()),nativeDownload=button('下载云端已采视频',()=>nativeDownloadVideo());
+  nativeDialog.append(node('h2','已采视频云保存'),node('p','保存本轮已有的 MP4，不重新访问平台。私有云限50MiB，保存与回取均核验字节；已有文件不等于平台完整视频。'),nativeMessage,nativeSave,nativeDownload,button('关闭已采视频云保存',()=>nativeDialog.close()));document.body.append(nativeDialog);
+  let nativeSelection=null,nativeGeneration=0,nativeBusy=false,nativeReceived=false;
+  const nativeCurrent=ticket=>nativeDialog.open&&ticket===nativeGeneration&&nativeSelection?.run_id===idOf(selectedRun);
+  nativeDialog.addEventListener('close',()=>{nativeGeneration++;});
+  function nativeRender(value){
+    if(value.state==='received'){
+      const r=value.receipt,m=r?.manifest;
+      if(r?.artifact_kind!=='video_object'||r.status!=='received'||r.verification!=='server_storage_bytes_sha256'||m?.manifest_version!==2||m.representation!=='native_collected'||m.completeness!=='saved_asset_not_full_length_verified'||m.local_run_id!==nativeSelection.run_id||m.platform!==nativeSelection.platform||m.content_id!==nativeSelection.content_id||m.asset_sha256!==nativeSelection.asset_sha256||m.asset_bytes!==nativeSelection.bytes||nativeSelection.entity_ref&&m.entity_ref!==nativeSelection.entity_ref)throw Error('media_native_receipt_mismatch');
+      nativeReceived=true;nativeMessage.textContent='云端已保存 · 文件字节校验通过 · 回执 '+String(r.artifact_id).slice(0,8)+'；未验平台完整时长。';
+    }else if(['not_saved','outcome_unknown'].includes(value.state)){nativeReceived=false;nativeMessage.textContent=value.state==='outcome_unknown'?'云保存结果待核对，不自动重复上传。':'尚未保存到云端。';}else throw Error('media_native_state_invalid');
+    nativeSave.textContent=value.state==='outcome_unknown'?'核对已采视频保存结果':'保存已采视频到云端';nativeSave.disabled=nativeBusy||nativeReceived;nativeDownload.hidden=!nativeReceived;nativeDownload.disabled=nativeBusy;
+  }
+  const nativePayload=()=>Object.fromEntries(['run_id','content_id','asset_sha256','entity_ref'].filter(k=>nativeSelection[k]!==undefined).map(k=>[k,nativeSelection[k]]));
+  async function cloudVideo(file){
+    const ticket=++nativeGeneration;nativeBusy=false;nativeReceived=false;nativeSelection={run_id:idOf(selectedRun),content_id:file.content_id,platform:file.platform,asset_sha256:file.sha256,bytes:file.bytes,...(file.entity_ref?{entity_ref:file.entity_ref}:{})};
+    nativeMessage.textContent='核对原任务、视频与云回执…';nativeSave.disabled=true;nativeDownload.hidden=true;nativeDialog.showModal();
+    if(file.source_kind!=='mediacrawler_api'||!/\.mp4$/i.test(file.path||'')||!/^[a-f0-9]{64}$/.test(file.sha256)||!Number.isInteger(file.bytes)||file.bytes<=0||file.bytes>50*1048576){nativeMessage.textContent='不是可保存的已采 MP4，或超过50MiB云上限。';return;}
+    if(file.platform==='zhihu'){const rows=contentRows(file);if(rows.length!==1){nativeMessage.textContent='知乎视频缺少唯一类型身份，未上传。';return;}nativeSelection.entity_ref='zhihu:content:'+file.content_id+':'+file.source_content_type;}
+    try{const value=await call('native_video_cloud_status',nativePayload());if(nativeCurrent(ticket))nativeRender(value);}catch(error){if(nativeCurrent(ticket))nativeMessage.textContent='暂不可保存：'+error.message;}
+  }
+  async function nativeSaveVideo(){
+    const ticket=nativeGeneration;if(!nativeCurrent(ticket)||nativeBusy||nativeReceived)return;
+    nativeBusy=true;nativeSave.disabled=true;nativeMessage.textContent='正在保存并核验云端文件…';
+    try{const value=await call('native_video_cloud_save',nativePayload());if(nativeCurrent(ticket))nativeRender({state:'received',receipt:value.receipt});}catch(error){if(nativeCurrent(ticket))nativeMessage.textContent='云保存未确认：'+error.message;}finally{if(nativeCurrent(ticket)){nativeBusy=false;nativeSave.disabled=nativeReceived;}}
+  }
+  async function nativeDownloadVideo(){
+    const ticket=nativeGeneration;if(!nativeCurrent(ticket)||nativeBusy||!nativeReceived)return;const expected={...nativeSelection};nativeBusy=true;nativeDownload.disabled=true;
+    try{const response=await fetch('/api/media-processing',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({action:'native_video_cloud_file',payload:nativePayload()})});if(!response.ok)throw Error((await response.json()).error||'media_native_download_failed');const blob=await response.blob();if(!nativeCurrent(ticket))return;if(response.headers.get('X-Content-SHA256')!==expected.asset_sha256||blob.size!==expected.bytes)throw Error('media_native_download_mismatch');const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download='crowd-native-video-'+expected.content_id+'-'+expected.asset_sha256.slice(0,8)+'.mp4';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);nativeMessage.textContent='云端已采视频取回且字节校验通过；未验平台完整时长。';}catch(error){if(nativeCurrent(ticket))nativeMessage.textContent='回取未确认：'+error.message;}finally{if(nativeCurrent(ticket)){nativeBusy=false;nativeDownload.disabled=false;}}
+  }
+  return {open,openVideo,cloudVideo};
 })();
