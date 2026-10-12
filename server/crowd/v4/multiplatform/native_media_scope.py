@@ -214,8 +214,9 @@ def install_hook(crawler, platform, output, limit_exception, read, write):
     original = crawler.download_media
 
     async def bounded_media(self, *args, **kwargs):
-        folder = output / ('douyin' if platform=='dy' else 'kuaishou' if platform=='ks' else platform) / 'media'
-        previous_parts = set(folder.rglob('*.part')) if folder.exists() else set()
+        # SDK downloaders use short platform IDs; retain canonical aliases for older adapters.
+        folders = [output / name / 'media' for name in ({'dy':('dy','douyin'),'ks':('ks','kuaishou')}.get(platform,(platform,)))]
+        previous_parts = {path for folder in folders if folder.exists() for path in folder.rglob('*.part')}
         token = NATIVE_VIDEO_MEDIA_ACTIVE.set(True)
         try:
             if platform=='dy':
@@ -234,7 +235,10 @@ def install_hook(crawler, platform, output, limit_exception, read, write):
             return await original(self, *args, **kwargs)
         except limit_exception:
             # A single oversized media file must not abort the remaining comments.
-            for path in set(folder.rglob('*.part')) - previous_parts:
+            from analysis_artifact import _safe_ancestors
+            current_parts={path for folder in folders if folder.exists() for path in folder.rglob('*.part')}
+            for path in current_parts - previous_parts:
+                _safe_ancestors(path)
                 path.unlink(missing_ok=True)
             phase = output.parent / 'phase.json'
             previous = read(phase) if phase.exists() else {}

@@ -23,6 +23,7 @@ TIMEOUT=900
 MAX_REQUESTS=4
 HOSTS=('douyinvod.com','douyincdn.com','bytecdn.cn','ibytedtos.com','pstatp.com')
 ERROR_CODES={'video_source_url_denied','unsafe_complete_video_path','complete_video_existing_asset','complete_video_cancelled','complete_video_timeout','video_redirect_limit','video_source_http_error','video_source_network_error','video_source_length_invalid','video_source_input_limit','video_source_incomplete','video_ffmpeg_unavailable','video_decode_failed','video_duration_unavailable','video_duration_limit','video_output_duration_mismatch','complete_video_failed'}
+ERROR_CODES.add('complete_audio_codec_not_supported')
 
 def safe_url(value):
     if not isinstance(value,str) or len(value)>4096 or any(ord(c)<32 for c in value):raise ValueError('video_source_url_denied')
@@ -91,9 +92,10 @@ def public_reference(ref):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
-def run(reference,folder,opener=None):
+def run(reference,folder,opener=None,output_kind='video'):
+    if output_kind not in ('video','audio'):raise ValueError('invalid_complete_media_kind')
     folder=safe_folder(folder);safe_url(reference['url'])
-    for name in ('source.mp4','source.part','video.mp4','video.partial.mp4'):
+    for name in ('source.mp4','source.part','video.mp4','video.partial.mp4','audio.m4a','audio.partial.m4a'):
         if (folder/name).exists() or (folder/name).is_symlink():raise ValueError('complete_video_existing_asset')
     started=time.monotonic();attempts=0;downloaded=0
     def check():
@@ -135,7 +137,7 @@ def run(reference,folder,opener=None):
                 digest.update(chunk);stream.write(chunk);progress('downloading_video')
             stream.flush();os.fsync(stream.fileno())
         if not downloaded or declared is not None and declared!=downloaded:raise ValueError('video_source_incomplete')
-    os.replace(part,folder/'source.mp4');progress('checking_source_video',source_sha256=digest.hexdigest())
+    os.replace(part,folder/'source.mp4');source_identity=(folder/'source.mp4').stat();progress('checking_source_video',source_sha256=digest.hexdigest())
     ffmpeg=os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
     if not ffmpeg or not Path(ffmpeg).is_file():raise ValueError('video_ffmpeg_unavailable')
     def process(args,probe=False):
@@ -159,6 +161,25 @@ def run(reference,folder,opener=None):
         if not math.isfinite(value) or not 0<value<=MAX_SECONDS:raise ValueError('video_duration_limit')
         return value
     original_duration=duration(folder/'source.mp4')
+    if output_kind=='audio':
+        # Decode only the audio track; video transcoding is unnecessary for ASR.
+        info=process(['-hide_banner','-protocol_whitelist','file,pipe','-f','mov','-i',str(folder/'source.mp4')],probe=True)
+        audio_stream=re.search(r'Stream[^\n]*Audio: ([^,\s]+)',info)
+        if not audio_stream or audio_stream[1]!='aac':raise ValueError('complete_audio_codec_not_supported')
+        process(['-v','error','-xerror','-protocol_whitelist','file,pipe','-f','mov','-i',str(folder/'source.mp4'),'-map','0:a:0','-vn','-f','null','-'])
+        progress('extracting_complete_audio',source_duration_seconds=original_duration,source_sha256=digest.hexdigest())
+        output=folder/'audio.partial.m4a'
+        process(['-v','error','-xerror','-protocol_whitelist','file,pipe','-f','mov','-i',str(folder/'source.mp4'),'-map','0:a:0','-vn','-c:a','copy','-movflags','+faststart','-fs',str(OUTPUT_LIMIT),'-f','mp4',str(output)])
+        data=read_bytes(output,OUTPUT_LIMIT);output_duration=duration(output)
+        if abs(output_duration-original_duration)>.25:raise ValueError('video_output_duration_mismatch')
+        process(['-v','error','-xerror','-protocol_whitelist','file,pipe','-f','mov','-i',str(output),'-map','0:a:0','-vn','-f','null','-'])
+        os.replace(output,folder/'audio.m4a')
+        # Only release this invocation's verified scratch video after success.
+        source=folder/'source.mp4';current=os.stat(source,follow_symlinks=False)
+        if not stat.S_ISREG(current.st_mode) or current.st_nlink!=1 or any(getattr(current,k)!=getattr(source_identity,k) for k in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns')):
+            raise ValueError('unsafe_complete_video_path')
+        source.unlink()
+        return [{'kind':'processed_audio','platform':reference['platform'],'content_id':reference['content_id'],'evidence':{'source_kind':'authorized_saved_video_reference','source_run_id':reference['run_id'],'source_reference_sha256':reference['reference_sha256'],'source_file_sha256':reference['source_file_sha256'],'source_asset_sha256':digest.hexdigest(),'source_bytes':downloaded,'asset_sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data),'duration_seconds':output_duration,'source_duration_seconds':original_duration,'full_source_audio_decode':True,'full_output_decode':True,'network_attempts':attempts,'input_limit_bytes':INPUT_LIMIT,'output_limit_bytes':OUTPUT_LIMIT,'collection_budget_changed':False,'processor':'bounded_public_video_audio_ffmpeg','model_calls':0,'semantic_review':'not_reviewed','derivative':True}}]
     process(['-v','error','-xerror','-protocol_whitelist','file,pipe','-f','mov','-i',str(folder/'source.mp4'),'-map','0:v:0','-map','0:a?','-f','null','-'])
     progress('transcoding_video',source_duration_seconds=original_duration,source_sha256=digest.hexdigest())
     bitrate=max(32000,min(2500000,int(OUTPUT_LIMIT*8*.80/original_duration)-24000))
@@ -172,11 +193,11 @@ def run(reference,folder,opener=None):
     return [{'kind':'processed_video','platform':reference['platform'],'content_id':reference['content_id'],'evidence':{'source_kind':'authorized_saved_video_reference','source_run_id':reference['run_id'],'source_reference_sha256':reference['reference_sha256'],'source_file_sha256':reference['source_file_sha256'],'source_asset_sha256':digest.hexdigest(),'source_bytes':downloaded,'asset_sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data),'duration_seconds':output_duration,'source_duration_seconds':original_duration,'full_source_decode':True,'full_output_decode':True,'network_attempts':attempts,'input_limit_bytes':INPUT_LIMIT,'output_limit_bytes':OUTPUT_LIMIT,'collection_budget_changed':False,'processor':'bounded_public_video_download_ffmpeg','model_calls':0,'semantic_review':'not_reviewed','derivative':True}}]
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--reference',required=True);parser.add_argument('--reference-file-sha256',required=True);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--reference',required=True);parser.add_argument('--reference-file-sha256',required=True);parser.add_argument('--output-kind',choices=('video','audio'),default='video');args=parser.parse_args()
     path=Path(args.reference);folder=safe_folder(path.parent);data=read_bytes(path,10000)
     if hashlib.sha256(data).hexdigest()!=args.reference_file_sha256:raise ValueError('video_reference_changed')
     reference=json.loads(data)
-    try:atomic_json(folder/'result.json',run(reference,folder))
+    try:atomic_json(folder/'result.json',run(reference,folder,output_kind=args.output_kind))
     except Exception as error:
         atomic_json(folder/'video-error.json',{'reason':str(error) if type(error) is ValueError and str(error) in ERROR_CODES else 'complete_video_failed'})
         raise SystemExit(1)

@@ -96,20 +96,79 @@ class CompleteVideoTests(unittest.TestCase):
         self.assertLessEqual(abs(evidence['duration_seconds']-2),.25);self.assertEqual(evidence['network_attempts'],1)
         self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(),old);self.assertNotIn('synthetic-private-signature',json.dumps(result))
         self.assertEqual((self.work/'video.mp4').stat().st_mode & 0o777,0o600)
+        self.assertTrue((self.work/'source.mp4').is_file())
+        audio_work=self.root/'audio-work';audio_work.mkdir()
+        audio=video.run(self.ref,audio_work,Opener([Response(data)]),output_kind='audio')[0]
+        self.assertEqual(audio['kind'],'processed_audio')
+        self.assertTrue(audio['evidence']['full_source_audio_decode'])
+        self.assertTrue(audio['evidence']['full_output_decode'])
+        self.assertLessEqual(abs(audio['evidence']['duration_seconds']-2),.25)
+        self.assertEqual(audio['evidence']['source_asset_sha256'],old)
+        self.assertEqual(audio['evidence']['asset_sha256'],hashlib.sha256((audio_work/'audio.m4a').read_bytes()).hexdigest())
+        self.assertFalse((audio_work/'video.mp4').exists())
+        self.assertFalse((audio_work/'source.mp4').exists())
+        decoded=subprocess.run([ffmpeg,'-hide_banner','-i',str(audio_work/'audio.m4a')],capture_output=True).stderr.decode()
+        self.assertIn('Audio: aac',decoded);self.assertNotIn('Video:',decoded)
+
+    def test_audio_job_asr_binding_rechecks_source_body_result_and_asset(self):
+        from mc_runner import canonical,write
+        from unittest.mock import Mock
+        run=self.root/'runs'/self.run_id
+        body={'kind':'content','platform':'douyin','content_id':'123','title':'fixture',
+              'origin':{'run_id':self.run_id,'file_sha256':self.ref['source_file_sha256']}}
+        body['record_hash']=hashlib.sha256(canonical(body).encode()).hexdigest()
+        write(run/'normalized.json',{'run_id':self.run_id,'source_kind':'mediacrawler_api','reward_eligible':False,'records':[body]})
+        write(run/'manifest.json',{'run_id':self.run_id});write(run/'status.json',{'run_id':self.run_id,'state':'completed'})
+        jobs=MediaJobs(self.root/'binding');job_id=str(uuid.uuid4());folder=jobs.root/job_id;folder.mkdir()
+        data=b'isolated-audio-fixture';digest=hashlib.sha256(data).hexdigest();(folder/'audio.m4a').write_bytes(data)
+        e={'source_run_id':self.run_id,'source_reference_sha256':self.ref['reference_sha256'],'source_asset_sha256':'a'*64,
+           'asset_sha256':digest,'bytes':len(data),'full_source_audio_decode':True,'full_output_decode':True,'duration_seconds':2.,'source_duration_seconds':2.}
+        write(folder/'result.json',[{'kind':'processed_audio','platform':'douyin','content_id':'123','evidence':e}])
+        state={'job_id':job_id,'kind':'complete_audio','state':'completed','run_id':self.run_id,'platform':'douyin','content_id':'123','asset_sha256':digest,'source_reference_sha256':self.ref['reference_sha256'],'result_sha256':hashlib.sha256((folder/'result.json').read_bytes()).hexdigest()}
+        write(folder/'state.json',state)
+        try:
+            with patch.object(jobs,'start',return_value={'job_id':'offline-asr'}) as start:
+                result=jobs.start_asr_from_audio_job(job_id,run,asr_engine='mlx')
+                self.assertEqual(result['job_id'],'offline-asr')
+                self.assertEqual(start.call_args.kwargs['audio_reference_binding']['source_record_hash'],body['record_hash'])
+                self.assertEqual(start.call_args.kwargs['entity_ref'],'douyin:content:123')
+                with self.assertRaisesRegex(ValueError,'identity_mismatch'):jobs.start_asr_from_audio_job(job_id,run,'douyin:content:999')
+                (folder/'audio.m4a').write_bytes(b'changed')
+                with self.assertRaisesRegex(ValueError,'result_changed'):jobs.start_asr_from_audio_job(job_id,run)
+                self.assertEqual(start.call_count,1)
+        finally:jobs.close()
 
     def test_failed_download_is_fixed_error_no_secret_or_retry(self):
         opener=Opener([urllib.error.URLError('cookie_private_failure')])
         with self.assertRaisesRegex(ValueError,'^video_source_network_error$'):video.run(self.ref,self.work,opener)
         self.assertEqual(len(opener.requests),1)
 
+    def test_audio_failed_unknown_attempts_known_progress_or_explicit_unknown(self):
+        from mc_runner import write
+        jobs=MediaJobs(self.root/'attempts')
+        try:
+            for phase,attempts in (('failed',3),('queued',2),('cancelled',None)):
+                job_id=str(uuid.uuid4());folder=jobs.root/job_id;folder.mkdir()
+                write(folder/'state.json',{'job_id':job_id,'kind':'complete_audio','state':phase})
+                if attempts is not None:write(folder/'video-progress.json',{'network_attempts':attempts})
+                state=jobs.status(job_id)
+                self.assertEqual(state['network_attempts'],attempts)
+                if phase=='queued':self.assertEqual(state['state'],'interrupted_unknown')
+            write(folder/'video-progress.json',{'network_attempts':True})
+            self.assertIsNone(jobs.status(job_id)['network_attempts'])
+            write(folder/'video-progress.json',{'network_attempts':5})
+            self.assertIsNone(jobs.status(job_id)['network_attempts'])
+        finally:jobs.close()
+
     def test_job_real_child_lifecycle_reuse_and_download_hash(self):
         executable=self.root/'fake-local-python'
         executable.write_text('''#!/usr/bin/env python3
 import hashlib,json,pathlib,sys
 p=pathlib.Path(sys.argv[sys.argv.index('--reference')+1]);r=json.loads(p.read_text());f=p.parent
-data=b'isolated-processor-output';(f/'video.mp4').write_bytes(data)
-e={'source_reference_sha256':r['reference_sha256'],'asset_sha256':hashlib.sha256(data).hexdigest(),'duration_seconds':2}
-(f/'result.json').write_text(json.dumps([{'kind':'processed_video','platform':'douyin','content_id':r['content_id'],'evidence':e}]))
+audio='--output-kind' in sys.argv
+data=b'isolated-processor-output';(f/('audio.m4a' if audio else 'video.mp4')).write_bytes(data)
+e={'source_reference_sha256':r['reference_sha256'],'asset_sha256':hashlib.sha256(data).hexdigest(),'duration_seconds':2,'network_attempts':1,'source_asset_sha256':'a'*64,'source_bytes':100}
+(f/'result.json').write_text(json.dumps([{'kind':'processed_audio' if audio else 'processed_video','platform':'douyin','content_id':r['content_id'],'evidence':e}]))
 ''');executable.chmod(0o700)
         jobs=MediaJobs(self.root,python=str(executable))
         try:
@@ -123,6 +182,14 @@ e={'source_reference_sha256':r['reference_sha256'],'asset_sha256':hashlib.sha256
             with self.assertRaisesRegex(ValueError,'asset_changed'):jobs.video_file(job_id,state['asset_sha256'])
             with self.assertRaisesRegex(ValueError,'invalid_media_job_id'):jobs.video_file('../bad','a'*64)
             self.assertNotIn(self.ref['url'],json.dumps(jobs.status(job_id)))
+            audio=jobs.start_audio_reference(self.ref)
+            self.assertNotEqual(audio['job_id'],job_id)
+            jobs.threads[audio['job_id']].join(5)
+            audio=jobs.status(audio['job_id'])
+            self.assertEqual(audio['state'],'completed');self.assertEqual(audio['kind'],'complete_audio')
+            self.assertEqual(audio['network_attempts'],1)
+            self.assertEqual(jobs.start_audio_reference(self.ref)['job_id'],audio['job_id'])
+            with self.assertRaisesRegex(ValueError,'reference_changed'):jobs.start_audio_reference({**self.ref,'url':'https://www.douyin.com/changed'})
         finally:jobs.close()
 
     def test_api_preview_and_explicit_server_bound_start(self):

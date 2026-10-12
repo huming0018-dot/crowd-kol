@@ -94,18 +94,37 @@ class LightTranscripts:
                 def bindings(value):return [(r['content_id'], r['asset_sha256'], r['source_record_hash']) for r in value]
                 if old.get('run_id') != run_id or bindings(old.get('assets', [])) != bindings(assets):
                     raise ValueError('light_transcript_source_changed')
+                if not old.get('fallback_assets'):
+                    from light_audio_fallback import prepare
+                    if prepare(old,folder,self.jobs):write(path,old)
                 return old
             state = {'schema_version': 1, 'run_id': run_id, 'platform': platform, 'created_at': time.time(),
                      'mode': 'transcript_only', 'subtitle_state': 'available' if subtitle_jobs else 'not_available_or_partial',
                      'state': 'waiting' if assets else 'completed' if subtitle_jobs else 'audio_unavailable', 'assets': assets, 'subtitle_jobs':subtitle_jobs,
                      'source_requests': 0, 'remote_model_calls': 0}
+            if platform=='douyin' and not assets and not subtitle_jobs:
+                phase,_=_read(folder/'phase.json',200000) if (folder/'phase.json').exists() else ({},None)
+                if phase.get('media_reason')=='single_response_byte_limit':
+                    state.update(state='needs_attention',reason='native_video_over_collection_limit',
+                        media_status='limited',media_single_file_limit_bytes=64*1024*1024)
+            from light_audio_fallback import prepare
+            prepare(state,folder,self.jobs)
             write(path, state)
             return state
 
     def status(self, run_id):
         path = self._path(run_id)
         if not path.exists() and not path.is_symlink():return None
-        return _read(path, 200000)[0]
+        state=_read(path, 200000)[0]
+        if state.get('platform')=='douyin' and not state.get('assets') and not state.get('subtitle_jobs') and not state.get('fallback_assets'):
+            folder=self.run_folder(uid(run_id));phase_path=folder/'phase.json'
+            if phase_path.exists():
+                phase,_=_read(phase_path,200000)
+                if phase.get('media_reason')=='single_response_byte_limit':
+                    return {**state,'state':'needs_attention','reason':'native_video_over_collection_limit',
+                            'media_status':'limited','media_single_file_limit_bytes':64*1024*1024,
+                            'diagnostics_source':'saved_collection_phase'}
+        return state
 
     def tick(self):
         if not self.lock.acquire(blocking=False):return
@@ -114,6 +133,11 @@ class LightTranscripts:
                 state, _ = _read(path, 200000)
                 if state.get('run_id') != path.stem or type(state.get('schema_version')) is not int or state['schema_version'] != 1:
                     raise ValueError('light_transcript_queue_invalid')
+                if state.get('platform')=='douyin':
+                    from light_audio_fallback import tick as tick_fallback,prepare
+                    folder=self.run_folder(uid(state['run_id']))
+                    if prepare(state,folder,self.jobs):write(path,state)
+                    if tick_fallback(state,path,folder,self.jobs):continue
                 platform=state.get('platform','bilibili')
                 if platform not in ('bilibili','douyin'):raise ValueError('light_transcript_queue_invalid')
                 for asset in state['assets']:
@@ -169,6 +193,8 @@ class LightTranscripts:
                             asset.update(state='interrupted_unknown', reason='light_transcript_dispatch_unknown')
                         write(path, state)
                         return
+                if not state['assets'] and not state.get('subtitle_jobs') and state.get('reason')=='native_video_over_collection_limit':
+                    state['state']='needs_attention';write(path,state);continue
                 states = [a['state'] for a in state['assets']]
                 state['state'] = ('completed' if states and all(v == 'completed' for v in states)
                                   else 'needs_attention' if any(v in ('failed', 'cancelled', 'interrupted_unknown') for v in states)

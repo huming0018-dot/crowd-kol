@@ -95,13 +95,15 @@ class MediaJobs:
             raise ValueError('media_job_not_found')
         with self.lock:
             state = read(folder / 'state.json')
+            if state.get('kind')=='complete_audio' and (type(state.get('network_attempts')) is not int or not 0<=state['network_attempts']<=4):
+                state['network_attempts']=None
             if state['state'] not in TERMINAL and (job_id not in self.threads or not self.threads[job_id].is_alive()):
                 recovery = self._cancelled_checkpoint(folder, state)
                 state = {**state, 'state': 'failed' if recovery else 'interrupted_unknown',
                          'reason': 'processor_interrupted_with_cancelled_checkpoint' if recovery else 'processor_restart_check_existing_output'}
                 if recovery is not None:state['interrupted_checkpoint'] = recovery
             if state['state'] == 'completed':
-                if state.get('kind')=='complete_video':
+                if state.get('kind') in ('complete_video','complete_audio'):
                     from complete_video import read_bytes
                     state['result']=json.loads(read_bytes(folder/'result.json',200000))
                 else:state['result'] = read(folder / 'result.json')
@@ -115,10 +117,10 @@ class MediaJobs:
                 if state['state'] == 'failed' and detail.get('reason') and 'interrupted_checkpoint' not in state:
                     state['reason'] = detail['reason']
             state['checkpoint_available'] = state.get('kind') == 'asr' and state['state'] in ('failed', 'cancelled') and bool(list(folder.glob('input*')))
-            if state.get('kind')=='complete_video' and (folder/'video-progress.json').is_file():
+            if state.get('kind') in ('complete_video','complete_audio') and (folder/'video-progress.json').is_file():
                 from complete_video import read_bytes
                 detail=json.loads(read_bytes(folder/'video-progress.json',10000))
-                if detail.get('phase') in ('downloading_video','checking_source_video','transcoding_video','checking_complete_output'):state['video_phase']=detail['phase']
+                if detail.get('phase') in ('downloading_video','checking_source_video','transcoding_video','checking_complete_output','extracting_complete_audio'):state['video_phase']=detail['phase']
                 for field,limit in (('downloaded_bytes',256*1024*1024),('network_attempts',4)):
                     if type(detail.get(field)) is int and 0<=detail[field]<=limit:state[field]=detail[field]
         return state
@@ -245,7 +247,7 @@ class MediaJobs:
                 'audio_duration_ms':context['audio_duration_ms'] if context else None,
                 'source_requests':0,'model_calls':0}
 
-    def start(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None, asr_engine='cpu'):
+    def start(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None, asr_engine='cpu', audio_reference_binding=None):
         selected_model, selected_python = self._asr_configuration(asr_engine) if kind == 'asr' else (None, None)
         if kind == 'asr' and asr_engine == 'cpu' and not self.capabilities()['asr']:
             raise ValueError('local_asr_model_not_configured')
@@ -256,6 +258,9 @@ class MediaJobs:
                     'processor_sha256': hashlib.sha256(PROCESSOR.read_bytes()).hexdigest(),
                     'model': str(selected_model) if kind == 'asr' else None}
         if kind == 'asr': identity['asr_engine'] = asr_engine
+        if audio_reference_binding is not None:
+            if kind!='asr':raise ValueError('invalid_audio_reference_binding')
+            identity['audio_reference_binding']=audio_reference_binding
         if context is not None:
             identity['native_video_context_sha256']=hashlib.sha256(json.dumps(context,sort_keys=True,separators=(',',':')).encode()).hexdigest()
             entity_ref=context['entity_ref']
@@ -306,6 +311,7 @@ class MediaJobs:
                      'association': 'owner_selected_content', 'created_at': time.time(),
                      'source_kind': 'authorized_local_file', 'review_status': 'unreviewed', 'uploaded': False}
             state['processing_profile']=profile
+            if audio_reference_binding is not None:state['audio_reference_binding']=audio_reference_binding
             if context is not None:state['native_video_context_sha256']=identity['native_video_context_sha256']
             if entity_ref is not None:state['entity_ref']=entity_ref
             state['processor_files']=identity['processor_files']
@@ -330,6 +336,15 @@ class MediaJobs:
         state = self.status(job_id)
         if state.get('job_id') != job_id or state.get('kind') != 'asr' or state['state'] != 'completed' or asset_sha256 != state.get('asset_sha256'):
             raise ValueError('media_playback_identity_mismatch')
+        if state.get('text_revision') is not None:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('crowd_playback_quality', PROCESSOR.parent / 'transcript_quality.py')
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            validated = module.TranscriptQuality(self.root.parent).validate(job_id)
+            if asset_sha256 != validated['state']['asset_sha256']:
+                raise ValueError('media_playback_identity_mismatch')
+            return self.playback(validated['audio_source_job_id'], asset_sha256)
         snapshots = list(folder.glob('input*'))
         if len(snapshots) != 1:
             raise ValueError('media_playback_snapshot_missing')
@@ -359,11 +374,45 @@ class MediaJobs:
             return 64*1024*1024
         return 64*1024*1024 if state['kind']=='asr' and path.suffix.lower() in ('.m4a','.mp3','.aac') else 25*1024*1024
 
-    def start_video(self, reference):
+    def start_audio_reference(self,reference):
+        if reference.get('platform')!='douyin' or hashlib.sha256(reference.get('url','').encode()).hexdigest()!=reference.get('url_sha256') or hashlib.sha256(json.dumps({k:v for k,v in reference.items() if k not in ('reference_sha256','url')},sort_keys=True).encode()).hexdigest()!=reference.get('reference_sha256'):
+            raise ValueError('complete_audio_reference_changed')
+        return self.start_video(reference,output_kind='audio')
+
+    def start_asr_from_audio_job(self,job_id,run_folder,entity_ref=None,asr_engine='cpu'):
+        from complete_video import read_bytes,source_reference
+        from analysis_artifact import _read
+        from mc_runner import canonical,FINAL
+        state=self.status(job_id);folder=self.root/job_id;run_folder=Path(run_folder)
+        if state.get('kind')!='complete_audio' or state.get('state')!='completed' or run_folder.name!=state.get('run_id'):
+            raise ValueError('complete_audio_identity_mismatch')
+        current=source_reference(run_folder,state['run_id'],state['content_id'])
+        if current['reference_sha256']!=state['source_reference_sha256']:raise ValueError('complete_audio_reference_changed')
+        manifest,_=_read(run_folder/'manifest.json',200000);status,_=_read(run_folder/'status.json',200000)
+        normalized,normalized_sha=_read(run_folder/'normalized.json',32*1024*1024)
+        if manifest.get('run_id')!=state['run_id'] or status.get('run_id')!=state['run_id'] or status.get('state') not in FINAL or normalized.get('run_id')!=state['run_id'] or normalized.get('source_kind')!='mediacrawler_api' or normalized.get('reward_eligible') is not False:
+            raise ValueError('complete_audio_body_changed')
+        bodies=[r for r in normalized.get('records',[]) if r.get('kind')=='content' and r.get('platform')=='douyin' and r.get('content_id')==state['content_id']]
+        if not bodies or len({canonical(r) for r in bodies})!=1:raise ValueError('complete_audio_body_ambiguous')
+        body=bodies[0];expected_ref='douyin:content:'+state['content_id']
+        if entity_ref is not None and entity_ref!=expected_ref:raise ValueError('complete_audio_identity_mismatch')
+        if body.get('origin',{}).get('run_id')!=state['run_id'] or body.get('origin',{}).get('file_sha256')!=current['source_file_sha256'] or body.get('record_hash')!=hashlib.sha256(canonical({k:v for k,v in body.items() if k not in ('record_hash','discovery_kind')}).encode()).hexdigest():
+            raise ValueError('complete_audio_body_changed')
+        result_data=read_bytes(folder/'result.json',200000);rows=json.loads(result_data)
+        if hashlib.sha256(result_data).hexdigest()!=state.get('result_sha256') or len(rows)!=1:raise ValueError('complete_audio_result_changed')
+        row=rows[0];e=row['evidence'];data=read_bytes(folder/'audio.m4a',64*1024*1024)
+        if row.get('kind')!='processed_audio' or row.get('platform')!='douyin' or row.get('content_id')!=state['content_id'] or e.get('source_run_id')!=state['run_id'] or e.get('source_reference_sha256')!=current['reference_sha256'] or e.get('asset_sha256')!=state['asset_sha256'] or hashlib.sha256(data).hexdigest()!=state['asset_sha256'] or e.get('bytes')!=len(data) or e.get('full_source_audio_decode') is not True or e.get('full_output_decode') is not True or abs(e['duration_seconds']-e['source_duration_seconds'])>.25:
+            raise ValueError('complete_audio_result_changed')
+        binding={'source_job_id':job_id,'source_result_sha256':state['result_sha256'],'source_reference_sha256':current['reference_sha256'],'source_asset_sha256':e['source_asset_sha256'],'source_record_hash':body['record_hash'],'normalized_sha256':normalized_sha}
+        return self.start(folder/'audio.m4a','douyin',state['content_id'],'asr',state['run_id'],entity_ref=expected_ref,asr_engine=asr_engine,audio_reference_binding=binding)
+
+    def start_video(self, reference, output_kind='video'):
+        if output_kind not in ('video','audio'):raise ValueError('invalid_complete_media_kind')
         from complete_video import safe_folder, safe_url, atomic_json
         safe_url(reference['url']);safe_folder(self.root)
         processor=Path(__file__).parent/'complete_video.py'
         key=hashlib.sha256((reference['reference_sha256']+hashlib.sha256(processor.read_bytes()).hexdigest()).encode()).hexdigest()
+        if output_kind=='audio':key=hashlib.sha256((key+'complete-audio-v1').encode()).hexdigest()
         with self.lock:
             if self.closed:raise ValueError('media_processor_closed')
             for folder in self.root.iterdir():
@@ -381,6 +430,7 @@ class MediaJobs:
                 atomic_json(folder/'input-ref.json',reference)
                 ref_hash=hashlib.sha256((folder/'input-ref.json').read_bytes()).hexdigest()
                 state={'job_id':job_id,'state':'queued','kind':'complete_video','platform':'douyin','content_id':reference['content_id'],'run_id':reference['run_id'],'input_hash':key,'source_reference_sha256':reference['reference_sha256'],'created_at':time.time(),'source_kind':'authorized_saved_video_reference','uploaded':False,'network_budget':{'max_request_attempts':4,'input_bytes':256*1024*1024,'output_bytes':64*1024*1024},'collection_budget_changed':False,'model_calls':0}
+                if output_kind=='audio':state.update(kind='complete_audio',reported_bytes=reference.get('reported_bytes'),network_attempts=None)
                 write(folder/'state.json',state)
                 thread=threading.Thread(target=self._execute_video,args=(state,ref_hash,process_lock),daemon=True);self.threads[job_id]=thread;thread.start()
             except BaseException:
@@ -392,7 +442,9 @@ class MediaJobs:
         try:
             with self.lock:
                 if job_id in self.cancelled or self.closed:state.update(state='cancelled');return
-                proc=subprocess.Popen([self.python,str(Path(__file__).parent/'complete_video.py'),'--reference',str(folder/'input-ref.json'),'--reference-file-sha256',ref_hash],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(process_lock.fileno(),))
+                command=[self.python,str(Path(__file__).parent/'complete_video.py'),'--reference',str(folder/'input-ref.json'),'--reference-file-sha256',ref_hash]
+                if state['kind']=='complete_audio':command+=['--output-kind','audio']
+                proc=subprocess.Popen(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(process_lock.fileno(),))
                 self.processes[job_id]=proc;state.update(state='running',processor_pid=proc.pid);write(folder/'state.json',state)
             proc.wait(timeout=920)
             if job_id in self.cancelled:state.update(state='cancelled')
@@ -404,9 +456,11 @@ class MediaJobs:
                 from complete_video import read_bytes
                 data=read_bytes(folder/'result.json',200000);rows=json.loads(data)
                 evidence=rows[0]['evidence']
-                if len(rows)!=1 or rows[0]['kind']!='processed_video' or rows[0]['content_id']!=state['content_id'] or rows[0]['platform']!='douyin' or evidence['source_reference_sha256']!=state['source_reference_sha256'] or hashlib.sha256(read_bytes(folder/'video.mp4',64*1024*1024)).hexdigest()!=evidence['asset_sha256']:
+                audio=state['kind']=='complete_audio'
+                if len(rows)!=1 or rows[0]['kind']!=('processed_audio' if audio else 'processed_video') or rows[0]['content_id']!=state['content_id'] or rows[0]['platform']!='douyin' or evidence['source_reference_sha256']!=state['source_reference_sha256'] or hashlib.sha256(read_bytes(folder/('audio.m4a' if audio else 'video.mp4'),64*1024*1024)).hexdigest()!=evidence['asset_sha256']:
                     raise ValueError('complete_video_identity_mismatch')
                 state.update(state='completed',asset_sha256=evidence['asset_sha256'],result_sha256=hashlib.sha256(data).hexdigest())
+                if audio:state.update(network_attempts=evidence['network_attempts'],source_asset_sha256=evidence['source_asset_sha256'],source_bytes=evidence['source_bytes'])
         except subprocess.TimeoutExpired:
             self._kill(proc);state.update(state='failed',reason='complete_video_timeout')
         except (OSError,ValueError,TypeError,KeyError,IndexError):
