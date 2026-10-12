@@ -253,7 +253,7 @@ def capabilities(mc):
         if p=='tieba': features.append({'id':'public_post_media','support_state':'implemented','live_verified':False,'notes':'own adapter downloads at most three public CDN assets from the same native page response; not upstream media support'})
         if p=='zhihu': features.extend([{'id':'public_body_media','support_state':'implemented','live_verified':False,'notes':'own adapter observes at most three public body assets from the same native detail HTML or search/creator JSON; excerpt and CDN availability may limit coverage'}, {'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
         platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator',*discovery_modes],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
-    return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'native_video_platforms':['dy','ks'],'native_video_single_file_bytes':67108864,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'persistent profile by default; explicit selected existing loopback browser supported; native account verification; no credential import or debug-port launch'}
+    return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'native_video_platforms':['dy','ks','bili'],'native_video_single_file_bytes':67108864,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'persistent profile by default; explicit selected existing loopback browser supported; native account verification; no credential import or debug-port launch'}
 
 def configure_executor(config,p):
     config.CREATOR_MODE=True
@@ -283,8 +283,13 @@ def configure_platform_hooks(upstream,p):
         from zhihu_media import install_hook
         install_hook(ZhiHuClient,Path.cwd()/'output')
     if p['platform']=='bili' and p['media']:
+        from native_media_scope import NATIVE_VIDEO_MEDIA_ACTIVE,install_ffmpeg_path,save_bilibili_identity
         crawler=upstream.CrawlerFactory.CRAWLERS['bili']
         original_media=crawler.download_media
+        if not p.get('platform_options',{}).get('long_audio') and os.environ.get('CROWD_FFMPEG'):
+            import media_downloader
+            import media_downloader.ffmpeg as native_ffmpeg
+            install_ffmpeg_path(media_downloader,native_ffmpeg)
         if p.get('platform_options',{}).get('long_audio'):
             from bili_audio import download_audio
             from media_platform.bilibili.media import DASH_FNVAL
@@ -330,7 +335,9 @@ def configure_platform_hooks(upstream,p):
         async def bounded_media(self,*args,**kwargs):
             folder=Path.cwd()/'output/bili/media'
             before=set(folder.rglob('*.part')) if folder.exists() else set()
+            token=NATIVE_VIDEO_MEDIA_ACTIVE.set(p.get('platform_options',{}).get('long_audio') is not True)
             try:
+                save_bilibili_identity(kwargs.get('video_item') if 'video_item' in kwargs else args[0] if args else None,Path.cwd()/'output',read,write)
                 return await original_media(self,*args,**kwargs)
             except SingleResponseLimit:
                 for path in set(folder.rglob('*.part'))-before:
@@ -338,7 +345,9 @@ def configure_platform_hooks(upstream,p):
                 phase=Path.cwd()/'phase.json'
                 previous=read(phase) if phase.exists() else {}
                 write(phase,{**previous,'media_status':'limited','media_reason':'single_response_byte_limit',
-                             'media_single_file_limit_bytes':67108864 if p.get('platform_options',{}).get('long_audio') else 26214400})
+                             'media_single_file_limit_bytes':67108864})
+            finally:
+                NATIVE_VIDEO_MEDIA_ACTIVE.reset(token)
         crawler.download_media=bounded_media
     if p['platform']=='tieba':
         from media_platform.tieba.client import BaiduTieBaClient
@@ -566,7 +575,7 @@ def execute(root, mc, run_id):
     attempts=0
     account_store=None
     response_bytes=0
-    native_media=p['platform'] in ('dy','ks') and p.get('media') is True
+    native_media=p['platform'] in ('dy','ks','bili') and p.get('media') is True
     file_limit=67108864 if native_media or p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') else 26214400
     resource.setrlimit(resource.RLIMIT_FSIZE,(file_limit,file_limit))
     phase='running'
@@ -685,7 +694,10 @@ def execute(root, mc, run_id):
                                 raise SystemExit(76)
                             from bili_audio import AUDIO_RESPONSE_ACTIVE
                             from native_media_scope import response_limit as native_response_limit
-                            response_limit=67108864 if p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') and AUDIO_RESPONSE_ACTIVE.get() else native_response_limit(p['platform'])
+                            try:response_host=self.request.url.host
+                            except (AttributeError,RuntimeError):response_host=None
+                            response_limit=native_response_limit(p['platform'],getattr(self,'headers',{}).get('content-type'),response_host,
+                                audio_response_active=p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') is True and AUDIO_RESPONSE_ACTIVE.get())
                             if response_size>response_limit:
                                 event('response_byte_limit')
                                 raise SingleResponseLimit()
@@ -854,6 +866,10 @@ def import_output(root,payload):
     media_bytes=0
     artifacts=[]
     artifact_bytes=0
+    bili_identities,bili_identity_sha=({},None)
+    if p=='bili':
+        from native_media_scope import bilibili_identity_map
+        bili_identities,bili_identity_sha=bilibili_identity_map(output,manifest['run_id'],records,read)
     for name in JSONL_DIRS.get(p,(p,)):
         folder=output/name/'media'
         if folder.is_symlink() or folder.parent.is_symlink(): fail('unsafe_output_file')
@@ -862,7 +878,7 @@ def import_output(root,payload):
                 size=path.stat().st_size
                 media_bytes+=size
                 audio_only=p=='bili' and manifest['request'].get('platform_options',{}).get('long_audio') and path.name=='audio.m4a'
-                native_media=p in ('dy','ks') and manifest['request'].get('media') is True
+                native_media=p in ('dy','ks','bili') and manifest['request'].get('media') is True
                 file_limit=67108864 if audio_only or native_media else 26214400
                 if size>file_limit or media_bytes>104857600: fail('media_import_byte_limit')
                 parts=path.relative_to(folder).parts
@@ -870,6 +886,11 @@ def import_output(root,payload):
                 item={'path':str(path.relative_to(run)),'bytes':size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
                       'content_id':content_id,'platform':PLATFORMS[p],'status':'downloaded_by_external_executor',
                       'source_kind':'mediacrawler_api','reward_eligible':False,'content_identity_status':'reported_directory_id' if content_id else 'missing'}
+                if p=='bili' and content_id in bili_identities:
+                    pair=bili_identities[content_id]
+                    item.update(content_id=pair['aid'],source_media_id=content_id,
+                                content_identity_basis='same_native_bilibili_view',bilibili_view_cid=pair['cid'],
+                                bilibili_media_identity_sha256=bili_identity_sha)
                 if audio_only:item.update({'kind':'audio','single_file_limit_bytes':67108864,'max_duration_seconds':7200})
                 if p=='zhihu' and len(parts)>2 and parts[1] in ('answer','article','zvideo'):item['source_content_type']=parts[1]
                 media.append(item)

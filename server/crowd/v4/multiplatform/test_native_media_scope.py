@@ -209,7 +209,8 @@ class NativeMediaScopeTests(unittest.TestCase):
         asyncio.run(run())
         token = NATIVE_VIDEO_MEDIA_ACTIVE.set(True)
         try:
-            for platform in ('xhs', 'wb', 'bili', 'tieba', 'zhihu'):
+            self.assertEqual(response_limit('bili'),64*1024*1024)
+            for platform in ('xhs', 'wb', 'tieba', 'zhihu'):
                 self.assertEqual(response_limit(platform), 25 * 1024 * 1024)
         finally:
             NATIVE_VIDEO_MEDIA_ACTIVE.reset(token)
@@ -218,7 +219,7 @@ class NativeMediaScopeTests(unittest.TestCase):
         import mc_runner
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for platform, enabled in [('dy', True), ('ks', True), ('dy', False), ('wb', True)]:
+            for platform, enabled in [('dy', True), ('ks', True), ('bili', True), ('dy', False), ('wb', True)]:
                 run_id = str(uuid.uuid4())
                 run = root / 'runs' / run_id
                 folder = run / 'output' / platform / 'media' / '123'
@@ -229,7 +230,7 @@ class NativeMediaScopeTests(unittest.TestCase):
                 mc_runner.write(run / 'manifest.json', {'run_id': run_id,
                                 'request': {'platform': platform, 'media': enabled}, 'source': {}})
                 mc_runner.write(run / 'status.json', {'state': 'completed'})
-                if platform in ('dy', 'ks') and enabled:
+                if platform in ('dy', 'ks','bili') and enabled:
                     result = mc_runner.import_output(root, {'run_id': run_id})
                     self.assertEqual(result['media'][0]['bytes'], 25 * 1024 * 1024 + 1)
                     with media.open('wb') as stream:

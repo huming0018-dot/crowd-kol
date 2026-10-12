@@ -12,7 +12,7 @@ import uuid
 from analysis_artifact import _read,_safe_ancestors
 from cloud_sync import canonical
 from complete_video import read_bytes
-from mc_runner import PLATFORMS,FINAL,canonical as record_canonical
+from mc_runner import PLATFORMS,FINAL,canonical as record_canonical,read
 from media_cloud import LIMIT,_job_id,_job_lock,_publish_prepared,download_media_video,media_video_cloud_status
 
 HEX=re.compile(r'[a-f0-9]{64}')
@@ -52,8 +52,15 @@ def _identity(run_folder,content_id,asset_sha256,entity_ref):
     item=media[0];ctype=body.get('content_type') if platform=='zhihu' else None
     if item.get('source_kind')!='mediacrawler_api' or item.get('reward_eligible') is not False or item.get('content_identity_status')!='reported_directory_id' or item.get('kind')=='audio':raise ValueError('media_native_identity_invalid')
     if platform=='zhihu' and item.get('source_content_type')!=ctype or platform!='zhihu' and len(identities)!=1:raise ValueError('media_native_source_ambiguous')
+    directory_id=content_id
+    if platform=='bilibili' and item.get('content_identity_basis')=='same_native_bilibili_view':
+        from native_media_scope import bilibili_identity_map
+        pairs,identity_sha=bilibili_identity_map(run_folder/'output',run_id,[body],read)
+        pair=pairs.get(item.get('source_media_id'))
+        if not pair or pair['aid']!=content_id or pair['cid']!=item.get('bilibili_view_cid') or identity_sha!=item.get('bilibili_media_identity_sha256'):raise ValueError('media_native_source_ambiguous')
+        directory_id=pair['bvid']
     path=_relative(run_folder,item.get('path'));parts=path.relative_to(run_folder).parts
-    if len(parts)<5 or parts[0]!='output' or parts[1] not in (p,platform) or parts[2]!='media' or parts[3]!=content_id or path.suffix.lower()!='.mp4':raise ValueError('media_native_identity_invalid')
+    if len(parts)<5 or parts[0]!='output' or parts[1] not in (p,platform) or parts[2]!='media' or parts[3]!=directory_id or path.suffix.lower()!='.mp4':raise ValueError('media_native_identity_invalid')
     if platform=='zhihu' and (len(parts)<6 or parts[4]!=ctype):raise ValueError('media_native_source_ambiguous')
     data=read_bytes(path,LIMIT)
     if type(item.get('bytes')) is not int or len(data)!=item['bytes'] or len(data)<12 or data[4:8]!=b'ftyp' or hashlib.sha256(data).hexdigest()!=asset_sha256:raise ValueError('media_native_asset_changed')
