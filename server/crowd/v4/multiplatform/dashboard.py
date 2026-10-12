@@ -554,7 +554,7 @@ class Application:
             if payload['allow_download'] is not True:raise ValueError('video_download_authorization_required')
             if payload['reference_sha256']!=reference['reference_sha256']:raise ValueError('video_reference_changed')
             return self.media_jobs.start_video(reference)
-        if action == 'start' and set(payload) == {'run_id', 'path', 'content_id', 'kind'}:
+        if action in ('start','preview') and set(payload) == {'run_id', 'path', 'content_id', 'kind'}:
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
             imported = self.run('import', {'run_id': payload['run_id']})
             result = imported.get('result', imported)
@@ -576,7 +576,9 @@ class Application:
             entity_ref=None
             if platform=='zhihu':entity_ref='zhihu:content:'+payload['content_id']+':'+candidates[0]['content_type']
             elif len(candidates)==1 and candidates[0]['kind']=='dynamic':entity_ref=platform+':dynamic:'+payload['content_id']
-            return self.media_jobs.start(source, platform, payload['content_id'], payload['kind'], payload['run_id'],entity_ref=entity_ref)
+            options={'entity_ref':entity_ref}
+            if payload['kind']=='asr' and source.suffix.lower()=='.mp4':options['native_run_folder']=self._registered_run_root(payload['run_id'])/'runs'/payload['run_id']
+            return getattr(self.media_jobs,action)(source,platform,payload['content_id'],payload['kind'],payload['run_id'],**options)
         raise ValueError('invalid_media_processing_action')
 
 

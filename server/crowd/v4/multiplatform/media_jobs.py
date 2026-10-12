@@ -50,6 +50,7 @@ class MediaJobs:
                 'transcript': True, 'network': False, 'source': 'saved_task_file',
                 'limits': {'bytes': 25 * 1024 * 1024, 'seconds': 3600, 'max_audio_seconds': 3600,
                            'long_audio_bytes': 64 * 1024 * 1024, 'long_audio_seconds': 7200,
+                           'registered_native_video_asr_bytes': 64 * 1024 * 1024, 'registered_native_video_asr_seconds': 7200,
                            'segment_seconds': 55, 'overlap_seconds': 2, 'concurrency': 1}}
 
     def status(self, job_id):
@@ -87,27 +88,62 @@ class MediaJobs:
                     if type(detail.get(field)) is int and 0<=detail[field]<=limit:state[field]=detail[field]
         return state
 
-    def start(self, source, platform, content_id, kind, run_id, entity_ref=None):
+    def _input(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None):
         if kind not in ('ocr', 'asr', 'transcript') or platform not in PLATFORMS.values():
             raise ValueError('invalid_media_processor')
-        if kind == 'asr' and not self.capabilities()['asr']:
-            raise ValueError('local_asr_model_not_configured')
         source = Path(source)
+        context=None
+        if kind=='asr' and source.suffix.lower()=='.mp4' and native_run_folder is not None:
+            from media_native import _identity,_relative,_duration
+            from analysis_artifact import _read
+            folder=Path(native_run_folder)
+            if folder.name!=run_id:raise ValueError('media_native_identity_invalid')
+            normalized,_=_read(folder/'normalized.json',32*1024*1024)
+            matches=[item for item in normalized.get('media',[]) if isinstance(item,dict) and item.get('content_id')==content_id and _relative(folder,item.get('path')).absolute()==source.absolute()]
+            if len(matches)!=1:raise ValueError('media_native_source_ambiguous')
+            _,binding,body,item,normalized_sha,data=_identity(folder,content_id,matches[0].get('sha256'),entity_ref,native_asr=True)
+            if binding['platform']!=platform or binding['local_run_id']!=run_id:raise ValueError('media_native_identity_invalid')
+            duration=_duration(data,require_audio=True)
+            if len(data)<=25*1024*1024 and duration<=3600000:
+                return data,binding['asset_sha256'],'standard_25mib_3600s',None
+            context={'schema_version':1,'processing_profile':'registered_native_mp4_asr_64mib_7200s',
+                     'run_id':run_id,'platform':platform,'content_id':content_id,'entity_ref':binding['entity_ref'],
+                     'asset_sha256':binding['asset_sha256'],'source_record_hash':body['record_hash'],
+                     'normalized_sha256':normalized_sha,'audio_duration_ms':duration}
+            return data,context['asset_sha256'],context['processing_profile'],context
         limit = 64 * 1024 * 1024 if kind == 'asr' and source.suffix.lower() in ('.m4a', '.mp3', '.aac') else 25 * 1024 * 1024
         if source.is_symlink() or not source.is_file() or source.stat().st_size > limit:
             raise ValueError('media_missing_or_over_processing_limit')
-        data = source.read_bytes()
-        if len(data) > limit:
-            raise ValueError('media_over_processing_limit')
+        data=source.read_bytes()
+        if len(data)>limit:raise ValueError('media_over_processing_limit')
         digest = hashlib.sha256(data).hexdigest()
+        return data,digest,'long_audio_64mib_7200s' if limit==64*1024*1024 else 'standard_25mib_3600s',None
+
+    def preview(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None):
+        data,digest,profile,context=self._input(source,platform,content_id,kind,run_id,entity_ref,native_run_folder)
+        return {'processing_profile':profile,'asset_sha256':digest,'input_bytes':len(data),
+                'max_input_bytes':64*1024*1024 if profile!='standard_25mib_3600s' else 25*1024*1024,
+                'max_audio_seconds':7200 if profile!='standard_25mib_3600s' else 3600,
+                'native_video_verified':kind=='asr' and Path(source).suffix.lower()=='.mp4' and native_run_folder is not None,
+                'audio_duration_ms':context['audio_duration_ms'] if context else None,
+                'source_requests':0,'model_calls':0}
+
+    def start(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None):
+        if kind == 'asr' and not self.capabilities()['asr']:
+            raise ValueError('local_asr_model_not_configured')
+        data,digest,profile,context=self._input(source,platform,content_id,kind,run_id,entity_ref,native_run_folder)
         identity = {'asset_sha256': digest, 'platform': platform, 'content_id': content_id,
-                    'processing_profile': 'long_audio_64mib_7200s' if limit == 64 * 1024 * 1024 else 'standard_25mib_3600s',
+                    'processing_profile':profile,
                     'kind': kind, 'processor_schema': 2,
                     'processor_sha256': hashlib.sha256(PROCESSOR.read_bytes()).hexdigest(),
                     'model': str(self.asr_model) if kind == 'asr' else None}
+        if context is not None:
+            identity['native_video_context_sha256']=hashlib.sha256(json.dumps(context,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+            entity_ref=context['entity_ref']
         identity['processor_files'] = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
             for name in ('local_asr.py', 'fetch_model.py', 'long_media.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
             if (PROCESSOR.parent / name).is_file()}
+        if context is not None:identity['processor_files']['native_video_asr.py']=hashlib.sha256((PROCESSOR.parent/'native_video_asr.py').read_bytes()).hexdigest()
         if entity_ref is not None:
             from results_store import _entity_selector
             _entity_selector(entity_ref,platform,content_id)
@@ -143,10 +179,13 @@ class MediaJobs:
             snapshot = folder / ('input' + source.suffix.lower())
             with os.fdopen(os.open(snapshot, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'wb') as stream:
                 stream.write(data)
+            if context is not None:write(folder/'native-asr-context.json',context)
             state = {'job_id': job_id, 'state': 'queued', 'input_hash': key, 'asset_sha256': digest,
                      'platform': platform, 'content_id': content_id, 'kind': kind, 'run_id': run_id,
                      'association': 'owner_selected_content', 'created_at': time.time(),
                      'source_kind': 'authorized_local_file', 'review_status': 'unreviewed', 'uploaded': False}
+            state['processing_profile']=profile
+            if context is not None:state['native_video_context_sha256']=identity['native_video_context_sha256']
             if entity_ref is not None:state['entity_ref']=entity_ref
             state['processor_files']=identity['processor_files']
             if kind == 'asr':
@@ -175,12 +214,27 @@ class MediaJobs:
         mimes = {'.mp4': 'video/mp4', '.webm': 'video/webm', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.mp3': 'audio/mpeg', '.aac': 'audio/aac', '.ogg': 'audio/ogg'}
         if path.suffix.lower() not in mimes or path.is_symlink() or not path.resolve().is_relative_to(folder.resolve()):
             raise ValueError('media_playback_format_or_path_invalid')
-        limit = 64 * 1024 * 1024 if path.suffix.lower() in ('.m4a', '.mp3', '.aac') else 25 * 1024 * 1024
+        limit = self._snapshot_limit(state,path)
         with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), 'rb') as stream:
             data = stream.read(limit + 1)
         if len(data) > limit or hashlib.sha256(data).hexdigest() != state['asset_sha256']:
             raise ValueError('media_playback_snapshot_changed')
         return {'data': data, 'mime': mimes[path.suffix.lower()], 'sha256': state['asset_sha256']}
+
+    def _snapshot_limit(self,state,path):
+        if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s':
+            from analysis_artifact import _read
+            context,_=_read(path.parent/'native-asr-context.json',8192)
+            import importlib.util
+            spec=importlib.util.spec_from_file_location('crowd_native_video_asr',PROCESSOR.parent/'native_video_asr.py')
+            module=importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module);module.validate_context(context,path,state)
+            expected=hashlib.sha256(json.dumps(context,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+            if (state.get('kind')!='asr' or path.name!='input.mp4' or expected!=state.get('native_video_context_sha256')
+                    or any(context.get(key)!=state.get(key) for key in ('asset_sha256','platform','content_id','run_id','entity_ref'))):
+                raise ValueError('media_checkpoint_source_changed')
+            return 64*1024*1024
+        return 64*1024*1024 if state['kind']=='asr' and path.suffix.lower() in ('.m4a','.mp3','.aac') else 25*1024*1024
 
     def start_video(self, reference):
         from complete_video import safe_folder, safe_url, atomic_json
@@ -267,10 +321,13 @@ class MediaJobs:
                    '--platform', state['platform'], '--content-id', state['content_id'],
                    '--authorization-ref', 'owner-selected-saved-media', '--output', str(result)]
         if state['kind'] == 'asr':
-            command = [self.python, str(LONG_PROCESSOR), '--input', str(snapshot),
+            processor=PROCESSOR.parent/'native_video_asr.py' if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s' else LONG_PROCESSOR
+            command = [self.python, str(processor), '--input', str(snapshot),
                        '--platform', state['platform'], '--content-id', state['content_id'],
                        '--authorization-ref', 'owner-selected-saved-media', '--output', str(result),
                        '--asr-model', str(self.asr_model), '--work-dir', str(folder / 'long-asr')]
+            if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s':
+                command+=['--native-video-context',str(folder/'native-asr-context.json')]
         proc = None
         try:
             with self.lock:
@@ -355,7 +412,7 @@ class MediaJobs:
                 raise ValueError('media_checkpoint_processor_changed')
             folder = self.root / job_id
             snapshots = list(folder.glob('input*'))
-            limit = 64 * 1024 * 1024 if state['kind'] == 'asr' and len(snapshots) == 1 and snapshots[0].suffix.lower() in ('.m4a', '.mp3', '.aac') else 25 * 1024 * 1024
+            limit = self._snapshot_limit(state,snapshots[0]) if len(snapshots)==1 else 25*1024*1024
             if len(snapshots) != 1 or snapshots[0].is_symlink() or snapshots[0].stat().st_size > limit or hashlib.sha256(snapshots[0].read_bytes()).hexdigest() != state['asset_sha256']:
                 raise ValueError('media_checkpoint_source_changed')
             process_lock = open(self.root / 'processor.lock', 'a+')

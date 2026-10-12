@@ -18,7 +18,8 @@ from media_cloud import LIMIT,_job_id,_job_lock,_publish_prepared,download_media
 HEX=re.compile(r'[a-f0-9]{64}')
 CID=re.compile(r'[A-Za-z0-9_.:-]{1,200}')
 
-def _identity(run_folder,content_id,asset_sha256,entity_ref):
+def _identity(run_folder,content_id,asset_sha256,entity_ref,*,native_asr=False):
+    if type(native_asr) is not bool:raise ValueError('media_native_identity_invalid')
     run_folder=Path(run_folder);_safe_ancestors(run_folder);run_id=_job_id(run_folder.name)
     if not isinstance(content_id,str) or not CID.fullmatch(content_id) or not isinstance(asset_sha256,str) or not HEX.fullmatch(asset_sha256):raise ValueError('media_native_identity_invalid')
     manifest,_=_read(run_folder/'manifest.json',200000);status,_=_read(run_folder/'status.json',200000)
@@ -64,7 +65,7 @@ def _identity(run_folder,content_id,asset_sha256,entity_ref):
     if temporary_media_path(parts):raise ValueError('media_native_uncommitted_asset')
     if len(parts)<5 or parts[0]!='output' or parts[1] not in (p,platform) or parts[2]!='media' or parts[3]!=directory_id or path.suffix.lower()!='.mp4':raise ValueError('media_native_identity_invalid')
     if platform=='zhihu' and (len(parts)<6 or parts[4]!=ctype):raise ValueError('media_native_source_ambiguous')
-    data=read_bytes(path,LIMIT)
+    data=read_bytes(path,64*1024*1024 if native_asr else LIMIT)
     if type(item.get('bytes')) is not int or len(data)!=item['bytes'] or len(data)<12 or data[4:8]!=b'ftyp' or hashlib.sha256(data).hexdigest()!=asset_sha256:raise ValueError('media_native_asset_changed')
     identity={'local_run_id':run_id,'platform':platform,'content_id':content_id,'entity_ref':entity_ref,'asset_sha256':asset_sha256}
     reference_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'crowd-native-video-v2:'+canonical(identity)))
@@ -77,7 +78,7 @@ def _relative(folder,value):
     path=folder/parts;_safe_ancestors(path)
     return path
 
-def _duration(data):
+def _duration(data,*,require_audio=False):
     ffmpeg=os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
     if not ffmpeg:raise ValueError('media_native_ffmpeg_unavailable')
     with tempfile.TemporaryDirectory(prefix='crowd-native-video-') as directory:
@@ -87,6 +88,7 @@ def _duration(data):
         except (OSError,subprocess.TimeoutExpired):raise ValueError('media_native_metadata_unavailable') from None
     text=result.stderr.decode('utf-8','replace');match=re.search(r'Duration: (\d+):(\d+):(\d+(?:\.\d+)?)',text)
     if not match or not re.search(r'Stream #[^\n]*: Video:',text):raise ValueError('media_native_video_track_missing')
+    if require_audio and not re.search(r'Stream #[^\n]*: Audio:',text):raise ValueError('media_native_audio_track_missing')
     duration=int(match[1])*3600+int(match[2])*60+float(match[3])
     if not math.isfinite(duration) or not 1<=round(duration*1000)<=7200000:raise ValueError('media_native_duration_invalid')
     return round(duration*1000)
