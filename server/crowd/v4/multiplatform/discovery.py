@@ -368,7 +368,7 @@ def configure_discovery(upstream, request, run):
         def on_page_error(_error):
             nonlocal page_error_count
             page_error_count = min(10000,page_error_count+1)
-        listening = platform in FEED_PATHS and hasattr(page, 'on')
+        listening = hasattr(page, 'on') and hasattr(page, 'remove_listener')
         if listening:
             page.on('response', on_response)
             page.on('requestfailed', on_request_failed)
@@ -381,11 +381,10 @@ def configure_discovery(upstream, request, run):
             if mode == 'trending' or platform not in ('xhs', 'bili'):
                 await asyncio.wait_for(page.goto(source, wait_until='domcontentloaded', timeout=15000), timeout=15)
             selector = SELECTORS[platform]
-            if not listening:
-                remaining = max(0.001, deadline - time.monotonic())
-                await asyncio.wait_for(page.wait_for_selector(selector, timeout=remaining * 1000), timeout=remaining)
-        # Navigation anchors can appear before asynchronous content cards. Wait
-        # within one bounded observation window for actual legal candidates.
+            # A hidden first matching anchor must not block other visible cards.
+            # The bounded scan below already waits for actual legal candidates.
+            # Navigation anchors can appear before asynchronous content cards. Wait
+            # within one bounded observation window for actual legal candidates.
             while True:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -415,33 +414,32 @@ def configure_discovery(upstream, request, run):
                 task.cancel()
             if tasks:
                 await asyncio.gather(*list(tasks), return_exceptions=True)
-            if listening:
-                visible = {'state': 'unavailable'}
-                try:
-                    raw = await asyncio.wait_for(page.evaluate('''() => {
-                        const visible=x=>x.getClientRects().length && getComputedStyle(x).visibility!=="hidden";
-                        const count=s=>Array.from(document.querySelectorAll(s)).filter(visible).length;
-                        const enums=['feed-active-video','feed-video','video-player','search-result','login-panel','video-detail'];
-                        return {visible_anchor_total:count('a[href]'), visible_video_count:count('video'),
-                            script_element_count:document.querySelectorAll('script').length,
-                            frame_element_count:document.querySelectorAll('iframe,frame').length,
-                            document_ready_state:document.readyState,
-                            title_present:!!document.title.trim(), login_visible:!!count('[data-e2e="login-panel"], [data-e2e="login-button"]'),
-                            verification_visible:!!count('[id*="captcha"], [class*="captcha"], [data-e2e="verify-panel"]'),
-                            visible_data_e2e:enums.filter(x=>count('[data-e2e="'+x+'"]'))};
-                    }'''), timeout=1)
-                    visible = page_diagnostics(raw)
-                except Exception:
-                    pass
-                write(run / 'discovery-observation.json', {'schema':'crowd_homefeed_observation_v1',
-                      'platform':platform, 'responses':observations, 'source_requests_added':0,
-                      'homepage':safe_observed_location(platform, getattr(page, 'url', None)),
-                      'visible_page':visible, 'sampled_selector_link_count':min(200,len(last_links)),
-                      'legal_sampled_link_count':legal_candidates, 'official_response_paths':response_paths,
-                      'failed_request_counts':load_failures, 'page_error_count':page_error_count,
-                      'document_response_status':document_response_status,
-                      'homepage_navigation':navigation if platform=='wb' else None,
-                      'selection_policy':'visible_DOM_first_then_same_homepage_response'})
+            visible = {'state': 'unavailable'}
+            try:
+                raw = await asyncio.wait_for(page.evaluate('''() => {
+                    const visible=x=>x.getClientRects().length && getComputedStyle(x).visibility!=="hidden";
+                    const count=s=>Array.from(document.querySelectorAll(s)).filter(visible).length;
+                    const enums=['feed-active-video','feed-video','video-player','search-result','login-panel','video-detail'];
+                    return {visible_anchor_total:count('a[href]'), visible_video_count:count('video'),
+                        script_element_count:document.querySelectorAll('script').length,
+                        frame_element_count:document.querySelectorAll('iframe,frame').length,
+                        document_ready_state:document.readyState,
+                        title_present:!!document.title.trim(), login_visible:!!count('[data-e2e="login-panel"], [data-e2e="login-button"]'),
+                        verification_visible:!!count('[id*="captcha"], [class*="captcha"], [data-e2e="verify-panel"]'),
+                        visible_data_e2e:enums.filter(x=>count('[data-e2e="'+x+'"]'))};
+                }'''), timeout=1)
+                visible = page_diagnostics(raw)
+            except Exception:
+                pass
+            write(run / 'discovery-observation.json', {'schema':'crowd_homefeed_observation_v1',
+                  'platform':platform, 'responses':observations, 'source_requests_added':0,
+                  'homepage':safe_observed_location(platform, getattr(page, 'url', None)),
+                  'visible_page':visible, 'sampled_selector_link_count':min(200,len(last_links)),
+                  'legal_sampled_link_count':legal_candidates, 'official_response_paths':response_paths,
+                  'failed_request_counts':load_failures, 'page_error_count':page_error_count,
+                  'document_response_status':document_response_status,
+                  'homepage_navigation':navigation if platform=='wb' else None,
+                  'selection_policy':'visible_DOM_first_then_same_homepage_response'})
         observed_at = datetime.now(timezone.utc).isoformat()
         # Public metadata has no XHS navigation locator; it stays in this process only.
         write(run / 'discovery.json', {'discovery_kind': mode, 'source_url': source,

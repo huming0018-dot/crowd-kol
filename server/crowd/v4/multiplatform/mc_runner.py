@@ -270,6 +270,11 @@ def configure_executor(config,p):
         if 'quality' in options: config.BILI_QN=options['quality']
 
 def configure_platform_hooks(upstream,p):
+    if p['platform']=='ks' and p['comments']:
+        from media_platform.kuaishou.client import KuaiShouClient
+        from store.kuaishou import KuaishouStoreFactory
+        from kuaishou_comments import install_hook as install_comment_hook
+        install_comment_hook(KuaiShouClient,KuaishouStoreFactory)
     if p['platform'] in ('dy','ks') and p['media']:
         from native_media_scope import install_hook
         install_hook(upstream.CrawlerFactory.CRAWLERS[p['platform']],p['platform'],Path.cwd()/'output',SingleResponseLimit,read,write)
@@ -764,6 +769,8 @@ def normalize(platform, kind, row, origin):
         # These stores explicitly use an empty parent for a root; absent stays unknown.
         if platform in ('xhs','tieba') and row.get('parent_comment_id')=='':
             result['parent_comment_id']=''
+        if platform=='ks' and row.get('parent_relation_basis') in ('reported_root_endpoint','reported_subcomment_root_scope'):
+            result['parent_relation_basis']=row['parent_relation_basis']
         if not result['comment_id']: fail('missing_comment_id')
     else:
         result.update(title=safe_text(row.get('title'),2000),body=safe_text(next((row[k] for k in ('desc','content_text','content','text') if row.get(k) is not None),None)),content_type=safe_text(row.get('content_type') or row.get('video_type') or row.get('type'),80))
@@ -785,7 +792,7 @@ def normalize(platform, kind, row, origin):
     result['metrics']=metrics
     result['upstream_transport']='platform_dependent_api_or_browser_html'
     if kind=='comment':
-        reported_root=(platform in ('xhs','tieba') and result['parent_comment_id']=='') or (platform=='wb' and result['parent_comment_id']==result['comment_id'])
+        reported_root=(platform in ('xhs','tieba') and result['parent_comment_id']=='') or (platform=='wb' and result['parent_comment_id']==result['comment_id']) or (platform=='ks' and result.get('parent_relation_basis')=='reported_root_endpoint' and result['parent_comment_id']=='0')
         result['parent_status']='reported_root' if reported_root else 'reported' if result['parent_comment_id'] is not None else 'missing_upstream'
         result['reply_count_semantics']='upstream_reported_not_independently_verified'
     result['published_at_reported']=next((row[k] for k in ('time','create_time','created_time','publish_time','pub_ts') if type(row.get(k)) is int or isinstance(row.get(k),str) and len(row[k])<=80 and not contains_secret(row[k])),None)

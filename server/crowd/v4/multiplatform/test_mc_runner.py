@@ -144,6 +144,10 @@ class RunnerTest(unittest.TestCase):
         with (self.mc/'media_platform/tieba/client.py').open('a') as fixture:
             fixture.write(' async def get_note_by_id(self,note_id): return None\n')
         (self.mc/'media_platform/tieba/help.py').write_text('class TieBaExtractor:\n def extract_note_detail_from_api(self,data): return None\n')
+        with (self.mc/'media_platform/kuaishou/client.py').open('a') as fixture:
+            fixture.write(' async def get_video_comments(self,*a,**kw): return {"result":1,"rootCommentsV2":[]}\n async def get_video_sub_comments(self,*a,**kw): return {"result":1,"subCommentsV2":[]}\n async def get_video_all_comments(self,*a,**kw): return []\n')
+        store=self.mc/'store/kuaishou';store.mkdir(parents=True)
+        (store/'__init__.py').write_text('class KuaishouStoreFactory:\n @staticmethod\n def create_store(): return None\n')
         (self.mc/'main.py').write_text('''import asyncio,json,pathlib,sys
 from types import SimpleNamespace
 CrawlerFactory=SimpleNamespace(CRAWLERS={key:None for key in ('xhs','dy','ks','bili','wb','tieba','zhihu')})
