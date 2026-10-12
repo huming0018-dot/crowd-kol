@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent
 
 
 def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run, asr_model=None,
-            work_dir=None, cancel=None):
+            work_dir=None, cancel=None, project_root=None, cache_dir=None):
     identities = {'xiaohongshu': r'[a-f0-9]{24}', 'bilibili': r'BV[A-Za-z0-9]{10}|[0-9]{1,30}',
                   'douyin': r'[0-9]{1,30}', 'kuaishou': r'[A-Za-z0-9_-]{1,100}',
                   'weibo': r'[A-Za-z0-9]{1,100}', 'tieba': r'[0-9]{1,30}',
@@ -69,7 +69,8 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
                 audio = Path(directory) / ('input' + source.suffix.lower())
                 with os.fdopen(os.open(audio, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
                     stream.write(data)
-                parsed = long_media.transcribe_long(audio, asr_model, work, cancel=cancel)
+                cache_options = {'project_root': project_root, 'cache_dir': cache_dir} if project_root is not None or cache_dir is not None else {}
+                parsed = long_media.transcribe_long(audio, asr_model, work, cancel=cancel, **cache_options)
             evidence.update(parsed, coverage='local_file_all_audio_windows_processed')
             return {'platform': platform, 'content_id': content_id,
                     'authorization_ref': authorization_ref.strip(), 'kind': 'transcript', 'evidence': evidence}

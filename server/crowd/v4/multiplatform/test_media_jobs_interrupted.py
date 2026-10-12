@@ -35,7 +35,7 @@ class InterruptedCheckpointTests(unittest.TestCase):
                 stream.writeframes(b'\0\0' * ((end - start) * 16000))
             rows.append({'index': index, 'start': start, 'end': end, 'file': audio.name, 'sha256': sha(audio)})
             if index < 2:
-                processors = ''.join(self.state['processor_files'][name] for name in ('long_media.py', 'local_asr.py', 'fetch_model.py'))
+                processors = ''.join(self.state['processor_files'][name] for name in ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py'))
                 key = hashlib.sha256((sha(audio) + self.state['model_manifest_sha256'] + processors + '1').encode()).hexdigest()
                 media_jobs.write(self.work / ('result-%04d.json' % index), {'segments': [{'start': 0, 'end': 1, 'text': 'owned synthetic checkpoint'}],
                     'input_hash': key, 'timing_adjustments': [], 'segment_metrics': [None]})

@@ -12,7 +12,7 @@ import media_jobs
 
 PROCESSOR = '''import argparse,json,hashlib,pathlib,time
 p=argparse.ArgumentParser()
-for name in ('input','asr-model','work-dir','output','platform','content-id','authorization-ref'): p.add_argument('--'+name,required=True)
+for name in ('input','asr-model','work-dir','output','platform','content-id','authorization-ref','project-root','cache-dir'): p.add_argument('--'+name,required=True)
 a=p.parse_args(); work=pathlib.Path(a.work_dir);work.mkdir(exist_ok=True)
 marker=work/'offline-provider-started';checkpoint=work/'result-0000.json'
 if not marker.exists():

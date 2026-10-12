@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bounded local audio extraction and resumable ASR; never downloads models."""
 import argparse
+import contextlib
 import fcntl
 import hashlib
 import json
@@ -116,88 +117,99 @@ def prepare_chunks(source, work_dir, cancel=None):
             return existing
         raise ValueError('long_media_checkpoint_audio_corrupt')
     check_cancel(cancel)
-    audio = work / 'audio.wav'
-    # WAV PCM already has a seekable, bounded decoder in the standard library.
-    try:
-        with wave.open(str(source), 'rb') as handle:
-            compatible = handle.getnchannels() == 1 and handle.getsampwidth() == 2 and handle.getframerate() == RATE
-        if compatible:
-            temporary, descriptor = exclusive_audio_file(work, 'audio-copy')
-            try:
-                with source.open('rb') as original, os.fdopen(descriptor, 'wb') as output:
-                    shutil.copyfileobj(original, output)
-                    output.flush(); os.fsync(output.fileno())
-                os.replace(temporary, audio)
-            finally:
-                temporary.unlink(missing_ok=True)
-        else:
-            compatible = False
-    except (wave.Error, EOFError):
-        compatible = False
-    if not compatible:
-        executable = ffmpeg_path()
-        if executable is None:
-            raise ValueError('audio_ffmpeg_unavailable')
-        temporary, descriptor = exclusive_audio_file(work, 'audio-partial')
+    with contextlib.ExitStack() as resources:
+        audio, descriptor = exclusive_audio_file(work, 'audio-intermediate')
         os.close(descriptor)
-        command = [executable, '-nostdin', '-hide_banner', '-loglevel', 'error', '-y',
-                   '-protocol_whitelist', 'file,pipe', '-format_whitelist',
-                   'wav,mp3,aac,mov,aiff,caf,ogg,matroska,webm,flac',
-                   *(['-enable_drefs','0'] if source.suffix.lower() in ('.mov','.mp4','.m4a','.m4v') else []),
-                   '-i', str(source.resolve()), '-map', '0:a:0', '-vn', '-t', str(max_seconds + 1),
-                   '-ac', '1', '-ar', str(RATE), '-c:a', 'pcm_s16le', str(temporary)]
-        proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL)
-        deadline = time.monotonic() + 180
+        resources.callback(audio.unlink, missing_ok=True)
+        # WAV PCM already has a seekable, bounded decoder in the standard library.
         try:
-            while proc.poll() is None:
-                check_cancel(cancel)
-                if time.monotonic() >= deadline:
-                    raise ValueError('audio_extraction_timeout')
-                time.sleep(0.05)
-            check_cancel(cancel)
-            if proc.returncode:
-                raise ValueError('audio_extraction_failed')
-            os.replace(temporary, audio)
-            os.chmod(audio, 0o600)
-        finally:
-            if proc.poll() is None:
-                proc.kill()
-                proc.wait(timeout=5)
-            temporary.unlink(missing_ok=True)
-    with wave.open(str(audio), 'rb') as handle:
-        if handle.getnchannels() != 1 or handle.getsampwidth() != 2 or handle.getframerate() != RATE:
-            raise ValueError('invalid_extracted_audio')
-        frames = handle.getnframes()
-        duration = frames / RATE
-        if not frames or duration > max_seconds:
-            raise ValueError('audio_empty_or_over_duration_limit')
-        chunks = []
-        step = (SEGMENT_SECONDS - OVERLAP_SECONDS) * RATE
-        for index, start in enumerate(range(0, frames, step)):
-            check_cancel(cancel)
-            end = min(frames, start + SEGMENT_SECONDS * RATE)
-            handle.setpos(start)
-            target = work / ('chunk-%04d.wav' % index)
-            temporary, descriptor = exclusive_audio_file(work, 'chunk-partial')
+            with wave.open(str(source), 'rb') as handle:
+                compatible = handle.getnchannels() == 1 and handle.getsampwidth() == 2 and handle.getframerate() == RATE
+            if compatible:
+                temporary, descriptor = exclusive_audio_file(work, 'audio-copy')
+                try:
+                    with source.open('rb') as original, os.fdopen(descriptor, 'wb') as output:
+                        shutil.copyfileobj(original, output)
+                        output.flush(); os.fsync(output.fileno())
+                    os.replace(temporary, audio)
+                finally:
+                    temporary.unlink(missing_ok=True)
+            else:
+                compatible = False
+        except (wave.Error, EOFError):
+            compatible = False
+        if not compatible:
+            executable = ffmpeg_path()
+            if executable is None:
+                raise ValueError('audio_ffmpeg_unavailable')
+            temporary, descriptor = exclusive_audio_file(work, 'audio-partial')
+            os.close(descriptor)
+            command = [executable, '-nostdin', '-hide_banner', '-loglevel', 'error', '-y',
+                       '-protocol_whitelist', 'file,pipe', '-format_whitelist',
+                       'wav,mp3,aac,mov,aiff,caf,ogg,matroska,webm,flac',
+                       *(['-enable_drefs','0'] if source.suffix.lower() in ('.mov','.mp4','.m4a','.m4v') else []),
+                       '-i', str(source.resolve()), '-map', '0:a:0', '-vn', '-t', str(max_seconds + 1),
+                       '-ac', '1', '-ar', str(RATE), '-c:a', 'pcm_s16le', str(temporary)]
+            proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+            deadline = time.monotonic() + 180
             try:
-                with os.fdopen(descriptor, 'wb') as stream, wave.open(stream, 'wb') as output:
-                    output.setnchannels(1)
-                    output.setsampwidth(2)
-                    output.setframerate(RATE)
-                    output.writeframes(handle.readframes(end - start))
-                os.replace(temporary, target)
+                while proc.poll() is None:
+                    check_cancel(cancel)
+                    if time.monotonic() >= deadline:
+                        raise ValueError('audio_extraction_timeout')
+                    time.sleep(0.05)
+                check_cancel(cancel)
+                if proc.returncode:
+                    raise ValueError('audio_extraction_failed')
+                os.replace(temporary, audio)
+                os.chmod(audio, 0o600)
             finally:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait(timeout=5)
                 temporary.unlink(missing_ok=True)
-            chunks.append({'index': index, 'start': start / RATE, 'end': end / RATE,
-                           'file': target.name, 'sha256': digest(target)})
-            if end == frames:
-                break
-    manifest = {'schema': SCHEMA, 'asset_sha256': source_hash, 'duration_seconds': duration,
-                'segment_seconds': SEGMENT_SECONDS, 'overlap_seconds': OVERLAP_SECONDS,
-                'chunks': chunks, 'source_kind': 'authorized_local_file', 'network': False}
-    save(manifest_path, manifest)
-    return manifest
+        with wave.open(str(audio), 'rb') as handle:
+            if handle.getnchannels() != 1 or handle.getsampwidth() != 2 or handle.getframerate() != RATE:
+                raise ValueError('invalid_extracted_audio')
+            frames = handle.getnframes()
+            duration = frames / RATE
+            if not frames or duration > max_seconds:
+                raise ValueError('audio_empty_or_over_duration_limit')
+            chunks = []
+            step = (SEGMENT_SECONDS - OVERLAP_SECONDS) * RATE
+            for index, start in enumerate(range(0, frames, step)):
+                check_cancel(cancel)
+                end = min(frames, start + SEGMENT_SECONDS * RATE)
+                handle.setpos(start)
+                target = work / ('chunk-%04d.wav' % index)
+                temporary, descriptor = exclusive_audio_file(work, 'chunk-partial')
+                try:
+                    with os.fdopen(descriptor, 'wb') as stream:
+                        with wave.open(stream, 'wb') as output:
+                            output.setnchannels(1)
+                            output.setsampwidth(2)
+                            output.setframerate(RATE)
+                            output.writeframes(handle.readframes(end - start))
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.replace(temporary, target)
+                finally:
+                    temporary.unlink(missing_ok=True)
+                chunks.append({'index': index, 'start': start / RATE, 'end': end / RATE,
+                               'file': target.name, 'sha256': digest(target)})
+                if end == frames:
+                    break
+        manifest = {'schema': SCHEMA, 'asset_sha256': source_hash, 'duration_seconds': duration,
+                    'segment_seconds': SEGMENT_SECONDS, 'overlap_seconds': OVERLAP_SECONDS,
+                    'chunks': chunks, 'source_kind': 'authorized_local_file', 'network': False}
+        save(manifest_path, manifest)
+        directory = os.open(work, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        return manifest
 
 
 def validate_segments(rows, duration):
@@ -349,17 +361,22 @@ def merge_chunks(manifest, results):
             'segment_seconds': SEGMENT_SECONDS, 'overlap_seconds': OVERLAP_SECONDS}
 
 
-def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
+def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
+                    project_root=None, cache_dir=None):
     # Gate before lock creation and before any error-state receipt can be written.
     work = safe_work_directory(source, work_dir)
     descriptor = os.open(work / 'active.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(descriptor, 'r+') as lock:
+    with os.fdopen(descriptor, 'r+') as lock, contextlib.ExitStack() as resources:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise ValueError('long_media_busy') from None
         state = {'state': 'preparing', 'completed_chunks': 0, 'total_chunks': 0}
         try:
+            if (project_root is None) != (cache_dir is None):
+                raise ValueError('audio_result_cache_configuration_required')
+            if cache_dir is not None and transcriber is not None:
+                raise ValueError('audio_result_cache_requires_local_provider')
             manifest = prepare_chunks(source, work, cancel)
             state['total_chunks'] = len(manifest['chunks'])
             if transcriber is None:
@@ -372,6 +389,12 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
             else:
                 # Test injection never claims an actual model provider.
                 model_hash = 'injected-offline-test-provider'
+            processor_hash = ''.join(digest(Path(__file__).with_name(name)) for name in
+                                     ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py'))
+            shared_cache = None
+            if cache_dir is not None:
+                from audio_result_cache import AudioResultCache
+                shared_cache = resources.enter_context(AudioResultCache(project_root, cache_dir))
             results = []
             for chunk in manifest['chunks']:
                 check_cancel(cancel)
@@ -380,13 +403,23 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                 target = work / ('result-%04d.json' % chunk['index'])
                 if target.is_symlink() or target.exists() and target.stat().st_size > 2_000_000:
                     raise ValueError('invalid_long_media_chunk_cache')
-                processor_hash = (digest(Path(__file__)) + digest(Path(__file__).with_name('local_asr.py'))
-                                  + digest(Path(__file__).with_name('fetch_model.py')))
                 key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA)).encode()).hexdigest()
-                result = json.loads(target.read_text()) if target.is_file() else None
-                if result is not None and (not isinstance(result, dict) or set(result) not in ({'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'},
+                def validate_result(value):
+                    import local_asr
+                    duration = chunk['end'] - chunk['start']
+                    rows = validate_segments(value['segments'], duration)
+                    validate_adjustments(value['timing_adjustments'], rows, duration)
+                    metrics = local_asr.normalize_metrics(value['segment_metrics'], len(rows))
+                    if metrics != value['segment_metrics']:
+                        raise ValueError('invalid_asr_segment_metrics')
+                    local_asr.validate_native_alignment(value.get('native_alignment'), rows, duration)
+                cached_locally = target.is_file()
+                result = json.loads(target.read_text()) if cached_locally else None
+                if cached_locally and (not isinstance(result, dict) or set(result) not in ({'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'},
                                             {'segments', 'input_hash', 'timing_adjustments', 'segment_metrics', 'native_alignment'}) or result.get('input_hash') != key):
                     raise ValueError('long_media_chunk_cache_identity_mismatch')
+                if result is None and shared_cache is not None:
+                    result = shared_cache.get(key, validate_result)
                 if result is None:
                     try:
                         result = transcriber(work / chunk['file'])
@@ -410,9 +443,11 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None):
                               'segment_metrics': metrics,
                               'native_alignment': local_asr.validate_native_alignment(result.get('native_alignment'),rows,chunk['end']-chunk['start'])}
                     save(target, result)
-                import local_asr
-                local_asr.validate_native_alignment(result.get('native_alignment'),
-                    validate_segments(result['segments'],chunk['end']-chunk['start']),chunk['end']-chunk['start'])
+                validate_result(result)
+                if shared_cache is not None:
+                    shared_cache.put(key, result, validate_result)
+                if not target.is_file():
+                    save(target, result)
                 results.append(result)
                 state['completed_chunks'] += 1
                 save(work / 'state.json', state)
@@ -442,6 +477,8 @@ def main():
     parser.add_argument('--platform', required=True)
     parser.add_argument('--content-id', required=True)
     parser.add_argument('--authorization-ref', required=True)
+    parser.add_argument('--project-root', type=Path)
+    parser.add_argument('--cache-dir', type=Path)
     args = parser.parse_args()
     cancelled = False
 
@@ -455,6 +492,7 @@ def main():
         import evidence
         row = evidence.prepare('asr', args.input, args.platform, args.content_id, args.authorization_ref,
                                asr_model=args.asr_model, work_dir=args.work_dir,
+                               project_root=args.project_root, cache_dir=args.cache_dir,
                                cancel=lambda: cancelled or (args.work_dir.parent / 'cancel.requested').exists())
         encoded = json.dumps([row], ensure_ascii=False).encode()
         if len(encoded) > 2_000_000:

@@ -134,7 +134,7 @@ class MediaJobs:
             limit = self._snapshot_limit(state, snapshots[0])
             if hashlib.sha256(read_bytes(snapshots[0], limit)).hexdigest() != state.get('asset_sha256'):return None
             processors = state.get('processor_files', {})
-            names = ('long_media.py', 'local_asr.py', 'fetch_model.py')
+            names = ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py')
             if any(not isinstance(processors.get(name), str) or len(processors[name]) != 64 for name in names):return None
             model_hash = state.get('model_manifest_sha256')
             if not isinstance(model_hash, str) or len(model_hash) != 64:return None
@@ -227,7 +227,7 @@ class MediaJobs:
             identity['native_video_context_sha256']=hashlib.sha256(json.dumps(context,sort_keys=True,separators=(',',':')).encode()).hexdigest()
             entity_ref=context['entity_ref']
         identity['processor_files'] = {name: hashlib.sha256((PROCESSOR.parent / name).read_bytes()).hexdigest()
-            for name in ('local_asr.py', 'fetch_model.py', 'long_media.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
+            for name in ('local_asr.py', 'fetch_model.py', 'long_media.py', 'audio_result_cache.py', 'vision.swift', 'speech.swift', 'crowd-vision', 'crowd-speech')
             if (PROCESSOR.parent / name).is_file()}
         if context is not None:identity['processor_files']['native_video_asr.py']=hashlib.sha256((PROCESSOR.parent/'native_video_asr.py').read_bytes()).hexdigest()
         if entity_ref is not None:
@@ -411,7 +411,8 @@ class MediaJobs:
             command = [self.python, str(processor), '--input', str(snapshot),
                        '--platform', state['platform'], '--content-id', state['content_id'],
                        '--authorization-ref', 'owner-selected-saved-media', '--output', str(result),
-                       '--asr-model', str(self.asr_model), '--work-dir', str(folder / 'long-asr')]
+                       '--asr-model', str(self.asr_model), '--work-dir', str(folder / 'long-asr'),
+                       '--project-root', str(self.root), '--cache-dir', str(self.root / 'audio-result-cache')]
             if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s':
                 command+=['--native-video-context',str(folder/'native-asr-context.json')]
         proc = None
