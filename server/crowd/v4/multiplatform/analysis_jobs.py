@@ -144,6 +144,15 @@ class AnalysisJobs:
                     verified_asset=any(matching_media(m) for m in imported.get('media',[]))
                     if len(inputs)==1:
                         verified_asset=hashlib.sha256(bounded(inputs[0],64*1024*1024)).hexdigest()==asset
+                    if state.get('text_revision') is not None:
+                        # Revisions retain a verified parent audio identity without
+                        # copying or linking the original input into a new job.
+                        import importlib.util
+                        spec=importlib.util.spec_from_file_location('crowd_transcript_quality',Path(__file__).resolve().parent.parent/'postprocess/transcript_quality.py')
+                        quality_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(quality_module)
+                        proof=quality_module.TranscriptQuality(self.root.parent).validate(job_id)
+                        if proof['result_sha256']!=digest or proof['state']['asset_sha256']!=asset:raise ValueError('analysis_media_asset_unverified')
+                        verified_asset=True
                     if not verified_asset:raise ValueError('analysis_media_asset_unverified')
                     kind=state['kind'];segments=evidence.get('segments') if kind=='asr' else [{'text':evidence.get('raw_text')}]
                     if not isinstance(segments,list) or not 1<=len(segments)<=(MAX_SEGMENTS if full_segments else 1000):raise ValueError('analysis_media_segment_limit')
