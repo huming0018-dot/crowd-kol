@@ -286,6 +286,14 @@ def configure_platform_hooks(upstream,p):
         from native_media_scope import NATIVE_VIDEO_MEDIA_ACTIVE,install_ffmpeg_path,save_bilibili_identity
         crawler=upstream.CrawlerFactory.CRAWLERS['bili']
         original_media=crawler.download_media
+        options=p.get('platform_options',{})
+        if options.get('long_audio') is not True and type(options.get('quality')) is int and options['quality']==16:
+            from media_platform.bilibili import media as bili_media
+            from bili_media_selection import install_low_audio_selection
+            def audio_selection(value):
+                phase=Path.cwd()/'phase.json';previous=read(phase) if phase.exists() else {}
+                write(phase,{**previous,'media_audio_selection':value})
+            install_low_audio_selection(bili_media,16,audio_selection)
         if not p.get('platform_options',{}).get('long_audio') and os.environ.get('CROWD_FFMPEG'):
             import media_downloader
             import media_downloader.ffmpeg as native_ffmpeg
@@ -534,10 +542,12 @@ def worker(root, mc, run_id, lock_fd):
     child = subprocess.Popen([str(Path(mc)/'.venv/bin/python'),str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_execute','--run-id',run_id],cwd=run,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock_fd,))
     started = time.monotonic()
     reason = None
+    from native_media_scope import output_byte_usage
     while child.poll() is None:
-        output_bytes=sum(f.stat().st_size for f in (run/'output').rglob('*') if f.is_file() and not f.is_symlink())
-        if (run/'stop.json').exists() or time.monotonic()-started > p['timeout_seconds'] or output_bytes>104857600:
-            reason = stop_context(run)['reason'] if (run/'stop.json').exists() else 'output_byte_limit' if output_bytes>104857600 else 'wall_timeout'
+        try:output_limited=output_byte_usage(run/'output',p,child.pid)['limited']
+        except (OSError,ValueError):output_limited=True
+        if (run/'stop.json').exists() or time.monotonic()-started > p['timeout_seconds'] or output_limited:
+            reason = stop_context(run)['reason'] if (run/'stop.json').exists() else 'output_byte_limit' if output_limited else 'wall_timeout'
             terminate_executor(child.pid,borrowed)
             try:
                 child.wait(5)
@@ -867,6 +877,7 @@ def import_output(root,payload):
     artifacts=[]
     artifact_bytes=0
     bili_identities,bili_identity_sha=({},None)
+    from native_media_scope import temporary_media_path
     if p=='bili':
         from native_media_scope import bilibili_identity_map
         bili_identities,bili_identity_sha=bilibili_identity_map(output,manifest['run_id'],records,read)
@@ -874,6 +885,7 @@ def import_output(root,payload):
         folder=output/name/'media'
         if folder.is_symlink() or folder.parent.is_symlink(): fail('unsafe_output_file')
         for path in sorted(folder.rglob('*')):
+            if temporary_media_path(path.relative_to(folder).parts):continue
             if path.is_file() and path.suffix.lower() in ('.jpg','.jpeg','.png','.webp','.gif','.mp4','.m4a','.mp3','.aac','.wav','.webm','.flv','.mov') and not path.is_symlink() and path.resolve().is_relative_to(output.resolve()):
                 size=path.stat().st_size
                 media_bytes+=size

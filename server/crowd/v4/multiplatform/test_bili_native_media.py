@@ -54,7 +54,8 @@ class Tests(unittest.TestCase):
    method=next(node for node in ast.parse((SDK/'media_platform/bilibili/core.py').read_text()).body if isinstance(node,ast.ClassDef) and node.name=='BilibiliCrawler')
    body=[node for node in method.body if isinstance(node,ast.AsyncFunctionDef) and node.name=='_download_media'];namespace={'asyncio':asyncio,'Dict':dict,'Optional':__import__('typing').Optional,'config':SimpleNamespace(CRAWLER_MAX_SLEEP_SEC=0,BILI_QN=16),'utils':SimpleNamespace(logger=Mock()),'is_ffmpeg_available':package.is_ffmpeg_available,'bili_media':SimpleNamespace(DASH_FNVAL=4048,MP4_FNVAL=1,build_cover_item=lambda *_:None,build_dash_item=lambda *a,**k:object())}
    exec(compile(ast.Module(body=body,type_ignores=[]),str(SDK/'media_platform/bilibili/core.py'),'exec'),namespace);Crawler.download_media=namespace['_download_media']
-   with patch.dict('sys.modules',{'media_downloader':package,'media_downloader.ffmpeg':module}),patch.dict(os.environ,{'CROWD_FFMPEG':str(binary)}),patch.object(shutil,'which',return_value=None),patch.object(m.Path,'cwd',return_value=root):
+   namespace['bili_media'].pick_audio_stream=lambda *_:None
+   with patch.dict('sys.modules',{'media_downloader':package,'media_downloader.ffmpeg':module,'media_platform.bilibili':SimpleNamespace(media=namespace['bili_media'])}),patch.dict(os.environ,{'CROWD_FFMPEG':str(binary)}),patch.object(shutil,'which',return_value=None),patch.object(m.Path,'cwd',return_value=root):
     m.configure_platform_hooks(SimpleNamespace(CrawlerFactory=SimpleNamespace(CRAWLERS={'bili':Crawler})),{'platform':'bili','mode':'detail','media':True,'comments':False,'platform_options':{'quality':16}})
     crawler=Crawler()
     async def run():await crawler.download_media({'View':{'aid':1,'cid':2,'bvid':'BV1popx6zEe1'}},asyncio.Semaphore(1))

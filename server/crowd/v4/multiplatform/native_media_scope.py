@@ -6,6 +6,55 @@ NATIVE_VIDEO_MEDIA_ACTIVE = ContextVar('crowd_native_video_media_active', defaul
 DEFAULT_RESPONSE_BYTES = 25 * 1024 * 1024
 NATIVE_VIDEO_MEDIA_BYTES = 64 * 1024 * 1024
 
+def temporary_media_path(parts):
+    """A native staging file is never a committed media asset, including old imports."""
+    return any(value.startswith('.tmp-') or value.endswith(('.part','.tmp')) for value in parts)
+
+def output_byte_usage(output, request, executor_pid):
+    """Bound native Bili DASH staging separately from committed/merged output."""
+    import os,re,stat
+    from pathlib import Path
+    from analysis_artifact import _safe_ancestors
+    output=Path(output);_safe_ancestors(output)
+    final_bytes=0;input_bytes=0
+    staging=(request.get('platform')=='bili' and request.get('media') is True
+             and request.get('platform_options',{}).get('long_audio') is not True
+             and type(executor_pid) is int and executor_pid>0)
+    temp_pattern=re.compile(r'\.tmp-'+str(executor_pid)+r'-[a-f0-9]{8}')
+    part_pattern=re.compile(r'(video|audio)\.[a-f0-9]{8}\.'+str(executor_pid)+r'\.part')
+    native_ids=set()
+    if staging:
+        from analysis_artifact import _read
+        sidecar=output/'bili/media-identities.json'
+        if sidecar.exists() or sidecar.is_symlink():
+            value,_=_read(sidecar,200000)
+            bindings=value.get('bindings',[]) if isinstance(value,dict) else []
+            if not isinstance(bindings,list):raise ValueError('invalid_bilibili_media_identity')
+            records=[{'kind':'content','canonical_id_scheme':'bilibili.aid.v1','content_id':v.get('aid')} for v in bindings if isinstance(v,dict)]
+            pairs,_=bilibili_identity_map(output,output.parent.name,records,None)
+            native_ids=set(pairs)
+    for folder,dirs,files in os.walk(output,followlinks=False):
+        for name in dirs+files:
+            path=Path(folder)/name
+            try:info=path.lstat()
+            except FileNotFoundError:continue # Native replace/cleanup may race this read-only sample.
+            if stat.S_ISLNK(info.st_mode) or not (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode)) or stat.S_ISREG(info.st_mode) and info.st_nlink!=1:
+                raise ValueError('unsafe_output_file')
+            if not stat.S_ISREG(info.st_mode):continue
+            parts=path.relative_to(output).parts
+            native_temp=(staging and len(parts)==5 and parts[:2]==('bili','media')
+                         and parts[2] in native_ids
+                         and temp_pattern.fullmatch(parts[3]))
+            native_input=native_temp and (parts[4] in ('video.m4s','audio.m4s') or part_pattern.fullmatch(parts[4]))
+            if native_temp and (native_input or parts[4]=='merged.mp4') and info.st_size>NATIVE_VIDEO_MEDIA_BYTES:
+                raise ValueError('output_byte_limit')
+            if native_input:input_bytes+=info.st_size
+            else:final_bytes+=info.st_size
+    limit=100*1024*1024
+    return {'final_bytes':final_bytes,'staging_input_bytes':input_bytes,
+            'total_bytes':final_bytes+input_bytes,
+            'limited':final_bytes>limit or input_bytes>limit or final_bytes+input_bytes>2*limit}
+
 def install_ffmpeg_path(package, module, configured=None):
     """Use the already configured executable through the installed SDK's own merge."""
     import os,stat

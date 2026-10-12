@@ -60,6 +60,8 @@ def _identity(run_folder,content_id,asset_sha256,entity_ref):
         if not pair or pair['aid']!=content_id or pair['cid']!=item.get('bilibili_view_cid') or identity_sha!=item.get('bilibili_media_identity_sha256'):raise ValueError('media_native_source_ambiguous')
         directory_id=pair['bvid']
     path=_relative(run_folder,item.get('path'));parts=path.relative_to(run_folder).parts
+    from native_media_scope import temporary_media_path
+    if temporary_media_path(parts):raise ValueError('media_native_uncommitted_asset')
     if len(parts)<5 or parts[0]!='output' or parts[1] not in (p,platform) or parts[2]!='media' or parts[3]!=directory_id or path.suffix.lower()!='.mp4':raise ValueError('media_native_identity_invalid')
     if platform=='zhihu' and (len(parts)<6 or parts[4]!=ctype):raise ValueError('media_native_source_ambiguous')
     data=read_bytes(path,LIMIT)
