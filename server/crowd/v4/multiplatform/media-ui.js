@@ -23,7 +23,7 @@ const mediaView = (() => {
     const payload={schema_version:1,job:identity,semantic_review:'not_reviewed',full_segments:true,result:state.result};
     const valid=()=>dialog.open&&viewTicket===generation&&jobTicket===jobGeneration&&job===state;
     exportPanel.hidden=false;
-    exportPanel.append(node('p',visual?'画面文字：每秒2帧、指定字幕区域采样，时间误差约0.5秒。可能漏掉短字幕或区域外文字，不能代替全文听写。':'导出全部时间段；不受正文预览截断限制。包含原任务身份与诊断，仍待听音校对。'),
+    exportPanel.append(node('p',visual?'画面文字：每秒2帧、指定字幕区域采样，时间误差约0.5秒。可能漏掉短字幕或区域外文字，也可能读到招牌、贴字，不能代替全文听写。':'导出全部时间段；不受正文预览截断限制。包含原任务身份与诊断，仍待听音校对。'),
       button(visual?'导出画面文字 JSON':'导出完整转写 JSON',()=>{if(valid())download('crowd-transcript-'+state.job_id+'.json',payload);}),
       button('导出纯文字稿 TXT',()=>{
         if(!valid())return;
@@ -75,6 +75,7 @@ const mediaView = (() => {
       const candidates=node('details');candidates.append(node('summary','待听音的原窗口候选与无文字区间'));
       for(const row of (q.candidates||[]).slice(0,20))candidates.append(node('p','原窗口 '+row.start+'–'+row.end+' 秒：'+row.text+'（原窗口诊断，不是修订句子的评分）'),button('试听原窗口 '+row.start+'–'+row.end+' 秒',()=>{if(valid())listen(state,row);}));
       for(const row of (q.untranscribed_intervals||[]).slice(0,10))candidates.append(button('试听无文字区间 '+row.start+'–'+row.end+' 秒',()=>{if(valid())listen(state,row);}));
+      for(const hint of (q.text_pattern_hints||[])){candidates.append(node('p',hint.kind==='credit_style_output'?'发现署名式输出疑点；模型置信值不能证明内容真实，请核对原音。':'发现大量同句重复；可能是真实对白或歌词，也可能是模型重复，请核对原音。'));for(const index of hint.segment_indices.slice(0,3)){const row=value.segments[index];if(row)candidates.append(button('试听文字疑点 '+row.start+'–'+row.end+' 秒',()=>{if(valid())listen(state,row);}));}}
       panel.append(candidates);
       const selector=node('select'),editor=node('textarea'),label=node('label','选择时间段并听音校对'),editLabel=node('label','修订文字（另存新版本，原转写保留）'),ack=node('input');ack.type='checkbox';editor.rows=5;editor.maxLength=2000;
       for(const row of value.segments)selector.append(new Option((row.segment_index+1)+' · '+row.start+'–'+row.end+' 秒 · '+row.text.slice(0,60),String(row.segment_index)));
@@ -123,8 +124,10 @@ const mediaView = (() => {
     return flagged;
   }
   function qualityText(evidence){
+    const rows=evidence.segments||[],credit=rows.length<=3&&rows.reduce((n,row)=>n+Array.from(row.text||'').length,0)<=160&&rows.some(row=>/字幕(?:志愿者|制作|提供|校对)|(?:字幕|翻译)由/.test(row.text||''));
+    const prefix=credit?'发现署名式输出疑点；可能是真实内容或模型生成，置信值不能证明准确。请核对原音。\n':'';
     const quality=evidence.quality_diagnostics;
-    if(!quality||quality.schema_version!==1||!['available','partial'].includes(quality.status)||!Array.isArray(quality.segments)||!quality.segments.length)return '模型诊断：未记录（unknown）。旧结果或本次处理缺少原生诊断，仍需听音核对。';
+    if(!quality||quality.schema_version!==1||!['available','partial'].includes(quality.status)||!Array.isArray(quality.segments)||!quality.segments.length)return prefix+'模型诊断：未记录（unknown）。旧结果或本次处理缺少原生诊断，仍需听音核对。';
     const labels={low_logprob:'平均对数概率偏低',high_compression:'压缩比偏高，建议检查重复',possible_no_speech:'可能没有语音，需听音核对',repeated_adjacent_text:'同窗口连续重复候选，可能是真实重复，需听音核对'};
     const metric=value=>typeof value==='number'&&Number.isFinite(value)?String(value):'未记录';
     const lines=['模型诊断仅供复核，不代表准确率。以下是原始窗口片段，可能包含已去重的文字；正文保留。'];
@@ -136,7 +139,7 @@ const mediaView = (() => {
       lines.push('['+row.start+'–'+row.end+'] '+(Number.isInteger(row.chunk_index)?'窗口 '+row.chunk_index+' · ':'')+'片段 '+row.segment_index+'：'+row.text+'\n  avg_logprob='+metric(row.avg_logprob)+'；compression_ratio='+metric(row.compression_ratio)+'；no_speech_prob='+metric(row.no_speech_prob)+'\n  '+([...new Set([...(Array.isArray(row.flags)?row.flags:[]),...(repeated.has(index)?['repeated_adjacent_text']:[])])].map(flag=>labels[flag]).filter(Boolean).join('；')||'没有触发复核提示，仍不代表识别正确。'));
     }
     if(quality.segments.length>20)lines.push('仅显示前 20 条；其余 '+(quality.segments.length-20)+' 条保留在处理结果中。');
-    return lines.join('\n');
+    return prefix+lines.join('\n');
   }
   $('media_process_close').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{generation++;clearTimeout(timer);timer=null;clearPlayback();});
   async function poll(id,ticket,jobTicket=jobGeneration){const state=await call('status',{job_id:id});if(ticket!==generation||jobTicket!==jobGeneration||!dialog.open)return;render(state);if(!['completed','failed','cancelled','interrupted_unknown'].includes(state.state))timer=setTimeout(()=>guarded(()=>poll(id,ticket,jobTicket)),1500);}
@@ -161,7 +164,7 @@ const mediaView = (() => {
     $('media_process_result').hidden=true;$('media_process_result').textContent='';qualityOutput.hidden=true;qualityOutput.textContent='';exportPanel.hidden=true;exportPanel.replaceChildren();$('media_process_jobs').replaceChildren();$('media_process_state').textContent='正在读取已保存文字稿…';
     $('media_process_hint').textContent='查看本任务已保存文字稿；来源字幕的语义与漏字仍待校对。';dialog.showModal();
     const state=await call('status',{job_id:jobId});if(ticket!==generation||jobTicket!==jobGeneration||!dialog.open)return;
-    if(state.run_id!==runId)throw Error('transcript_source_binding_denied');$('media_process_hint').textContent=state.kind==='video_ocr'?'已保存的画面字幕稿；不是语音转写，短字幕和区域外文字可能遗漏，尚未人工校对。':'查看本任务已保存文字稿；来源字幕的语义与漏字仍待校对。';render(state);await history(ticket);if(['queued','running'].includes(state.state))await poll(jobId,ticket,jobTicket);
+    if(state.run_id!==runId)throw Error('transcript_source_binding_denied');$('media_process_hint').textContent=state.kind==='video_ocr'?'已保存的画面文字稿；不是语音转写，短字幕和区域外文字可能遗漏，尚未人工校对。':'查看本任务已保存文字稿；来源字幕的语义与漏字仍待校对。';render(state);await history(ticket);if(['queued','running'].includes(state.state))await poll(jobId,ticket,jobTicket);
   }
   async function openVideoOCR(runId,sourceJobId){const ticket=++generation,jobTicket=++jobGeneration,view=selectedRun;const state=await call('video_ocr_start',{run_id:runId,source_job_id:sourceJobId});if(ticket!==generation||jobTicket!==jobGeneration||view!==selectedRun)return;await openSaved(runId,state.job_id);}
   $('media_kind').onchange=previewInput;$('media_content').onchange=previewInput;$('media_asr_engine').onchange=previewInput;

@@ -19,6 +19,22 @@ HASH=re.compile(r'[a-f0-9]{64}')
 FLAGS=frozenset(('low_logprob','high_compression','possible_no_speech','repeated_adjacent_text'))
 
 
+def text_pattern_hints(rows):
+    """Read-only suspicions; actual speech/lyrics may match. Never edit transcript."""
+    hints=[]
+    credits=[i for i,row in enumerate(rows) if re.search(r'字幕(?:志愿者|制作|提供|校对)|(?:字幕|翻译)由',row['text'])]
+    if credits and (len(rows)<=3 and sum(len(row['text']) for row in rows)<=160 or len(credits)/len(rows)>=.6):
+        hints.append({'kind':'credit_style_output','segment_indices':credits,'basis':'literal_text_pattern_not_proven_hallucination'})
+    groups={}
+    for i,row in enumerate(rows):
+        key=re.sub(r'[\s，。！？、,.!?]+','',row['text'])
+        if key:groups.setdefault(key,[]).append(i)
+    for indices in groups.values():
+        if len(indices)>=3 and len(indices)/len(rows)>=.2:
+            hints.append({'kind':'repeated_phrase_output','segment_indices':indices,'basis':'literal_repetition_may_be_real_speech_or_lyrics'})
+    return hints
+
+
 def canonical(value):return json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False)
 def text_hash(value):return hashlib.sha256(value.encode()).hexdigest()
 def job_id(value):
@@ -201,7 +217,7 @@ class TranscriptQuality:
                 'segments':[{'segment_index':i,**row,'text_sha256':text_hash(row['text'])} for i,row in enumerate(evidence['segments'])],
                 'quality':{'review_status':'not_reviewed','cer':None,'human_reference':None,
                            'native_metric_status':'available' if native and recorded==len(native)*3 else 'partial' if recorded else 'unknown',
-                           'original_diagnostic_segments':len(native),'flag_counts':counts,'candidates':candidates,
+                           'text_pattern_hints':text_pattern_hints(evidence['segments']),'original_diagnostic_segments':len(native),'flag_counts':counts,'candidates':candidates,
                            'overlap_decisions':evidence.get('overlap_decisions',[]),'no_text_windows':evidence.get('no_text_windows'),
                            'untranscribed_intervals':sorted(gaps,key=lambda row:row['end']-row['start'],reverse=True)[:100],
                            'untranscribed_intervals_total':len(gaps),'untranscribed_seconds':sum(row['end']-row['start'] for row in gaps),
