@@ -58,6 +58,16 @@ class VideoOCRDispatch(unittest.TestCase):
                 self.app.process_media('video_ocr_start', {'run_id': self.run, 'source_job_id': self.source, 'retry': retry})
         self.start.assert_not_called()
 
+    def test_only_bounded_region_presets(self):
+        with patch.object(self.app, '_registered_run_root', return_value=self.root / 'runner'):
+            self.app.process_media('video_ocr_start', {'run_id': self.run, 'source_job_id': self.source, 'text_region': 'top'})
+        self.start.assert_called_once_with(self.source, self.root / 'runner' / 'runs' / self.run, crop_top=.12, crop_bottom=.32)
+        self.start.reset_mock()
+        for region in ([], {}, 'custom', '../', 0):
+            with self.assertRaisesRegex(ValueError, 'invalid_video_ocr_region'):
+                self.app.process_media('video_ocr_start', {'run_id': self.run, 'source_job_id': self.source, 'text_region': region})
+        self.start.assert_not_called()
+
     def test_saved_mp4_candidate_is_not_promised_source_validation(self):
         from media_jobs import MediaJobs
         jobs = MediaJobs(self.root / 'candidate')

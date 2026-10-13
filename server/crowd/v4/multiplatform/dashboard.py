@@ -527,9 +527,14 @@ class Application:
                 self.media_jobs = MediaJobs(self.root, os.environ.get('CROWD_LOCAL_ASR_MODEL'), os.environ.get('CROWD_LOCAL_ASR_PYTHON'))
         self.media_jobs.subtitle_run_folder = lambda run_id: self._registered_run_root(run_id) / 'runs' / run_id
         if action == 'video_ocr_start':
-            if set(payload) not in ({'run_id', 'source_job_id'}, {'run_id', 'source_job_id', 'retry'}) or 'retry' in payload and type(payload['retry']) is not bool:raise ValueError('invalid_video_ocr_request')
+            if not {'run_id','source_job_id'}<=set(payload) or set(payload)-{'run_id','source_job_id','retry','text_region'} or 'retry' in payload and type(payload['retry']) is not bool:raise ValueError('invalid_video_ocr_request')
+            region=payload.get('text_region','bottom')
+            regions={'bottom':(.67,.82),'top':(.12,.32),'full':(0.,1.)}
+            if not isinstance(region,str) or region not in regions:raise ValueError('invalid_video_ocr_region')
             folder = self._registered_run_root(payload['run_id']) / 'runs' / payload['run_id']
-            return self.media_jobs.start_video_ocr(payload['source_job_id'], folder, **({'retry':payload['retry']} if 'retry' in payload else {}))
+            options=({'retry':payload['retry']} if 'retry' in payload else {})
+            if 'text_region' in payload:options.update(crop_top=regions[region][0],crop_bottom=regions[region][1])
+            return self.media_jobs.start_video_ocr(payload['source_job_id'], folder, **options)
         if action == 'capabilities' and not payload:
             return self.media_jobs.capabilities()
         if action == 'list' and set(payload) == {'run_id'}:

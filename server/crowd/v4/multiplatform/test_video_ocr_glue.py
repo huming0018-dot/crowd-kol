@@ -4,6 +4,12 @@ from unittest.mock import patch
 from transcript_artifact import load_transcript
 HERE=Path(__file__).parent
 class OCRGlue(unittest.TestCase):
+ def test_actual_retry_preserves_top_full_and_refuses_unknown(self):
+  src=(HERE/'media-ui.js').read_text();fn=src.split('  async function retryVideoOCR(',1)[1].split('\n',1)[0]
+  script="const assert=require('node:assert/strict');let calls=[];const openVideoOCR=async(...args)=>calls.push(args);async function retryVideoOCR("+fn+"\n(async()=>{let s={kind:'video_ocr',state:'failed',run_id:'r',video_source_job_id:'p',crop_top:.12,crop_bottom:.32};await retryVideoOCR(s);assert.deepEqual(calls.pop(),['r','p',true,'top']);await retryVideoOCR({...s,state:'cancelled',crop_top:0,crop_bottom:1});assert.deepEqual(calls.pop(),['r','p',true,'full']);await assert.rejects(()=>retryVideoOCR({...s,crop_top:.2}),/region_requires_selection/);await assert.rejects(()=>retryVideoOCR({...s,state:'interrupted_unknown'}),/retry_not_allowed/);assert.equal(calls.length,0);})().catch(e=>{console.error(e);process.exitCode=1});"
+  done=subprocess.run(['/Users/hubowen/.local/node/bin/node','-e',script],capture_output=True,text=True)
+  self.assertEqual(done.returncode,0,done.stderr)
+
  def test_report_keeps_visual_provenance_not_audio(self):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);job=str(uuid.uuid4());folder=root/job;folder.mkdir();(folder/'state.json').write_text('{"kind":"video_ocr"}')
