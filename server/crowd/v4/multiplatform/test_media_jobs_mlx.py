@@ -7,6 +7,29 @@ from unittest.mock import patch
 from media_jobs import MediaJobs
 
 class MacSelection(unittest.TestCase):
+    def test_start_reads_full_result_only_for_matching_cached_job(self):
+        import uuid
+        from mc_runner import write
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);manager=MediaJobs(root/'runtime')
+            source=root/'saved.png';source.write_bytes(b'owned-offline-fixture')
+            old=manager.root/str(uuid.uuid4());old.mkdir()
+            write(old/'state.json',{'job_id':old.name,'kind':'ocr','state':'completed','input_hash':'unrelated'})
+            def completed(state,snapshot,process_lock):
+                write(snapshot.parent/'result.json',[{'text':'offline fixture'}])
+                write(snapshot.parent/'state.json',{**state,'state':'completed'})
+                process_lock.close()
+            try:
+                with patch.object(manager,'_execute',side_effect=completed),patch.object(manager,'status',wraps=manager.status) as lookup:
+                    first=manager.start(source,'weibo','123','ocr',str(uuid.uuid4()))
+                    manager.threads[first['job_id']].join(3)
+                    self.assertIn(((old.name,),{'include_result':False}),[(c.args,c.kwargs) for c in lookup.call_args_list])
+                    lookup.reset_mock()
+                    cached=manager.start(source,'weibo','123','ocr',first['run_id'])
+                    self.assertTrue(cached['cached']);self.assertEqual(cached['result'],[{'text':'offline fixture'}])
+                    self.assertFalse(any(c.args==(old.name,) and not c.kwargs for c in lookup.call_args_list))
+            finally:manager.close()
+
     def test_opt_in_requires_explicit_runtime_and_cpu_remains_default(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ,{},clear=True):
             manager=MediaJobs(directory)

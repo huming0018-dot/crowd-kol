@@ -292,9 +292,9 @@ class MediaJobs:
             unknown = False
             for folder in self.root.iterdir():
                 if folder.is_dir() and not folder.is_symlink() and (folder / 'state.json').is_file():
-                    state = self.status(folder.name)
+                    state = self.status(folder.name, include_result=False)
                     if state.get('input_hash') == key and state['state'] not in ('failed', 'cancelled'):
-                        return {**state, 'cached': state['state'] == 'completed', 'reused_existing_job': True}
+                        return {**self.status(folder.name), 'cached': state['state'] == 'completed', 'reused_existing_job': True}
                     unknown = unknown or state['state'] == 'interrupted_unknown'
             if unknown:
                 raise ValueError('media_processor_reconciliation_required')

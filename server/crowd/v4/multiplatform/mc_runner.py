@@ -279,6 +279,9 @@ def configure_executor(config,p):
         if 'quality' in options: config.BILI_QN=options['quality']
 
 def configure_platform_hooks(upstream,p):
+    if p['media'] and p['platform'] in ('ks','wb','xhs','zhihu','tieba'):
+        from subtitle_discovery import install_hooks as install_subtitle_discovery
+        install_subtitle_discovery(upstream.CrawlerFactory.CRAWLERS,p['platform'],Path.cwd()/'output')
     if p['platform']=='zhihu' and p['comments']:
         from media_platform.zhihu.client import ZhiHuClient
         from zhihu_comments import install_hook as install_comment_hook
