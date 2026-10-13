@@ -78,7 +78,8 @@ def native_configuration():
     if expected_source!=sha(ROOT/'video_vision.swift') or expected_binary!=sha(path):raise ValueError('video_ocr_native_changed')
     return path,expected_binary
 
-def start(jobs,source_job_id,run_folder,crop_top=.67,crop_bottom=.82):
+def start(jobs,source_job_id,run_folder,crop_top=.67,crop_bottom=.82,retry=False):
+    if type(retry) is not bool:raise ValueError('invalid_video_ocr_retry')
     path,binding=source(jobs,source_job_id,run_folder);native,binary_sha=native_configuration()
     if any(type(x) not in (int,float) or not math.isfinite(x) for x in (crop_top,crop_bottom)) or not 0<=crop_top<crop_bottom<=1 or crop_bottom-crop_top<.05:raise ValueError('invalid_video_ocr_crop')
     ffmpeg=os.environ.get('CROWD_FFMPEG')
@@ -93,11 +94,20 @@ def start(jobs,source_job_id,run_folder,crop_top=.67,crop_bottom=.82):
     key=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
     with jobs.lock:
         if jobs.closed:raise ValueError('media_processor_closed')
+        matches=[];unknown=False
         for folder in jobs.root.iterdir():
             if folder.is_dir() and not folder.is_symlink() and (folder/'state.json').is_file():
                 saved=jobs.status(folder.name)
-                if saved.get('input_hash')==key:return {**saved,'reused_existing_job':True,'cached':saved['state']=='completed'}
-                if saved['state']=='interrupted_unknown':raise ValueError('media_processor_reconciliation_required')
+                if saved.get('input_hash')==key:matches.append(saved)
+                unknown=unknown or saved['state']=='interrupted_unknown'
+        if unknown:raise ValueError('media_processor_reconciliation_required')
+        active=[saved for saved in matches if saved['state'] in ('queued','running','completed')]
+        if active:
+            saved=max(active,key=lambda s:s.get('created_at',0))
+            return {**saved,'reused_existing_job':True,'cached':saved['state']=='completed'}
+        failed=[saved for saved in matches if saved['state'] in ('failed','cancelled')]
+        previous=max(failed,key=lambda s:s.get('created_at',0)) if failed else None
+        if previous is not None and not retry:return {**previous,'reused_existing_job':True,'cached':False}
         if any(t.is_alive() for t in jobs.threads.values()):raise ValueError('media_processor_busy')
         lock=os.fdopen(os.open(jobs.root/'processor.lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600),'a+')
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -106,6 +116,7 @@ def start(jobs,source_job_id,run_folder,crop_top=.67,crop_bottom=.82):
         try:
             job_id=str(uuid.uuid4());folder=jobs.root/job_id;folder.mkdir(mode=0o700)
             state={**identity,'job_id':job_id,'kind':'video_ocr','state':'queued','input_hash':key,'created_at':time.time(),'source_kind':'sampled_video_text','uploaded':False,'network_attempts':0,'model_calls':0,'run_folder':str(Path(run_folder).resolve())}
+            if previous is not None:state['retry_of_job_id']=previous['job_id']
             write(folder/'state.json',state)
             thread=threading.Thread(target=execute,args=(jobs,state,path,native,lock),daemon=True);jobs.threads[job_id]=thread;thread.start()
             return state

@@ -48,6 +48,16 @@ class VideoOCRDispatch(unittest.TestCase):
     def test_cli_route(self):
         self.assertIn('video_ocr_start', ROUTES['media-processing'])
 
+    def test_retry_is_explicit_boolean(self):
+        with patch.object(self.app, '_registered_run_root', return_value=self.root / 'runner'):
+            self.app.process_media('video_ocr_start', {'run_id': self.run, 'source_job_id': self.source, 'retry': True})
+        self.start.assert_called_once_with(self.source, self.root / 'runner' / 'runs' / self.run, retry=True)
+        self.start.reset_mock()
+        for retry in (1, 'true', None, {}):
+            with self.assertRaisesRegex(ValueError, 'invalid_video_ocr_request'):
+                self.app.process_media('video_ocr_start', {'run_id': self.run, 'source_job_id': self.source, 'retry': retry})
+        self.start.assert_not_called()
+
     def test_saved_mp4_candidate_is_not_promised_source_validation(self):
         from media_jobs import MediaJobs
         jobs = MediaJobs(self.root / 'candidate')

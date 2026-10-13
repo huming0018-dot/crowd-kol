@@ -527,9 +527,9 @@ class Application:
                 self.media_jobs = MediaJobs(self.root, os.environ.get('CROWD_LOCAL_ASR_MODEL'), os.environ.get('CROWD_LOCAL_ASR_PYTHON'))
         self.media_jobs.subtitle_run_folder = lambda run_id: self._registered_run_root(run_id) / 'runs' / run_id
         if action == 'video_ocr_start':
-            if set(payload) != {'run_id', 'source_job_id'}:raise ValueError('invalid_video_ocr_request')
+            if set(payload) not in ({'run_id', 'source_job_id'}, {'run_id', 'source_job_id', 'retry'}) or 'retry' in payload and type(payload['retry']) is not bool:raise ValueError('invalid_video_ocr_request')
             folder = self._registered_run_root(payload['run_id']) / 'runs' / payload['run_id']
-            return self.media_jobs.start_video_ocr(payload['source_job_id'], folder)
+            return self.media_jobs.start_video_ocr(payload['source_job_id'], folder, **({'retry':payload['retry']} if 'retry' in payload else {}))
         if action == 'capabilities' and not payload:
             return self.media_jobs.capabilities()
         if action == 'list' and set(payload) == {'run_id'}:

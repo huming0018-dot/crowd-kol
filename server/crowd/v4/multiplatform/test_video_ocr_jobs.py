@@ -6,6 +6,37 @@ from media_jobs import MediaJobs
 import video_ocr_jobs as ocr
 
 class VideoOCRJobsTests(unittest.TestCase):
+    def test_explicit_retry_preserves_failed_prioritizes_active_and_rejects_unknown(self):
+        from unittest.mock import Mock
+        from types import SimpleNamespace
+        threads=[]
+        def create_thread(*args,**kwargs):
+            thread=Mock();thread.is_alive.return_value=True
+            thread.start.side_effect=kwargs['args'][-1].close
+            threads.append(thread);return thread
+        with patch.object(ocr,'source',return_value=(self.source,self.binding)) as resolve,patch.object(ocr,'native_configuration',return_value=(self.root/'native','d'*64)),patch.dict(os.environ,{'CROWD_FFMPEG':str(self.source)}),patch.object(ocr.subprocess,'run',return_value=SimpleNamespace(stderr=b'Duration: 00:00:02.10\nVideo: h264')),patch.object(ocr.threading,'Thread',side_effect=create_thread):
+            with self.assertRaisesRegex(ValueError,'invalid_video_ocr_retry'):ocr.start(self.jobs,self.parent,self.run,retry=1)
+            resolve.assert_not_called()
+            first=ocr.start(self.jobs,self.parent,self.run);first_path=self.jobs.root/first['job_id']/'state.json'
+            threads[0].is_alive.return_value=False
+            failed=json.loads(first_path.read_text());failed.update(state='failed',reason='offline-failed-fixture');write(first_path,failed);preserved=first_path.read_bytes()
+            reused=ocr.start(self.jobs,self.parent,self.run);self.assertEqual(reused['job_id'],first['job_id']);self.assertEqual(len(threads),1)
+            second=ocr.start(self.jobs,self.parent,self.run,retry=True)
+            self.assertNotEqual(second['job_id'],first['job_id']);self.assertEqual(second['retry_of_job_id'],first['job_id'])
+            self.assertEqual(first_path.read_bytes(),preserved)
+            double=ocr.start(self.jobs,self.parent,self.run,retry=True)
+            self.assertEqual(double['job_id'],second['job_id']);self.assertEqual(len(threads),2)
+            second_path=self.jobs.root/second['job_id']/'state.json';active=json.loads(second_path.read_text());active['state']='running';write(second_path,active)
+            self.assertEqual(ocr.start(self.jobs,self.parent,self.run)['job_id'],second['job_id'])
+            active['state']='completed';write(second_path,active);write(second_path.parent/'result.json',[])
+            self.assertTrue(ocr.start(self.jobs,self.parent,self.run,retry=True)['cached'])
+            active['state']='cancelled';write(second_path,active)
+            threads[1].is_alive.return_value=False
+            cancelled_bytes=second_path.read_bytes();third=ocr.start(self.jobs,self.parent,self.run,retry=True)
+            self.assertEqual(third['retry_of_job_id'],second['job_id']);self.assertEqual(second_path.read_bytes(),cancelled_bytes)
+            threads[2].is_alive.return_value=False
+            with self.assertRaisesRegex(ValueError,'reconciliation_required'):ocr.start(self.jobs,self.parent,self.run,retry=True)
+            self.assertEqual(first_path.read_bytes(),preserved)
     def test_child_stderr_digest_and_fixed_diagnostic_do_not_log_raw_secrets(self):
         folder=self.root/'errors';folder.mkdir()
         raw=b'Cookie=secret https://private.test/?token=hidden'

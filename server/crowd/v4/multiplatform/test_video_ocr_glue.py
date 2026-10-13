@@ -20,8 +20,8 @@ class OCRGlue(unittest.TestCase):
    self.assertFalse(report['human_groundtruth']);self.assertIsNone(report['cer'])
  def test_late_start_does_not_open_or_steal_view(self):
   src=(HERE/'media-ui.js').read_text();fn=src.split('  async function openVideoOCR(',1)[1].split('\n',1)[0]
-  script="""const assert=require('node:assert/strict');let generation=0,jobGeneration=0,selectedRun={},resolve,opened=[];const call=()=>new Promise(r=>resolve=r);const openSaved=async(...a)=>opened.push(a);async function openVideoOCR("""+fn+"""
-(async()=>{let p=openVideoOCR('run','source');generation++;resolve({job_id:'job'});await p;assert.equal(opened.length,0);p=openVideoOCR('run','source');selectedRun={};resolve({job_id:'job'});await p;assert.equal(opened.length,0);p=openVideoOCR('run','source');resolve({job_id:'job'});await p;assert.deepEqual(opened,[['run','job']]);})().catch(e=>{console.error(e);process.exitCode=1});"""
+  script="""const assert=require('node:assert/strict');let generation=0,jobGeneration=0,selectedRun={},resolve,opened=[],calls=[];const call=(a,b)=>{calls.push([a,b]);return new Promise(r=>resolve=r);};const openSaved=async(...a)=>opened.push(a);async function openVideoOCR("""+fn+"""
+(async()=>{let p=openVideoOCR('run','source');generation++;resolve({job_id:'job'});await p;assert.equal(opened.length,0);p=openVideoOCR('run','source');selectedRun={};resolve({job_id:'job'});await p;assert.equal(opened.length,0);p=openVideoOCR('run','source');resolve({job_id:'job'});await p;assert.deepEqual(opened,[['run','job']]);p=openVideoOCR('run','source',true);assert.deepEqual(calls.at(-1),['video_ocr_start',{run_id:'run',source_job_id:'source',retry:true}]);resolve({job_id:'retry-job'});await p;assert.equal(opened.at(-1)[1],'retry-job');})().catch(e=>{console.error(e);process.exitCode=1});"""
   done=subprocess.run(['/Users/hubowen/.local/node/bin/node','-e',script],capture_output=True,text=True)
   self.assertEqual(done.returncode,0,done.stderr)
 if __name__=='__main__':unittest.main()

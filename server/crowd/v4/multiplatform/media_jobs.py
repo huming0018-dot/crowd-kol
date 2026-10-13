@@ -385,9 +385,9 @@ class MediaJobs:
             raise ValueError('complete_audio_reference_changed')
         return self.start_video(reference,output_kind='audio')
 
-    def start_video_ocr(self,source_job_id,run_folder,crop_top=.67,crop_bottom=.82):
+    def start_video_ocr(self,source_job_id,run_folder,crop_top=.67,crop_bottom=.82,retry=False):
         from video_ocr_jobs import start
-        return start(self,source_job_id,run_folder,crop_top,crop_bottom)
+        return start(self,source_job_id,run_folder,crop_top,crop_bottom,retry=retry)
 
     def recover_audio_reference_after_no_audio(self,previous_job_id,run_folder):
         from complete_video import source_reference
