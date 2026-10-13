@@ -121,7 +121,13 @@ class MediaJobs:
                     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
                     validate_report=module.validate_report
                     from analysis_artifact import _read
-                    manifest,_=_read(folder/'long-asr/chunks.json',65536)
+                    proof_folder=folder
+                    if state.get('text_revision') is not None:
+                        quality_spec=importlib.util.spec_from_file_location('crowd_precheck_revision_quality',PROCESSOR.parent/'transcript_quality.py')
+                        quality_module=importlib.util.module_from_spec(quality_spec);quality_spec.loader.exec_module(quality_module)
+                        saved=quality_module.TranscriptQuality(self.root.parent).validate(job_id)
+                        proof_folder=self.root/saved['audio_source_job_id']
+                    manifest,_=_read(proof_folder/'long-asr/chunks.json',65536)
                     duration=manifest.get('duration_seconds');chunks=manifest.get('chunks')
                     if (manifest.get('schema')!=1 or manifest.get('asset_sha256')!=state.get('asset_sha256')
                             or type(duration) not in (int,float) or not math.isfinite(duration) or not 0<duration<=7200
@@ -130,7 +136,7 @@ class MediaJobs:
                             or len(chunks)!=max(1,math.ceil(max(0,duration-55)/53)+1)):
                         raise ValueError('speech_precheck_diagnostic_changed')
                     from complete_video import read_bytes
-                    snapshots=list(folder.glob('input.*'))
+                    snapshots=list(proof_folder.glob('input.*'))
                     if len(snapshots)!=1 or hashlib.sha256(read_bytes(snapshots[0],self._snapshot_limit(state,snapshots[0]))).hexdigest()!=state['asset_sha256']:
                         raise ValueError('speech_precheck_diagnostic_changed')
                     for index,chunk in enumerate(chunks):
@@ -138,9 +144,9 @@ class MediaJobs:
                                 or type(chunk['index']) is not int or chunk['index']!=index or chunk['file']!='chunk-%04d.wav'%index
                                 or type(chunk['start']) not in (int,float) or type(chunk['end']) not in (int,float)
                                 or chunk['start']!=index*53 or chunk['end']!=min(duration,index*53+55)
-                                or hashlib.sha256(read_bytes(folder/'long-asr'/chunk['file'],2_000_000)).hexdigest()!=chunk['sha256']):
+                                or hashlib.sha256(read_bytes(proof_folder/'long-asr'/chunk['file'],2_000_000)).hexdigest()!=chunk['sha256']):
                             raise ValueError('speech_precheck_diagnostic_changed')
-                    report,report_hash=_read(folder/'long-asr/speech-check.json',2_000_000)
+                    report,report_hash=_read(proof_folder/'long-asr/speech-check.json',2_000_000)
                     summary=validate_report(report,manifest);summary['diagnostic_sha256']=report_hash
                     if summary!=detail['speech_precheck']:raise ValueError('speech_precheck_diagnostic_changed')
                     state['speech_precheck']=summary
