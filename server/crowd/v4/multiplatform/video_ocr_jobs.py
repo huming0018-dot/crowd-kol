@@ -29,29 +29,38 @@ def sha(path):
         for data in iter(lambda:f.read(1024*1024),b''):h.update(data)
     return h.hexdigest()
 
+def registered_source(run_folder,cid,asset_sha,entity_ref):
+    from media_native import _identity,_relative
+    from mc_runner import normalize,PLATFORMS
+    _,identity,body,item,normalized_sha,data=_identity(run_folder,cid,asset_sha,entity_ref,native_asr=True)
+    if body.get('source_kind')!='mediacrawler_api' or body.get('reward_eligible') is not False:raise ValueError('video_ocr_source_binding_changed')
+    normalized,_=_read(run_folder/'normalized.json',32*1024*1024);origin=body['origin']
+    files=[row for row in normalized.get('files',[]) if row.get('sha256')==origin.get('file_sha256')]
+    if len(files)!=1 or type(origin.get('line')) is not int or origin['line']<1:raise ValueError('video_ocr_raw_body_changed')
+    raw=read_bytes(_relative(run_folder,files[0]['path']),50*1024*1024);lines=raw.splitlines()
+    if hashlib.sha256(raw).hexdigest()!=origin['file_sha256'] or origin['line']>len(lines):raise ValueError('video_ocr_raw_body_changed')
+    code=next((key for key,name in PLATFORMS.items() if name==identity['platform']),None)
+    if normalize(code,body['kind'],json.loads(lines[origin['line']-1]),origin)['record_hash']!=body['record_hash']:raise ValueError('video_ocr_raw_body_changed')
+    ref={'source_kind':'registered_mediacrawler_video','local_run_id':identity['local_run_id'],'platform':identity['platform'],'content_id':identity['content_id'],'entity_ref':identity['entity_ref'],'asset_sha256':identity['asset_sha256'],'source_record_sha256':body['record_hash'],'source_file_sha256':body['origin']['file_sha256'],'normalized_sha256':normalized_sha,'media_path':item['path']}
+    return _relative(run_folder,item['path']),identity,ref,len(data)
+
 def source(jobs,parent_id,run_folder):
     parent_id=uid(parent_id);folder=jobs.root/parent_id;run_folder=Path(run_folder)
     parent,_=_read(folder/'state.json',200000)
-    if parent.get('kind')=='asr':
-        from media_native import _identity,_relative
-        from mc_runner import normalize,PLATFORMS
+    if parent.get('kind') in ('asr','registered_video_reference'):
         if parent.get('job_id')!=parent_id or parent.get('state')!='completed' or run_folder.name!=parent.get('run_id') or parent.get('text_revision') is not None:raise ValueError('video_ocr_parent_invalid')
-        _,identity,body,item,normalized_sha,data=_identity(run_folder,parent['content_id'],parent['asset_sha256'],parent.get('entity_ref'),native_asr=True)
-        if body.get('source_kind')!='mediacrawler_api' or body.get('reward_eligible') is not False:raise ValueError('video_ocr_source_binding_changed')
-        normalized,_=_read(run_folder/'normalized.json',32*1024*1024);origin=body['origin']
-        files=[row for row in normalized.get('files',[]) if row.get('sha256')==origin.get('file_sha256')]
-        if len(files)!=1 or type(origin.get('line')) is not int or origin['line']<1:raise ValueError('video_ocr_raw_body_changed')
-        raw=read_bytes(_relative(run_folder,files[0]['path']),50*1024*1024);lines=raw.splitlines()
-        if hashlib.sha256(raw).hexdigest()!=origin['file_sha256'] or origin['line']>len(lines):raise ValueError('video_ocr_raw_body_changed')
-        code=next((key for key,name in PLATFORMS.items() if name==identity['platform']),None)
-        if normalize(code,body['kind'],json.loads(lines[origin['line']-1]),origin)['record_hash']!=body['record_hash']:raise ValueError('video_ocr_raw_body_changed')
+        original,identity,ref,size=registered_source(run_folder,parent['content_id'],parent['asset_sha256'],parent.get('entity_ref'))
         if identity['local_run_id']!=parent['run_id'] or any(identity[k]!=parent.get(k) for k in ('platform','content_id','asset_sha256')):raise ValueError('video_ocr_source_binding_changed')
         result,result_sha=_read(folder/'result.json',2*1024*1024)
-        if result_sha!=parent.get('result_sha256') or not isinstance(result,list) or len(result)!=1 or result[0].get('kind')!='transcript' or any(result[0].get(k)!=identity[k] for k in ('platform','content_id')) or result[0].get('evidence',{}).get('asset_sha256')!=identity['asset_sha256']:raise ValueError('video_ocr_parent_changed')
-        path=folder/'input.mp4';_safe_ancestors(path)
-        if path.is_symlink() or not path.is_file() or path.stat().st_nlink!=1 or path.stat().st_size!=len(data) or sha(path)!=identity['asset_sha256']:raise ValueError('video_ocr_source_changed')
-        ref={'source_kind':'registered_mediacrawler_video','local_run_id':identity['local_run_id'],'platform':identity['platform'],'content_id':identity['content_id'],'entity_ref':identity['entity_ref'],'asset_sha256':identity['asset_sha256'],'source_record_sha256':body['record_hash'],'source_file_sha256':body['origin']['file_sha256'],'normalized_sha256':normalized_sha,'media_path':item['path']}
-        return path,{'video_source_job_id':parent_id,'run_id':identity['local_run_id'],'platform':identity['platform'],'content_id':identity['content_id'],'entity_ref':identity['entity_ref'],'asset_sha256':identity['asset_sha256'],'source_bytes':len(data),'source_record_sha256':body['record_hash'],'source_reference_sha256':hashlib.sha256(canonical(ref).encode()).hexdigest(),'source_parent_result_sha256':result_sha}
+        if result_sha!=parent.get('result_sha256') or not isinstance(result,list) or len(result)!=1 or result[0].get('kind')!=('transcript' if parent['kind']=='asr' else 'registered_video_reference') or any(result[0].get(k)!=identity[k] for k in ('platform','content_id')):raise ValueError('video_ocr_parent_changed')
+        if parent['kind']=='asr':
+            if result[0].get('evidence',{}).get('asset_sha256')!=identity['asset_sha256']:raise ValueError('video_ocr_parent_changed')
+            path=folder/'input.mp4';_safe_ancestors(path)
+            if path.is_symlink() or not path.is_file() or path.stat().st_nlink!=1 or path.stat().st_size!=size or sha(path)!=identity['asset_sha256']:raise ValueError('video_ocr_source_changed')
+        else:
+            if parent.get('registration_only') is not True or result[0].get('registration_only') is not True or result[0].get('reference')!=ref or parent.get('source_reference_sha256')!=hashlib.sha256(canonical(ref).encode()).hexdigest():raise ValueError('video_ocr_source_binding_changed')
+            path=original
+        return path,{'video_source_job_id':parent_id,'run_id':identity['local_run_id'],'platform':identity['platform'],'content_id':identity['content_id'],'entity_ref':identity['entity_ref'],'asset_sha256':identity['asset_sha256'],'source_bytes':size,'source_record_sha256':ref['source_record_sha256'],'source_reference_sha256':hashlib.sha256(canonical(ref).encode()).hexdigest(),'source_parent_result_sha256':result_sha}
     progress,_=_read(folder/'video-progress.json',10000)
     if parent.get('job_id')!=parent_id or parent.get('kind') not in ('complete_audio','complete_video') or parent.get('state') not in ('completed','failed') or parent.get('platform')!='douyin' or run_folder.name!=parent.get('run_id'):raise ValueError('video_ocr_parent_invalid')
     fresh,body_hash=reference(run_folder,parent['run_id'],parent['content_id'])
@@ -77,6 +86,36 @@ def native_configuration():
     expected_binary=read_bytes(path.parent/'native.binary.sha256',100).decode().strip()
     if expected_source!=sha(ROOT/'video_vision.swift') or expected_binary!=sha(path):raise ValueError('video_ocr_native_changed')
     return path,expected_binary
+
+def start_saved_video_ocr(jobs,run_folder,path,platform,cid,entity_ref=None,crop_top=.67,crop_bottom=.82,retry=False):
+    if type(retry) is not bool:raise ValueError('invalid_video_ocr_retry')
+    if any(type(x) not in (int,float) or not math.isfinite(x) for x in (crop_top,crop_bottom)) or not 0<=crop_top<crop_bottom<=1 or crop_bottom-crop_top<.05:raise ValueError('invalid_video_ocr_crop')
+    from media_native import _relative
+    run_folder=Path(run_folder);requested=Path(path);_safe_ancestors(requested)
+    normalized,_=_read(run_folder/'normalized.json',32*1024*1024)
+    matches=[row for row in normalized.get('media',[]) if isinstance(row,dict) and row.get('platform')==platform and row.get('content_id')==cid and _relative(run_folder,row['path']).absolute()==requested.absolute()]
+    if len(matches)!=1:raise ValueError('video_ocr_saved_source_ambiguous')
+    original,identity,ref,_=registered_source(run_folder,cid,matches[0]['sha256'],entity_ref)
+    if original.absolute()!=requested.absolute() or identity['platform']!=platform:raise ValueError('video_ocr_source_binding_changed')
+    reference_sha=hashlib.sha256(canonical(ref).encode()).hexdigest()
+    job_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'crowd-registered-video-reference-v1:'+canonical(ref)))
+    folder=jobs.root/job_id
+    with jobs.lock:
+        if jobs.closed:raise ValueError('media_processor_closed')
+        if folder.exists() or folder.is_symlink():
+            state,_=_read(folder/'state.json',200000)
+            if state.get('kind')!='registered_video_reference' or state.get('state')!='completed':raise ValueError('media_processor_reconciliation_required')
+        else:
+            folder.mkdir(mode=0o700)
+            result=[{'kind':'registered_video_reference','platform':platform,'content_id':cid,'reference':ref,'registration_only':True}]
+            write(folder/'result.json',result)
+            state={'job_id':job_id,'kind':'registered_video_reference','state':'completed','registration_only':True,
+                   'run_id':identity['local_run_id'],'platform':platform,'content_id':cid,'entity_ref':identity['entity_ref'],
+                   'asset_sha256':identity['asset_sha256'],'source_reference_sha256':reference_sha,'source_kind':'registered_mediacrawler_video',
+                   'created_at':time.time(),'result_sha256':sha(folder/'result.json'),'network_attempts':0,'model_calls':0}
+            write(folder/'state.json',state)
+        source(jobs,job_id,run_folder)
+    return start(jobs,job_id,run_folder,crop_top,crop_bottom,retry)
 
 def start(jobs,source_job_id,run_folder,crop_top=.67,crop_bottom=.82,retry=False):
     if type(retry) is not bool:raise ValueError('invalid_video_ocr_retry')

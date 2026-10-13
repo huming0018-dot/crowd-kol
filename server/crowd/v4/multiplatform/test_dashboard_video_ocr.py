@@ -68,6 +68,18 @@ class VideoOCRDispatch(unittest.TestCase):
                 self.app.process_media('video_ocr_start', {'run_id': self.run, 'source_job_id': self.source, 'text_region': region})
         self.start.assert_not_called()
 
+    def test_saved_video_direct_does_not_call_asr(self):
+        direct = Mock(return_value={'kind': 'video_ocr', 'state': 'queued'})
+        self.app.media_jobs.start_saved_video_ocr = direct
+        self.app.media_jobs.start = Mock(side_effect=AssertionError('ASR must not run'))
+        media = {'path': 'output/wb/media/123/video.mp4', 'platform': 'weibo', 'content_id': '123'}
+        imported = {'result': {'records': [{'kind': 'content', 'platform': 'weibo', 'content_id': '123'}], 'media': [media]}}
+        with patch.object(self.app, '_registered_run_root', return_value=self.root / 'runner'), patch.object(self.app, 'media_file', return_value=self.root / 'video.mp4'), patch.object(self.app, 'run', return_value=imported):
+            value = self.app.process_media('start', {'run_id': self.run, 'path': media['path'], 'content_id': '123', 'kind': 'video_ocr', 'text_region': 'top'})
+        self.assertEqual(value['kind'], 'video_ocr')
+        direct.assert_called_once_with(self.root / 'runner' / 'runs' / self.run, self.root / 'video.mp4', 'weibo', '123', entity_ref=None, crop_top=.12, crop_bottom=.32)
+        self.app.media_jobs.start.assert_not_called()
+
     def test_saved_mp4_candidate_is_not_promised_source_validation(self):
         from media_jobs import MediaJobs
         jobs = MediaJobs(self.root / 'candidate')
@@ -83,4 +95,30 @@ class VideoOCRDispatch(unittest.TestCase):
         self.assertFalse(jobs.status(job)['video_ocr_candidate'])
         (folder / 'input.mp4').symlink_to(folder / 'result.json')
         self.assertFalse(jobs.status(job)['video_ocr_candidate'])
+        jobs.close()
+
+    def test_owner_metadata_avoids_full_result_reads(self):
+        from media_jobs import MediaJobs
+        jobs = MediaJobs(self.root / 'metadata')
+        job = str(uuid.uuid4())
+        folder = jobs.root / job
+        folder.mkdir()
+        state = {'job_id': job, 'run_id': self.run, 'kind': 'video_ocr', 'state': 'completed', 'created_at': 1, 'crop_top': .12, 'crop_bottom': .32}
+        (folder / 'state.json').write_text(json.dumps(state))
+        (folder / 'result.json').write_text('deliberately-not-JSON-to-detect-read')
+        metadata = jobs.list_metadata(self.run)['jobs']
+        self.assertEqual(metadata[0]['job_id'], job)
+        self.assertNotIn('result', metadata[0])
+        self.assertEqual(jobs.list_metadata(self.source)['jobs'], [])
+        with self.assertRaises(json.JSONDecodeError):
+            jobs.status(job)
+        for bad in ({key: value for key, value in state.items() if key != 'created_at'}, {**state, 'created_at': None}, {key: value for key, value in state.items() if key != 'state'}):
+            (folder / 'state.json').write_text(json.dumps(bad))
+            with self.assertRaisesRegex(ValueError, 'invalid_media_metadata'):
+                jobs.list_metadata(self.run)
+        (folder / 'state.json').unlink()
+        (folder / 'result.json').write_text(json.dumps(state))
+        (folder / 'state.json').symlink_to(folder / 'result.json')
+        with self.assertRaises(ValueError):
+            jobs.list_metadata(self.run)
         jobs.close()

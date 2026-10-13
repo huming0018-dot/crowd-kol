@@ -190,4 +190,29 @@ for line in sys.stdin:
         fixture.body=normalize(code,'content',raw,origin)
         fixture.normalized['records']=[fixture.body];fixture.normalized['files'][0]['sha256']=file_sha;fixture.save()
 
+    def test_direct_registered_video_reference_skips_asr_and_copy_with_stable_parent(self):
+        from test_media_native import Tests as NativeFixture
+        from media_native import PLATFORMS
+        fixture=NativeFixture();fixture.setUp()
+        try:
+            for code,platform in PLATFORMS.items():
+                with self.subTest(platform=platform):
+                    fixture.seed(code,ctype='answer' if platform=='zhihu' else None);self.normalize_native_fixture(fixture,code,'answer' if platform=='zhihu' else None)
+                    entity='zhihu:content:123:answer' if platform=='zhihu' else platform+':content:123'
+                    with patch.object(ocr,'start',return_value={'job_id':'offline-no-inference'}) as dispatch:
+                        self.assertEqual(ocr.start_saved_video_ocr(self.jobs,fixture.folder,fixture.asset,platform,'123',entity,retry=True)['job_id'],'offline-no-inference')
+                        parent=dispatch.call_args.args[1];parent_folder=self.jobs.root/parent
+                        state=json.loads((parent_folder/'state.json').read_text());self.assertEqual(state['kind'],'registered_video_reference');self.assertTrue(state['registration_only'])
+                        self.assertEqual(sorted(p.name for p in parent_folder.iterdir()),['result.json','state.json'])
+                        original=parent_folder.joinpath('state.json').read_bytes();path,binding=ocr.source(self.jobs,parent,fixture.folder)
+                        self.assertEqual(path,fixture.asset);self.assertEqual(binding['source_record_sha256'],fixture.body['record_hash'])
+                        ocr.start_saved_video_ocr(self.jobs,fixture.folder,fixture.asset,platform,'123',entity)
+                        self.assertEqual(dispatch.call_args.args[1],parent);self.assertEqual((parent_folder/'state.json').read_bytes(),original)
+                        outside=self.root/'unregistered.mp4';outside.write_bytes(fixture.data)
+                        with self.assertRaisesRegex(ValueError,'saved_source_ambiguous'):ocr.start_saved_video_ocr(self.jobs,fixture.folder,outside,platform,'123',entity)
+                        state['state']='interrupted_unknown';write(parent_folder/'state.json',state);before=dispatch.call_count
+                        with self.assertRaisesRegex(ValueError,'reconciliation_required'):ocr.start_saved_video_ocr(self.jobs,fixture.folder,fixture.asset,platform,'123',entity,retry=True)
+                        self.assertEqual(dispatch.call_count,before)
+        finally:fixture.tearDown()
+
 if __name__=='__main__':unittest.main()

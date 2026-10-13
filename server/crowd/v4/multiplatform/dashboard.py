@@ -443,13 +443,16 @@ class Application:
         for task in ([value['task']] if isinstance(value.get('task'),dict) else value.get('tasks',[])):
             for child in task.get('children',[]):
                 run_id = child.get('local_run_id') or next(iter(reversed(child.get('runs', []))), None)
+                if run_id and self.media_jobs is not None:
+                    try:child['video_text_jobs'] = self.media_jobs.list_metadata(run_id)['jobs']
+                    except (ValueError,OSError,BridgeError):child['video_text_error']='saved_media_metadata_unavailable'
                 if run_id and self.light_transcripts is not None:
                     try:
                         summary = self.light_transcripts.status(run_id)
                         if summary:
                             child['light_transcript'] = summary
                             if self.media_jobs is not None:
-                                summary['visual_jobs'] = [job for job in self.media_jobs.list(run_id)['jobs'] if job.get('kind') == 'video_ocr']
+                                summary['visual_jobs'] = child.get('video_text_jobs', [])
                     except (ValueError, OSError):pass
                 if child.get('state') not in ('stopped','failed') or not child.get('local_run_id'):continue
                 try:
@@ -552,7 +555,7 @@ class Application:
             return value
         if action == 'status' and set(payload)=={'job_id'}:
             from bili_subtitles import load_job
-            from mc_runner import uid
+            from transcript_artifact import uid
             if (self.root/'subtitle-jobs'/(uid(payload['job_id'])+'.json')).exists():return load_job(self.media_jobs,payload['job_id'])
         if action in ('status', 'cancel', 'resume') and set(payload) == {'job_id'}:
             return getattr(self.media_jobs, action)(payload['job_id'])
@@ -630,11 +633,12 @@ class Application:
             if payload['allow_download'] is not True:raise ValueError('video_download_authorization_required')
             if payload['reference_sha256']!=reference['reference_sha256']:raise ValueError('video_reference_changed')
             return self.media_jobs.start_video(reference)
-        if action in ('start','preview') and set(payload) in ({'run_id', 'path', 'content_id', 'kind'}, {'run_id', 'path', 'content_id', 'kind', 'asr_engine'}):
+        if action in ('start','preview') and set(payload) in ({'run_id', 'path', 'content_id', 'kind'}, {'run_id', 'path', 'content_id', 'kind', 'asr_engine'}, {'run_id','path','content_id','kind','text_region'}):
             if 'asr_engine' in payload and (payload['kind'] != 'asr' or payload['asr_engine'] not in ('cpu', 'mlx')):
                 raise ValueError('invalid_asr_engine')
             if payload.get('asr_engine') == 'mlx' and payload['asr_engine'] not in self.media_jobs.capabilities().get('asr_engines', []):
                 raise ValueError('mac_asr_engine_not_configured')
+            if 'text_region' in payload and (payload['kind']!='video_ocr' or action!='start'):raise ValueError('invalid_video_ocr_request')
             source = self.media_file({key: payload[key] for key in ('run_id', 'path')})
             imported = self.run('import', {'run_id': payload['run_id']})
             result = imported.get('result', imported)
@@ -656,6 +660,11 @@ class Application:
             entity_ref=None
             if platform=='zhihu':entity_ref='zhihu:content:'+payload['content_id']+':'+candidates[0]['content_type']
             elif len(candidates)==1 and candidates[0]['kind']=='dynamic':entity_ref=platform+':dynamic:'+payload['content_id']
+            if payload['kind']=='video_ocr':
+                region=payload.get('text_region','bottom');regions={'bottom':(.67,.82),'top':(.12,.32),'full':(0.,1.)}
+                if action!='start' or not isinstance(region,str) or region not in regions or source.suffix.lower()!='.mp4':raise ValueError('invalid_video_ocr_request')
+                folder=self._registered_run_root(payload['run_id'])/'runs'/payload['run_id']
+                return self.media_jobs.start_saved_video_ocr(folder,source,platform,payload['content_id'],entity_ref=entity_ref,crop_top=regions[region][0],crop_bottom=regions[region][1])
             options={'entity_ref':entity_ref}
             if action == 'start' and payload['kind'] == 'asr' and 'asr_engine' in payload:
                 options['asr_engine'] = payload['asr_engine']

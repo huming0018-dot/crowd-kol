@@ -79,13 +79,13 @@ class MediaJobs:
                 'asr_model_name': model_name,
                 'long_audio': True, 'ffmpeg': bool(executable and Path(executable).is_file()),
                 'audio_extraction_state': 'configured_unverified' if executable else 'ffmpeg_unavailable_pcm_wav_only',
-                'transcript': True, 'network': False, 'source': 'saved_task_file',
+                'video_ocr': bool(executable and os.environ.get('CROWD_VIDEO_OCR_NATIVE') and Path(os.environ['CROWD_VIDEO_OCR_NATIVE']).is_file()), 'transcript': True, 'network': False, 'source': 'saved_task_file',
                 'limits': {'bytes': 25 * 1024 * 1024, 'seconds': 3600, 'max_audio_seconds': 3600,
                            'long_audio_bytes': 64 * 1024 * 1024, 'long_audio_seconds': 7200,
                            'registered_native_video_asr_bytes': 64 * 1024 * 1024, 'registered_native_video_asr_seconds': 7200,
                            'segment_seconds': 55, 'overlap_seconds': 2, 'concurrency': 1}}
 
-    def status(self, job_id):
+    def status(self, job_id, include_result=True):
         try:
             job_id = uid(job_id)
         except Exception:
@@ -102,7 +102,7 @@ class MediaJobs:
                 state = {**state, 'state': 'failed' if recovery else 'interrupted_unknown',
                          'reason': 'processor_interrupted_with_cancelled_checkpoint' if recovery else 'processor_restart_check_existing_output'}
                 if recovery is not None:state['interrupted_checkpoint'] = recovery
-            if state['state'] == 'completed':
+            if state['state'] == 'completed' and include_result:
                 if state.get('kind') in ('complete_video','complete_audio'):
                     from complete_video import read_bytes
                     state['result']=json.loads(read_bytes(folder/'result.json',200000))
@@ -385,6 +385,10 @@ class MediaJobs:
             raise ValueError('complete_audio_reference_changed')
         return self.start_video(reference,output_kind='audio')
 
+    def start_saved_video_ocr(self,run_folder,path,platform,cid,entity_ref=None,crop_top=.67,crop_bottom=.82,retry=False):
+        from video_ocr_jobs import start_saved_video_ocr
+        return start_saved_video_ocr(self,run_folder,path,platform,cid,entity_ref,crop_top,crop_bottom,retry)
+
     def start_video_ocr(self,source_job_id,run_folder,crop_top=.67,crop_bottom=.82,retry=False):
         from video_ocr_jobs import start
         return start(self,source_job_id,run_folder,crop_top,crop_bottom,retry=retry)
@@ -501,14 +505,37 @@ class MediaJobs:
         if hashlib.sha256(data).hexdigest()!=asset_sha256:raise ValueError('complete_video_asset_changed')
         return {'data':data,'mime':'video/mp4','sha256':asset_sha256}
 
+    def list_metadata(self, run_id, kind='video_ocr'):
+        try:uid(run_id)
+        except Exception:raise ValueError('invalid_media_run_id') from None
+        rows=[]
+        fields=('job_id','run_id','kind','state','content_id','created_at','reason','crop_top','crop_bottom','video_source_job_id')
+        for folder in self.root.iterdir():
+            if not folder.is_dir() or folder.is_symlink() or not (folder/'state.json').is_file():continue
+            from analysis_artifact import _read
+            header,_=_read(folder/'state.json',65536)
+            if not isinstance(header,dict):raise ValueError('invalid_media_metadata')
+            if header.get('run_id')!=run_id or header.get('kind')!=kind:continue
+            if (header.get('job_id')!=folder.name or header.get('state') not in TERMINAL|{'queued','running'} or type(header.get('created_at')) not in (int,float) or not math.isfinite(header['created_at'])):raise ValueError('invalid_media_metadata')
+            try:uid(folder.name)
+            except Exception:raise ValueError('invalid_media_metadata') from None
+            state=self.status(folder.name,include_result=False)
+            rows.append({key:state[key] for key in fields if key in state})
+        return {'jobs':sorted(rows,key=lambda row:row['created_at'],reverse=True)[:100]}
+
     def list(self, run_id):
         try:
             uid(run_id)
         except Exception:
             raise ValueError('invalid_media_run_id') from None
-        jobs = [self.status(p.name) for p in self.root.iterdir()
-                if p.is_dir() and not p.is_symlink() and (p / 'state.json').is_file()]
-        return {'jobs': sorted((s for s in jobs if s['run_id'] == run_id), key=lambda s: s['created_at'], reverse=True)[:100]}
+        from analysis_artifact import _read
+        jobs=[]
+        for folder in self.root.iterdir():
+            if not folder.is_dir() or folder.is_symlink() or not (folder/'state.json').is_file():continue
+            header,_=_read(folder/'state.json',65536)
+            if not isinstance(header,dict):raise ValueError('invalid_media_metadata')
+            if header.get('run_id')==run_id and header.get('kind')!='registered_video_reference':jobs.append(self.status(folder.name))
+        return {'jobs': sorted((s for s in jobs if s['run_id'] == run_id and s.get('kind')!='registered_video_reference'), key=lambda s: s['created_at'], reverse=True)[:100]}
 
     def _execute(self, state, snapshot, process_lock):
         folder = snapshot.parent; job_id = state['job_id']; result = folder / 'result.json'

@@ -4,6 +4,12 @@ from unittest.mock import patch
 from transcript_artifact import load_transcript
 HERE=Path(__file__).parent
 class OCRGlue(unittest.TestCase):
+ def test_visual_reading_groups_exact_lines_keeps_timeline_original(self):
+  src=(HERE/'media-ui.js').read_text();fn=src.split('  function visualLineInventory(',1)[1].split('\n',1)[0]
+  script="const assert=require('node:assert/strict');function visualLineInventory("+fn+"\nconst rows=[{start:0,end:1,text:'同一行\\n第二次偶遇…'},{start:1,end:2,text:'同一行\\n同一行\\n第二次偶遇⋯'},{start:3,end:4,text:'同一行'}];const before=JSON.stringify(rows);const v=visualLineInventory(rows);assert.equal(v.length,3);assert.deepEqual(v[0],{text:'同一行',segment_count:3,first_start:0,last_end:4});assert.equal(v[1].text,'第二次偶遇…');assert.equal(v[2].text,'第二次偶遇⋯');assert.equal(JSON.stringify(rows),before);"
+  done=subprocess.run(['/Users/hubowen/.local/node/bin/node','-e',script],capture_output=True,text=True)
+  self.assertEqual(done.returncode,0,done.stderr)
+
  def test_actual_retry_preserves_top_full_and_refuses_unknown(self):
   src=(HERE/'media-ui.js').read_text();fn=src.split('  async function retryVideoOCR(',1)[1].split('\n',1)[0]
   script="const assert=require('node:assert/strict');let calls=[];const openVideoOCR=async(...args)=>calls.push(args);async function retryVideoOCR("+fn+"\n(async()=>{let s={kind:'video_ocr',state:'failed',run_id:'r',video_source_job_id:'p',crop_top:.12,crop_bottom:.32};await retryVideoOCR(s);assert.deepEqual(calls.pop(),['r','p',true,'top']);await retryVideoOCR({...s,state:'cancelled',crop_top:0,crop_bottom:1});assert.deepEqual(calls.pop(),['r','p',true,'full']);await assert.rejects(()=>retryVideoOCR({...s,crop_top:.2}),/region_requires_selection/);await assert.rejects(()=>retryVideoOCR({...s,state:'interrupted_unknown'}),/retry_not_allowed/);assert.equal(calls.length,0);})().catch(e=>{console.error(e);process.exitCode=1});"
