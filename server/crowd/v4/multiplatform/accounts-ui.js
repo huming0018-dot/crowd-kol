@@ -50,7 +50,9 @@ const accountView = (() => {
     if(ticket!==generation||current!==sequence||!dialog.open)return;
     $('accounts_error').textContent='';$('accounts_list').replaceChildren();
     for(const session of result.sessions){
-      const row=node('article');row.className='task';row.append(node('h3',platformNames[session.platform]||session.platform),node('p',labels[session.state]||session.state));
+      const unavailable=session.platform==='ks'&&session.login_verification_available===false&&session.login_diagnostic?.graphql_errors==='present';
+      const row=node('article');row.className='task';row.append(node('h3',platformNames[session.platform]||session.platform),node('p',unavailable?'登录核验接口失败，登录状态尚未确认；已登录者无需重复扫码。':labels[session.state]||session.state));
+      if(unavailable){const diagnostic={schema_validation:'当前核验请求与平台接口不兼容，不能据此认定账号登出。',authentication_required:'接口提示需要登录；原会话与任务保留。',rate_or_permission:'接口返回频率或权限限制，保持暂停。',unknown:'接口错误原因尚未定位，保留原会话与任务。'};row.append(node('p',diagnostic[session.login_diagnostic.graphql_error_kind]||diagnostic.unknown));}
       if(session.login_error_code)row.append(node('p',loginErrors[session.login_error_code]||'登录核验尚未完成。'));
       if(session.browser_connection)row.append(node('p','复用本人选择的已登录浏览器'));
       if(session.browser_connection_error)row.append(node('p','原浏览器连接暂不可用；任务仍保留，请恢复原窗口或重新选择。'));

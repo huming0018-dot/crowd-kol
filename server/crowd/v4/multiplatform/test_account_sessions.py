@@ -446,6 +446,25 @@ class CrawlerFactory: CRAWLERS={'zhihu':Crawler}
 
 
 class KsDiagnosticTests(unittest.TestCase):
+    def test_graphql_categories_are_finite_and_do_not_expose_errors_or_author_ids(self):
+        from account_sessions import _ks_graphql_error_kind
+        private='synthetic-secret-user-value'
+        cases=[([{'message':'Cannot query field '+private+' on type Query.'}],'schema_validation'),
+               ([{'extensions':{'code':'GRAPHQL_VALIDATION_FAILED'},'message':private}],'schema_validation'),
+               ([{'extensions':{'code':'UNAUTHENTICATED'},'message':private}],'authentication_required'),
+               ([{'extensions':{'code':'FORBIDDEN'},'message':private}],'rate_or_permission'),
+               ([{'message':private}],'unknown'),
+               ([{'extensions':{'code':'UNAUTHENTICATED'}},{'message':'Cannot query field '+private}],'unknown'),
+               ([{'extensions':{'code':private}}],'unknown'),([None],'unknown'),({},'none'),([{}]*21,'unknown')]
+        for errors,expected in cases:
+            self.assertEqual(_ks_graphql_error_kind(errors),expected)
+            diagnostic=_ks_response_diagnostic(SimpleNamespace(status_code=200,is_stream_consumed=True,json=lambda:{'errors':errors}))
+            self.assertEqual(diagnostic['graphql_error_kind'],expected)
+            self.assertNotIn(private,json.dumps(diagnostic))
+        success={'data':{'visionProfileUserList':{'result':1,'fols':[{'user_id':private}]}}}
+        diagnostic=_ks_response_diagnostic(SimpleNamespace(status_code=200,json=lambda:success))
+        self.assertEqual(diagnostic['graphql_error_kind'],'none');self.assertNotIn(private,json.dumps(diagnostic))
+
     def test_fixed_response_and_exception_categories_never_export_values(self):
         private='synthetic-private-value-not-for-status'
         for data,errors,result in [({'errors':[{'message':private}],'data':None},'present','missing'),

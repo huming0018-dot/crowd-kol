@@ -46,11 +46,31 @@ def _login_failure_kind(error):
     return 'unknown_error'
 
 
+def _ks_graphql_error_kind(errors):
+    """Categorize already received errors; never return server text, IDs or codes."""
+    if not errors:return 'none'
+    if not isinstance(errors,list) or not 1<=len(errors)<=20:return 'unknown'
+    kinds=set()
+    codes={'GRAPHQL_VALIDATION_FAILED':'schema_validation','GRAPHQL_PARSE_FAILED':'schema_validation',
+           'UNAUTHENTICATED':'authentication_required','RATE_LIMITED':'rate_or_permission','FORBIDDEN':'rate_or_permission'}
+    for error in errors:
+        if not isinstance(error,dict):return 'unknown'
+        extensions=error.get('extensions');code=extensions.get('code') if isinstance(extensions,dict) else None
+        kind=codes.get(code) if isinstance(code,str) else None
+        message=error.get('message')
+        if kind is None and isinstance(message,str):
+            message=message[:5000].lower()
+            if any(pattern in message for pattern in ('cannot query field ', 'unknown argument ', 'unknown type ', 'syntax error:')):
+                kind='schema_validation'
+        kinds.add(kind or 'unknown')
+    return next(iter(kinds)) if len(kinds)==1 else 'unknown'
+
+
 def _ks_response_diagnostic(response):
     """Classify the existing loaded response; never persist headers, bodies or messages."""
     status = getattr(response, 'status_code', None)
     result = {'http_status': status if type(status) is int and 100 <= status <= 599 else None,
-              'response_kind': 'unknown', 'graphql_errors': 'unknown', 'graphql_result': 'unknown'}
+              'response_kind': 'unknown', 'graphql_errors': 'unknown', 'graphql_result': 'unknown', 'graphql_error_kind':'unknown'}
     if getattr(response, 'is_stream_consumed', True) is False:
         return result
     try:
@@ -61,6 +81,7 @@ def _ks_response_diagnostic(response):
     result['response_kind'] = 'json'
     if isinstance(data, dict):
         result['graphql_errors'] = 'present' if data.get('errors') else 'absent'
+        result['graphql_error_kind'] = _ks_graphql_error_kind(data.get('errors'))
         payload = data.get('data')
         profile = payload.get('visionProfileUserList') if isinstance(payload, dict) else None
         result['graphql_result'] = ('one' if profile['result'] == 1 else 'other') if isinstance(profile, dict) and 'result' in profile else 'missing'
@@ -454,7 +475,7 @@ def install_hooks(collector_root, session_id, platform, run_id, event, headless=
                 value['login_diagnostic'] = {'round': value.get('login_verification_round', 1),
                     'attempt': value.get('login_verification_attempts', 0), 'http_status': None,
                     'response_kind': 'unknown', 'graphql_errors': 'unknown', 'graphql_result': 'unknown',
-                    'failure_kind': None, 'client_login_flag_present': isinstance(cookies, dict) and bool(cookies.get('passToken'))}
+                    'graphql_error_kind':'unknown', 'failure_kind': None, 'client_login_flag_present': isinstance(cookies, dict) and bool(cookies.get('passToken'))}
             store._update(session_id, platform, reset_diagnostic)
         try:
             result = await original_pong(self, *args, **kwargs)
