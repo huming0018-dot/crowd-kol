@@ -446,7 +446,10 @@ class Application:
                 if run_id and self.light_transcripts is not None:
                     try:
                         summary = self.light_transcripts.status(run_id)
-                        if summary:child['light_transcript'] = summary
+                        if summary:
+                            child['light_transcript'] = summary
+                            if self.media_jobs is not None:
+                                summary['visual_jobs'] = [job for job in self.media_jobs.list(run_id)['jobs'] if job.get('kind') == 'video_ocr']
                     except (ValueError, OSError):pass
                 if child.get('state') not in ('stopped','failed') or not child.get('local_run_id'):continue
                 try:
@@ -523,6 +526,10 @@ class Application:
             if self.media_jobs is None:
                 self.media_jobs = MediaJobs(self.root, os.environ.get('CROWD_LOCAL_ASR_MODEL'), os.environ.get('CROWD_LOCAL_ASR_PYTHON'))
         self.media_jobs.subtitle_run_folder = lambda run_id: self._registered_run_root(run_id) / 'runs' / run_id
+        if action == 'video_ocr_start':
+            if set(payload) != {'run_id', 'source_job_id'}:raise ValueError('invalid_video_ocr_request')
+            folder = self._registered_run_root(payload['run_id']) / 'runs' / payload['run_id']
+            return self.media_jobs.start_video_ocr(payload['source_job_id'], folder)
         if action == 'capabilities' and not payload:
             return self.media_jobs.capabilities()
         if action == 'list' and set(payload) == {'run_id'}:

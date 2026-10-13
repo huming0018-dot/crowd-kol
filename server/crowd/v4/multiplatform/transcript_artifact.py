@@ -23,6 +23,44 @@ def load_transcript(jobs, identity):
     if (jobs.root.parent / 'subtitle-jobs' / (identity + '.json')).exists():
         from bili_subtitles import subtitle_report
         return subtitle_report(jobs,identity)
+    try:header = _read(jobs.root / identity / 'state.json', 65536)[0]
+    except ValueError as error:
+        if str(error) == 'unsafe_analysis_artifact_file':raise ValueError('unsafe_transcript_quality_path') from None
+        raise
+    if header.get('kind') == 'video_ocr':
+        from video_ocr_jobs import load_video_ocr
+        saved = load_video_ocr(jobs, identity)
+        state, evidence = saved['state'], saved['evidence']
+        segments = [{k: row[k] for k in ('start', 'end', 'text')} for row in evidence['segments']]
+        text = '\n'.join(row['text'] for row in segments)
+        provenance = {'provider': 'apple_vision', 'source_kind': 'sampled_video_text',
+                      'source_video_sha256': state['asset_sha256'],
+                      'source_reference_sha256': state['source_reference_sha256'],
+                      'source_record_sha256': state['source_record_sha256'],
+                      'sampling_fps': evidence['sample_fps'], 'sample_start': evidence['sample_start'],
+                      'sample_end': evidence['sample_end'], 'sampled_frames': evidence['sampled_frames'],
+                      'expected_frames': evidence['expected_frames'], 'crop_top_origin': evidence['crop_top_origin'],
+                      'timestamp_kind': evidence['timestamp_kind'],
+                      'timestamp_uncertainty_seconds': evidence['timestamp_uncertainty_seconds'],
+                      'frame_evidence_sha256': evidence['frame_evidence_sha256'],
+                      'frame_evidence_format': 'gzip_json_array_v1',
+                      'coverage': 'all_scheduled_frames_processed', 'spoken_transcript': False,
+                      'semantic_completeness': 'unknown', 'truncated': False}
+        report = {'schema': 'crowd-video-ocr-report-v1', 'job_id': identity,
+                  'video_source_job_id': state['video_source_job_id'], 'local_run_id': state['run_id'],
+                  'platform': state['platform'], 'content_id': state['content_id'], 'entity_ref': state['entity_ref'],
+                  'asset_sha256': state['asset_sha256'], 'input_hash': state['input_hash'],
+                  'full_result_file_sha256': saved['result_sha256'], 'duration_seconds': evidence['duration_seconds'],
+                  'segments': segments, 'text_sha256': hashlib.sha256(text.encode()).hexdigest(),
+                  'segment_count': len(segments), 'character_count': sum(len(row['text']) for row in segments),
+                  'semantic_review': 'not_reviewed', 'cer': None, 'human_groundtruth': False,
+                  'diagnostics_sha256': evidence['frame_evidence_sha256'], 'model_manifest_sha256': None,
+                  'processing_profile': state['processing_profile'], 'processor': evidence['processor'],
+                  'text_revision': None, 'visual_provenance': provenance}
+        raw = json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+        if len(raw.encode()) > 200000 or not segments:raise ValueError('transcript_report_limit')
+        if contains_secret(raw):raise ValueError('sensitive_transcript')
+        return saved, report, raw
     spec = importlib.util.spec_from_file_location('cloud_transcript_quality', HERE.parent / 'postprocess/transcript_quality.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

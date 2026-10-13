@@ -117,6 +117,11 @@ class MediaJobs:
                 if state['state'] == 'failed' and detail.get('reason') and 'interrupted_checkpoint' not in state:
                     state['reason'] = detail['reason']
             state['checkpoint_available'] = state.get('kind') == 'asr' and state['state'] in ('failed', 'cancelled') and bool(list(folder.glob('input*')))
+            if state.get('kind')=='video_ocr' and (folder/'video-ocr/state.json').is_file():
+                from analysis_artifact import _read
+                detail,_=_read(folder/'video-ocr/state.json',10000)
+                for field in ('processed_frames','expected_frames'):
+                    if type(detail.get(field)) is int and 0<=detail[field]<=14400:state[field]=detail[field]
             if state.get('kind') in ('complete_video','complete_audio') and (folder/'video-progress.json').is_file():
                 from complete_video import read_bytes
                 detail=json.loads(read_bytes(folder/'video-progress.json',10000))
@@ -378,6 +383,10 @@ class MediaJobs:
         if reference.get('platform')!='douyin' or hashlib.sha256(reference.get('url','').encode()).hexdigest()!=reference.get('url_sha256') or hashlib.sha256(json.dumps({k:v for k,v in reference.items() if k not in ('reference_sha256','url')},sort_keys=True).encode()).hexdigest()!=reference.get('reference_sha256'):
             raise ValueError('complete_audio_reference_changed')
         return self.start_video(reference,output_kind='audio')
+
+    def start_video_ocr(self,source_job_id,run_folder,crop_top=.67,crop_bottom=.82):
+        from video_ocr_jobs import start
+        return start(self,source_job_id,run_folder,crop_top,crop_bottom)
 
     def recover_audio_reference_after_no_audio(self,previous_job_id,run_folder):
         from complete_video import source_reference
