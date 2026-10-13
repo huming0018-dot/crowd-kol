@@ -529,6 +529,16 @@ class Application:
             if self.media_jobs is None:
                 self.media_jobs = MediaJobs(self.root, os.environ.get('CROWD_LOCAL_ASR_MODEL'), os.environ.get('CROWD_LOCAL_ASR_PYTHON'))
         self.media_jobs.subtitle_run_folder = lambda run_id: self._registered_run_root(run_id) / 'runs' / run_id
+        if action=='speech_check_bypass' and set(payload)=={'job_id'}:
+            saved=self.media_jobs.status(payload['job_id'])
+            if (saved.get('kind')!='asr' or saved.get('speech_check') is not True or saved.get('state')!='failed'
+                    or saved.get('reason')!='vad_no_speech_detected' or saved.get('speech_precheck',{}).get('has_speech') is not False):
+                raise ValueError('speech_check_bypass_not_available')
+            imported=self.run('import',{'run_id':saved['run_id']});data=imported.get('result',imported)
+            files=[row for row in data.get('media',[]) if row.get('sha256')==saved['asset_sha256'] and row.get('content_id')==saved['content_id']]
+            if len(files)!=1:raise ValueError('speech_check_original_media_unavailable')
+            return self.process_media('start',{'run_id':saved['run_id'],'path':files[0]['path'],'content_id':saved['content_id'],
+                'kind':'asr','asr_engine':saved.get('asr_engine','cpu'),'speech_check':False})
         if action == 'video_ocr_start':
             if not {'run_id','source_job_id'}<=set(payload) or set(payload)-{'run_id','source_job_id','retry','text_region'} or 'retry' in payload and type(payload['retry']) is not bool:raise ValueError('invalid_video_ocr_request')
             region=payload.get('text_region','bottom')
@@ -544,6 +554,25 @@ class Application:
             value = self.media_jobs.list(payload['run_id'])
             from bili_subtitles import load_job
             from analysis_artifact import _read
+            folder=self._registered_run_root(payload['run_id'])/'runs'/payload['run_id']
+            value['subtitle_observations']=[]
+            if (folder/'normalized.json').is_file():
+                normalized,_=_read(folder/'normalized.json',32*1024*1024)
+                for row in normalized.get('records',[]):
+                    if row.get('kind')!='content' or row.get('platform') not in ('weibo','kuaishou','xiaohongshu','zhihu','tieba'):continue
+                    from declared_subtitles import CID,register
+                    cid=row.get('content_id');ctype=row.get('content_type') if row['platform']=='zhihu' else None
+                    if not isinstance(cid,str) or not CID.fullmatch(cid) or ctype not in (None,'answer','article','zvideo'):continue
+                    stem=cid+('.'+ctype if ctype else '')
+                    discovery=folder/'output'/row['platform']/'subtitle-discovery'/(stem+'.json')
+                    if discovery.is_file():
+                        observation,_=_read(discovery,200000)
+                        if (observation.get('schema')!='crowd-native-subtitle-discovery-v1' or observation.get('provider')!=row['platform'] or observation.get('content_id')!=cid or observation.get('local_run_id')!=payload['run_id']):raise ValueError('subtitle_observation_changed')
+                        value['subtitle_observations'].append({k:observation.get(k) for k in ('provider','content_id','status','reason')})
+                    caption=folder/'output'/row['platform']/'declared-subtitles'/(stem+'.json')
+                    if caption.is_file():
+                        saved,_=_read(caption,200000)
+                        if saved.get('status')=='available':register(self.media_jobs,folder,cid,ctype)
             for path in sorted((self.root/'subtitle-jobs').glob('*.json')):
                 item,_=_read(path,200000)
                 if item.get('run_id')==payload['run_id']:value['jobs'].append(load_job(self.media_jobs,path.stem))
@@ -633,7 +662,8 @@ class Application:
             if payload['allow_download'] is not True:raise ValueError('video_download_authorization_required')
             if payload['reference_sha256']!=reference['reference_sha256']:raise ValueError('video_reference_changed')
             return self.media_jobs.start_video(reference)
-        if action in ('start','preview') and set(payload) in ({'run_id', 'path', 'content_id', 'kind'}, {'run_id', 'path', 'content_id', 'kind', 'asr_engine'}, {'run_id','path','content_id','kind','text_region'}):
+        if action in ('start','preview') and {'run_id','path','content_id','kind'}<=set(payload)<={'run_id','path','content_id','kind','asr_engine','text_region','speech_check'}:
+            if 'speech_check' in payload and (action!='start' or payload['kind']!='asr' or type(payload['speech_check']) is not bool):raise ValueError('invalid_speech_check')
             if 'asr_engine' in payload and (payload['kind'] != 'asr' or payload['asr_engine'] not in ('cpu', 'mlx')):
                 raise ValueError('invalid_asr_engine')
             if payload.get('asr_engine') == 'mlx' and payload['asr_engine'] not in self.media_jobs.capabilities().get('asr_engines', []):
@@ -666,6 +696,7 @@ class Application:
                 folder=self._registered_run_root(payload['run_id'])/'runs'/payload['run_id']
                 return self.media_jobs.start_saved_video_ocr(folder,source,platform,payload['content_id'],entity_ref=entity_ref,crop_top=regions[region][0],crop_bottom=regions[region][1])
             options={'entity_ref':entity_ref}
+            if action=='start' and 'speech_check' in payload:options['speech_check']=payload['speech_check']
             if action == 'start' and payload['kind'] == 'asr' and 'asr_engine' in payload:
                 options['asr_engine'] = payload['asr_engine']
             if payload['kind']=='asr' and source.suffix.lower()=='.mp4':options['native_run_folder']=self._registered_run_root(payload['run_id'])/'runs'/payload['run_id']

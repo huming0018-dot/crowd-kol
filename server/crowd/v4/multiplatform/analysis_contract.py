@@ -234,7 +234,7 @@ def build_snapshot(imported, platform, content_id, entity_ref=None, derived_inpu
             digest=lambda v:isinstance(v,str) and re.fullmatch('[0-9a-f]{64}',v) is not None
             if not digest(item['result_sha256']) or not digest(item['asset_sha256']) or item['model_manifest_sha256'] is not None and not digest(item['model_manifest_sha256']) or item['review_status']!='not_reviewed' or item['processor'] not in ('faster_whisper_local','faster_whisper_local_segmented','mlx_whisper_local','mlx_whisper_local_segmented','apple_speech_ondevice','apple_vision_local'):
                 raise ValueError('invalid_analysis_derived_inputs')
-            if not isinstance(item['processor_files'],dict) or any(k not in ('local_asr.py','fetch_model.py','long_media.py','audio_result_cache.py','native_video_asr.py','mlx_asr.py','vision.swift','speech.swift','crowd-vision','crowd-speech') or not digest(v) for k,v in item['processor_files'].items()):raise ValueError('invalid_analysis_derived_inputs')
+            if not isinstance(item['processor_files'],dict) or any(k not in ('local_asr.py','fetch_model.py','long_media.py','audio_result_cache.py','native_video_asr.py','mlx_asr.py','speech_precheck.py','vision.swift','speech.swift','crowd-vision','crowd-speech') or not digest(v) for k,v in item['processor_files'].items()):raise ValueError('invalid_analysis_derived_inputs')
             for row in item['segments']:
                 if not isinstance(row,dict) or set(row)!=({'start','end','text'} if item['kind']=='asr' else {'text'}) or not isinstance(row.get('text'),str) or not row['text'].strip() or len(row['text'])>24000 or contains_secret(row['text']):
                     raise ValueError('invalid_analysis_derived_inputs')

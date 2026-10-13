@@ -24,7 +24,8 @@ try{
  await db.exec(fs.readFileSync(new URL('../cloud_machine.sql',import.meta.url),'utf8'));
  for(const name of ['20261012080647_crowd_transcript_artifact.sql','20261012153031_crowd_subtitle_report.sql','20261012163143_crowd_platform_subtitle_report.sql'])await db.exec(fs.readFileSync(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261012163143_crowd_platform_subtitle_report.sql',import.meta.url),'utf8'));
- await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261013020000_crowd_video_ocr_report.sql',import.meta.url),'utf8'));cases++;
+ await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261013020000_crowd_video_ocr_report.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261013061140_crowd_declared_subtitle_report.sql',import.meta.url),'utf8'));cases++;
  await good('worker_pair',{worker_id:randomUUID(),worker_key:worker,name:'offline-subtitle',platforms:['dy'],expires_at:new Date(Date.now()+86400000).toISOString()});
  const task=(await good('task_create',{platforms:['dy'],mode:'detail',targets_by_platform:{dy:['7405123456789012345']},desired_items:1,max_api_requests:12,media:true,platform_options_by_platform:{dy:{transcript_only:true}},purpose:'noncommercial_research',idempotency_key:randomUUID()})).task;
  const lease=(await good('claim',{claim_id:randomUUID()},true)).lease,local=randomUUID(),job=randomUUID();

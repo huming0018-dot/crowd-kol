@@ -2,6 +2,11 @@
 import hashlib
 from html.parser import HTMLParser
 import json
+import math
+import os
+import shutil
+import subprocess
+import stat
 from pathlib import Path
 import re
 from urllib.parse import urlsplit
@@ -98,7 +103,9 @@ def discover(platform,detail,content_id,content_type=None):
         class Offline(WeiboBaseIE):
             def _download_webpage(self,*args,**kwargs):raise ValueError('subtitle_unexpected_source_request')
             def _download_json(self,*args,**kwargs):raise ValueError('subtitle_unexpected_source_request')
-        formats=Offline()._extract_formats(detail)
+        from yt_dlp import YoutubeDL
+        downloader=YoutubeDL({'quiet':True,'no_warnings':True,'skip_download':True,'cachedir':False,'cookiefile':None,'cookiesfrombrowser':None})
+        formats=Offline(downloader)._extract_formats(detail)
         video_seen=video_seen or bool(formats)
         for item in formats[:100]:
             for key in ('vcodec','acodec'):
@@ -153,18 +160,59 @@ def observation_error(output):
     except (ValueError,TypeError,OSError):pass
 
 
+def native_duration(output,platform,detail,cid,ctype=None):
+    # Official Weibo metadata is seconds. Other native units are not guessed.
+    if platform=='weibo' and isinstance(detail,dict):
+        page=detail.get('page_info');media=page.get('media_info') if isinstance(page,dict) else None
+        value=media.get('duration') if isinstance(media,dict) else None
+        if type(value) in (int,float) and math.isfinite(value) and 0<value<=7200:return value
+    p=next((k for k,v in PLATFORMS.items() if v==platform),None)
+    base=Path(output)/p/'media'/cid if p else Path(output)/platform/'media'/cid
+    if ctype:base=base/ctype
+    _safe_ancestors(base)
+    files=list(base.glob('*.mp4')) if base.is_dir() else []
+    if len(files)!=1:return None
+    path=files[0];_safe_ancestors(path);info=path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.getuid() or info.st_size>64*1024*1024:return None
+    executable=os.environ.get('CROWD_FFMPEG') or shutil.which('ffmpeg')
+    if not executable:return None
+    probe=subprocess.run([executable,'-hide_banner','-protocol_whitelist','file,pipe','-f','mov','-i',str(path)],capture_output=True,timeout=15)
+    text=probe.stderr.decode('utf-8','replace');match=re.search(r'Duration: (\d+):(\d+):(\d+(?:\.\d+)?)',text)
+    if not match or not re.search(r'Stream #[^\n]*: Video:',text):return None
+    duration=int(match[1])*3600+int(match[2])*60+float(match[3])
+    return duration if 0<duration<=7200 else None
+
+
+async def fetch_same_response(output,platform,detail,cid,ctype=None):
+    projection,_=discover(platform,detail,str(cid),ctype)
+    if projection['status']!='track_candidate':return
+    duration=native_duration(output,platform,detail,str(cid),ctype)
+    if duration is None:result={'status':'unavailable','reason':'native_subtitle_duration_unknown','source_requests':0}
+    else:
+        from declared_subtitles import fetch
+        result=await fetch(platform,detail,output,str(cid),duration,ctype)
+    path=Path(output).parent/'phase.json';previous=read(path) if path.exists() else {}
+    write(path,{**previous,'declared_subtitle_status':result['status'],'declared_subtitle_reason':result.get('reason'),
+        'declared_subtitle_source_requests':result['source_requests']})
+
+
 def install_hooks(crawlers,platform,output):
     if platform in ('ks','wb','xhs'):
         cls=crawlers[platform];original=cls.download_media
         async def media(self,*args,**kwargs):
             names={'ks':'video_item','wb':'mblog','xhs':'note_detail'}
             detail=kwargs.get(names[platform],args[0] if args else None)
+            cid=None
             if isinstance(detail,dict):
-                cid=(detail.get('photo') or {}).get('id') if platform=='ks' else detail.get('note_id',detail.get('id',detail.get('idstr')))
-                if cid is not None:
-                    try:observe(output,PLATFORMS[platform],detail,cid)
-                    except (ValueError,TypeError,OverflowError,ImportError,OSError):observation_error(output) # Preserve original media/body.
-            return await original(self,*args,**kwargs)
+                try:
+                    cid=(detail.get('photo') or {}).get('id') if platform=='ks' else detail.get('note_id',detail.get('id',detail.get('idstr')))
+                    if cid is not None:observe(output,PLATFORMS[platform],detail,cid)
+                except Exception:observation_error(output) # Diagnostic errors never skip original media/body.
+            result=await original(self,*args,**kwargs)
+            if isinstance(detail,dict) and cid is not None:
+                try:await fetch_same_response(output,PLATFORMS[platform],detail,cid)
+                except Exception:observation_error(output) # Source SystemExit/budget gate still propagates.
+            return result
         cls.download_media=media
     elif platform in ('zhihu','tieba'):
         import importlib
@@ -175,6 +223,10 @@ def install_hooks(crawlers,platform,output):
             own=platform!='tieba' or kwargs.get('platform','tieba')=='tieba'
             if own:
                 try:observe(output,platform,data,cid,ctype)
-                except (ValueError,TypeError,OverflowError,ImportError,OSError):observation_error(output)
-            return await original(data,cid,*args,**kwargs)
+                except Exception:observation_error(output)
+            result=await original(data,cid,*args,**kwargs)
+            if own:
+                try:await fetch_same_response(output,platform,data,cid,ctype)
+                except Exception:observation_error(output) # Source SystemExit/budget gate still propagates.
+            return result
         module.download_assets=assets

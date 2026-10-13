@@ -75,6 +75,7 @@ class MediaJobs:
                 'asr_engines': ['cpu'] + (['mlx'] if mac_ready else []),
                 'mac_asr_state': 'configured_unverified' if mac_ready else 'not_configured',
                 'asr_default_engine': 'cpu',
+                'speech_check': bool(os.environ.get('CROWD_SPEECH_CHECK_PYTHON') and Path(os.environ['CROWD_SPEECH_CHECK_PYTHON']).is_absolute() and Path(os.environ['CROWD_SPEECH_CHECK_PYTHON']).is_file()),
                 'asr_model_state': 'configured_unverified' if model_ready else 'local_model_unavailable',
                 'asr_model_name': model_name,
                 'long_audio': True, 'ffmpeg': bool(executable and Path(executable).is_file()),
@@ -114,6 +115,35 @@ class MediaJobs:
                     if field in detail:
                         state[field] = detail[field]
                 state['processor_state'] = detail.get('state')
+                if include_result and state.get('speech_check') is True and detail.get('speech_precheck') is not None:
+                    import importlib.util
+                    spec=importlib.util.spec_from_file_location('crowd_speech_precheck_status',PROCESSOR.parent/'speech_precheck.py')
+                    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                    validate_report=module.validate_report
+                    from analysis_artifact import _read
+                    manifest,_=_read(folder/'long-asr/chunks.json',65536)
+                    duration=manifest.get('duration_seconds');chunks=manifest.get('chunks')
+                    if (manifest.get('schema')!=1 or manifest.get('asset_sha256')!=state.get('asset_sha256')
+                            or type(duration) not in (int,float) or not math.isfinite(duration) or not 0<duration<=7200
+                            or manifest.get('segment_seconds')!=55 or manifest.get('overlap_seconds')!=2
+                            or not isinstance(chunks,list) or not 1<=len(chunks)<=136
+                            or len(chunks)!=max(1,math.ceil(max(0,duration-55)/53)+1)):
+                        raise ValueError('speech_precheck_diagnostic_changed')
+                    from complete_video import read_bytes
+                    snapshots=list(folder.glob('input.*'))
+                    if len(snapshots)!=1 or hashlib.sha256(read_bytes(snapshots[0],self._snapshot_limit(state,snapshots[0]))).hexdigest()!=state['asset_sha256']:
+                        raise ValueError('speech_precheck_diagnostic_changed')
+                    for index,chunk in enumerate(chunks):
+                        if (not isinstance(chunk,dict) or set(chunk)!={'index','start','end','file','sha256'}
+                                or type(chunk['index']) is not int or chunk['index']!=index or chunk['file']!='chunk-%04d.wav'%index
+                                or type(chunk['start']) not in (int,float) or type(chunk['end']) not in (int,float)
+                                or chunk['start']!=index*53 or chunk['end']!=min(duration,index*53+55)
+                                or hashlib.sha256(read_bytes(folder/'long-asr'/chunk['file'],2_000_000)).hexdigest()!=chunk['sha256']):
+                            raise ValueError('speech_precheck_diagnostic_changed')
+                    report,report_hash=_read(folder/'long-asr/speech-check.json',2_000_000)
+                    summary=validate_report(report,manifest);summary['diagnostic_sha256']=report_hash
+                    if summary!=detail['speech_precheck']:raise ValueError('speech_precheck_diagnostic_changed')
+                    state['speech_precheck']=summary
                 if state['state'] == 'failed' and detail.get('reason') and 'interrupted_checkpoint' not in state:
                     state['reason'] = detail['reason']
             state['video_ocr_candidate'] = state.get('kind')=='asr' and state.get('state')=='completed' and (folder/'input.mp4').is_file() and not (folder/'input.mp4').is_symlink()
@@ -173,6 +203,7 @@ class MediaJobs:
             if hashlib.sha256(read_bytes(snapshots[0], limit)).hexdigest() != state.get('asset_sha256'):return None
             processors = state.get('processor_files', {})
             names = ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py')
+            if state.get('speech_check') is True:names+=('speech_precheck.py',)
             if state.get('asr_engine') in ('mlx','mlx_fast'): names += ('mlx_asr.py',)
             if any(not isinstance(processors.get(name), str) or len(processors[name]) != 64 for name in names):return None
             model_hash = state.get('model_manifest_sha256')
@@ -189,7 +220,7 @@ class MediaJobs:
                 if hashlib.sha256(read_bytes(folder / 'long-asr' / row['file'], 2000000)).hexdigest() != row['sha256']:return None
                 if index < done:
                     cache, cache_hash = _read(folder / 'long-asr' / ('result-%04d.json' % index), 2000000)
-                    expected = hashlib.sha256((row['sha256'] + model_hash + ''.join(processors[name] for name in names) + '1' + ('mlx-segment-timing-v1' if state.get('asr_engine')=='mlx_fast' else '')).encode()).hexdigest()
+                    expected = hashlib.sha256((row['sha256'] + model_hash + ''.join(processors[name] for name in names) + '1' + ('mlx-segment-timing-v1' if state.get('asr_engine')=='mlx_fast' else '')+('silero-whole-input-precheck-v1' if state.get('speech_check') is True else '')).encode()).hexdigest()
                     if (set(cache) not in ({'segments', 'input_hash', 'timing_adjustments', 'segment_metrics'},
                             {'segments', 'input_hash', 'timing_adjustments', 'segment_metrics', 'native_alignment'})
                             or cache.get('input_hash') != expected or not isinstance(cache.get('segments'), list)
@@ -253,7 +284,8 @@ class MediaJobs:
                 'audio_duration_ms':context['audio_duration_ms'] if context else None,
                 'source_requests':0,'model_calls':0}
 
-    def start(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None, asr_engine='cpu', audio_reference_binding=None):
+    def start(self, source, platform, content_id, kind, run_id, entity_ref=None, native_run_folder=None, asr_engine='cpu', audio_reference_binding=None, speech_check=False):
+        if type(speech_check) is not bool or speech_check and kind!='asr':raise ValueError('invalid_speech_check')
         selected_model, selected_python = self._asr_configuration(asr_engine) if kind == 'asr' else (None, None)
         if kind == 'asr' and asr_engine == 'cpu' and not self.capabilities()['asr']:
             raise ValueError('local_asr_model_not_configured')
@@ -263,7 +295,9 @@ class MediaJobs:
                     'kind': kind, 'processor_schema': 2,
                     'processor_sha256': hashlib.sha256(PROCESSOR.read_bytes()).hexdigest(),
                     'model': str(selected_model) if kind == 'asr' else None}
-        if kind == 'asr': identity['asr_engine'] = asr_engine
+        if kind == 'asr':
+            identity['asr_engine'] = asr_engine
+            if speech_check:identity['speech_check']=True
         if audio_reference_binding is not None:
             if kind!='asr':raise ValueError('invalid_audio_reference_binding')
             identity['audio_reference_binding']=audio_reference_binding
@@ -275,6 +309,7 @@ class MediaJobs:
             if (PROCESSOR.parent / name).is_file()}
         if kind == 'asr' and asr_engine in ('mlx','mlx_fast'):
             identity['processor_files']['mlx_asr.py'] = hashlib.sha256((PROCESSOR.parent/'mlx_asr.py').read_bytes()).hexdigest()
+        if speech_check:identity['processor_files']['speech_precheck.py']=hashlib.sha256((PROCESSOR.parent/'speech_precheck.py').read_bytes()).hexdigest()
         if context is not None:identity['processor_files']['native_video_asr.py']=hashlib.sha256((PROCESSOR.parent/'native_video_asr.py').read_bytes()).hexdigest()
         if entity_ref is not None:
             from results_store import _entity_selector
@@ -323,6 +358,7 @@ class MediaJobs:
             state['processor_files']=identity['processor_files']
             if kind == 'asr':
                 state['asr_engine'] = asr_engine
+                if speech_check:state['speech_check']=True
                 state['asr_model'] = str(selected_model)
                 state['model_manifest_sha256'] = identity['model_manifest_sha256']
                 state['processor_files'] = identity['processor_files']
@@ -556,6 +592,7 @@ class MediaJobs:
                        '--authorization-ref', 'owner-selected-saved-media', '--output', str(result),
                        '--asr-model', str(selected_model), '--work-dir', str(folder / 'long-asr'),
                        '--project-root', str(self.root), '--cache-dir', str(self.root / 'audio-result-cache')]
+            if state.get('speech_check') is True:command+=['--speech-check']
             if state.get('asr_engine')=='mlx_fast':
                 command+=['--asr-timing-mode','segment']
             if state.get('processing_profile')=='registered_native_mp4_asr_64mib_7200s':
@@ -624,6 +661,7 @@ class MediaJobs:
             if self.closed:
                 raise ValueError('media_processor_closed')
             state = self.status(job_id)
+            if state.get('speech_check') is True and state.get('reason')=='vad_no_speech_detected':raise ValueError('speech_check_use_explicit_bypass')
             if not state.get('checkpoint_available'):
                 raise ValueError('media_checkpoint_not_available')
             if any(thread.is_alive() for thread in self.threads.values()):

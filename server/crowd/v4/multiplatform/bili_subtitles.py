@@ -111,6 +111,9 @@ def load_job(jobs,job_id):
     path=jobs.root.parent/'subtitle-jobs'/(uid(job_id)+'.json')
     state,state_sha=_read(path,200000)
     if state.get('job_id')!=job_id or state.get('kind')!='subtitle':raise ValueError('subtitle_job_invalid')
+    if state.get('processing_profile')=='yt_dlp_declared_track_v1':
+        from declared_subtitles import load_job as load_declared
+        return load_declared(jobs,job_id)
     if state.get('platform')=='douyin':
         from native_subtitles import load_job as load_platform_job
         return load_platform_job(jobs,job_id)
@@ -166,6 +169,9 @@ def load_job(jobs,job_id):
 
 def subtitle_report(jobs,job_id):
     state=load_job(jobs,job_id)
+    if state.get('processing_profile')=='yt_dlp_declared_track_v1':
+        from declared_subtitles import subtitle_report as declared_report
+        return declared_report(jobs,job_id)
     if state['platform']=='douyin':
         from native_subtitles import subtitle_report as platform_report
         return platform_report(jobs,job_id)

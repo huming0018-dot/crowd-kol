@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parent
 
 
 def prepare(kind, source, platform, content_id, authorization_ref, runner=subprocess.run, asr_model=None,
-            work_dir=None, cancel=None, project_root=None, cache_dir=None, asr_timing_mode='word'):
+            work_dir=None, cancel=None, project_root=None, cache_dir=None, asr_timing_mode='word', speech_check=False):
+    if type(speech_check) is not bool or speech_check and (kind!='asr' or work_dir is None):raise ValueError('invalid_speech_check')
     if asr_timing_mode not in ('word','segment') or kind!='asr' and asr_timing_mode!='word':raise ValueError('invalid_asr_timing_mode')
     identities = {'xiaohongshu': r'[a-f0-9]{24}', 'bilibili': r'BV[A-Za-z0-9]{10}|[0-9]{1,30}',
                   'douyin': r'[0-9]{1,30}', 'kuaishou': r'[A-Za-z0-9_-]{1,100}',
@@ -71,7 +72,7 @@ def prepare(kind, source, platform, content_id, authorization_ref, runner=subpro
                 with os.fdopen(os.open(audio, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
                     stream.write(data)
                 cache_options = {'project_root': project_root, 'cache_dir': cache_dir} if project_root is not None or cache_dir is not None else {}
-                parsed = long_media.transcribe_long(audio, asr_model, work, cancel=cancel, **cache_options, **({'asr_timing_mode':'segment'} if asr_timing_mode=='segment' else {}))
+                parsed = long_media.transcribe_long(audio, asr_model, work, cancel=cancel, **cache_options, **({'asr_timing_mode':'segment'} if asr_timing_mode=='segment' else {}), **({'speech_check':True} if speech_check else {}))
             evidence.update(parsed, coverage='local_file_all_audio_windows_processed')
             return {'platform': platform, 'content_id': content_id,
                     'authorization_ref': authorization_ref.strip(), 'kind': 'transcript', 'evidence': evidence}

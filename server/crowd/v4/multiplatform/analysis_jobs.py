@@ -173,7 +173,7 @@ class AnalysisJobs:
                     processor=evidence.get('processor') or ('apple_vision_local' if kind=='ocr' else None)
                     if processor not in ('faster_whisper_local','faster_whisper_local_segmented','mlx_whisper_local','mlx_whisper_local_segmented','apple_speech_ondevice','apple_vision_local'):raise ValueError('analysis_media_processor_unknown')
                     files=state.get('processor_files',{})
-                    if not isinstance(files,dict) or any(k not in ('local_asr.py','fetch_model.py','long_media.py','audio_result_cache.py','native_video_asr.py','mlx_asr.py','vision.swift','speech.swift','crowd-vision','crowd-speech') or not isinstance(v,str) or len(v)!=64 or any(c not in '0123456789abcdef' for c in v) for k,v in files.items()):raise ValueError('invalid_analysis_media_processor')
+                    if not isinstance(files,dict) or any(k not in ('local_asr.py','fetch_model.py','long_media.py','audio_result_cache.py','native_video_asr.py','mlx_asr.py','speech_precheck.py','vision.swift','speech.swift','crowd-vision','crowd-speech') or not isinstance(v,str) or len(v)!=64 or any(c not in '0123456789abcdef' for c in v) for k,v in files.items()):raise ValueError('invalid_analysis_media_processor')
                     model=state.get('model_manifest_sha256')
                     if model is not None and (not isinstance(model,str) or len(model)!=64 or any(c not in '0123456789abcdef' for c in model)):raise ValueError('invalid_analysis_media_processor')
                     item={'job_id':job_id,'kind':kind,'result_sha256':digest,'asset_sha256':asset,'processor':processor,'model_manifest_sha256':model,'processor_files':files,'review_status':'not_reviewed','segments':projected}

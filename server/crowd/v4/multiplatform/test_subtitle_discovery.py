@@ -86,6 +86,43 @@ class Tests(unittest.TestCase):
      args=({},'123','zvideo',Path('/missing/output')) if platform=='zhihu' else ({},'123',Path('/missing/output'))
      self.assertEqual(asyncio.run(module.download_assets(*args)),'assets_kept')
    self.assertEqual(len(events),1)
+ def test_declared_fetch_keeps_original_and_order(self):
+  events=[]
+  class C:
+   async def download_media(self,mblog):events.append('media');return 'kept'
+  install_hooks({'wb':C},'wb',Path('/missing/output'))
+  async def fetcher(*args,**kwargs):events.append('caption')
+  with patch('subtitle_discovery.observe'),patch('subtitle_discovery.fetch_same_response',side_effect=fetcher):
+   self.assertEqual(asyncio.run(C().download_media({'id':'123'})),'kept')
+  self.assertEqual(events,['media','caption'])
+ def test_declared_fetch_io_failure_keeps_original(self):
+  events=[]
+  class C:
+   async def download_media(self,mblog):events.append('media');return 'kept'
+  install_hooks({'wb':C},'wb',Path('/missing/output'))
+  with patch('subtitle_discovery.observe'),patch('subtitle_discovery.fetch_same_response',side_effect=OSError('io')),patch('subtitle_discovery.observation_error'):
+   self.assertEqual(asyncio.run(C().download_media({'id':'123'})),'kept')
+  self.assertEqual(events,['media'])
+ def test_no_track_extra_fetch_zero(self):
+  from subtitle_discovery import fetch_same_response
+  with patch('declared_subtitles.fetch') as request:
+   asyncio.run(fetch_same_response(Path('/missing/output'),'kuaishou',{'photo':{'id':'123','caption':'title'}},'123'))
+   request.assert_not_called()
+ def test_native_parser_failure_never_skips_original(self):
+  for error in (AttributeError('native'),KeyError('native'),IndexError('native'),RuntimeError('native')):
+   events=[]
+   class C:
+    async def download_media(self,mblog):events.append('media');return 'kept'
+   install_hooks({'wb':C},'wb',Path('/missing/output'))
+   with patch('subtitle_discovery.observe',side_effect=error),patch('subtitle_discovery.fetch_same_response',side_effect=error),patch('subtitle_discovery.observation_error'):
+    self.assertEqual(asyncio.run(C().download_media({'id':'123'})),'kept')
+   self.assertEqual(events,['media'])
+ def test_official_weibo_fallback_missing_labels(self):
+  runtime=Path(__file__).resolve().parents[5]/'outputs/subtitle-native-207/yt-dlp-runtime'
+  detail={'id':'123','page_info':{'media_info':{'stream_url':'https://weibo.com/test.mp4?label=test&template=540x960','video_details':[]}}}
+  with patch.dict(os.environ,{'CROWD_YTDLP_RUNTIME':str(runtime)}):
+   result,_=discover('weibo',detail,'123')
+  self.assertEqual(result['status'],'unavailable')
  def test_immutable_observation(self):
   with tempfile.TemporaryDirectory() as t:
    p=Path(t).resolve()/'123'/'output';p.mkdir(parents=True);observe(p,'weibo',{'type':'video'},'123')

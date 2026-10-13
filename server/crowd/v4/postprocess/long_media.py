@@ -362,7 +362,9 @@ def merge_chunks(manifest, results):
 
 
 def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
-                    project_root=None, cache_dir=None, asr_timing_mode='word'):
+                    project_root=None, cache_dir=None, asr_timing_mode='word', speech_check=False):
+    if type(speech_check) is not bool:
+        raise ValueError('invalid_speech_check')
     if asr_timing_mode not in ('word','segment'):
         raise ValueError('invalid_asr_timing_mode')
     # Gate before lock creation and before any error-state receipt can be written.
@@ -381,6 +383,16 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                 raise ValueError('audio_result_cache_requires_local_provider')
             manifest = prepare_chunks(source, work, cancel)
             state['total_chunks'] = len(manifest['chunks'])
+            speech_diagnostic=None
+            if speech_check:
+                from speech_precheck import check as precheck
+                state.update(state='checking_speech')
+                save(work / 'state.json',state)
+                speech_diagnostic=precheck(manifest,work,cancel)
+                state['speech_precheck']=speech_diagnostic
+                save(work / 'state.json',state)
+                if not speech_diagnostic['has_speech']:
+                    raise ValueError('vad_no_speech_detected')
             local_provider = transcriber is None
             if local_provider:
                 model_dir = Path(model_dir) if model_dir is not None else None
@@ -393,6 +405,8 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                 # Test injection never claims an actual model provider.
                 model_hash = 'injected-offline-test-provider'
             processor_names = ('long_media.py', 'local_asr.py', 'fetch_model.py', 'audio_result_cache.py')
+            if speech_check:
+                processor_names += ('speech_precheck.py',)
             mlx_manifest = None
             if isinstance(model_dir, Path) and (model_dir / 'crowd-model.json').is_file():
                 if (model_dir / 'crowd-model.json').stat().st_size > 10000:
@@ -419,7 +433,7 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                 target = work / ('result-%04d.json' % chunk['index'])
                 if target.is_symlink() or target.exists() and target.stat().st_size > 2_000_000:
                     raise ValueError('invalid_long_media_chunk_cache')
-                key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA) + ('mlx-segment-timing-v1' if asr_timing_mode=='segment' else '')).encode()).hexdigest()
+                key = hashlib.sha256((chunk['sha256'] + model_hash + processor_hash + str(SCHEMA) + ('mlx-segment-timing-v1' if asr_timing_mode=='segment' else '') + ('silero-whole-input-precheck-v1' if speech_check else '')).encode()).hexdigest()
                 def validate_result(value):
                     import local_asr
                     duration = chunk['end'] - chunk['start']
@@ -473,6 +487,8 @@ def transcribe_long(source, model_dir, work_dir, cancel=None, transcriber=None,
                     model_revision=mlx_manifest['revision'], package_version=mlx_manifest['package_version'],
                     decoding='greedy_temperature_zero', asr_timing_mode=asr_timing_mode,
                     timing_policy='mlx_decoder_segment_timestamps_with_retained_padding' if asr_timing_mode=='segment' else 'mlx_native_word_timestamps_no_pre_alignment_token_receipt')
+            if speech_diagnostic is not None:
+                result['speech_precheck']=speech_diagnostic
             result['audio_windows_processed'] = len(results)
             result['no_text_windows'] = sum(not row['segments'] for row in results)
             result['transcript_completeness'] = 'not_independently_verified'
@@ -501,6 +517,7 @@ def main():
     parser.add_argument('--project-root', type=Path)
     parser.add_argument('--cache-dir', type=Path)
     parser.add_argument('--asr-timing-mode', choices=('word','segment'), default='word')
+    parser.add_argument('--speech-check', action='store_true')
     args = parser.parse_args()
     cancelled = False
 
@@ -515,7 +532,8 @@ def main():
         row = evidence.prepare('asr', args.input, args.platform, args.content_id, args.authorization_ref,
                                asr_model=args.asr_model, work_dir=args.work_dir,
                                project_root=args.project_root, cache_dir=args.cache_dir, asr_timing_mode=args.asr_timing_mode,
-                               cancel=lambda: cancelled or (args.work_dir.parent / 'cancel.requested').exists())
+                               cancel=lambda: cancelled or (args.work_dir.parent / 'cancel.requested').exists(),
+                               **({'speech_check':True} if args.speech_check else {}))
         encoded = json.dumps([row], ensure_ascii=False).encode()
         if len(encoded) > 2_000_000:
             raise ValueError('long_media_result_over_2mb')

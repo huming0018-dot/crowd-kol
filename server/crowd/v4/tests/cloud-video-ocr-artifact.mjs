@@ -22,7 +22,7 @@ const migration='20261013020000_crowd_video_ocr_report.sql';
 try{
  await db.exec('create role anon;create role authenticated;create role service_role bypassrls;');
  await db.exec(fs.readFileSync(new URL('../cloud_machine.sql',import.meta.url),'utf8'));
- for(const name of ['20261012080647_crowd_transcript_artifact.sql','20261012163143_crowd_platform_subtitle_report.sql',migration,migration])await db.exec(fs.readFileSync(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));cases++;
+ for(const name of ['20261012080647_crowd_transcript_artifact.sql','20261012163143_crowd_platform_subtitle_report.sql',migration,migration,'20261013061140_crowd_declared_subtitle_report.sql'])await db.exec(fs.readFileSync(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));cases++;
  const platforms={xhs:'xiaohongshu',dy:'douyin',ks:'kuaishou',bili:'bilibili',wb:'weibo',tieba:'tieba',zhihu:'zhihu'};
  await good('worker_pair',{worker_id:randomUUID(),worker_key:worker,name:'offline-video-ocr',platforms:Object.keys(platforms),expires_at:new Date(Date.now()+86400000).toISOString()});
  let last;
