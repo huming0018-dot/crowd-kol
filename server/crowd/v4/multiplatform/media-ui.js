@@ -39,6 +39,7 @@ const mediaView = (() => {
         if(!valid())return;
         const url=URL.createObjectURL(new Blob([transcriptSrt(evidence.segments)],{type:'text/plain;charset=utf-8'})),a=node('a');a.href=url;a.download='crowd-transcript-'+state.job_id+'.srt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
       }),...(state.kind==='asr'?[button('整理专名与重叠重复',()=>openOptimization(state,valid)),button('核对转写质量与保存修订',()=>openQuality(state,valid))]:[node('p',visual?'来源：本机 Apple Vision 识别视频画面；采样覆盖不等于全部对白完整。':'来源：平台字幕。时间轴来自字幕轨；全文语义与漏字尚未人工校对。')]));
+    if(state.video_ocr_candidate===true)exportPanel.append(button('用现有视频提取画面文字（非听写）',()=>{if(valid())guarded(()=>openVideoOCR(state.run_id,state.job_id));}));
     renderTranscriptCloud(state,valid);
 
   }

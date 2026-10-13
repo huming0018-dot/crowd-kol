@@ -4,6 +4,15 @@ from unittest.mock import patch
 import video_ocr
 
 class VideoOCRTests(unittest.TestCase):
+    def test_real_vision_edge_rectangle_retains_raw_and_intersects(self):
+        raw=[-.006495899943216187,.5378161479170445,.2192715115017361,.4538343151410422]
+        value=video_ocr.project_geometry(raw,.67,.82)
+        self.assertEqual(value['native_bbox'],raw);self.assertEqual(value['bbox'][0],0)
+        self.assertAlmostEqual(value['bbox'][2],raw[0]+raw[2])
+        upper=video_ocr.project_geometry([.9,.9,.2,.2],.67,.82)
+        self.assertAlmostEqual(upper['bbox'][2],.1);self.assertAlmostEqual(upper['bbox'][1],.67)
+        for invalid in ([2.,2.,.1,.1],[float('nan'),.5,.2,.2],[0,0,0,.2],[0,0,-.2,.2]):
+            with self.assertRaisesRegex(ValueError,'invalid_video_ocr_native'):video_ocr.project_geometry(invalid,.67,.82)
     def test_failure_diagnostic_never_persists_unknown_messages(self):
         try:raise ValueError('Cookie=secret https://private.test/?token=hidden')
         except ValueError as error:report=video_ocr.failure_diagnostic(error)

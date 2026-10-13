@@ -116,6 +116,7 @@ class MediaJobs:
                 state['processor_state'] = detail.get('state')
                 if state['state'] == 'failed' and detail.get('reason') and 'interrupted_checkpoint' not in state:
                     state['reason'] = detail['reason']
+            state['video_ocr_candidate'] = state.get('kind')=='asr' and state.get('state')=='completed' and (folder/'input.mp4').is_file() and not (folder/'input.mp4').is_symlink()
             state['checkpoint_available'] = state.get('kind') == 'asr' and state['state'] in ('failed', 'cancelled') and bool(list(folder.glob('input*')))
             if state.get('kind')=='video_ocr' and (folder/'video-ocr/state.json').is_file():
                 from analysis_artifact import _read

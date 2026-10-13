@@ -1,6 +1,8 @@
 """Bind local OCR to registered runs; never accept caller provenance or paths."""
 import tempfile
 import unittest
+import json
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -45,3 +47,20 @@ class VideoOCRDispatch(unittest.TestCase):
 
     def test_cli_route(self):
         self.assertIn('video_ocr_start', ROUTES['media-processing'])
+
+    def test_saved_mp4_candidate_is_not_promised_source_validation(self):
+        from media_jobs import MediaJobs
+        jobs = MediaJobs(self.root / 'candidate')
+        job = str(uuid.uuid4())
+        folder = jobs.root / job
+        folder.mkdir()
+        state = {'job_id': job, 'run_id': self.run, 'kind': 'asr', 'state': 'completed'}
+        (folder / 'state.json').write_text(json.dumps(state))
+        (folder / 'result.json').write_text('[]')
+        (folder / 'input.mp4').write_bytes(b'fixture-only-not-validated-media')
+        self.assertTrue(jobs.status(job)['video_ocr_candidate'])
+        (folder / 'input.mp4').unlink()
+        self.assertFalse(jobs.status(job)['video_ocr_candidate'])
+        (folder / 'input.mp4').symlink_to(folder / 'result.json')
+        self.assertFalse(jobs.status(job)['video_ocr_candidate'])
+        jobs.close()

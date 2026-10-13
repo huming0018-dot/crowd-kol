@@ -25,7 +25,8 @@ class VideoOCRJobsTests(unittest.TestCase):
 
     def completed(self):
         job=str(uuid.uuid4());folder=self.jobs.root/job;folder.mkdir();work=folder/'video-ocr';work.mkdir()
-        frames=[{'index':i,'time':i*.5,'sha256':'a'*64,'blocks':[{'text':'画面fixture','confidence':.5,'bbox':[.2,.7,.4,.04],'selected':True}],'native_seconds':.1} for i in range(5)]
+        from video_ocr_geometry import project
+        frames=[{'index':i,'time':i*.5,'sha256':'a'*64,'blocks':[{'text':'画面fixture','confidence':.5,**project([.2,.5,.4,.3],.67,.82),'selected':True}],'native_seconds':.1} for i in range(5)]
         proof=gzip.compress(json.dumps(frames).encode(),mtime=0);(work/'frames.json.gz').write_bytes(proof)
         files={name:ocr.sha(ocr.ROOT/name) for name in ocr.FILES}
         e={'processor':'apple_vision_sampled_video_text','source_kind':'sampled_video_text','spoken_transcript':False,'cer':None,'truncated':False,'asset_sha256':self.binding['asset_sha256'],'sample_start':0.,'sample_end':2.1,'duration_seconds':2.1,'sample_fps':2,'timestamp_uncertainty_seconds':.5,'crop_top_origin':[.67,.82],'compiled_binary_sha256':'d'*64,'provider_source_sha256':files['video_vision.swift'],'frame_evidence_sha256':hashlib.sha256(proof).hexdigest(),'frame_evidence_file':'frames.json.gz','sampled_frames':5,'expected_frames':5,'segments':[{'start':0.,'end':2.1,'text':'画面fixture'}],'segment_frame_ranges':[[0,4]]}
@@ -107,5 +108,55 @@ for line in sys.stdin:
             self.assertEqual(ocr.load_video_ocr(self.jobs,state['job_id'])['evidence']['segments'][0]['text'],'offline fixture')
             reused=self.jobs.start_video_ocr(self.parent,self.run);self.assertEqual(reused['job_id'],state['job_id'])
             self.assertTrue(reused['cached']);self.assertTrue(self.source.is_file())
+
+    def test_registered_asr_parent_seven_platforms_and_real_body_hash(self):
+        from test_media_native import Tests as NativeFixture
+        from media_native import PLATFORMS
+        fixture=NativeFixture();fixture.setUp()
+        try:
+            for platform_code,platform in PLATFORMS.items():
+                with self.subTest(platform=platform):
+                    fixture.seed(platform_code,ctype='answer' if platform=='zhihu' else None)
+                    self.normalize_native_fixture(fixture,platform_code,'answer' if platform=='zhihu' else None)
+                    parent=str(uuid.uuid4());folder=self.jobs.root/parent;folder.mkdir();(folder/'input.mp4').write_bytes(fixture.data)
+                    entity='zhihu:content:123:answer' if platform=='zhihu' else platform+':content:123'
+                    write(folder/'result.json',[{'kind':'transcript','platform':platform,'content_id':'123','evidence':{'asset_sha256':fixture.sha}}])
+                    write(folder/'state.json',{'job_id':parent,'kind':'asr','state':'completed','platform':platform,'content_id':'123','run_id':fixture.run,'entity_ref':entity,'asset_sha256':fixture.sha,'result_sha256':ocr.sha(folder/'result.json')})
+                    path,binding=ocr.source(self.jobs,parent,fixture.folder)
+                    self.assertEqual(path,folder/'input.mp4');self.assertEqual(binding['entity_ref'],entity)
+                    self.assertEqual(binding['source_record_sha256'],fixture.body['record_hash'])
+                    self.assertEqual(binding['source_parent_result_sha256'],ocr.sha(folder/'result.json'))
+                    original_body=dict(fixture.body);fixture.body['title']='forged normalized body'
+                    fixture.body['record_hash']=hashlib.sha256(canonical({k:v for k,v in fixture.body.items() if k not in ('record_hash','discovery_kind')}).encode()).hexdigest();fixture.save()
+                    with self.assertRaisesRegex(ValueError,'raw_body_changed'):ocr.source(self.jobs,parent,fixture.folder)
+                    fixture.body=original_body;fixture.normalized['records']=[fixture.body];fixture.save()
+                    (folder/'input.mp4').write_bytes(fixture.data+b'changed')
+                    with self.assertRaisesRegex(ValueError,'source_changed'):ocr.source(self.jobs,parent,fixture.folder)
+        finally:fixture.tearDown()
+
+    def test_registered_asr_cannot_guess_missing_body_hash_or_use_unregistered_file(self):
+        from test_media_native import Tests as NativeFixture
+        fixture=NativeFixture();fixture.setUp()
+        try:
+            self.normalize_native_fixture(fixture,'dy')
+            parent=str(uuid.uuid4());folder=self.jobs.root/parent;folder.mkdir();(folder/'input.mp4').write_bytes(fixture.data)
+            write(folder/'result.json',[{'kind':'transcript','platform':'douyin','content_id':'123','evidence':{'asset_sha256':fixture.sha}}])
+            state={'job_id':parent,'kind':'asr','state':'completed','platform':'douyin','content_id':'123','run_id':fixture.run,'entity_ref':'douyin:content:123','asset_sha256':fixture.sha,'result_sha256':ocr.sha(folder/'result.json')};write(folder/'state.json',state)
+            fixture.normalized['records'][0].pop('record_hash');fixture.save()
+            with self.assertRaises(ValueError):ocr.source(self.jobs,parent,fixture.folder)
+            fixture.seed('dy');fixture.normalized['media']=[];fixture.save()
+            with self.assertRaises(ValueError):ocr.source(self.jobs,parent,fixture.folder)
+            state['state']='failed';write(folder/'state.json',state)
+            with self.assertRaisesRegex(ValueError,'parent_invalid'):ocr.source(self.jobs,parent,fixture.folder)
+        finally:fixture.tearDown()
+
+    def normalize_native_fixture(self,fixture,code,ctype=None):
+        from mc_runner import normalize,ID_KEYS
+        raw={ID_KEYS[code]:'123','title':'original title','desc':'original body'}
+        if ctype:raw['content_type']=ctype
+        path=fixture.folder/fixture.normalized['files'][0]['path'];path.write_text(json.dumps(raw)+'\n');file_sha=ocr.sha(path)
+        origin={'run_id':fixture.run,'file_sha256':file_sha,'line':1}
+        fixture.body=normalize(code,'content',raw,origin)
+        fixture.normalized['records']=[fixture.body];fixture.normalized['files'][0]['sha256']=file_sha;fixture.save()
 
 if __name__=='__main__':unittest.main()

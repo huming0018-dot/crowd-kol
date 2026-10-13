@@ -4,10 +4,10 @@ from pathlib import Path
 from analysis_artifact import _read,_safe_ancestors
 from complete_video import read_bytes
 from light_audio_fallback import reference
-from mc_runner import uid,write
+from mc_runner import uid,write,canonical
 
 ROOT=Path(__file__).resolve().parent.parent/'postprocess'
-FILES=('video_ocr.py','video_vision.swift')
+FILES=('video_ocr.py','video_vision.swift','video_ocr_geometry.py')
 PROFILE='apple_vision_video_hard_text_2fps_v1'
 HEX=re.compile(r'[a-f0-9]{64}')
 
@@ -31,7 +31,28 @@ def sha(path):
 
 def source(jobs,parent_id,run_folder):
     parent_id=uid(parent_id);folder=jobs.root/parent_id;run_folder=Path(run_folder)
-    parent,_=_read(folder/'state.json',200000);progress,_=_read(folder/'video-progress.json',10000)
+    parent,_=_read(folder/'state.json',200000)
+    if parent.get('kind')=='asr':
+        from media_native import _identity,_relative
+        from mc_runner import normalize,PLATFORMS
+        if parent.get('job_id')!=parent_id or parent.get('state')!='completed' or run_folder.name!=parent.get('run_id') or parent.get('text_revision') is not None:raise ValueError('video_ocr_parent_invalid')
+        _,identity,body,item,normalized_sha,data=_identity(run_folder,parent['content_id'],parent['asset_sha256'],parent.get('entity_ref'),native_asr=True)
+        if body.get('source_kind')!='mediacrawler_api' or body.get('reward_eligible') is not False:raise ValueError('video_ocr_source_binding_changed')
+        normalized,_=_read(run_folder/'normalized.json',32*1024*1024);origin=body['origin']
+        files=[row for row in normalized.get('files',[]) if row.get('sha256')==origin.get('file_sha256')]
+        if len(files)!=1 or type(origin.get('line')) is not int or origin['line']<1:raise ValueError('video_ocr_raw_body_changed')
+        raw=read_bytes(_relative(run_folder,files[0]['path']),50*1024*1024);lines=raw.splitlines()
+        if hashlib.sha256(raw).hexdigest()!=origin['file_sha256'] or origin['line']>len(lines):raise ValueError('video_ocr_raw_body_changed')
+        code=next((key for key,name in PLATFORMS.items() if name==identity['platform']),None)
+        if normalize(code,body['kind'],json.loads(lines[origin['line']-1]),origin)['record_hash']!=body['record_hash']:raise ValueError('video_ocr_raw_body_changed')
+        if identity['local_run_id']!=parent['run_id'] or any(identity[k]!=parent.get(k) for k in ('platform','content_id','asset_sha256')):raise ValueError('video_ocr_source_binding_changed')
+        result,result_sha=_read(folder/'result.json',2*1024*1024)
+        if result_sha!=parent.get('result_sha256') or not isinstance(result,list) or len(result)!=1 or result[0].get('kind')!='transcript' or any(result[0].get(k)!=identity[k] for k in ('platform','content_id')) or result[0].get('evidence',{}).get('asset_sha256')!=identity['asset_sha256']:raise ValueError('video_ocr_parent_changed')
+        path=folder/'input.mp4';_safe_ancestors(path)
+        if path.is_symlink() or not path.is_file() or path.stat().st_nlink!=1 or path.stat().st_size!=len(data) or sha(path)!=identity['asset_sha256']:raise ValueError('video_ocr_source_changed')
+        ref={'source_kind':'registered_mediacrawler_video','local_run_id':identity['local_run_id'],'platform':identity['platform'],'content_id':identity['content_id'],'entity_ref':identity['entity_ref'],'asset_sha256':identity['asset_sha256'],'source_record_sha256':body['record_hash'],'source_file_sha256':body['origin']['file_sha256'],'normalized_sha256':normalized_sha,'media_path':item['path']}
+        return path,{'video_source_job_id':parent_id,'run_id':identity['local_run_id'],'platform':identity['platform'],'content_id':identity['content_id'],'entity_ref':identity['entity_ref'],'asset_sha256':identity['asset_sha256'],'source_bytes':len(data),'source_record_sha256':body['record_hash'],'source_reference_sha256':hashlib.sha256(canonical(ref).encode()).hexdigest(),'source_parent_result_sha256':result_sha}
+    progress,_=_read(folder/'video-progress.json',10000)
     if parent.get('job_id')!=parent_id or parent.get('kind') not in ('complete_audio','complete_video') or parent.get('state') not in ('completed','failed') or parent.get('platform')!='douyin' or run_folder.name!=parent.get('run_id'):raise ValueError('video_ocr_parent_invalid')
     fresh,body_hash=reference(run_folder,parent['run_id'],parent['content_id'])
     manifest,_=_read(run_folder/'manifest.json',200000);status,_=_read(run_folder/'status.json',200000)
@@ -153,17 +174,18 @@ def _validate(jobs,job_id,state):
     if len(raw)>4*1024*1024:raise ValueError('video_ocr_frames_limit')
     frames=json.loads(raw);count=math.ceil(duration*2)
     if not isinstance(frames,list) or len(frames)!=count or e.get('sampled_frames')!=count or e.get('expected_frames')!=count:raise ValueError('video_ocr_coverage_incomplete')
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('crowd_video_ocr',ROOT/'video_ocr.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     for index,frame in enumerate(frames):
         if set(frame)!={'index','time','sha256','blocks','native_seconds'} or type(frame['index']) is not int or frame['index']!=index or frame['time']!=index*.5 or not isinstance(frame['sha256'],str) or not HEX.fullmatch(frame['sha256']) or not isinstance(frame['blocks'],list) or len(frame['blocks'])>50:raise ValueError('video_ocr_frames_invalid')
         if type(frame['time']) not in (int,float) or not math.isfinite(frame['time']):raise ValueError('video_ocr_frames_invalid')
         if type(frame['native_seconds']) not in (int,float) or not math.isfinite(frame['native_seconds']) or not 0<=frame['native_seconds']<=60:raise ValueError('video_ocr_frames_invalid')
         for b in frame['blocks']:
-            if set(b)!={'text','confidence','bbox','selected'} or not isinstance(b['text'],str) or not 0<len(b['text'])<=500 or type(b['selected']) is not bool or type(b['confidence']) not in (int,float) or not math.isfinite(b['confidence']) or not 0<=b['confidence']<=1 or not isinstance(b['bbox'],list) or len(b['bbox'])!=4 or any(type(x) not in (int,float) or not math.isfinite(x) or not 0<=x<=1 for x in b['bbox']):raise ValueError('video_ocr_frames_invalid')
-            if b['bbox'][0]+b['bbox'][2]>1+1e-6 or b['bbox'][1]+b['bbox'][3]>1+1e-6:raise ValueError('video_ocr_frames_invalid')
+            if set(b)!={'text','confidence','bbox','native_bbox','intersection_policy','selected'} or not isinstance(b['text'],str) or not 0<len(b['text'])<=500 or type(b['selected']) is not bool or type(b['confidence']) not in (int,float) or not math.isfinite(b['confidence']) or not 0<=b['confidence']<=1:raise ValueError('video_ocr_frames_invalid')
+            geometry=module.project_geometry(b['native_bbox'],state['crop_top'],state['crop_bottom'])
+            if any(b.get(k)!=v for k,v in geometry.items()):raise ValueError('video_ocr_frames_invalid')
             center=b['bbox'][1]+b['bbox'][3]/2
             if b['selected']!=(state['crop_top']+.02<=center<=state['crop_bottom']-.02):raise ValueError('video_ocr_frames_invalid')
-    import importlib.util
-    spec=importlib.util.spec_from_file_location('crowd_video_ocr',ROOT/'video_ocr.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     merged=module.merge_frames(frames,duration);ranges=[[s.pop('first_frame'),s.pop('last_frame')] for s in merged]
     if e.get('segments')!=merged or e.get('segment_frame_ranges')!=ranges:raise ValueError('video_ocr_segments_changed')
     return {'state':state,'evidence':e,'result':result,'result_sha256':result_sha}

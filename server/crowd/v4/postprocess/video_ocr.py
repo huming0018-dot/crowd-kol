@@ -1,8 +1,12 @@
 """Local sampled video text, never speech transcription or semantic truth."""
 import argparse,gzip,hashlib,json,math,os,re,resource,select,shutil,subprocess,tempfile,time,platform as system_platform,sys,traceback
+import importlib.util
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
+_spec=importlib.util.spec_from_file_location('crowd_video_ocr_geometry',ROOT/'video_ocr_geometry.py')
+_geometry=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_geometry)
+project_geometry=_geometry.project
 LIMIT=200000
 FPS=2
 STAGE={'name':'preflight','frame_index':None,'returncode':None}
@@ -86,10 +90,9 @@ def prepare(source,work,platform,content_id,source_sha256,duration,start=0,secon
                     blocks=[]
                     for b in value['blocks']:
                         box=b['bbox'];confidence=b['confidence'];text=b['text']
-                        if not isinstance(text,str) or not 0<len(text)<=500 or type(confidence) not in (int,float) or not math.isfinite(confidence) or not 0<=confidence<=1 or not isinstance(box,list) or len(box)!=4 or any(type(x) not in (int,float) or not math.isfinite(x) or not 0<=x<=1 for x in box):raise ValueError('invalid_video_ocr_native')
-                        if box[0]+box[2]>1+1e-6 or box[1]+box[3]>1+1e-6:raise ValueError('invalid_video_ocr_native')
-                        fullbox=[box[0],crop_top+crop_height*(1-box[1]-box[3]),box[2],crop_height*box[3]]
-                        blocks.append({'text':text,'confidence':confidence,'bbox':fullbox,
+                        if not isinstance(text,str) or not 0<len(text)<=500 or type(confidence) not in (int,float) or not math.isfinite(confidence) or not 0<=confidence<=1:raise ValueError('invalid_video_ocr_native')
+                        geometry=project_geometry(box,crop_top,crop_bottom);fullbox=geometry['bbox']
+                        blocks.append({'text':text,'confidence':confidence,**geometry,
                                        'selected':subtitle_band[0]<=fullbox[1]+fullbox[3]/2<=subtitle_band[1]})
                     # Vision observations are not guaranteed reading-order sorted.
                     blocks.sort(key=lambda b:(round(b['bbox'][1],2),b['bbox'][0]))
