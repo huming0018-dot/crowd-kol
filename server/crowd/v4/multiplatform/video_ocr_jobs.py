@@ -11,6 +11,18 @@ FILES=('video_ocr.py','video_vision.swift')
 PROFILE='apple_vision_video_hard_text_2fps_v1'
 HEX=re.compile(r'[a-f0-9]{64}')
 
+def safe_child_error(folder,returncode,stderr):
+    # Raw stderr stays in bounded memory only; unknown messages are not logged.
+    diagnostic={'returncode':returncode,'captured_stderr_sha256':hashlib.sha256(stderr).hexdigest(),'captured_stderr_bytes':len(stderr)}
+    if (folder/'video-ocr-error.json').is_file():
+        value,_=_read(folder/'video-ocr-error.json',8192)
+        if isinstance(value,dict) and set(value)=={'reason','exception_type','python_version','stack','stage'} and isinstance(value['reason'],str) and re.fullmatch(r'(?:invalid_)?video_ocr_[a-z_]+|unsafe_video_ocr_work',value['reason']) and isinstance(value['exception_type'],str) and re.fullmatch(r'[A-Za-z]{1,80}',value['exception_type']) and isinstance(value['python_version'],str) and re.fullmatch(r'[0-9.]{1,30}',value['python_version']) and isinstance(value['stack'],list) and len(value['stack'])<=6:
+            safe_stack=all(isinstance(row,dict) and set(row)=={'file','line','function'} and isinstance(row['file'],str) and row['file'].startswith('/') and len(row['file'])<=1024 and '://' not in row['file'] and not any(ord(c)<32 for c in row['file']) and type(row['line']) is int and 0<row['line']<1000000 and isinstance(row['function'],str) and re.fullmatch(r'[A-Za-z0-9_<>.]{1,80}',row['function']) for row in value['stack'])
+            stage=value['stage']
+            safe_stage=isinstance(stage,dict) and set(stage)=={'name','frame_index','returncode'} and stage['name'] in ('preflight','decode','native','proof') and (stage['frame_index'] is None or type(stage['frame_index']) is int and 0<=stage['frame_index']<=14400) and (stage['returncode'] is None or type(stage['returncode']) is int and -128<=stage['returncode']<=255)
+            if safe_stack and safe_stage:diagnostic.update(value)
+    return diagnostic
+
 def sha(path):
     h=hashlib.sha256()
     with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
@@ -79,18 +91,26 @@ def start(jobs,source_job_id,run_folder,crop_top=.67,crop_bottom=.82):
         except BaseException:lock.close();raise
 
 def execute(jobs,state,path,native,lock):
-    folder=jobs.root/state['job_id'];job_id=state['job_id'];proc=None
+    folder=jobs.root/state['job_id'];job_id=state['job_id'];proc=None;stderr=bytearray();reader=None
     try:
         configured,binary_sha=native_configuration()
         if configured!=native or binary_sha!=state['compiled_binary_sha256'] or any(sha(ROOT/name)!=value for name,value in state['processor_files'].items()):raise ValueError('video_ocr_native_changed')
         with jobs.lock:
             if jobs.closed or job_id in jobs.cancelled:state.update(state='cancelled');return
             command=[jobs.python,str(ROOT/'video_ocr.py'),'--input',str(path),'--work-dir',str(folder/'video-ocr'),'--platform',state['platform'],'--content-id',state['content_id'],'--source-sha256',state['asset_sha256'],'--duration',str(state['duration_seconds']),'--native',str(native),'--crop-top',str(state['crop_top']),'--crop-bottom',str(state['crop_bottom'])]
-            proc=subprocess.Popen(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock.fileno(),))
+            proc=subprocess.Popen(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,start_new_session=True,pass_fds=(lock.fileno(),))
+            def drain():
+                while True:
+                    chunk=proc.stderr.read(1024)
+                    if not chunk:break
+                    stderr.extend(chunk[:max(0,8192-len(stderr))])
+            reader=threading.Thread(target=drain,daemon=True);reader.start()
             jobs.processes[job_id]=proc;state.update(state='running',processor_pid=proc.pid);write(folder/'state.json',state)
         proc.wait(timeout=1830)
         if job_id in jobs.cancelled:state.update(state='cancelled')
-        elif proc.returncode:state.update(state='failed',reason='video_ocr_local_processing_failed')
+        elif proc.returncode:
+            reader.join(timeout=2);diagnostic=safe_child_error(folder,proc.returncode,bytes(stderr));write(folder/'processor-diagnostic.json',diagnostic)
+            state.update(state='failed',reason=diagnostic.get('reason','video_ocr_local_processing_failed'))
         else:
             result,_=_read(folder/'video-ocr/result.json',200000);write(folder/'result.json',result)
             candidate={**state,'state':'completed','result_sha256':sha(folder/'result.json')}
@@ -99,6 +119,8 @@ def execute(jobs,state,path,native,lock):
     except subprocess.TimeoutExpired:jobs._kill(proc);state.update(state='failed',reason='video_ocr_timeout')
     except (OSError,ValueError,TypeError,KeyError,IndexError):jobs._kill(proc);state.update(state='failed',reason='video_ocr_result_or_source_changed')
     finally:
+        if reader is not None:reader.join(timeout=2)
+        if proc is not None and proc.stderr is not None:proc.stderr.close()
         with jobs.lock:
             jobs.processes.pop(job_id,None)
             if job_id in jobs.cancelled:state.update(state='cancelled')

@@ -6,6 +6,15 @@ from media_jobs import MediaJobs
 import video_ocr_jobs as ocr
 
 class VideoOCRJobsTests(unittest.TestCase):
+    def test_child_stderr_digest_and_fixed_diagnostic_do_not_log_raw_secrets(self):
+        folder=self.root/'errors';folder.mkdir()
+        raw=b'Cookie=secret https://private.test/?token=hidden'
+        report=ocr.safe_child_error(folder,1,raw)
+        self.assertNotIn('secret',json.dumps(report));self.assertNotIn('private.test',json.dumps(report))
+        write(folder/'video-ocr-error.json',{'reason':'video_ocr_frame_decode_failed','exception_type':'ValueError','python_version':'3.9.6','stack':[], 'stage':{'name':'decode','frame_index':0,'returncode':1}})
+        self.assertEqual(ocr.safe_child_error(folder,1,raw)['reason'],'video_ocr_frame_decode_failed')
+        write(folder/'video-ocr-error.json',{'reason':'video_ocr_frame_decode_failed','exception_type':'ValueError','python_version':'3.9.6','stack':[{'file':'https://private.test/token','line':1,'function':'f'}], 'stage':{'name':'decode','frame_index':0,'returncode':1}})
+        self.assertNotIn('reason',ocr.safe_child_error(folder,1,raw))
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name).resolve();self.jobs=MediaJobs(self.root/'runtime')
         self.run_id=str(uuid.uuid4());self.run=self.root/self.run_id;self.run.mkdir()

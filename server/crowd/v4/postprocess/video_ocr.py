@@ -1,10 +1,19 @@
 """Local sampled video text, never speech transcription or semantic truth."""
-import argparse,gzip,hashlib,json,math,os,re,resource,select,shutil,subprocess,tempfile,time,platform as system_platform
+import argparse,gzip,hashlib,json,math,os,re,resource,select,shutil,subprocess,tempfile,time,platform as system_platform,sys,traceback
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
 LIMIT=200000
 FPS=2
+STAGE={'name':'preflight','frame_index':None,'returncode':None}
+ERROR_CODES={'invalid_video_ocr_identity','invalid_video_ocr_crop','video_ocr_source_changed','invalid_video_ocr_duration','invalid_video_ocr_range','unsafe_video_ocr_work','video_ocr_existing_work','video_ocr_ffmpeg_unavailable','video_ocr_cancelled','video_ocr_timeout','video_ocr_frame_decode_failed','video_ocr_sample_incomplete','video_ocr_native_timeout','invalid_video_ocr_native','video_ocr_native_failed','video_ocr_frame_evidence_limit','video_ocr_report_limit'}
+
+def failure_diagnostic(error):
+    # Never persist exception messages or OCR text; only fixed codes and stack locations.
+    return {'reason':str(error) if type(error) is ValueError and str(error) in ERROR_CODES else 'video_ocr_internal_error',
+            'exception_type':type(error).__name__,'python_version':system_platform.python_version(),
+            'stage':dict(STAGE),
+            'stack':[{'file':frame.filename,'line':frame.lineno,'function':frame.name} for frame in traceback.extract_tb(error.__traceback__)[-6:]]}
 
 def digest(path):
     h=hashlib.sha256()
@@ -23,6 +32,7 @@ def merge_frames(frames,end):
     return rows
 
 def prepare(source,work,platform,content_id,source_sha256,duration,start=0,seconds=None,native=None,crop_top=.67,crop_bottom=.82):
+    STAGE.update(name='preflight',frame_index=None,returncode=None)
     if platform not in ('xiaohongshu','douyin','bilibili','kuaishou','weibo','zhihu','tieba') or not isinstance(content_id,str) or not re.fullmatch(r'[A-Za-z0-9_:-]{1,100}',content_id):raise ValueError('invalid_video_ocr_identity')
     source=Path(source);work=Path(work)
     if any(type(x) not in (int,float) or not math.isfinite(x) for x in (crop_top,crop_bottom)) or not 0<=crop_top<crop_bottom<=1 or crop_bottom-crop_top<.05:raise ValueError('invalid_video_ocr_crop')
@@ -49,21 +59,27 @@ def prepare(source,work,platform,content_id,source_sha256,duration,start=0,secon
             with tempfile.TemporaryDirectory(prefix='frames-',dir=work) as tmp:
                 pattern=str(Path(tmp)/'%06d.jpg')
                 decode_started=time.monotonic()
+                STAGE.update(name='decode',frame_index=len(frames),returncode=None)
                 task=subprocess.Popen([ffmpeg,'-v','error','-xerror','-nostdin','-protocol_whitelist','file,pipe','-ss',str(start+offset),'-t',str(span),'-i',str(source),'-vf','tpad=stop_mode=clone:stop_duration=0.5,fps=fps=2:start_time=0:round=near,crop=iw:ih*%s:0:ih*%s'%(crop_height,crop_top),'-frames:v',str(math.ceil(span*FPS)),'-q:v','3',pattern],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 while task.poll() is None:
                     try:check()
                     except BaseException:task.kill();task.wait();raise
                     time.sleep(.1)
+                STAGE['returncode']=task.returncode
                 if task.returncode:raise ValueError('video_ocr_frame_decode_failed')
                 decode_seconds+=time.monotonic()-decode_started
                 images=sorted(Path(tmp).glob('*.jpg'))
                 if len(images)!=math.ceil(span*FPS) or sum(p.stat().st_size for p in images)>512*1024*1024:raise ValueError('video_ocr_sample_incomplete')
                 for image in images:
                     check();index=len(frames)
+                    STAGE.update(name='native',frame_index=index,returncode=None)
                     proc.stdin.write(json.dumps({'path':str(image),'index':index})+'\n');proc.stdin.flush()
                     if not select.select([proc.stdout],[],[],60)[0]:raise ValueError('video_ocr_native_timeout')
                     raw=proc.stdout.readline()
                     check()
+                    if not raw:
+                        STAGE['returncode']=proc.poll()
+                        raise ValueError('video_ocr_native_failed')
                     if len(raw)>100000:raise ValueError('invalid_video_ocr_native')
                     value=json.loads(raw)
                     if value.get('index')!=index or value.get('truncated') is not False or not isinstance(value.get('blocks'),list) or len(value['blocks'])>50:raise ValueError('invalid_video_ocr_native')
@@ -82,7 +98,9 @@ def prepare(source,work,platform,content_id,source_sha256,duration,start=0,secon
                     frames.append({'index':index,'time':round(start+offset+(int(image.stem)-1)/FPS,3),'sha256':digest(image),'blocks':blocks,'native_seconds':latency})
             (work/'state.json').write_text(json.dumps({'state':'processing','processed_frames':len(frames),'expected_frames':math.ceil(seconds*FPS)}))
         proc.stdin.close();proc.wait(timeout=30)
+        STAGE['returncode']=proc.returncode
         if proc.returncode:raise ValueError('video_ocr_native_failed')
+        STAGE.update(name='proof',frame_index=len(frames),returncode=proc.returncode)
         current=source.stat()
         if any(getattr(original,k)!=getattr(current,k) for k in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns')) or digest(source)!=source_sha256:raise ValueError('video_ocr_source_changed')
         encoded=json.dumps(frames,ensure_ascii=False,separators=(',',':')).encode();proof=gzip.compress(encoded,mtime=0)
@@ -109,4 +127,13 @@ def prepare(source,work,platform,content_id,source_sha256,duration,start=0,secon
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--input',required=True);p.add_argument('--work-dir',required=True);p.add_argument('--platform',required=True);p.add_argument('--content-id',required=True);p.add_argument('--source-sha256',required=True);p.add_argument('--duration',type=float,required=True);p.add_argument('--start',type=float,default=0);p.add_argument('--seconds',type=float);p.add_argument('--native');p.add_argument('--crop-top',type=float,default=.67);p.add_argument('--crop-bottom',type=float,default=.82);a=p.parse_args()
-    prepare(a.input,a.work_dir,a.platform,a.content_id,a.source_sha256,a.duration,a.start,a.seconds,a.native,a.crop_top,a.crop_bottom)
+    try:prepare(a.input,a.work_dir,a.platform,a.content_id,a.source_sha256,a.duration,a.start,a.seconds,a.native,a.crop_top,a.crop_bottom)
+    except Exception as error:
+        diagnostic=failure_diagnostic(error)
+        sys.stderr.write(json.dumps(diagnostic,ensure_ascii=False)+'\n')
+        parent=Path(a.work_dir).parent
+        try:
+            if parent.is_dir() and not any(p.is_symlink() for p in (parent,*parent.parents)):
+                with os.fdopen(os.open(parent/'video-ocr-error.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'w') as stream:json.dump(diagnostic,stream,ensure_ascii=False)
+        except OSError:pass
+        raise SystemExit(1)

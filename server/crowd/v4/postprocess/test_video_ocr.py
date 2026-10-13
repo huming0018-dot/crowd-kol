@@ -4,6 +4,11 @@ from unittest.mock import patch
 import video_ocr
 
 class VideoOCRTests(unittest.TestCase):
+    def test_failure_diagnostic_never_persists_unknown_messages(self):
+        try:raise ValueError('Cookie=secret https://private.test/?token=hidden')
+        except ValueError as error:report=video_ocr.failure_diagnostic(error)
+        text=json.dumps(report);self.assertNotIn('secret',text);self.assertNotIn('private.test',text)
+        self.assertEqual(report['reason'],'video_ocr_internal_error');self.assertEqual(report['stage']['name'],'preflight')
     def test_merge_only_adjacent_exact_text_and_blank_breaks_repeat(self):
         def f(i,text):return {'index':i,'time':i*.5,'blocks':[{'text':text}] if text else []}
         rows=video_ocr.merge_frames([f(0,'你好'),f(1,'你好'),f(2,''),f(3,'你好'),f(4,'你 好'),f(5,'你好')],3.)
