@@ -156,23 +156,30 @@ class CloudClient:
         if len(body) > 300000:
             raise CloudError('capture_size_limit')
         request = urllib.request.Request(self.endpoint, body, self.headers, method='POST')
-        try:
+        attempts = 2 if self.role == 'owner' and action == 'transcript_get' else 1
+        for attempt in range(attempts):
+            http_response = False
             try:
-                response = self.opener.open(request, timeout=15)
-            except urllib.error.HTTPError as error:
-                response = error
-            with response:
-                raw = response.read(2000001)
-                if len(raw) > 2000000:
-                    raise CloudError('cloud_response_size_limit')
-                result = _strict_json(raw, max_nodes=100000)
-            if not isinstance(result, dict) or result.get('ok') is not True or not isinstance(result.get('result'), dict):
-                code = result.get('error') if isinstance(result, dict) else None
-                raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
-            return result['result']
-        except (urllib.error.URLError, TimeoutError, OSError):
-            code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get') else 'cloud_outcome_unknown'
-            raise CloudError(code) from None
+                try:
+                    response = self.opener.open(request, timeout=15)
+                except urllib.error.HTTPError as error:
+                    response = error
+                    http_response = True
+                with response:
+                    raw = response.read(2000001)
+                    if len(raw) > 2000000:
+                        raise CloudError('cloud_response_size_limit')
+                    result = _strict_json(raw, max_nodes=100000)
+                if not isinstance(result, dict) or result.get('ok') is not True or not isinstance(result.get('result'), dict):
+                    code = result.get('error') if isinstance(result, dict) else None
+                    raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
+                return result['result']
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                if (attempt + 1 < attempts and not http_response
+                        and isinstance(error, (urllib.error.URLError, TimeoutError))):
+                    continue
+                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get') else 'cloud_outcome_unknown'
+                raise CloudError(code) from None
 
 
 class CloudOwnerAdapter:

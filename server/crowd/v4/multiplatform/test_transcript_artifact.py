@@ -143,7 +143,7 @@ class TranscriptCloud(unittest.TestCase):
             client.opener=Mock()
             client.opener.open.side_effect=urllib.error.URLError('offline')
             with self.assertRaisesRegex(CloudError,expected):client.call(action,{})
-            self.assertEqual(client.opener.open.call_count,1)
+            self.assertEqual(client.opener.open.call_count,2 if role=='owner' and action=='transcript_get' else 1)
 
 
 if __name__ == '__main__':
