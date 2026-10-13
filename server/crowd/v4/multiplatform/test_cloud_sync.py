@@ -130,6 +130,7 @@ class Tests(unittest.TestCase):
         class InlineThread:
             def __init__(self,target,**kwargs):self.target=target
             def start(self):self.target()
+            def is_alive(self):return False
         worker=CloudWorker(self.root,self.cloud,self.runner)
         for result,delay in cases:
             with self.subTest(result=result):

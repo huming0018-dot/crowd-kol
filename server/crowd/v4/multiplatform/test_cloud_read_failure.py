@@ -26,12 +26,12 @@ class CloudReadFailureTests(unittest.TestCase):
     def test_only_owner_task_reads_have_read_failure(self):
         errors = (urllib.error.URLError('sensitive detail'), TimeoutError('sensitive detail'), OSError('sensitive detail'))
         for role in ('owner', 'worker'):
-            for action in ('task_list', 'task_status', 'task_preview', 'task_create', 'task_control', 'retry_supplemental', 'worker_pair', 'worker_revoke', 'claim', 'heartbeat', 'capture', 'receipt', 'finish', 'resume_login', 'reconcile_no_dispatch', 'future_action'):
+            for action in ('task_list', 'task_status', 'participant_health', 'task_preview', 'task_create', 'task_control', 'retry_supplemental', 'worker_pair', 'worker_revoke', 'claim', 'heartbeat', 'capture', 'receipt', 'finish', 'resume_login', 'reconcile_no_dispatch', 'future_action'):
                 for error in errors:
                     for during_read in (False, True):
                         with self.subTest(role=role, action=action, error=type(error).__name__, during_read=during_read):
                             client = self.client(role, error, during_read)
-                            expected = 'cloud_read_unavailable' if role == 'owner' and action in ('task_list', 'task_status') else 'cloud_outcome_unknown'
+                            expected = 'cloud_read_unavailable' if role == 'owner' and action in ('task_list', 'task_status', 'participant_health') else 'cloud_outcome_unknown'
                             with self.assertRaises(CloudError) as caught:
                                 client.call(action)
                             self.assertEqual(str(caught.exception), expected)

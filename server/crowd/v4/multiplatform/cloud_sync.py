@@ -178,7 +178,7 @@ class CloudClient:
                 if (attempt + 1 < attempts and not http_response
                         and isinstance(error, (urllib.error.URLError, TimeoutError))):
                     continue
-                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get') else 'cloud_outcome_unknown'
+                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get', 'participant_health') else 'cloud_outcome_unknown'
                 raise CloudError(code) from None
 
 
@@ -379,6 +379,13 @@ class CloudWorker:
         self.interval = interval
         self.closed = threading.Event()
         self.thread = None
+        self.scheduler_lock = threading.Lock()
+        self.scheduler_started = False
+        self.last_tick_at = None
+        self.last_success_at = None
+        self._last_tick_monotonic = None
+        self.scheduler_error = None
+        self.postprocessing_error = None
         self.last_error = None
         self.last_stop = None
         self.stop_unknown_run_id = None
@@ -509,6 +516,25 @@ class CloudWorker:
         return result
 
     def tick(self):
+        self.last_tick_at = time.time()
+        self._last_tick_monotonic = time.monotonic()
+        try:
+            result = self._locked_tick()
+        except OSError:
+            # Never recreate a missing lock while another controller may own its inode.
+            self.scheduler_error = self.last_error = 'cloud_lock_unavailable'
+            return {'state': 'controller_unavailable', 'error': self.last_error}
+        except Exception:
+            self.scheduler_error = self.last_error = 'cloud_scheduler_failed'
+            return {'state': 'controller_unavailable', 'error': self.last_error}
+        self.scheduler_error = None
+        if not result.get('error') and not result.get('errors') and not self.postprocessing_error and result.get('state') != 'controller_busy':
+            self.last_success_at = time.time()
+        return result
+
+    def _locked_tick(self):
+        if self.lock_path.is_symlink():
+            raise OSError('unsafe_worker_lock')
         with open(self.lock_path, 'r+') as lock:
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -520,19 +546,23 @@ class CloudWorker:
                 if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:
                     state['phase']='local_stop_unknown'
                 result = self._tick(state)
+                self.postprocessing_error = None
                 if self.postprocessing_callback:
                     latest = mc_runner.read(self.path)
                     for run_id in list(latest.get('postprocessing_runs', [])):
                         try:self.postprocessing_callback('enqueue', {'run_id': run_id})
-                        except Exception:continue  # Postprocessing cannot stop a separate source lease.
+                        except Exception:
+                            self.postprocessing_error = 'postprocessing_enqueue_failed'
+                            continue  # Retain this pending job without stopping a separate source lease.
                         latest['postprocessing_runs'].remove(run_id)
                         self._save(latest)
                     try:self.postprocessing_callback('tick', {})
-                    except Exception:pass
+                    except Exception:
+                        self.postprocessing_error = self.postprocessing_error or 'postprocessing_tick_failed'
                 self.last_error = result.get('error')
                 result['waiting_login_count'] = sum(v.get('desired_state','running') == 'running' for v in mc_runner.read(self.path).get('waiting_logins', []))
                 return result
-            except (CloudError, mc_runner.BridgeError, ValueError, OSError, sqlite3.Error) as error:
+            except Exception as error:
                 code = str(error) if str(error) in WORKER_ERRORS else 'cloud_worker_failed'
                 self.last_error = code
                 try:
@@ -564,12 +594,27 @@ class CloudWorker:
                     'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats()}
             last=self._stop_summary(self.last_stop or state.get('last_stop'))
             if last:summary['last_stop']=last
-            return summary
+            return {**summary, **self.scheduler_status()}
         except (ValueError, OSError, sqlite3.Error):
             summary={'phase':'local_stop_unknown' if self.stop_unknown_run_id else 'state_unreadable','last_error':self.last_error or 'cloud_worker_failed'}
             last=self._stop_summary(self.last_stop)
             if last:summary['last_stop']=last
-            return summary
+            return {**summary, **self.scheduler_status()}
+
+    def scheduler_status(self):
+        alive = bool(self.thread and self.thread.is_alive())
+        threshold = max(30, self.interval * 3)
+        stale = bool(self.scheduler_started and not self.closed.is_set() and (
+            not alive or self._last_tick_monotonic is None or
+            time.monotonic() - self._last_tick_monotonic > threshold))
+        error = self.scheduler_error
+        if self.scheduler_started and not self.closed.is_set():
+            error = error or ('scheduler_dead' if not alive else 'scheduler_stale' if stale else None)
+        return {'scheduler_started': self.scheduler_started, 'scheduler_alive': alive,
+                'scheduler_closed': self.closed.is_set(), 'last_tick_at': self.last_tick_at,
+                'last_success_at': self.last_success_at, 'stale': stale,
+                'stale_after_seconds': threshold, 'health_error': error,
+                'postprocessing_error': self.postprocessing_error}
 
     @staticmethod
     def _stop_summary(last):
@@ -844,23 +889,37 @@ class CloudWorker:
         return True
 
     def start_scheduler(self):
-        if self.thread is None and not self.closed.is_set():
+        with self.scheduler_lock:
+            if self.closed.is_set() or self.thread is not None and self.thread.is_alive():
+                return
             def loop():
-                while not self.closed.is_set():
-                    result = self.tick()
-                    progressing = (result.get('state') == 'delivering'
-                                   and result.get('delivery_progress') is True
-                                   and type(result.get('pending')) is int and result['pending'] > 0
-                                   and result.get('errors') == [] and not result.get('error'))
-                    # Keep a cancellable fairness interval; failures retain the normal backoff.
-                    self.closed.wait(min(self.interval, .05) if progressing else self.interval)
+                try:
+                    while not self.closed.is_set():
+                        result = self.tick()
+                        progressing = (result.get('state') == 'delivering'
+                                       and result.get('delivery_progress') is True
+                                       and type(result.get('pending')) is int and result['pending'] > 0
+                                       and result.get('errors') == [] and not result.get('error'))
+                        # Keep a cancellable fairness interval; failures retain the normal backoff.
+                        self.closed.wait(min(self.interval, .05) if progressing else self.interval)
+                except Exception:
+                    self.scheduler_error = self.last_error = 'cloud_scheduler_failed'
             self.thread = threading.Thread(target=loop, daemon=True, name='cloud-machine-worker')
-            self.thread.start()
+            self.scheduler_started = True
+            self.last_tick_at = time.time()
+            self._last_tick_monotonic = time.monotonic()
+            try:
+                self.thread.start()
+            except Exception:
+                self.thread = None
+                self.scheduler_error = self.last_error = 'cloud_scheduler_failed'
 
     def close(self):
-        self.closed.set()
-        if self.thread:
-            self.thread.join(timeout=20)
+        with self.scheduler_lock:
+            self.closed.set()
+            thread = self.thread
+        if thread:
+            thread.join(timeout=20)
         if self.path.exists():
             state = mc_runner.read(self.path)
             if state.get('phase') == 'running' and state.get('local_run_id'):

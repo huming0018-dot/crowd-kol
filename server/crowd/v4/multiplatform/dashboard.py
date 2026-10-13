@@ -85,6 +85,15 @@ class Application:
         from watchlists import Watchlists
         self.watchlists = Watchlists(self.root, self.owner_tasks)
         self.watchlists.start_scheduler()
+        from health_events import HealthEvents
+        self.health_events = HealthEvents(self.root)
+        if self.cloud_worker is not None:
+            self.health_events.start(self.cloud_worker.status)
+
+    def health(self):
+        value = self.health_events.status()
+        value.update(ok=True, storage_scope='cloud' if self.cloud_worker else 'local')
+        return value
 
     def _cloud_session(self, lease):
         from account_sessions import AccountSessions
@@ -137,6 +146,10 @@ class Application:
             return {'ok': True, 'storage_scope': 'cloud', **self.cloud_worker.status()}
         if action == 'results' and set(payload) == {'task_id'} and self.cloud_client:
             return {'ok': True, **self.cloud_client.call('results', payload)}
+        if action == 'participant_health' and not payload:
+            if self.cloud_client is None:
+                return {'ok': True, 'storage_scope': 'local', 'participants': [], 'events': []}
+            return {'ok': True, 'storage_scope': 'cloud', **self.cloud_client.call('participant_health', {})}
         raise ValueError('invalid_cloud_action')
 
     def configure(self, body):
@@ -764,6 +777,10 @@ def make_server(app, port=45937):
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_cloud_request')
                     return self.send(app.cloud(body['action'], body['payload']))
+                if self.path == '/api/health':
+                    if body != {'action': 'status', 'payload': {}}:
+                        raise ValueError('invalid_health_request')
+                    return self.send(app.health())
                 if self.path == '/api/analysis':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_analysis_request')
@@ -844,6 +861,7 @@ def make_server(app, port=45937):
 
     class Server(ThreadingHTTPServer):
         def server_close(self):
+            app.health_events.close()
             if app.analysis_jobs is not None:
                 app.analysis_jobs.close()
             app.watchlists.close()
