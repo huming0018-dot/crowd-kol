@@ -146,7 +146,7 @@ def execution_target(platform,mode,value):
 def validate_options(p):
     options=p.setdefault('platform_options',{})
     if not isinstance(options,dict): fail('invalid_platform_options')
-    if p['platform']=='dy':
+    if p['platform'] in ('dy','ks','wb','xhs','zhihu','tieba'):
         if set(options)-{'transcript_only'}:fail('unsupported_platform_options')
         if 'transcript_only' in options and type(options['transcript_only']) is not bool:fail('invalid_transcript_only')
         if options.get('transcript_only') and p.get('media') is not True:fail('transcript_only_requires_media')
@@ -281,7 +281,7 @@ def configure_executor(config,p):
 def configure_platform_hooks(upstream,p):
     if p['media'] and p['platform'] in ('ks','wb','xhs','zhihu','tieba'):
         from subtitle_discovery import install_hooks as install_subtitle_discovery
-        install_subtitle_discovery(upstream.CrawlerFactory.CRAWLERS,p['platform'],Path.cwd()/'output')
+        install_subtitle_discovery(upstream.CrawlerFactory.CRAWLERS,p['platform'],Path.cwd()/'output',transcript_only=p.get('platform_options',{}).get('transcript_only') is True)
     if p['platform']=='zhihu' and p['comments']:
         from media_platform.zhihu.client import ZhiHuClient
         from zhihu_comments import install_hook as install_comment_hook
@@ -777,6 +777,10 @@ def execute(root, mc, run_id):
             account_store=install_hooks(root,p['session_id'],p['platform'],run_id,account_event,p['headless'])
             from browser_session import install_browser_reuse
             install_browser_reuse(account_store,p['session_id'],p['platform'],BrowserType,upstream.CrawlerFactory.CRAWLERS[p['platform']])
+            if p['platform']=='tieba':
+                from media_platform.tieba.client import BaiduTieBaClient
+                from tieba_browser_requests import install
+                install(BaiduTieBaClient,run,debit)
             configure_platform_hooks(upstream,p)
             configure_wordcloud(upstream,config,p,mc,run)
             import asyncio

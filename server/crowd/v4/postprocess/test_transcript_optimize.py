@@ -142,6 +142,41 @@ class OptimizationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'invalid_transcript_optimization_reference'):
             optimize.plan(self.evidence,self.chunks,references=reference)
 
+    def test_two_frames_only_propose_local_name_consistency(self):
+        evidence=copy.deepcopy(self.evidence)
+        evidence.update(duration_seconds=200.,segments=[
+            {'start':60.,'end':62.,'text':'广谷亚纪','chunk_index':1},
+            {'start':70.,'end':72.,'text':'正是广谷亚纪自己呢','chunk_index':1},
+            {'start':80.,'end':82.,'text':'广古亚记就会被怀疑','chunk_index':1},
+            {'start':150.,'end':152.,'text':'广古亚记去了别处','chunk_index':2}])
+        references={'source_asset_sha256':self.fixture.asset,'samples':[
+            {'absolute_seconds':61.,'visible_hard_subtitle':'广谷亚纪','frame_sha256':'a'*64,
+             'reference_basis':'human_visual_read_of_saved_source_frame','spoken_audio_reference':False},
+            {'absolute_seconds':71.,'visible_hard_subtitle':'正是广谷亚纪自己呢','frame_sha256':'b'*64,
+             'reference_basis':'human_visual_read_of_saved_source_frame','spoken_audio_reference':False}]}
+        original='广古亚记'
+        evidence['text_revision']={'edits':[{'segment_index':0,'original_text':original,'original_text_sha256':text_hash(original),'start':60.,'end':62.}],
+            'optimization':{'edits':[{'segment_index':0,'expected_text_sha256':text_hash(original),
+                'basis':{'rule':'unique_time_anchored_hard_subtitle_span','absolute_seconds':61.,
+                    'frame_sha256':'a'*64,'reference_span':'广谷亚纪','original_span':original}}]}}
+        result=optimize.plan(evidence,self.chunks,references=references)
+        changes={item['segment_index']:item for item in result['edits']}
+        self.assertEqual(changes[2]['text'],'广谷亚纪就会被怀疑')
+        self.assertEqual(changes[2]['basis']['rule'],'two_frame_local_name_consistency')
+        self.assertFalse(changes[2]['basis']['spoken_audio_groundtruth'])
+        self.assertNotIn(3,changes)
+        for variant in ('single_frame','duplicate_frame','no_original_canonical','ambiguous_spans','short_name_with_verb','general_phrase','missing_prior_witness'):
+            ref=copy.deepcopy(references);data=copy.deepcopy(evidence)
+            if variant=='single_frame':ref['samples'].pop()
+            if variant=='duplicate_frame':ref['samples'][1]['frame_sha256']='a'*64
+            if variant=='no_original_canonical':data['segments'][1]['text']='正是广谷亚绩自己呢'
+            if variant=='ambiguous_spans':data['segments'][2]['text']='广古亚记与广古亚记'
+            if variant=='short_name_with_verb':data['segments'][2]['text']='广谷自然也就成为了幸存者'
+            if variant=='general_phrase':data['segments'][2]['text']='广阔亚洲有丰富文化'
+            if variant=='missing_prior_witness':data.pop('text_revision')
+            proposal=optimize.plan(data,self.chunks,references=ref)
+            self.assertNotIn(2,[x['segment_index'] for x in proposal['edits']],variant)
+
     def test_derived_bridge_is_explicit_and_both_assets_retained(self):
         reference=copy.deepcopy(self.references);reference['source_asset_sha256']='b'*64
         context={'asset_sha256':self.fixture.asset,'reference_source_asset_sha256':'b'*64,'source_sha256':'c'*64}

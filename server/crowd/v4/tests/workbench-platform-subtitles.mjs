@@ -14,7 +14,7 @@ vm.runInContext(source.slice(start,end)+'\nthis.read=payload;',context);
 let value=JSON.parse(JSON.stringify(await context.read()));assert.deepEqual(value.platform_options_by_platform,{dy:{transcript_only:true}});assert.equal(value.media,true);
 platforms=['bili','dy'];value=JSON.parse(JSON.stringify(await context.read()));assert.deepEqual(value.platform_options_by_platform,{bili:{transcript_only:true,long_audio:true},dy:{transcript_only:true}});
 const handler=source.split('\n').find(line=>line.includes("$('owner_transcript_only').onchange="));vm.runInContext(handler,context);await get('owner_transcript_only').onchange();assert.deepEqual(platforms,['bili','dy']);
-platforms=['xhs'];await assert.rejects(context.read(),/字幕优先当前支持/);
+platforms=['xhs'];value=JSON.parse(JSON.stringify(await context.read()));assert.deepEqual(value.platform_options_by_platform,{xhs:{transcript_only:true}});
 get('owner_transcript_only').checked=false;value=JSON.parse(JSON.stringify(await context.read()));assert.deepEqual(value.platforms,['xhs']);assert.equal(value.platform_options_by_platform,undefined);
 platforms=['bili'];get('owner_long_audio').checked=true;value=JSON.parse(JSON.stringify(await context.read()));assert.deepEqual(value.platform_options_by_platform,{bili:{long_audio:true}});
 console.log(JSON.stringify({ok:true,cases:6,actual_owner_form_payload:true,multi_platform_selection_preserved:true,no_source_requests:true}));

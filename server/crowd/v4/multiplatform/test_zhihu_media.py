@@ -61,6 +61,27 @@ class Tests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(ValueError, 'over_limit'):
                 media.extract_assets(self.data, '123', 'answer')
 
+    def test_selected_video_playlist_official_shape_preserves_identity_and_allowlist(self):
+        data = {'initialState': {'entities': {'zvideos': {
+            '123': {'id': '123', 'video': {'playlist': {
+                'hd': {'url': 'https://vdn.vzuu.com/selected.mp4'},
+                'sd': {'play_url': 'https://vdn.vzuu.com/selected.mp4'},
+                'ld': {'play_url': 'https://video.zhihu.com/low.mp4'},
+                'foreign': {'url': 'https://evil.invalid/private.mp4'},
+                'secret': {'url': 'https://vdn.vzuu.com/a?token=private'},
+                'bad': 'not a format'}}},
+            '456': {'id': '456', 'video': {'playlist': {
+                'hd': {'url': 'https://vdn.vzuu.com/other.mp4'}}}}}}}}
+        self.assertEqual(media.extract_assets(data, '123', 'zvideo'), [
+            {'url': 'https://vdn.vzuu.com/selected.mp4', 'source_post_id': '123', 'source_content_type': 'zvideo'}])
+        playlist = data['initialState']['entities']['zvideos']['123']['video']['playlist']
+        del playlist['hd']; del playlist['sd']
+        self.assertEqual(media.extract_assets(data, '123', 'zvideo')[0]['url'], 'https://video.zhihu.com/low.mp4')
+        del playlist['ld']
+        self.assertEqual(media.extract_assets(data, '123', 'zvideo'), [])
+        data['initialState']['entities']['zvideos']['123']['video']['playlist'] = []
+        self.assertEqual(media.extract_assets(data, '123', 'zvideo'), [])
+
     async def test_same_response_hook_preserves_native_return_and_skips_other_requests(self):
         data = self.data
         class Native:

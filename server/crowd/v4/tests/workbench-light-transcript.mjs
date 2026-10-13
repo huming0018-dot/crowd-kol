@@ -14,10 +14,10 @@ const start=source.indexOf('  async function payload()');const end=source.indexO
 vm.runInContext(source.slice(start,end),context);
 vm.runInContext(source.slice(source.indexOf("  $('owner_long_audio').onchange"),source.indexOf("  $('owner_mode').onchange")),context);
 let payload=await vm.runInContext('payload()',context);assert.equal(payload.platform_options_by_platform,undefined);
-fields.owner_transcript_only.checked=true;fields.owner_transcript_only.onchange();assert.deepEqual(inputs.filter(item=>item.checked).map(item=>item.value),['xhs']);assert.equal(fields.owner_media.checked,true);assert.equal(fields.owner_long_audio.checked,false);await assert.rejects(()=>vm.runInContext('payload()',context),/字幕优先当前支持/);inputs[0].checked=false;inputs[1].checked=true;
+fields.owner_transcript_only.checked=true;fields.owner_transcript_only.onchange();assert.deepEqual(inputs.filter(item=>item.checked).map(item=>item.value),['xhs']);assert.equal(fields.owner_media.checked,true);assert.equal(fields.owner_long_audio.checked,false);assert.equal((await vm.runInContext('payload()',context)).platform_options_by_platform.xhs.transcript_only,true);inputs[0].checked=false;inputs[1].checked=true;
 payload=await vm.runInContext('payload()',context);assert.deepEqual(JSON.parse(JSON.stringify(payload.platform_options_by_platform)),{bili:{long_audio:true,transcript_only:true}});
 const planned=await taskPlan(JSON.parse(JSON.stringify(payload)));assert.equal(planned.children[0].request.platform_options.transcript_only,true);assert.equal(planned.max_api_requests,8);
-inputs.find(item=>item.value==='ks').checked=true;await assert.rejects(()=>vm.runInContext('payload()',context),/字幕优先当前支持/);
+inputs.find(item=>item.value==='ks').checked=true;assert.equal((await vm.runInContext('payload()',context)).platform_options_by_platform.ks.transcript_only,true);
 for(const bad of [{transcript_only:1,long_audio:true},{transcript_only:true,long_audio:false},{transcript_only:true}])await assert.rejects(()=>taskPlan({...JSON.parse(JSON.stringify(payload)),platform_options_by_platform:{bili:bad}}));
 await assert.rejects(()=>taskPlan({...JSON.parse(JSON.stringify(payload)),platforms:['ks'],targets_by_platform:{ks:['synthetic']},platform_options_by_platform:{ks:{transcript_only:true,long_audio:true}}}));
 fields.owner_media.checked=false;fields.owner_media.onchange();assert.equal(fields.owner_transcript_only.checked,false);assert.equal(fields.owner_long_audio.checked,false);

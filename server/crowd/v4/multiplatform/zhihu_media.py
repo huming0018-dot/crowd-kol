@@ -110,6 +110,16 @@ def extract_assets(data, content_id, content_type):
             value = asset_url(video.get(key))
             if value and value not in urls:
                 urls.append(value)
+        # Official zvideo formats live in the selected entity's video.playlist.
+        playlist = video.get('playlist') if not any(asset_url(video.get(k)) for k in ('play_url', 'playUrl', 'url')) else None
+        for row in list(playlist.values())[:100] if isinstance(playlist, dict) else []:
+            if not isinstance(row, dict):
+                continue
+            value = asset_url(row.get('url')) or asset_url(row.get('play_url'))
+            if value:
+                if value not in urls:
+                    urls.append(value)
+                break  # One rendition, not three copies of the same video.
     return [{'url': value, 'source_post_id': str(content_id), 'source_content_type': content_type}
             for value in urls[:tieba_media.MAX_ASSETS]]
 

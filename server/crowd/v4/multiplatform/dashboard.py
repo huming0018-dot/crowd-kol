@@ -420,7 +420,8 @@ class Application:
             options = payload.get('platform_options_by_platform', {})
             light_requested = isinstance(options, dict) and any(isinstance(value, dict) and value.get('transcript_only') is True for value in options.values())
             if light_requested:
-                if not payload.get('platforms') or any(p not in ('bili','dy') for p in payload['platforms']):raise ValueError('transcript_only_platform_unsupported')
+                from mc_runner import PLATFORMS
+                if not payload.get('platforms') or any(p not in PLATFORMS for p in payload['platforms']):raise ValueError('transcript_only_platform_unsupported')
                 capabilities = self.process_media('capabilities', {})
                 if not capabilities['asr'] or not capabilities['ffmpeg']:raise ValueError('light_transcript_local_processor_required')
             return getattr(self.owner_tasks, action)(payload)

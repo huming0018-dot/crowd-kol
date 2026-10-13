@@ -161,11 +161,43 @@ def observation_error(output):
 
 
 def native_duration(output,platform,detail,cid,ctype=None):
-    # Official Weibo metadata is seconds. Other native units are not guessed.
-    if platform=='weibo' and isinstance(detail,dict):
-        page=detail.get('page_info');media=page.get('media_info') if isinstance(page,dict) else None
-        value=media.get('duration') if isinstance(media,dict) else None
-        if type(value) in (int,float) and math.isfinite(value) and 0<value<=7200:return value
+    # Units come from platform-specific maintained extractors, never field-name guesses.
+    selected=detail
+    if platform=='zhihu' and ctype in ('answer','article','zvideo'):
+        if not isinstance(selected,dict) and isinstance(getattr(selected,'text',None),str):
+            from zhihu_media import InitialData
+            parser=InitialData();parser.feed(selected.text[:MAX_BYTES])
+            try:selected=json.loads(''.join(parser.parts))
+            except (ValueError,TypeError):selected={}
+        if isinstance(selected,dict) and 'initialState' in selected:
+            bucket={'answer':'answers','article':'articles','zvideo':'zvideos'}[ctype]
+            selected=selected.get('initialState',{}).get('entities',{}).get(bucket,{}).get(cid,{})
+    values=[]
+    if isinstance(selected,dict):
+        if platform=='weibo':
+            page=selected.get('page_info');media=page.get('media_info') if isinstance(page,dict) else None
+            if isinstance(media,dict) and 'duration' in media:values.append((media['duration'],1))
+        elif platform=='kuaishou':
+            photo=selected.get('photo')
+            if isinstance(photo,dict) and 'duration' in photo:values.append((photo['duration'],1000))
+        elif platform=='zhihu' and ctype=='zvideo':
+            video=selected.get('video')
+            if isinstance(video,dict) and 'duration' in video:values.append((video['duration'],1))
+        elif platform=='xiaohongshu':
+            video=selected.get('video');media=video.get('media') if isinstance(video,dict) else None
+            streams=media.get('stream') if isinstance(media,dict) else None
+            if isinstance(streams,dict):
+                for variants in streams.values():
+                    if isinstance(variants,list):
+                        for variant in variants:
+                            if isinstance(variant,dict) and 'duration' in variant:values.append((variant['duration'],1000))
+    if values:
+        durations=[]
+        for value,scale in values:
+            if type(value) not in (int,float) or not math.isfinite(value) or not 0<value/scale<=7200:return None
+            durations.append(value/scale)
+        # Conflicting renditions cannot establish completeness before a media probe.
+        return durations[0] if all(value==durations[0] for value in durations) else None
     p=next((k for k,v in PLATFORMS.items() if v==platform),None)
     base=Path(output)/p/'media'/cid if p else Path(output)/platform/'media'/cid
     if ctype:base=base/ctype
@@ -185,18 +217,33 @@ def native_duration(output,platform,detail,cid,ctype=None):
 
 async def fetch_same_response(output,platform,detail,cid,ctype=None):
     projection,_=discover(platform,detail,str(cid),ctype)
-    if projection['status']!='track_candidate':return
+    if projection['status']!='track_candidate':return {'status':projection['status'],'reason':projection['reason'],'source_requests':0}
     duration=native_duration(output,platform,detail,str(cid),ctype)
     if duration is None:result={'status':'unavailable','reason':'native_subtitle_duration_unknown','source_requests':0}
     else:
         from declared_subtitles import fetch
         result=await fetch(platform,detail,output,str(cid),duration,ctype)
+        if result.get('status')=='available':
+            from declared_subtitles import _paths,read_bytes
+            from analysis_artifact import _read
+            paths=_paths(output,platform,str(cid),ctype)
+            saved,_=_read(paths['metadata'],MAX_BYTES);body,_=_read(paths['result'],MAX_BYTES)
+            expected={**projection,'local_run_id':Path(output).parent.name}
+            raw=read_bytes(paths['raw'],MAX_BYTES)
+            if (saved!=expected or result.get('source_projection_sha256')!=digest(encoded(saved))
+                or result.get('track_url_sha256')!=body.get('track',{}).get('track_url_sha256')
+                or result.get('source_requests')!=1 or result.get('reserved_requests')!=1
+                or body.get('raw_subtitle_sha256')!=digest(raw)
+                or body.get('duration_seconds')!=duration
+                or body!=parse_saved_track(raw,body.get('track'),duration,saved)):
+                raise ValueError('subtitle_preflight_saved_body_invalid')
     path=Path(output).parent/'phase.json';previous=read(path) if path.exists() else {}
     write(path,{**previous,'declared_subtitle_status':result['status'],'declared_subtitle_reason':result.get('reason'),
         'declared_subtitle_source_requests':result['source_requests']})
+    return result
 
 
-def install_hooks(crawlers,platform,output):
+def install_hooks(crawlers,platform,output,transcript_only=False):
     if platform in ('ks','wb','xhs'):
         cls=crawlers[platform];original=cls.download_media
         async def media(self,*args,**kwargs):
@@ -208,6 +255,11 @@ def install_hooks(crawlers,platform,output):
                     cid=(detail.get('photo') or {}).get('id') if platform=='ks' else detail.get('note_id',detail.get('id',detail.get('idstr')))
                     if cid is not None:observe(output,PLATFORMS[platform],detail,cid)
                 except Exception:observation_error(output) # Diagnostic errors never skip original media/body.
+            if transcript_only and isinstance(detail,dict) and cid is not None:
+                try:
+                    preflight=await fetch_same_response(output,PLATFORMS[platform],detail,cid)
+                    if preflight.get('status')=='available':return
+                except Exception:observation_error(output)
             result=await original(self,*args,**kwargs)
             if isinstance(detail,dict) and cid is not None:
                 try:await fetch_same_response(output,PLATFORMS[platform],detail,cid)
@@ -223,6 +275,11 @@ def install_hooks(crawlers,platform,output):
             own=platform!='tieba' or kwargs.get('platform','tieba')=='tieba'
             if own:
                 try:observe(output,platform,data,cid,ctype)
+                except Exception:observation_error(output)
+            if transcript_only and own:
+                try:
+                    preflight=await fetch_same_response(output,platform,data,cid,ctype)
+                    if preflight.get('status')=='available':return
                 except Exception:observation_error(output)
             result=await original(data,cid,*args,**kwargs)
             if own:

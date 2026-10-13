@@ -153,6 +153,68 @@ def plan(evidence, chunks, source_context=None, references=None):
                 'absolute_seconds': time, 'original_span': span, 'reference_span': sample['visible_hard_subtitle'],
                 'frame_sha256': sample['frame_sha256'], 'reference_basis': sample['reference_basis'],
                 'ocr_result_sha256': sample.get('ocr_result_sha256'), 'spoken_audio_reference': False}}
+    # Two independent source frames may support local spelling consistency, never speech truth.
+    frame_names = {}
+    for sample in samples:
+        name = sample['visible_hard_subtitle']
+        match = re.search(r'(?:大学生|正是)([\u4e00-\u9fff]{4})(?=自己|[，。]|$)', name)
+        if match:
+            name = match[1]
+        if not re.fullmatch(r'[\u4e00-\u9fff]{4}', name):
+            continue
+        active = [i for i, row in enumerate(rows) if row['start'] <= sample['absolute_seconds'] <= row['end']]
+        if len(active) == 1 and name in rows[active[0]]['text']:
+            frame_names.setdefault(name, []).append((active[0], sample))
+    for name, anchors in frame_names.items():
+        if len({sample['frame_sha256'] for _, sample in anchors}) < 2 or len({i for i, _ in anchors}) < 2:
+            continue
+        times = [sample['absolute_seconds'] for _, sample in anchors]
+        if max(times) - min(times) > 60:
+            continue
+        witnessed_variants = set()
+        revision = evidence.get('text_revision', {})
+        original_edits = revision.get('edits', [])
+        for edit in revision.get('optimization', {}).get('edits', []):
+            basis = edit.get('basis', {})
+            if basis.get('rule') != 'unique_time_anchored_hard_subtitle_span':
+                continue
+            matching = [sample for _, sample in anchors if sample['frame_sha256'] == basis.get('frame_sha256')
+                        and sample['absolute_seconds'] == basis.get('absolute_seconds')
+                        and sample['visible_hard_subtitle'] == basis.get('reference_span')]
+            original = basis.get('original_span', '')
+            reference = basis.get('reference_span', '')
+            originals = [item for item in original_edits if item.get('segment_index') == edit.get('segment_index')
+                         and item.get('original_text_sha256') == edit.get('expected_text_sha256')
+                         and item.get('original_text', '').count(original) == 1
+                         and type(item.get('start')) in (int, float) and type(item.get('end')) in (int, float)
+                         and item['start'] <= basis.get('absolute_seconds', -1) <= item['end']]
+            if not matching or len(originals) != 1 or len(original) != len(reference) or reference.count(name) != 1:
+                continue
+            offset = reference.index(name)
+            variant = original[offset:offset + len(name)]
+            if re.fullmatch(r'[\u4e00-\u9fff]{4}', variant) and variant != name:
+                witnessed_variants.add(variant)
+        for index, row in enumerate(rows):
+            if index in proposed or not min(times) - 30 <= row['start'] <= max(times) + 30 or name in row['text']:
+                continue
+            choices = [(start, span) for span in witnessed_variants
+                       for start in range(len(row['text']) - len(span) + 1)
+                       if row['text'][start:start + len(span)] == span]
+            if len(choices) != 1:
+                continue
+            start, span = choices[0]
+            # A different witnessed name or competing target must remain unchanged.
+            if span in frame_names or any(other != name and other[0] == span[0]
+                    and sum(a != b for a, b in zip(span, other)) <= 2 for other in frame_names):
+                continue
+            proposed[index] = {'segment_index': index, 'expected_text_sha256': hashlib.sha256(row['text'].encode()).hexdigest(),
+                'text': row['text'][:start] + name + row['text'][start + len(name):],
+                'basis': {'rule': 'two_frame_local_name_consistency', 'source_term': name, 'original_span': span,
+                    'anchor_segment_indices': sorted({i for i, _ in anchors}),
+                    'frame_sha256s': sorted({sample['frame_sha256'] for _, sample in anchors}),
+                    'variant_binding': 'validated_parent_time_anchored_revision',
+                    'anchor_start_seconds': min(times), 'anchor_end_seconds': max(times),
+                    'maximum_margin_seconds': 30, 'spoken_audio_groundtruth': False}}
     # A source-attributed name needs a unique local spelling and a repeated role anchor.
     names = [item for item in terms if 4 <= len(item['term']) <= 6
              and re.fullmatch(r'[\u4e00-\u9fff]+', item['term'])

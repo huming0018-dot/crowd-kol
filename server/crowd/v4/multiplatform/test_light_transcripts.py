@@ -8,9 +8,9 @@ from cloud_sync import CloudWorker
 class Jobs:
  def __init__(self):self.calls=[];self.states={};self.ready=True;self.error=None
  def capabilities(self):return {'asr':self.ready}
- def start(self,path,platform,cid,kind,run_id,entity_ref=None):
+ def start(self,path,platform,cid,kind,run_id,entity_ref=None,**options):
   if self.error:raise ValueError(self.error)
-  assert path.stat().st_mode&0o777==0o600
+  if not options.get('native_run_folder'):assert path.stat().st_mode&0o777==0o600
   data=path.read_bytes();job={'job_id':str(uuid.uuid4()),'state':'queued','asset_sha256':hashlib.sha256(data).hexdigest(),'platform':platform,'content_id':cid,'kind':kind,'run_id':run_id,'entity_ref':entity_ref,'created_at':time.time()}
   self.calls.append((data,entity_ref));self.states[job['job_id']]=job;return job
  def status(self,job_id):return self.states[job_id]
@@ -24,6 +24,38 @@ class Tests(unittest.TestCase):
   self.jobs=Jobs();self.queue=light.LightTranscripts(self.f.root,self.jobs,lambda run:self.f.folder)
   self.duration=patch.object(light,'_duration',return_value=35000);self.duration.start()
  def tearDown(self):self.duration.stop();self.f.tearDown()
+ def test_five_platform_native_audio_queue_and_typed_identity(self):
+  for p in ('ks','wb','xhs','tieba','zhihu'):
+   with self.subTest(platform=p):
+    fixture=test_media_native.Tests();fixture.setUp()
+    try:
+     fixture.seed(p,ctype='zvideo' if p=='zhihu' else None)
+     mc_runner.write(fixture.folder/'manifest.json',{'run_id':fixture.run,'request':{'platform':p,'media':True,'platform_options':{'transcript_only':True}}})
+     jobs=Jobs();queue=light.LightTranscripts(fixture.root,jobs,lambda run:fixture.folder)
+     queued=queue.enqueue(fixture.run);self.assertEqual(len(queued['assets']),1)
+     queue.tick();self.assertEqual(len(jobs.calls),1);queue.tick();self.assertEqual(len(jobs.calls),1)
+     self.assertEqual(jobs.calls[0][1],fixture.platform+':content:123'+(':zvideo' if p=='zhihu' else ''))
+    finally:fixture.tearDown()
+ def test_zhihu_subtitle_does_not_hide_same_cid_other_type_video(self):
+  import copy,test_media_native
+  fixture=test_media_native.Tests();fixture.setUp()
+  try:
+   fixture.seed('zhihu',ctype='zvideo')
+   answer=copy.deepcopy(fixture.body);answer['content_type']='answer'
+   fixture.normalized['records'].append(answer);fixture.save()
+   mc_runner.write(fixture.folder/'manifest.json',{'run_id':fixture.run,'request':{'platform':'zhihu','media':True,'platform_options':{'transcript_only':True}}})
+   directory=fixture.folder/'output/zhihu/declared-subtitles';directory.mkdir(parents=True)
+   (directory/'123.answer.json').write_text('{}')
+   jobs=Jobs();queue=light.LightTranscripts(fixture.root,jobs,lambda run:fixture.folder)
+   # Isolate downstream identity selection; declared source proof has its own full tests.
+   with patch('declared_subtitles.register',return_value={'entity_ref':'zhihu:content:123:answer','job_id':'answer-subtitle'}):
+    queued=queue.enqueue(fixture.run)
+    self.assertEqual([asset['entity_ref'] for asset in queued['assets']],['zhihu:content:123:zvideo'])
+    self.assertEqual(queued['subtitle_jobs'][0]['entity_ref'],'zhihu:content:123:answer')
+    queue.tick();queue.tick();self.assertEqual(len(jobs.calls),1)
+    reopened=light.LightTranscripts(fixture.root,jobs,lambda run:fixture.folder)
+    reopened.enqueue(fixture.run);reopened.tick();self.assertEqual(len(jobs.calls),1)
+  finally:fixture.tearDown()
  def test_durable_serial_start_preserves_source_and_restart_no_repeat(self):
   before=hashlib.sha256(self.f.asset.read_bytes()).hexdigest();self.queue.enqueue(self.f.run);self.queue.enqueue(self.f.run)
   self.queue.tick();state=self.queue.status(self.f.run);job=state['assets'][0]['job_id'];self.assertEqual(len(self.jobs.calls),1)
@@ -143,9 +175,9 @@ class HttpTests(unittest.TestCase):
    self.assertEqual(error.exception.code,400);preview.assert_not_called()
   with patch.object(self.f.app,'process_media',return_value={'asr':True,'ffmpeg':True}),patch.object(self.f.app.owner_tasks,'preview',return_value={'ready':True}) as preview:
    response=json.load(self.f.post('/api/tasks',{'action':'preview','payload':payload}));self.assertTrue(response.get('result',response)['ready']);self.assertEqual(preview.call_args.args[0],payload)
-   with self.assertRaises(urllib.error.HTTPError):self.f.post('/api/tasks',{'action':'preview','payload':{**payload,'platforms':['bili','ks']}})
-   self.assertEqual(preview.call_count,1)
+   self.f.post('/api/tasks',{'action':'preview','payload':{**payload,'platforms':['bili','ks']}})
+   self.assertEqual(preview.call_count,2)
    with self.assertRaises(urllib.error.HTTPError) as error:self.f.post('/api/tasks',{'action':'preview','payload':payload},token='wrong')
-   self.assertEqual(error.exception.code,403);self.assertEqual(preview.call_count,1)
+   self.assertEqual(error.exception.code,403);self.assertEqual(preview.call_count,2)
 
 if __name__=='__main__':unittest.main()

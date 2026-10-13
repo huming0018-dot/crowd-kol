@@ -6,7 +6,7 @@ import threading
 import time
 
 from analysis_artifact import _read, _safe_ancestors
-from mc_runner import read, uid, write
+from mc_runner import read, uid, write, PLATFORMS
 from media_native import _identity, _duration
 
 WAITING = {'media_processor_busy', 'media_processor_reconciliation_required'}
@@ -30,16 +30,25 @@ class LightTranscripts:
         if request.get('platform_options', {}).get('transcript_only') is not True:
             return None
         status, _ = _read(folder / 'status.json', 200000)
-        if (manifest.get('run_id') != run_id or request.get('platform') not in ('bili','dy')
+        if (manifest.get('run_id') != run_id or request.get('platform') not in PLATFORMS
                 or request.get('platform')=='bili' and request.get('platform_options', {}).get('long_audio') is not True
                 or request.get('media') is not True or status.get('run_id') != run_id
                 or status.get('state') != 'completed'):
             raise ValueError('light_transcript_source_not_completed')
         normalized, normalized_sha = _read(folder / 'normalized.json', 32 * 1024 * 1024)
-        platform='bilibili' if request['platform']=='bili' else 'douyin'
+        platform=PLATFORMS[request['platform']]
         subtitle_jobs=[]
         caption_folder=folder/('output/bili/subtitles' if platform=='bilibili' else 'output/douyin/subtitles')
-        if caption_folder.exists():
+        if platform not in ('bilibili','douyin'):
+            from declared_subtitles import register
+            for body in normalized.get('records',[]):
+                if body.get('kind')!='content' or body.get('platform')!=platform:continue
+                cid=body.get('content_id');ctype=body.get('content_type') if platform=='zhihu' else None
+                stem=cid+('.'+ctype if ctype else '')
+                if not (folder/'output'/platform/'declared-subtitles'/(stem+'.json')).is_file():continue
+                job=register(self.jobs,folder,cid,ctype)
+                subtitle_jobs.append({'content_id':cid,'entity_ref':job['entity_ref'],'job_id':job['job_id'],'state':'completed','kind':'subtitle'})
+        if platform in ('bilibili','douyin') and caption_folder.exists():
             import hashlib,uuid
             for caption_path in sorted(caption_folder.glob('*.json')):
                 if caption_path.name.endswith('.source.json'):continue
@@ -66,7 +75,12 @@ class LightTranscripts:
                     if created:target.unlink()
                     continue
                 subtitle_jobs.append({'content_id':cid,'job_id':identity,'state':'completed','kind':'subtitle'})
-        candidates = [r for r in normalized.get('media', []) if isinstance(r, dict) and (r.get('kind') == 'audio' if platform=='bilibili' else r.get('platform')=='douyin' and str(r.get('path','')).endswith('.mp4')) and r.get('content_id') not in {j['content_id'] for j in subtitle_jobs}]
+        def media_ref(row):
+            cid=row.get('content_id');ctype=row.get('source_content_type') if platform=='zhihu' else None
+            if not isinstance(cid,str) or platform=='zhihu' and ctype not in ('answer','article','zvideo'):raise ValueError('light_transcript_source_ambiguous')
+            return platform+':content:'+cid+(':'+ctype if ctype else '')
+        saved_refs={j.get('entity_ref',platform+':content:'+j['content_id']) for j in subtitle_jobs}
+        candidates = [r for r in normalized.get('media', []) if isinstance(r, dict) and (r.get('kind') == 'audio' if platform=='bilibili' else r.get('platform')==platform and str(r.get('path','')).endswith('.mp4')) and media_ref(r) not in saved_refs]
         if len(candidates) > 200:raise ValueError('light_transcript_source_ambiguous')
         assets = []
         preferred_engine='mlx' if candidates and 'mlx' in self.jobs.capabilities().get('asr_engines',[]) else 'cpu'
@@ -78,20 +92,24 @@ class LightTranscripts:
                 raise ValueError('light_transcript_source_ambiguous')
             bodies = [body for body in normalized.get('records', []) if isinstance(body, dict)
                       and body.get('platform') == platform and body.get('kind') == 'content'
-                      and body.get('content_id') == row.get('content_id')]
+                      and body.get('content_id') == row.get('content_id') and (platform!='zhihu' or body.get('content_type')==row.get('source_content_type'))]
             if len(bodies) != 1 or not isinstance(bodies[0].get('record_hash'), str) or not HEX.fullmatch(bodies[0]['record_hash']):raise ValueError('light_transcript_source_ambiguous')
             # Handoff reads metadata only; tick verifies one audio asset before any model start.
-            assets.append({'content_id': row.get('content_id'), 'entity_ref': platform+':content:' + row['content_id'],
+            entity_ref=platform+':content:'+row['content_id']
+            if platform=='zhihu':
+                if bodies[0].get('content_type') not in ('answer','article','zvideo'):raise ValueError('light_transcript_source_ambiguous')
+                entity_ref+=':'+bodies[0]['content_type']
+            assets.append({'content_id': row.get('content_id'), 'entity_ref': entity_ref,
                            'asset_sha256': row.get('sha256'), 'source_record_hash': bodies[0].get('record_hash'),
                            'normalized_sha256': normalized_sha, 'bytes': row.get('bytes'), 'duration_ms': None,
                            'state': 'waiting', 'job_id': None, 'asr_engine':preferred_engine})
-        if len({(r['content_id'], r['asset_sha256']) for r in assets}) != len(assets):
+        if len({(r['entity_ref'], r['asset_sha256']) for r in assets}) != len(assets):
             raise ValueError('light_transcript_source_ambiguous')
         path = self._path(run_id)
         with self.lock:
             if path.exists() or path.is_symlink():
                 old, _ = _read(path, 200000)
-                def bindings(value):return [(r['content_id'], r['asset_sha256'], r['source_record_hash']) for r in value]
+                def bindings(value):return [(r['entity_ref'], r['asset_sha256'], r['source_record_hash']) for r in value]
                 if old.get('run_id') != run_id or bindings(old.get('assets', [])) != bindings(assets):
                     raise ValueError('light_transcript_source_changed')
                 if not old.get('fallback_assets'):
@@ -139,7 +157,7 @@ class LightTranscripts:
                     if prepare(state,folder,self.jobs):write(path,state)
                     if tick_fallback(state,path,folder,self.jobs):continue
                 platform=state.get('platform','bilibili')
-                if platform not in ('bilibili','douyin'):raise ValueError('light_transcript_queue_invalid')
+                if platform not in PLATFORMS.values():raise ValueError('light_transcript_queue_invalid')
                 for asset in state['assets']:
                     if asset['state'] == 'dispatching' and not asset.get('job_id'):
                         matches = [job for job in self.jobs.list(state['run_id']).get('jobs', [])
@@ -167,13 +185,13 @@ class LightTranscripts:
                             state['reason'] = 'local_asr_model_not_configured';write(path, state);return
                         try:
                             folder = self.run_folder(state['run_id'])
-                            _, binding, body, media, _, data = _identity(folder, asset['content_id'], asset['asset_sha256'], asset['entity_ref'], native_audio=platform=='bilibili',native_asr=platform=='douyin')
+                            _, binding, body, media, _, data = _identity(folder, asset['content_id'], asset['asset_sha256'], asset['entity_ref'], native_audio=platform=='bilibili',native_asr=platform!='bilibili')
                             if body['record_hash'] != asset['source_record_hash'] or len(data) != asset['bytes']:
                                 raise ValueError('light_transcript_source_changed')
                             asset['duration_ms'] = _duration(data, audio_only=True) if platform=='bilibili' else _duration(data,require_audio=True)
                             asset.update(state='dispatching', dispatch_at=time.time())
                             write(path, state)
-                            if platform=='douyin':
+                            if platform!='bilibili':
                                 from media_native import _relative
                                 source=_relative(folder,media['path']);del data
                                 job=self.jobs.start(source,platform,asset['content_id'],'asr',state['run_id'],entity_ref=asset['entity_ref'],native_run_folder=folder,**({'asr_engine':'mlx'} if asset.get('asr_engine')=='mlx' else {}))
