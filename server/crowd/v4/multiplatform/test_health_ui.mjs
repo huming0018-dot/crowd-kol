@@ -24,6 +24,23 @@ nodes=await render({},false,{storage_scope:'cloud',checked_at:new Date().toISOSt
 assert.ok(nodes.some(node=>node.textContent==='参与者监控 · 2 人 · 1 人待处理'));
 assert.ok(nodes.some(node=>node.textContent.includes('离线待核对')&&node.textContent.includes('更新异常')));
 assert.ok(nodes.some(node=>node.textContent.includes('监控未开启')));
+const completed={user_id:'7033ff0c-65d7-4963-b65c-a4ac9e31f03a',diagnostics_enabled:true,stale:false,version:'4.2.52',enabled:false,queued:0,error:'test_completed',update_state:'current'};
+const stale={user_id:'00000000-0000-4000-8000-000000000002',diagnostics_enabled:true,stale:true,enabled:false,queued:0,update_state:'current'};
+nodes=await render({},false,{storage_scope:'cloud',participants:[completed,stale],events:[{...completed,at:new Date().toISOString()}]});
+assert.ok(nodes.some(node=>node.textContent==='参与者监控 · 2 人 · 1 人待处理'));
+assert.ok(nodes.some(node=>node.textContent.includes('状态：本轮采集已完成')));
+assert.ok(!nodes.some(node=>node.textContent.includes('需要处理：本轮采集已完成')));
+assert.ok(!nodes.some(node=>node.tag==='h4'&&node.textContent==='最近参与者异常'));
+for(const reason of ['user_stopped','daily_quota','session_rest','action_budget','action_gap','known_note','note_busy','test_quota','test_no_task','no_task']){
+  nodes=await render({},false,{storage_scope:'cloud',participants:[{...completed,error:reason}],events:[{...completed,error:reason,at:new Date().toISOString()}]});
+  assert.ok(nodes.some(node=>node.textContent==='参与者监控 · 1 人 · 0 人待处理'),reason);
+  assert.ok(!nodes.some(node=>node.tag==='h4'&&node.textContent==='最近参与者异常'),reason);
+}
+for(const issue of [{error:'rate_limit'},{error:'captcha'},{error:'test_partial'},{error:'test_comments_partial'},{error:null,update_state:'helper_unavailable'},{error:null,ota_poll_query_error:'helper_unavailable'}]){
+  nodes=await render({},false,{storage_scope:'cloud',participants:[{...completed,...issue}],events:[{...completed,...issue,at:new Date().toISOString()}]});
+  assert.ok(nodes.some(node=>node.textContent==='参与者监控 · 1 人 · 1 人待处理'),JSON.stringify(issue));
+  assert.ok(nodes.some(node=>node.tag==='h4'&&node.textContent==='最近参与者异常'),JSON.stringify(issue));
+}
 nodes=await render({},false,null,true);assert.ok(nodes.some(node=>node.textContent==='参与者监控 · 查询失败，需处理'));assert.ok(nodes.every(node=>!node.textContent.includes('SECRET')));
 const owner=fs.readFileSync(new URL('./owner-ui.js',import.meta.url),'utf8');
 assert.ok(owner.includes('platform_options_by_platform'));

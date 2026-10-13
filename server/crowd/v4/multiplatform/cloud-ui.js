@@ -8,17 +8,22 @@
   const participants=node('details'),participantsTitle=node('summary','参与者监控'),participantsBody=node('div');
   participants.append(participantsTitle,participantsBody);history.after(participants);let participantsPending=false;
   const otaLabels={unknown:'更新状态未知',ready:'更新已就绪',applied:'更新已应用',current:'版本已核对',checking:'正在检查更新',pending_reload:'等待重载',helper_unavailable:'更新助手不可用',error:'更新异常',rolled_back:'已回滚'};
+  const normalReasons=new Set(['test_completed','user_stopped','daily_quota','session_rest','action_budget','action_gap','known_note','note_busy','test_quota','test_no_task','no_task']);
+  const reasonLabels={test_completed:'本轮采集已完成',user_stopped:'本人已停止采集',daily_quota:'本日采集额度已用完',session_rest:'等待下一轮采集',action_budget:'本轮访问额度已用完',action_gap:'等待下一次来源访问',known_note:'内容已采集',note_busy:'内容正在由其他任务采集',test_quota:'本轮测试额度已用完',test_no_task:'等待可用测试任务',no_task:'等待可用任务',rate_limit:'平台限流，采集已暂停',captcha:'需要本人完成验证码',login_required:'需要重新登录',test_partial:'本轮仅取得部分内容',test_comments_partial:'评论仅取得部分内容'};
+  const reasonLabel=value=>reasonLabels[value]||value;
+  const sourceIssue=value=>Boolean(value&&!normalReasons.has(value));
+  const participantIssue=row=>sourceIssue(row.error)||sourceIssue(row.kol_error)||row.ota_poll_error||row.ota_poll_query_error||['error','helper_unavailable'].includes(row.update_state);
   async function refreshParticipants(){if(participantsPending||document.hidden)return;participantsPending=true;
     try{const value=await api('/api/cloud',{action:'participant_health',payload:{}});participants.hidden=value.storage_scope!=='cloud';if(participants.hidden)return;
-      const rows=value.participants||[],issues=rows.filter(row=>row.diagnostics_enabled&&(row.stale||row.error||row.kol_error||row.ota_poll_error||row.ota_poll_query_error||['error','helper_unavailable'].includes(row.update_state)));
+      const rows=value.participants||[],issues=rows.filter(row=>row.diagnostics_enabled&&(row.stale||participantIssue(row)));
       participantsTitle.textContent='参与者监控 · '+rows.length+' 人 · '+issues.length+' 人待处理';participantsBody.replaceChildren();
       participantsBody.append(node('p','云端诊断更新时间：'+(value.checked_at?new Date(value.checked_at).toLocaleString():'尚无记录')+'。超过 '+(value.stale_after_seconds||180)+' 秒未上报显示离线待核对；不证明采集已停止。'));
       for(const row of rows){const item=node('p'),id=String(row.user_id||'').slice(0,8);
         item.textContent=id+' · '+(!row.diagnostics_enabled?'监控未开启':(row.stale?'离线待核对':'最近有上报')+' · 版本 '+(row.version||'未知')+' · '+(row.enabled?'采集已启用':'采集已关闭')+' · 待回传 '+(row.queued??'未知')+' · '+(otaLabels[row.update_state]||'更新状态未知'));
-        if(row.diagnostics_enabled){const errors=[row.error,row.kol_error,row.ota_poll_error,row.ota_poll_query_error].filter(Boolean);if(errors.length)item.textContent+=' · 需要处理：'+errors.join(' / ');}participantsBody.append(item);}
+        if(row.diagnostics_enabled){const reasons=[row.error,row.kol_error].filter(Boolean),errors=[...reasons.filter(sourceIssue),row.ota_poll_error,row.ota_poll_query_error].filter(Boolean),normal=reasons.filter(value=>!sourceIssue(value));if(normal.length)item.textContent+=' · 状态：'+normal.map(reasonLabel).join(' / ');if(errors.length)item.textContent+=' · 需要处理：'+errors.map(reasonLabel).join(' / ');}participantsBody.append(item);}
       if(!rows.length)participantsBody.append(node('p','还没有参与者诊断上报。不能将未上报设备判为验收通过。'));
-      const events=value.events||[];if(events.length){participantsBody.append(node('h4','最近参与者异常'));
-        for(const row of events.filter(row=>row.error||row.kol_error||row.ota_poll_error||row.ota_poll_query_error||['error','helper_unavailable'].includes(row.update_state)).slice(0,30))participantsBody.append(node('p',new Date(row.at).toLocaleString()+' · '+String(row.user_id||'').slice(0,8)+' · '+[row.error,row.kol_error,row.ota_poll_error,row.ota_poll_query_error,otaLabels[row.update_state]].filter(Boolean).join(' / ')));}
+      const events=(value.events||[]).filter(participantIssue).slice(0,30);if(events.length){participantsBody.append(node('h4','最近参与者异常'));
+        for(const row of events)participantsBody.append(node('p',new Date(row.at).toLocaleString()+' · '+String(row.user_id||'').slice(0,8)+' · '+[row.error,row.kol_error,row.ota_poll_error,row.ota_poll_query_error,otaLabels[row.update_state]].filter(Boolean).map(reasonLabel).join(' / ')));}
     }catch(_error){participants.hidden=false;participantsTitle.textContent='参与者监控 · 查询失败，需处理';participantsBody.replaceChildren();participantsBody.append(node('p','云端诊断不可用；本机监控继续，不能据此判断其他设备正常。'));}finally{participantsPending=false;}}
   const errorLabels={scheduler_dead:'调度线程已停止',scheduler_stale:'调度长时间没有推进',cloud_lock_unavailable:'无法读取任务锁',cloud_scheduler_failed:'调度异常',cloud_worker_failed:'采集执行器异常',cloud_stop_persistence_failed:'停止状态未能保存',postprocessing_enqueue_failed:'文字稿处理未能入队',postprocessing_tick_failed:'文字稿处理待重试',health_observation_failed:'无法读取调度健康',health_history_unavailable:'运行历史无法保存或读取'};
   const timeLabel=value=>typeof value==='number'?new Date(value*1000).toLocaleString():'尚无记录';
