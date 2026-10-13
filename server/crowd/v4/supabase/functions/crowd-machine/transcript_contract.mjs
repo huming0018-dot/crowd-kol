@@ -48,13 +48,34 @@ function platformSubtitleReport(report,input){
   &&p.last_seconds<=report.duration_seconds&&p.duration_seconds===report.duration_seconds,'invalid_transcript');
 }
 
+const videoOcrFields=reportFields.filter(key=>key!=='audio_source_job_id').concat('video_source_job_id','visual_provenance');
+const visualFields=['provider','source_kind','source_video_sha256','source_reference_sha256','source_record_sha256','sampling_fps','sample_start','sample_end','sampled_frames','expected_frames','crop_top_origin','timestamp_kind','timestamp_uncertainty_seconds','frame_evidence_sha256','frame_evidence_format','coverage','spoken_transcript','semantic_completeness','truncated'];
+function videoOcrReport(report){
+ const p=report.visual_provenance;
+ assert(keys(report,videoOcrFields)&&uuid(report.video_source_job_id)
+  &&report.processor==='apple_vision_sampled_video_text'&&report.processing_profile==='apple_vision_video_hard_text_2fps_v1'
+  &&report.model_manifest_sha256===null&&report.text_revision===null&&hex(report.diagnostics_sha256),'invalid_transcript');
+ assert(keys(p,visualFields)&&p.provider==='apple_vision'&&p.source_kind==='sampled_video_text'
+  &&['source_video_sha256','source_reference_sha256','source_record_sha256','frame_evidence_sha256'].every(key=>hex(p[key]))
+  &&p.source_video_sha256===report.asset_sha256&&p.frame_evidence_sha256===report.diagnostics_sha256
+  &&p.sampling_fps===2&&p.sample_start===0&&p.sample_end===report.duration_seconds
+  &&positive(p.sampled_frames)&&positive(p.expected_frames)&&p.sampled_frames===p.expected_frames
+  &&p.expected_frames===Math.ceil(report.duration_seconds*2)&&p.expected_frames<=14400
+  &&Array.isArray(p.crop_top_origin)&&p.crop_top_origin.length===2&&p.crop_top_origin.every(Number.isFinite)
+  &&0<=p.crop_top_origin[0]&&p.crop_top_origin[0]<p.crop_top_origin[1]&&p.crop_top_origin[1]<=1
+  &&p.timestamp_kind==='resampled_frame_time'&&p.timestamp_uncertainty_seconds===.5
+  &&p.frame_evidence_format==='gzip_json_array_v1'&&p.coverage==='all_scheduled_frames_processed'
+  &&p.spoken_transcript===false&&p.semantic_completeness==='unknown'&&p.truncated===false,'invalid_transcript');
+}
+
 export async function transcriptPayload(input){
   assert(keys(input,fields),'invalid_transcript');
   assert(['task_id','child_id','run_id','local_run_id','local_job_id'].every(key=>uuid(input[key]))&&positive(input.lease_epoch)&&input.lease_epoch<=2147483647&&hex(input.report_sha256),'invalid_transcript');
   assert(input.idempotency_key==='transcript:'+input.local_job_id&&Array.isArray(input.source_refs)&&input.source_refs.length>=1&&input.source_refs.length<=2000&&input.source_refs.every(ref=>keys(ref,['capture_id','envelope_hash'])&&uuid(ref.capture_id)&&hex(ref.envelope_hash))&&new Set(input.source_refs.map(ref=>ref.capture_id)).size===input.source_refs.length,'invalid_transcript');
   assert(typeof input.report_json==='string'&&new TextEncoder().encode(input.report_json).length<=200000&&!sensitive.test(input.report_json),'transcript_report_limit');
   let report;try{report=JSON.parse(input.report_json);}catch{throw Error('invalid_transcript');}
-  if(report.schema==='crowd-subtitle-report-v1')subtitleReport(report,input);
+  if(report.schema==='crowd-video-ocr-report-v1')videoOcrReport(report);
+  else if(report.schema==='crowd-subtitle-report-v1')subtitleReport(report,input);
   else if(report.schema==='crowd-platform-subtitle-report-v1')platformSubtitleReport(report,input);
   else assert(keys(report,reportFields)&&report.schema==='crowd-transcript-report-v1'&&uuid(report.audio_source_job_id),'invalid_transcript');
   assert(report.job_id===input.local_job_id&&report.local_run_id===input.local_run_id&&['xiaohongshu','douyin','kuaishou','bilibili','weibo','tieba','zhihu'].includes(report.platform)&&typeof report.content_id==='string'&&/^[A-Za-z0-9_-]{1,200}$/.test(report.content_id),'invalid_transcript');
@@ -69,6 +90,10 @@ export async function transcriptPayload(input){
     for(const row of report.segments){assert(row.start>=previous&&row.start<row.end&&row.start-cursor<=Math.max(120,report.duration_seconds*.15),'invalid_transcript');previous=row.start;cursor=Math.max(cursor,row.end);}
     const p=report.subtitle_provenance,edge=Math.max(10,report.duration_seconds*.03);
     assert(p.first_seconds===report.segments[0].start&&p.last_seconds===cursor&&p.first_seconds<=edge&&report.duration_seconds-cursor<=edge,'invalid_transcript');
+  }
+  if(report.schema==='crowd-video-ocr-report-v1'){
+    let cursor=0;
+    for(const row of report.segments){assert(keys(row,['start','end','text'])&&row.start<row.end&&row.start>=cursor,'invalid_transcript');cursor=row.end;}
   }
   assert(characters===report.character_count&&await sha(report.segments.map(row=>row.text).join('\n'))===report.text_sha256,'transcript_hash_conflict');
   let nodes=0;

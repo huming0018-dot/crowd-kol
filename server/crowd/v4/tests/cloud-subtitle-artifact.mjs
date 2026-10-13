@@ -25,6 +25,7 @@ try{
  for(const name of ['20261012080647_crowd_transcript_artifact.sql','20261012153031_crowd_subtitle_report.sql'])await db.exec(fs.readFileSync(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261012153031_crowd_subtitle_report.sql',import.meta.url),'utf8'));cases++;
  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261012163143_crowd_platform_subtitle_report.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261013020000_crowd_video_ocr_report.sql',import.meta.url),'utf8'));
  await good('worker_pair',{worker_id:randomUUID(),worker_key:worker,name:'offline-subtitle',platforms:['bili'],expires_at:new Date(Date.now()+86400000).toISOString()});
  const task=(await good('task_create',{platforms:['bili'],mode:'detail',targets_by_platform:{bili:['BV1ocaW6rETo']},desired_items:1,max_api_requests:12,purpose:'noncommercial_research',idempotency_key:randomUUID()})).task;
  const lease=(await good('claim',{claim_id:randomUUID()},true)).lease,local=randomUUID(),job=randomUUID();
