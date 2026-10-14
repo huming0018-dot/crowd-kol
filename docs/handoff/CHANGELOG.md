@@ -102,3 +102,7 @@
 ## 2026-10-15 00:04 CST｜固定在线入口发布准备
 - Codex /root修改五份Markdown交接入口；refs200_review独立发现并修正旧ACK待办、Signer运行状态、历史E26和本地JSON被误作在线链接的问题。功能运行版本不变，未新增采集或部署。
 - 本次仅发布docs/HANDOFF.md、docs/handoff/EVIDENCE.md、CHANGELOG.md、ENTRY_TEMPLATE.md与仓库AGENTS.md；所有JSON、PRIVATE产物、未提交ASR/迁移等保持本地。目标huming0018-dot/crowd-kol，codex/v4.0.6-handoff。实际推送与远端SHA核验随后记录；原件无法访问者仍须标未核验。
+
+### 同轮实际发布核验
+- 五份Markdown提交6277182d56a9d9ff5bc1203e000ee04538d5adc7已推送；git ls-remote原仓原分支实际返回同SHA。功能提交仍30139a2，运行服务未因此变化。固定入口为https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md。
+- 非作者五MD复核通过；EOF空行已修、diff --check通过。JSON原件、PRIVATE资料、其他未提交资产未发布。该追加记录为文档发布凭据，不代表重新核验全部线上业务。
