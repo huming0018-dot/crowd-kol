@@ -40,7 +40,7 @@ class ProTest(unittest.TestCase):
                      'video_cover_url':'https://i0.hdslb.com/cover.jpg','duration':'431',
                      'creator_hash':'abc123','nickname':'甲*'}
         self.row('topic','123',self.body)
-        self.row('comment','10',{'video_id':'123','comment_id':'10','parent_comment_id':'0',
+        self.row('comment','10',{'video_id':'123','comment_id':'10','parent_comment_id':'',
                                 'content':'第一页根评论','sub_comment_count':'2','pictures':'https://i0.hdslb.com/comment.jpg'})
         self.row('comment','11',{'video_id':'123','comment_id':'11','parent_comment_id':'10',
                                 'content':'第二页回复','sub_comment_count':'0'})
@@ -48,8 +48,8 @@ class ProTest(unittest.TestCase):
         self.cp = {'id':self.rid,'platform':'bili','mode':'detail','acquisition_committed':True,'is_completed':True,
                    'failed_search_pages':[],'crawled_note_list':[{'note_id':'BV1ocaW6rETo','is_success_crawled':True,
                    'is_success_crawled_comments':True,'current_note_comment_cursor':'page-3','saved_comment_count':3}]}
-        (self.run/'data/checkpoints').mkdir(parents=True)
-        m.write(self.run/'data/checkpoints'/(self.rid+'.json'), self.cp)
+        (self.run/'data/checkpoints/vox').mkdir(parents=True)
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'), self.cp)
 
     def tearDown(self):
         self.db.close()
@@ -72,7 +72,7 @@ class ProTest(unittest.TestCase):
                           {'page':{'count':count}},parent='10',pn=1,ps=10)
         observer.pages[-1]['saved']=True
         self.cp['crawled_note_list'][0].update(note_id='BV1ocaW6rETo',current_note_comment_cursor='1',saved_comment_count=20)
-        m.write(self.run/'data/checkpoints'/(self.rid+'.json'),self.cp)
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),self.cp)
         observer.persist()
         return observer
 
@@ -105,10 +105,45 @@ class ProTest(unittest.TestCase):
     def test_old_run_has_unknown_coverage(self):
         self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
 
+    def test_real_vox_checkpoint_legacy_compatibility_and_conflict(self):
+        vox=self.run/'data/checkpoints/vox'/(self.rid+'.json')
+        legacy=vox.parent.parent/vox.name
+        self.assertEqual(pro.checkpoint(self.run,self.manifest),self.cp)
+        m.write(legacy,self.cp);vox.unlink()
+        self.assertEqual(pro.checkpoint(self.run,self.manifest),self.cp)
+        m.write(vox,self.cp)
+        self.assertEqual(pro.checkpoint(self.run,self.manifest),self.cp)
+        m.write(legacy,{**self.cp,'acquisition_committed':False})
+        with self.assertRaisesRegex(m.BridgeError,'path_conflict'):
+            pro.checkpoint(self.run,self.manifest)
+
+    def test_checkpoint_symlink_directory_rejected(self):
+        vox=self.run/'data/checkpoints/vox'
+        moved=vox.parent/'moved';vox.rename(moved);vox.symlink_to(moved,target_is_directory=True)
+        with self.assertRaisesRegex(m.BridgeError,'unsafe_pro_checkpoint'):
+            pro.checkpoint(self.run,self.manifest)
+
+    def test_dual_checkpoint_boolean_integer_float_are_distinct(self):
+        legacy=self.run/'data/checkpoints'/(self.rid+'.json')
+        for value in (1,1.0):
+            m.write(legacy,{**self.cp,'is_completed':value})
+            with self.assertRaisesRegex(m.BridgeError,'path_conflict'):
+                pro.checkpoint(self.run,self.manifest)
+
+    def test_real_empty_root_parent_and_zero_valid_but_missing_none_invalid(self):
+        for value in ('','0'):
+            self.pagination_fixture()
+            self.row('comment','10',{'video_id':'123','comment_id':'10','parent_comment_id':value})
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'exhausted')
+        for row in ({'video_id':'123','comment_id':'10'},
+                    {'video_id':'123','comment_id':'10','parent_comment_id':None}):
+            self.row('comment','10',row)
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
     def test_bili_completion_uses_real_bvid_checkpoint_and_aid_observation(self):
         self.assertEqual(pro.completion(self.run,self.manifest,self.summary())['content_count'],1)
         self.cp['crawled_note_list'][0]['note_id']='123'
-        m.write(self.run/'data/checkpoints'/(self.rid+'.json'),self.cp)
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),self.cp)
         with self.assertRaisesRegex(m.BridgeError,'observation_mismatch'):
             pro.completion(self.run,self.manifest,self.summary())
 
@@ -128,7 +163,7 @@ class ProTest(unittest.TestCase):
             pro.completion(self.run,self.manifest,self.summary())
         self.row('topic','123',self.body)
         self.cp['crawled_note_list']*=2
-        m.write(self.run/'data/checkpoints'/(self.rid+'.json'),self.cp)
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),self.cp)
         with self.assertRaisesRegex(m.BridgeError,'observation_mismatch'):
             pro.completion(self.run,self.manifest,self.summary())
 
@@ -262,7 +297,7 @@ class ProTest(unittest.TestCase):
         for delta in ({'acquisition_committed':False},{'is_completed':False},{'failed_search_pages':[1]},
                       {'crawled_note_list':[]},{'id':'other'},
                       {'crawled_note_list':[{'note_id':'BV1ocaW6rETo','is_success_crawled':True,'is_success_crawled_comments':False}]}):
-            m.write(self.run/'data/checkpoints'/(self.rid+'.json'),{**self.cp,**delta})
+            m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),{**self.cp,**delta})
             with self.assertRaises(m.BridgeError):pro.completion(self.run,self.manifest,self.summary())
 
     def test_observation_scope_and_source_identity_rejects_cross_platform(self):
@@ -279,7 +314,7 @@ class ProTest(unittest.TestCase):
         self.assertEqual(content['body'],self.body['desc']);self.assertEqual(content['platform_fields']['bvid'],'BV1ocaW6rETo')
         self.assertNotIn('upstream_truncation_risk',content)
         replies={r['comment_id']:r['parent_comment_id'] for r in records if r['kind']=='comment'}
-        self.assertEqual(replies,{'10':'0','11':'10','12':'10'})
+        self.assertEqual(replies,{'10':None,'11':'10','12':'10'})
         self.assertEqual(len(imported['media']),2)
         self.assertTrue(all(i['status']=='reference_only' and 'sha256' not in i and 'bytes' not in i for i in imported['media']))
         self.assertFalse(imported['pro_acquisition']['raw_response_pages_available'])
@@ -312,7 +347,7 @@ class ProTest(unittest.TestCase):
         self.assertEqual(sum(r['kind']=='comment' for r in rows),3)
         self.assertEqual(next(r for r in rows if r.get('comment_id')=='11')['text'],'同页重访新观测')
         cp=deepcopy(self.cp);cp['acquisition_committed']=False;cp['crawled_note_list'][0]['is_success_crawled_comments']=False
-        m.write(self.run/'data/checkpoints'/(self.rid+'.json'),cp)
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),cp)
         imported=m.import_output(self.root,{'run_id':self.rid})
         self.assertFalse(imported['pro_acquisition']['local_committed'])
 

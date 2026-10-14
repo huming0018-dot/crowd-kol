@@ -133,12 +133,23 @@ def argv_for(request):
 
 def checkpoint(run, manifest):
     m = bridge()
-    path = Path(run)/'data/checkpoints'/(manifest['run_id']+'.json')
-    if not path.exists():
+    run = Path(run)
+    paths = [run/'data/checkpoints/vox'/(manifest['run_id']+'.json'),
+             run/'data/checkpoints'/(manifest['run_id']+'.json')]
+    values = []
+    for path in paths:
+        if path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent != run and run in parent.parents):
+            m.fail('unsafe_pro_checkpoint')
+        if not path.exists():
+            continue
+        if not path.is_file() or not path.resolve().is_relative_to(run.resolve()) or path.stat().st_size > 10_000_000:
+            m.fail('unsafe_pro_checkpoint')
+        values.append(m.read(path))
+    if not values:
         return None
-    if path.is_symlink() or not path.resolve().is_relative_to(Path(run).resolve()) or path.stat().st_size > 10_000_000:
-        m.fail('unsafe_pro_checkpoint')
-    value = m.read(path)
+    if len(values) == 2 and m.canonical(values[0]) != m.canonical(values[1]):
+        m.fail('pro_checkpoint_path_conflict')
+    value = values[0]
     p = manifest['request']
     if not isinstance(value, dict) or value.get('id') != manifest['run_id'] or value.get('platform') != p['platform'] or value.get('mode') != p['mode']:
         m.fail('pro_checkpoint_identity_mismatch')
@@ -294,9 +305,13 @@ def reply_belongs_to(entity, root, rows, content_id):
             return False
         parent = str(rows[entity].get('parent_comment_id'))
         if parent == root:
-            return root in rows and str(rows[root].get('video_id')) == content_id and str(rows[root].get('parent_comment_id')) == '0'
+            return root in rows and str(rows[root].get('video_id')) == content_id and is_root_comment(rows[root])
         entity = parent
     return False
+
+
+def is_root_comment(row):
+    return 'parent_comment_id' in row and row['parent_comment_id'] in ('', '0')
 
 
 def pagination_summary(run, manifest):
@@ -324,7 +339,7 @@ def pagination_summary(run, manifest):
             if p['content_id'] not in topics or not isinstance(p['ids'], list) or len(p['ids']) != len(set(p['ids'])):
                 raise ValueError()
             if p['saved'] and any(i not in saved or str(saved[i].get('video_id')) != p['content_id'] or
-                    (p['scope'] == 'root' and str(saved[i].get('parent_comment_id')) != '0') or
+                    (p['scope'] == 'root' and not is_root_comment(saved[i])) or
                     (p['scope'] == 'reply' and not reply_belongs_to(i, p['parent_id'], saved, p['content_id'])) for i in p['ids']):
                 raise ValueError()
         if any(not p['saved'] for p in pages):
@@ -456,7 +471,7 @@ class BiliPagination:
             else:
                 rows = {entity: row for kind, entity, row in observations(self.run, self.manifest) if kind == 'comment'}
                 page['saved'] = all(i in rows and str(rows[i].get('video_id')) == page['content_id'] and
-                    (str(rows[i].get('parent_comment_id')) == '0' if page['scope'] == 'root' else
+                    (is_root_comment(rows[i]) if page['scope'] == 'root' else
                      reply_belongs_to(i, page['parent_id'], rows, page['content_id'])) for i in page['ids'])
             self.persist()
             return result
