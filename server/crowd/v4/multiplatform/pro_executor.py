@@ -5,7 +5,9 @@ the upstream durable acquisition protocol to its existing import contract.
 """
 import asyncio
 import contextlib
+from contextvars import ContextVar
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -181,7 +183,19 @@ def completion(run, manifest, summary):
     notes = cp['crawled_note_list']
     if any(not isinstance(n, dict) or n.get('is_success_crawled') is not True or (p['comments'] and n.get('is_success_crawled_comments') is not True) for n in notes):
         m.fail('pro_checkpoint_partial')
-    if {str(n.get('note_id')) for n in notes} != topics:
+    checkpoint_topics = topics
+    if p['platform'] == 'bili':
+        mapping = {}
+        for kind, entity, row in rows:
+            if kind != 'topic':
+                continue
+            bvid = row.get('bvid')
+            if (not isinstance(bvid, str) or not re.fullmatch(r'BV[A-Za-z0-9]{10}', bvid) or
+                    page_id(entity) is None or str(row.get('video_id')) != entity or bvid in mapping):
+                m.fail('pro_bili_checkpoint_mapping_invalid')
+            mapping[bvid] = entity
+        checkpoint_topics = set(mapping)
+    if len(notes) != len(checkpoint_topics) or {str(n.get('note_id')) for n in notes} != checkpoint_topics:
         m.fail('pro_checkpoint_observation_mismatch')
     return {'operation_id': manifest['run_id'], 'local_committed': True, 'cloud_ack': False,
             'content_count': len(topics), 'comment_count': sum(k == 'comment' for k, _, _ in rows),
@@ -254,7 +268,214 @@ def import_records(run, manifest):
                 'cloud_ack': False, 'raw_response_pages_available': False,
                 'pagination_evidence': 'upstream_checkpoint_only',
                 'media_evidence': 'references_only_no_download_or_transcript'}
+    if p == 'bili':
+        evidence['pagination'] = pagination_summary(run, manifest)
     return records, media, evidence
+
+
+def page_number(value):
+    if type(value) is int and 0 <= value <= 10**18:
+        return value
+    if isinstance(value, str) and re.fullmatch(r'[0-9]{1,19}', value):
+        return int(value)
+    return None
+
+
+def page_id(value):
+    value = str(value)
+    return value if re.fullmatch(r'[0-9]{1,30}', value) else None
+
+
+def reply_belongs_to(entity, root, rows, content_id):
+    seen = set()
+    while entity in rows and entity not in seen and len(seen) < MAX_ROWS:
+        seen.add(entity)
+        if str(rows[entity].get('video_id')) != content_id:
+            return False
+        parent = str(rows[entity].get('parent_comment_id'))
+        if parent == root:
+            return root in rows and str(rows[root].get('video_id')) == content_id and str(rows[root].get('parent_comment_id')) == '0'
+        entity = parent
+    return False
+
+
+def pagination_summary(run, manifest):
+    """Coverage evidence is separate from upstream commit and cloud delivery."""
+    unknown = {'coverage': 'unknown', 'reason': 'pagination_evidence_missing'}
+    path = Path(run)/'pro-pagination.json'
+    if not path.exists():
+        return unknown
+    try:
+        if path.is_symlink() or path.stat().st_size > 3_000_000:
+            raise ValueError()
+        doc = bridge().read(path)
+        digest = doc.pop('sha256')
+        if (digest != hashlib.sha256(bridge().canonical(doc).encode()).hexdigest() or
+                doc['operation_id'] != manifest['run_id'] or doc['schema_version'] != 1 or
+                not isinstance(doc['pages'], list) or not 0 < len(doc['pages']) <= 1000):
+            raise ValueError()
+        pages = doc['pages']
+        rows = observations(run, manifest)
+        topics = {entity: row for kind, entity, row in rows if kind == 'topic'}
+        saved = {entity: row for kind, entity, row in rows if kind == 'comment'}
+        if doc['invalid'] or any(p['invalid'] or p['pinned_gap'] for p in pages):
+            return {'coverage': 'unknown', 'reason': 'pagination_fields_or_pinned_gap'}
+        for p in pages:
+            if p['content_id'] not in topics or not isinstance(p['ids'], list) or len(p['ids']) != len(set(p['ids'])):
+                raise ValueError()
+            if p['saved'] and any(i not in saved or str(saved[i].get('video_id')) != p['content_id'] or
+                    (p['scope'] == 'root' and str(saved[i].get('parent_comment_id')) != '0') or
+                    (p['scope'] == 'reply' and not reply_belongs_to(i, p['parent_id'], saved, p['content_id'])) for i in p['ids']):
+                raise ValueError()
+        if any(not p['saved'] for p in pages):
+            return {'coverage': 'partial', 'reason': 'response_not_fully_saved'}
+        cp = checkpoint(run, manifest)
+        notes = {str(n['note_id']): n for n in (cp or {}).get('crawled_note_list', [])}
+        exhausted = True
+        for aid, topic in topics.items():
+            roots = [p for p in pages if p['scope'] == 'root' and p['content_id'] == aid]
+            if not roots or roots[0]['cursor_in'] != 0:
+                return {'coverage': 'unknown', 'reason': 'root_chain_origin_unknown'}
+            seen = set()
+            root_ids = set()
+            for index, p in enumerate(roots):
+                if p['cursor_in'] in seen or index and (roots[index-1]['is_end'] or p['cursor_in'] != roots[index-1]['cursor_out']):
+                    return {'coverage': 'unknown', 'reason': 'root_chain_invalid'}
+                seen.add(p['cursor_in'])
+                if root_ids.intersection(p['ids']):
+                    return {'coverage': 'unknown', 'reason': 'repeated_root_ids'}
+                root_ids.update(p['ids'])
+                if manifest['request']['replies']:
+                    for parent, count in p['reply_roots'].items():
+                        replies = [r for r in pages if r['scope'] == 'reply' and r['content_id'] == aid and r['parent_id'] == parent]
+                        if count == 0:
+                            if replies:
+                                return {'coverage': 'unknown', 'reason': 'unexpected_replies_for_zero_count'}
+                            continue
+                        if not replies or any(r['pn'] != j+1 or j and not replies[j-1]['has_more'] for j, r in enumerate(replies)) or replies[-1]['has_more']:
+                            return {'coverage': 'partial', 'reason': 'reply_chain_incomplete'}
+                        if any(r['declared_count'] != count or r['ps'] != replies[0]['ps'] for r in replies):
+                            return {'coverage': 'unknown', 'reason': 'reply_count_or_page_size_changed'}
+                        reply_ids = [entity for r in replies for entity in r['ids']]
+                        if len(reply_ids) != len(set(reply_ids)):
+                            return {'coverage': 'unknown', 'reason': 'repeated_reply_ids'}
+                        if len(reply_ids) != count:
+                            return {'coverage': 'partial', 'reason': 'declared_replies_not_fully_saved'}
+            if any(r['parent_id'] not in root_ids for r in pages if r['scope'] == 'reply' and r['content_id'] == aid):
+                return {'coverage': 'unknown', 'reason': 'reply_root_not_observed'}
+            note = notes.get(str(topic.get('bvid')))
+            if not note or str(note.get('current_note_comment_cursor')) != str(roots[-1]['cursor_out']) or not roots[-1]['checkpoint_committed']:
+                return {'coverage': 'partial', 'reason': 'parent_checkpoint_unconfirmed'}
+            exhausted = exhausted and roots[-1]['is_end']
+        if exhausted:
+            return {'coverage': 'exhausted', 'reason': 'accessible_page_chain_ended'}
+        limit = manifest['request']['max_comments']
+        if cp and cp.get('acquisition_committed') is True and limit and all(
+                n.get('is_success_crawled_comments') is True and type(n.get('saved_comment_count')) is int and
+                n['saved_comment_count'] >= limit for n in notes.values()):
+            return {'coverage': 'limit_reached', 'reason': 'upstream_batch_limit'}
+        return {'coverage': 'partial', 'reason': 'root_chain_incomplete'}
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, sqlite3.Error, bridge().BridgeError):
+        return {'coverage': 'unknown', 'reason': 'pagination_evidence_invalid'}
+
+
+class BiliPagination:
+    """Observe pinned upstream methods without replacing their loops or results."""
+    def __init__(self, run, manifest):
+        self.run, self.manifest = Path(run), manifest
+        self.current = ContextVar('pro_bili_page', default=None)
+        self.pages, self.invalid = [], False
+        self.lock = threading.RLock()
+
+    def persist(self):
+        with self.lock:
+            doc = {'schema_version': 1, 'operation_id': self.manifest['run_id'],
+                   'pages': self.pages, 'invalid': self.invalid}
+            text = bridge().canonical(doc)
+            if len(text.encode()) > 2_900_000:
+                self.invalid = True
+                raise SystemExit(76)
+            bridge().write(self.run/'pro-pagination.json', {**doc, 'sha256': hashlib.sha256(text.encode()).hexdigest()})
+
+    def response(self, scope, aid, comments, data, cursor=0, parent=None, pn=None, ps=None):
+        if len(self.pages) >= 1000:
+            raise SystemExit(76)
+        ids = [page_id(c.comment_id) for c in comments]
+        page = {'scope': scope, 'content_id': page_id(aid), 'parent_id': page_id(parent) if parent is not None else None,
+                'ids': ids, 'saved': False, 'checkpoint_committed': False, 'invalid': None in ids or len(ids) != len(set(ids)) or page_id(aid) is None,
+                'pinned_gap': False}
+        if scope == 'root':
+            info = data.get('cursor', {}) if isinstance(data, dict) else {}
+            info = info if isinstance(info, dict) else {}
+            end = info.get('is_end')
+            page.update(cursor_in=page_number(cursor), cursor_out=page_number(info.get('next')), is_end=end if type(end) is bool else None,
+                        reply_roots={page_id(c.comment_id): page_number(c.sub_comment_count) for c in comments})
+            page['invalid'] |= page['cursor_in'] is None or page['cursor_out'] is None or type(end) is not bool or None in page['reply_roots'].values()
+            for key in ('top', 'top_replies'):
+                entries = data.get(key) if isinstance(data, dict) else None
+                if entries is not None and not isinstance(entries, (list, dict)):
+                    page['pinned_gap'] = True
+                entries = entries if isinstance(entries, list) else [entries] if isinstance(entries, dict) else []
+                if any(not isinstance(c, dict) or page_id(c.get('rpid')) not in ids for c in entries):
+                    page['pinned_gap'] = True
+        else:
+            info = data.get('page', {}) if isinstance(data, dict) else {}
+            info = info if isinstance(info, dict) else {}
+            count = page_number(info.get('count'))
+            pn, ps = page_number(pn), page_number(ps)
+            page.update(pn=pn, ps=ps, declared_count=count, has_more=count > pn*ps if count is not None and pn and ps else None)
+            page['invalid'] |= count is None or not pn or not ps or page['parent_id'] is None
+            for field, expected in (('pn', pn), ('num', pn), ('ps', ps), ('size', ps)):
+                if field in info and page_number(info[field]) != expected:
+                    page['invalid'] = True
+        self.pages.append(page)
+        self.current.set(page)
+        self.persist()
+
+    def install(self, client_type, store, manager_type):
+        root, reply = client_type.get_video_comments, client_type.get_video_sub_comments
+        callback, commit = store.batch_update_bilibili_video_comments, manager_type.update_note_comment_cursor
+        async def roots(*args, **kwargs):
+            bound = inspect.signature(root).bind(*args, **kwargs)
+            bound.apply_defaults()
+            value = await root(*args, **kwargs)
+            self.response('root', bound.arguments['video_id'], *value, cursor=bound.arguments['next_page'])
+            return value
+        async def replies(*args, **kwargs):
+            bound = inspect.signature(reply).bind(*args, **kwargs)
+            bound.apply_defaults()
+            value = await reply(*args, **kwargs)
+            self.response('reply', bound.arguments['video_id'], *value, parent=bound.arguments['root_comment_id'],
+                          pn=bound.arguments['pn'], ps=bound.arguments['ps'])
+            return value
+        async def saved(video_id, comments):
+            result = await callback(video_id, comments)
+            page = self.current.get()
+            if page is None or page['content_id'] != page_id(video_id) or page['ids'] != [page_id(c.comment_id) for c in comments]:
+                self.invalid = True
+            else:
+                rows = {entity: row for kind, entity, row in observations(self.run, self.manifest) if kind == 'comment'}
+                page['saved'] = all(i in rows and str(rows[i].get('video_id')) == page['content_id'] and
+                    (str(rows[i].get('parent_comment_id')) == '0' if page['scope'] == 'root' else
+                     reply_belongs_to(i, page['parent_id'], rows, page['content_id'])) for i in page['ids'])
+            self.persist()
+            return result
+        async def committed(manager, checkpoint_id, note_id, comment_cursor, is_success_crawled_comments=False, saved_comment_count=None):
+            result = await commit(manager, checkpoint_id, note_id, comment_cursor, is_success_crawled_comments, saved_comment_count)
+            cp = checkpoint(self.run, self.manifest)
+            topic_ids = {entity for kind, entity, row in observations(self.run, self.manifest) if kind == 'topic' and str(row.get('bvid')) == str(note_id)}
+            matches = [p for p in self.pages if p['scope'] == 'root' and p['content_id'] in topic_ids and str(p['cursor_out']) == str(comment_cursor)]
+            notes = [n for n in (cp or {}).get('crawled_note_list', []) if str(n.get('note_id')) == str(note_id)]
+            if (checkpoint_id == self.manifest['run_id'] and result is True and matches and notes and
+                    str(notes[0].get('current_note_comment_cursor')) == str(comment_cursor) and
+                    notes[0].get('is_success_crawled_comments') is is_success_crawled_comments and
+                    (saved_comment_count is None or notes[0].get('saved_comment_count') == saved_comment_count)):
+                matches[-1]['checkpoint_committed'] = True
+            self.persist()
+            return result
+        client_type.get_video_comments, client_type.get_video_sub_comments = roots, replies
+        store.batch_update_bilibili_video_comments = saved
+        manager_type.update_note_comment_cursor = committed
 
 
 class ProgressSink:
@@ -442,6 +663,10 @@ def execute(run, manifest):
             import importlib
             module, name = clients[request['platform']]
             client_type = getattr(importlib.import_module(module), name)
+            if request['platform'] == 'bili' and request['comments']:
+                from repo.platform_save_data import bilibili as store
+                from repo.checkpoint.checkpoint_store import CheckpointRepoManager
+                BiliPagination(run, manifest).install(client_type, store, CheckpointRepoManager)
             original_pong = client_type.pong
             async def checked_pong(client, *a, **kw):
                 result = await original_pong(client, *a, **kw)

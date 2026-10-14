@@ -46,7 +46,7 @@ class ProTest(unittest.TestCase):
                                 'content':'第二页回复','sub_comment_count':'0'})
         self.row('comment','12',{'video_id':'123','comment_id':'12','parent_comment_id':'10','content':'第三页回复'})
         self.cp = {'id':self.rid,'platform':'bili','mode':'detail','acquisition_committed':True,'is_completed':True,
-                   'failed_search_pages':[],'crawled_note_list':[{'note_id':'123','is_success_crawled':True,
+                   'failed_search_pages':[],'crawled_note_list':[{'note_id':'BV1ocaW6rETo','is_success_crawled':True,
                    'is_success_crawled_comments':True,'current_note_comment_cursor':'page-3','saved_comment_count':3}]}
         (self.run/'data/checkpoints').mkdir(parents=True)
         m.write(self.run/'data/checkpoints'/(self.rid+'.json'), self.cp)
@@ -62,6 +62,165 @@ class ProTest(unittest.TestCase):
 
     def summary(self):
         return {'operation_id':self.rid,'platform':'bili','crawler_type':'detail','status':'completed'}
+
+    def pagination_fixture(self, end=True, count=2):
+        observer = pro.BiliPagination(self.run, self.manifest)
+        observer.response('root', '123', [SimpleNamespace(comment_id='10', sub_comment_count='2')],
+                          {'cursor':{'next':1,'is_end':end}})
+        observer.pages[-1].update(saved=True, checkpoint_committed=True)
+        observer.response('reply', '123', [SimpleNamespace(comment_id='11'),SimpleNamespace(comment_id='12')],
+                          {'page':{'count':count}},parent='10',pn=1,ps=10)
+        observer.pages[-1]['saved']=True
+        self.cp['crawled_note_list'][0].update(note_id='BV1ocaW6rETo',current_note_comment_cursor='1',saved_comment_count=20)
+        m.write(self.run/'data/checkpoints'/(self.rid+'.json'),self.cp)
+        observer.persist()
+        return observer
+
+    def test_pagination_exhausted_is_separate_from_cloud_ack(self):
+        self.pagination_fixture()
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'exhausted')
+        self.assertFalse(pro.completion(self.run,self.manifest,self.summary())['cloud_ack'])
+
+    def test_pagination_batch_limit_is_not_exhausted(self):
+        self.pagination_fixture(end=False)
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'limit_reached')
+
+    def test_pagination_reply_missing_or_unsaved_is_partial(self):
+        for delta in ({'saved':False},{'has_more':True},{'pn':2}):
+            observer=self.pagination_fixture();observer.pages[-1].update(delta);observer.persist()
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'partial')
+
+    def test_pagination_invalid_fields_pinned_gap_and_digest_are_unknown(self):
+        for delta in ({'invalid':True},{'pinned_gap':True},{'cursor_in':2}):
+            observer=self.pagination_fixture();observer.pages[0].update(delta);observer.persist()
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+        value=m.read(self.run/'pro-pagination.json');value['operation_id']='other';m.write(self.run/'pro-pagination.json',value)
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_wrong_observation_parent_never_exhausted(self):
+        self.pagination_fixture()
+        self.row('comment','11',{'video_id':'123','comment_id':'11','parent_comment_id':'99'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_old_run_has_unknown_coverage(self):
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_bili_completion_uses_real_bvid_checkpoint_and_aid_observation(self):
+        self.assertEqual(pro.completion(self.run,self.manifest,self.summary())['content_count'],1)
+        self.cp['crawled_note_list'][0]['note_id']='123'
+        m.write(self.run/'data/checkpoints'/(self.rid+'.json'),self.cp)
+        with self.assertRaisesRegex(m.BridgeError,'observation_mismatch'):
+            pro.completion(self.run,self.manifest,self.summary())
+
+    def test_bili_completion_rejects_missing_or_duplicate_bvid_mapping(self):
+        for bvid in (None,'not-a-bvid'):
+            self.row('topic','123',{**self.body,'bvid':bvid})
+            with self.assertRaisesRegex(m.BridgeError,'mapping_invalid'):
+                pro.completion(self.run,self.manifest,self.summary())
+        self.row('topic','123',self.body)
+        self.row('topic','124',{**self.body,'video_id':'124'})
+        with self.assertRaisesRegex(m.BridgeError,'mapping_invalid'):
+            pro.completion(self.run,self.manifest,self.summary())
+
+    def test_bili_completion_rejects_wrong_entity_and_duplicate_checkpoint(self):
+        self.row('topic','123',{**self.body,'video_id':'124'})
+        with self.assertRaisesRegex(m.BridgeError,'observation_identity_mismatch'):
+            pro.completion(self.run,self.manifest,self.summary())
+        self.row('topic','123',self.body)
+        self.cp['crawled_note_list']*=2
+        m.write(self.run/'data/checkpoints'/(self.rid+'.json'),self.cp)
+        with self.assertRaisesRegex(m.BridgeError,'observation_mismatch'):
+            pro.completion(self.run,self.manifest,self.summary())
+
+    def test_nested_reply_keeps_original_parent_and_rejects_cycles(self):
+        self.pagination_fixture()
+        self.row('comment','12',{'video_id':'123','comment_id':'12','parent_comment_id':'11'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'exhausted')
+        self.row('comment','11',{'video_id':'123','comment_id':'11','parent_comment_id':'12'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_independent_counterexamples_cannot_exhaust(self):
+        cases = [({'ids':['11']},'partial'),({'ids':['11','11']},'unknown'),
+                 ({'declared_count':1},'unknown')]
+        for delta, expected in cases:
+            observer=self.pagination_fixture();observer.pages[-1].update(delta);observer.persist()
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],expected)
+        observer=pro.BiliPagination(self.run,self.manifest)
+        observer.response('root','123',[],{'cursor':{'is_end':True,'next':1},'top_replies':'dirty'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_returned_page_coordinates_must_match_request(self):
+        for fields in ({'pn':2},{'ps':20},{'num':2},{'size':20}):
+            observer=pro.BiliPagination(self.run,self.manifest)
+            observer.response('reply','123',[],{'page':{'count':0,**fields}},parent='10',pn=1,ps=10)
+            self.assertTrue(observer.pages[-1]['invalid'])
+
+    def test_pagination_root_observation_must_be_root(self):
+        self.pagination_fixture()
+        self.row('comment','10',{'video_id':'123','comment_id':'10','parent_comment_id':'99'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_all_reply_ancestors_must_match_content(self):
+        self.pagination_fixture()
+        self.row('comment','13',{'video_id':'999','comment_id':'13','parent_comment_id':'10'})
+        self.row('comment','12',{'video_id':'123','comment_id':'12','parent_comment_id':'13'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_hooks_preserve_arguments_objects_and_saved_callback(self):
+        comment=SimpleNamespace(comment_id='10',sub_comment_count='0')
+        value=([comment],{'cursor':{'next':1,'is_end':True}})
+        calls=[]
+        class Client:
+            async def get_video_comments(client,video_id,order_mode='original',next_page=0):
+                calls.append((video_id,order_mode,next_page));return value
+            async def get_video_sub_comments(client,video_id,root_comment_id,pn,ps,order_mode):
+                raise RuntimeError('original failure')
+        async def callback(video_id,comments):return 'original-result'
+        async def commit(manager,checkpoint_id,note_id,comment_cursor,is_success_crawled_comments=False,saved_comment_count=None):return True
+        store=SimpleNamespace(batch_update_bilibili_video_comments=callback)
+        manager=type('Manager',(),{'update_note_comment_cursor':commit})
+        observer=pro.BiliPagination(self.run,self.manifest);observer.install(Client,store,manager)
+        async def exercise():
+            self.assertIs(await Client().get_video_comments('123'),value)
+            self.assertEqual(await store.batch_update_bilibili_video_comments('123',[comment]),'original-result')
+            with self.assertRaisesRegex(RuntimeError,'original failure'):
+                await Client().get_video_sub_comments('123','10',1,10,'original')
+        asyncio.run(exercise())
+        self.assertEqual(calls,[('123','original',0)])
+        self.assertTrue(observer.pages[0]['saved'])
+        self.assertNotIn('content',m.canonical(m.read(self.run/'pro-pagination.json')).replace('content_id',''))
+
+    def test_pagination_context_is_per_async_task(self):
+        observer=pro.BiliPagination(self.run,self.manifest)
+        async def task(entity):
+            observer.response('root','123',[SimpleNamespace(comment_id=entity,sub_comment_count='0')],
+                              {'cursor':{'next':1,'is_end':True}})
+            await asyncio.sleep(0)
+            return observer.current.get()['ids']
+        async def exercise():return await asyncio.gather(task('10'),task('11'))
+        self.assertEqual(asyncio.run(exercise()),[['10'],['11']])
+
+    def test_pagination_empty_valid_page_and_missing_fields(self):
+        observer=pro.BiliPagination(self.run,self.manifest)
+        observer.response('root','123',[],{'cursor':None})
+        self.assertTrue(observer.pages[0]['invalid'])
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_callback_failure_preserves_partial_rows(self):
+        async def callback(video_id,comments):raise RuntimeError('callback failure')
+        class Client:
+            async def get_video_comments(client,video_id,order_mode=0,next_page=0):return [],{'cursor':{'next':1,'is_end':True}}
+            async def get_video_sub_comments(client,video_id,root_comment_id,pn,ps,order_mode):return [],{}
+        async def commit(*args,**kwargs):return True
+        store=SimpleNamespace(batch_update_bilibili_video_comments=callback)
+        observer=pro.BiliPagination(self.run,self.manifest)
+        observer.install(Client,store,type('Manager',(),{'update_note_comment_cursor':commit}))
+        async def exercise():
+            await Client().get_video_comments('123')
+            with self.assertRaisesRegex(RuntimeError,'callback failure'):
+                await store.batch_update_bilibili_video_comments('123',[])
+        asyncio.run(exercise())
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'partial')
 
     def test_optional_selection_preserves_all_existing_features(self):
         self.assertEqual(pro.selection(self.request,{})['backend'],'mc')
@@ -102,7 +261,7 @@ class ProTest(unittest.TestCase):
             with self.assertRaises(m.BridgeError):pro.completion(self.run,self.manifest,{**self.summary(),**delta})
         for delta in ({'acquisition_committed':False},{'is_completed':False},{'failed_search_pages':[1]},
                       {'crawled_note_list':[]},{'id':'other'},
-                      {'crawled_note_list':[{'note_id':'123','is_success_crawled':True,'is_success_crawled_comments':False}]}):
+                      {'crawled_note_list':[{'note_id':'BV1ocaW6rETo','is_success_crawled':True,'is_success_crawled_comments':False}]}):
             m.write(self.run/'data/checkpoints'/(self.rid+'.json'),{**self.cp,**delta})
             with self.assertRaises(m.BridgeError):pro.completion(self.run,self.manifest,self.summary())
 
