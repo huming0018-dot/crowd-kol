@@ -79,7 +79,7 @@ class Application:
         if cloud_config.exists() or cloud_config.is_symlink():
             from cloud_sync import CloudClient, CloudOwnerAdapter, CloudWorker
             self.cloud_client = CloudClient(cloud_config, 'owner')
-            self.owner_tasks = CloudOwnerAdapter(self.cloud_client)
+            self.owner_tasks = CloudOwnerAdapter(self.cloud_client, self._validate_cloud_existing)
             worker_client = CloudClient(cloud_config, 'worker')
             self.cloud_worker = CloudWorker(self.root, worker_client, self.task_run,
                                            self._cloud_session, self._cloud_existing,
@@ -128,21 +128,43 @@ class Application:
     def _cloud_existing(self, lease):
         from results_store import ResultsStore
         from mc_runner import PLATFORMS
+        from existing_saved import validate_existing_targets
         platform = PLATFORMS[lease['platform']]
+        store = ResultsStore(self.root)
         records = []
         for ref in lease.get('record_refs', []):
             if ref.get('version_hash'):
-                records.append(ResultsStore(self.root).saved_version(platform, ref['content_id'],
+                records.append(store.saved_version(platform, ref['content_id'],
                                ref.get('kind', 'content'), ref['version_hash']))
                 continue
-            result = ResultsStore(self.root).list_results(
+            result = store.list_results(
                 filters={'platform': platform, 'content_id': ref['content_id'],
                          'kind': ref.get('kind', 'content')}, limit=200)
             chosen = result['items']
             if len(chosen) != 1:
                 raise ValueError('existing_saved_selection_unavailable')
             records.extend(chosen)
+        if records:
+            validate_existing_targets(lease, records, store)
         return records
+
+    def _validate_cloud_existing(self, payload):
+        if (payload.get('delivery_basis') != 'existing_saved' or payload.get('mode') != 'detail'
+                or not isinstance(payload.get('platforms'), list) or 'bili' not in payload['platforms']):
+            return
+        mapping = payload.get('record_refs_by_platform') or {}
+        targets = payload.get('targets_by_platform') or {}
+        if not isinstance(mapping, dict) or not isinstance(targets, dict):
+            raise ValueError('existing_saved_target_unverified')
+        refs = mapping.get('bili', [])
+        if (not isinstance(refs, list) or len(refs) > 100 or any(not isinstance(ref, dict)
+                or not isinstance(ref.get('content_id'), str) or not ref['content_id']
+                or ref.get('kind', 'content') not in ('content','comment','media','dynamic','author')
+                or ref.get('platform', 'bilibili') != 'bilibili' for ref in refs)):
+            raise ValueError('existing_saved_target_unverified')
+        if refs:
+            self._cloud_existing({'platform':'bili', 'record_refs':refs,
+                'request':{'mode':'detail', 'targets':targets.get('bili')}})
 
     def cloud(self, action, payload):
         if not isinstance(payload, dict):
@@ -213,6 +235,8 @@ class Application:
                 raise ValueError('invalid_cloud_request')
             if self.cloud_client is None:
                 return {'ok': True, 'storage_scope': 'local', 'available': False, 'reason': 'not_connected'}
+            if action in ('unified_preview', 'unified_create'):
+                self._validate_cloud_existing(payload)
             try:
                 value = self.cloud_client.call(action, payload)
             except CloudError as error:

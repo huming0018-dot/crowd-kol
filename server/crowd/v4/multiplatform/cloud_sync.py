@@ -23,6 +23,7 @@ DELIVERY_RENEW_SECONDS = 20
 HEX = re.compile(r'[a-f0-9]{64}\Z')
 WORKER_ERRORS = mc_runner.STOP_ERRORS | {'source_outcome_unknown','invalid_cloud_ack','invalid_imported_records',
     'invalid_machine_provenance','invalid_capture_record','existing_saved_reader_missing','existing_saved_selection_mismatch',
+    'existing_saved_target_mismatch','existing_saved_target_unverified',
     'capture_size_limit','cloud_response_size_limit','invalid_cloud_response','cloud_redirect_denied','unacknowledged_capture',
     'supplemental_account_binding_denied','invalid_cloud_reconciliation','invalid_encoding','integer_required',
     'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown',
@@ -185,13 +186,23 @@ class CloudClient:
 
 class CloudOwnerAdapter:
     """OwnerTasks-compatible UI/watch adapter. Cloud alone owns dispatch."""
-    def __init__(self, client):
+    def __init__(self, client, existing_validator=None):
         self.client = client
+        self.existing_validator = existing_validator
+
+    def _validate_existing(self, payload):
+        if (payload.get('delivery_basis') == 'existing_saved' and payload.get('mode') == 'detail'
+                and 'bili' in (payload.get('platforms') or [])):
+            if self.existing_validator is None:
+                raise CloudError('existing_saved_target_unverified')
+            self.existing_validator(payload)
 
     def preview(self, payload):
+        self._validate_existing(payload)
         return {'ok': True, **self.client.call('task_preview', payload)}
 
     def create(self, payload):
+        self._validate_existing(payload)
         return {'ok': True, **self.client.call('task_create', payload)}
 
     def list(self):
