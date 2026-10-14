@@ -303,6 +303,7 @@ def install_transport_limits(httpx, request, sink):
     total = 0
     def debit():
         if sink.attempts >= request['max_api_requests']:
+            sink.update(phase='stopping', failure_reason='api_request_limit')
             raise SystemExit(73)
         sink.attempts += 1
         sink.update()
@@ -361,6 +362,28 @@ def install_bound_account(pool_class, bound, platform, httpx):
         pool.add_account(AccountInfoModel(id=1, account_name='bound-local-client', cookies=data['cookies'],
                                          status=AccountStatusEnum.NORMAL.value, platform_name=platform))
     pool_class.load_accounts_from_cookie_bridge = load
+
+
+async def run_upstream(upstream):
+    """Close the pinned SQLite connection before asyncio tears down its loop."""
+    failed = False
+    try:
+        return await upstream.main()
+    except BaseException:
+        failed = True
+        raise
+    finally:
+        # Upstream's tail close is skipped by SystemExit/cancellation. Its context
+        # belongs to this task, and an unclosed aiosqlite thread prevents exit.
+        from var import media_crawler_db_var
+        database = media_crawler_db_var.get(None)
+        if database is not None and getattr(database, '_conn', None) is not None:
+            try:
+                import db
+                await db.close()
+            except BaseException:
+                if not failed:
+                    raise
 
 
 def execute(run, manifest):
@@ -427,7 +450,7 @@ def execute(run, manifest):
                 return result
             client_type.pong = checked_pong
             sys.argv = [str(root/'main.py'), *argv_for(request)]
-            asyncio.run(asyncio.wait_for(upstream.main(), timeout=request['timeout_seconds']))
+            asyncio.run(asyncio.wait_for(run_upstream(upstream), timeout=request['timeout_seconds']))
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
             sink.update(**result)

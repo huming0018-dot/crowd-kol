@@ -1,5 +1,6 @@
 """Offline protocol/import tests. No credential read, browser or source request."""
 import asyncio
+from contextvars import ContextVar
 from copy import deepcopy
 import json
 import os
@@ -187,6 +188,7 @@ class ProTest(unittest.TestCase):
         self.assertEqual(rejected.exception.code,77)
         with self.assertRaises(SystemExit) as limited:asyncio.run(AsyncClient().send())
         self.assertEqual(limited.exception.code,73);self.assertEqual(sink.attempts,2)
+        self.assertEqual(m.read(self.run/'phase.json')['failure_reason'],'api_request_limit')
 
     def test_bound_cookiebridge_exact_client_validation_no_enumeration(self):
         calls=[]
@@ -250,6 +252,62 @@ class ProTest(unittest.TestCase):
                 m.worker(self.root,Path('/fixture/mc'),self.rid,99)
             self.assertIn(m.status(self.root,{'run_id':self.rid})['reason'],
                           ('captcha_required','rate_limited','login_required','platform_blocked','platform_signature_rejected'))
+
+
+class UpstreamLifecycleTest(unittest.IsolatedAsyncioTestCase):
+    async def probe(self, main, close_error=None):
+        self.context = ContextVar('fixture_database', default=None)
+        self.closed = 0
+        self.database = SimpleNamespace(_conn=object())
+        async def close():
+            self.closed += 1
+            if close_error:
+                raise close_error
+            self.context.get()._conn = None
+        async def entry():
+            self.context.set(self.database)
+            return await main(close)
+        with patch.dict('sys.modules', {'var':SimpleNamespace(media_crawler_db_var=self.context),
+                                      'db':SimpleNamespace(close=close)}):
+            return await pro.run_upstream(SimpleNamespace(main=entry))
+
+    async def test_successful_upstream_close_is_not_repeated(self):
+        async def main(close):
+            await close()
+            return 'committed'
+        self.assertEqual(await self.probe(main),'committed')
+        self.assertEqual(self.closed,1)
+
+    async def test_budget_baseexception_is_preserved_and_connection_closed(self):
+        error=SystemExit(73)
+        async def main(close):raise error
+        with self.assertRaises(SystemExit) as caught:await self.probe(main)
+        self.assertIs(caught.exception,error)
+        self.assertEqual(self.closed,1);self.assertIsNone(self.database._conn)
+
+    async def test_cancellation_preserves_cause_and_closes_in_original_context(self):
+        async def main(close):raise asyncio.CancelledError()
+        with self.assertRaises(asyncio.CancelledError):await self.probe(main)
+        self.assertEqual(self.closed,1);self.assertIsNone(self.database._conn)
+
+    async def test_wait_for_timeout_closes_before_return(self):
+        async def main(close):await asyncio.sleep(60)
+        with self.assertRaises(TimeoutError):
+            await asyncio.wait_for(self.probe(main),timeout=.02)
+        self.assertEqual(self.closed,1);self.assertIsNone(self.database._conn)
+
+    async def test_cleanup_failure_does_not_replace_original_exit(self):
+        error=SystemExit(73)
+        async def main(close):raise error
+        with self.assertRaises(SystemExit) as caught:
+            await self.probe(main,close_error=OSError('fixture close failure'))
+        self.assertIs(caught.exception,error);self.assertEqual(self.closed,1)
+
+    async def test_cleanup_failure_on_success_is_not_false_completion(self):
+        async def main(close):return 'not-yet-closed'
+        with self.assertRaises(OSError):
+            await self.probe(main,close_error=OSError('fixture close failure'))
+        self.assertEqual(self.closed,1)
 
 
 if __name__ == '__main__': unittest.main()
