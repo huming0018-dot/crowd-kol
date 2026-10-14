@@ -896,12 +896,13 @@ def make_server(app, port=45937):
                 return self.send({'ok': False, 'error': 'local_origin_required'}, 403)
             try:
                 length = int(self.headers.get('Content-Length', '0'))
-                limit = 131072 if self.path == '/api/cloud' else 32768
+                limit = 131072 if self.path in ('/api/cloud', '/api/tasks') else 32768
                 if not 0 < length <= limit or self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
                     raise ValueError('invalid_request')
                 body = json.loads(self.rfile.read(length))
                 if (not isinstance(body, dict) or length > 32768 and
-                        (self.path != '/api/cloud' or body.get('action') != 'retry_delivery')):
+                        not (self.path == '/api/cloud' and body.get('action') == 'retry_delivery' or
+                             self.path == '/api/tasks' and body.get('action') in ('preview', 'create'))):
                     raise ValueError('invalid_request')
                 if self.path == '/api/config':
                     return self.send(app.configure(body))

@@ -10,7 +10,8 @@ import urllib.error
 from unittest.mock import patch, MagicMock
 
 from dashboard import Application, make_server
-from results_store import ResultsStore
+from results_store import ResultsStore, _sha
+from cloud_sync import CloudOwnerAdapter
 
 
 class CloudDashboardTests(unittest.TestCase):
@@ -118,6 +119,52 @@ class CloudDashboardTests(unittest.TestCase):
                     post({'run_id':rid,'origin':'cloud_worker','reason':'cloud_controller_error','error_code':'secret_cookie_value'})
                 self.assertEqual(error.exception.code,400)
                 self.assertNotIn('secret_cookie_value',error.exception.read().decode());self.assertEqual(run.call_count,1)
+        finally:server.shutdown();thread.join(2);server.server_close()
+
+    def test_http_bound_refs_task_body_limit_and_origin_csrf_guards(self):
+        app=Application(self.root)
+        app.owner_tasks.close()
+        client=MagicMock();client.call.return_value={'accepted':True}
+        app.owner_tasks=CloudOwnerAdapter(client,app._validate_cloud_existing)
+        aid='117355149531810';bv='BV1ocaW6rETo'
+        records=[{'kind':'content','platform':'bilibili','content_id':aid,'body':'saved body',
+                  'platform_fields':{'bvid':bv},'source_kind':'mediacrawler_api','reward_eligible':False}]
+        records.extend({'kind':'comment','platform':'bilibili','content_id':aid,'comment_id':str(i),
+                        'parent_comment_id':'0','text':'saved comment'} for i in range(199))
+        store=ResultsStore(self.root);revision=store.ingest({'run_id':'offline','records':records})['results_revision']
+        rows=store.list_results(limit=200)['items']
+        rows.sort(key=lambda row: row['kind'] != 'content')
+        refs=[{'platform':r['platform'],'content_id':r['content_id'],'kind':r['kind'],
+               'version_hash':r['version_hash'],'results_revision':revision,'record_sha256':_sha(r)} for r in rows]
+        server=make_server(app,0);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        url='http://127.0.0.1:'+str(server.server_port)
+        def post(path,action,selected,headers=None,padding=0):
+            payload={'platforms':['bili'],'mode':'detail','delivery_basis':'existing_saved','desired_items':1,
+                     'max_api_requests':0,'targets_by_platform':{'bili':[bv]},'record_refs_by_platform':{'bili':selected},
+                     'purpose':'noncommercial_research','idempotency_key':'offline-http-only'}
+            if padding:payload['padding']='x'*padding
+            data=json.dumps({'action':action,'payload':payload},separators=(',',':')).encode()
+            request=urllib.request.Request(url+path,data,{'Content-Type':'application/json','Origin':url,
+                'X-Crowd-CSRF':app.token,**(headers or {})},method='POST')
+            return data,request
+        try:
+            for count in (129,200):
+                for action in ('preview','create'):
+                    data,request=post('/api/tasks',action,refs[:count]);self.assertGreater(len(data),32768)
+                    self.assertLessEqual(len(data),131072)
+                    with urllib.request.urlopen(request,timeout=5) as response:self.assertTrue(json.load(response)['ok'])
+                    self.assertEqual(client.call.call_args.args[1]['max_api_requests'],0)
+                    self.assertEqual(len(client.call.call_args.args[1]['record_refs_by_platform']['bili']),count)
+            accepted=client.call.call_count
+            for path,action,padding,headers,status in (
+                    ('/api/tasks','preview',131072,None,400),('/api/tasks','status',0,None,400),
+                    ('/api/accounts','preview',0,None,400),('/api/cloud','status',0,None,400),
+                    ('/api/tasks','preview',0,{'Origin':'https://outside.example'},403),
+                    ('/api/tasks','preview',0,{'X-Crowd-CSRF':'wrong'},403)):
+                _,request=post(path,action,refs,headers,padding)
+                with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(request,timeout=5)
+                self.assertEqual(error.exception.code,status);error.exception.read()
+            self.assertEqual(client.call.call_count,accepted)
         finally:server.shutdown();thread.join(2);server.server_close()
 
 
