@@ -45,4 +45,9 @@ await page.intervals[1]();await page.settle();assert.ok(!timelineNodes(page).som
 page=await render();
 page.responses.node_events={available:true,schema:'crowd-node-events-v1',checked_at:now,cursor:3,events:[{id:2,node_seq:2,installation_id:installation,step:'session',status:'waiting'},{id:3,node_seq:3,installation_id:installation,step:'telemetry_gap',status:'skipped'}]};
 await page.intervals[1]();await page.settle();assert.ok(timelineNodes(page).some(n=>n.textContent.includes('核验登录与执行会话')));assert.ok(timelineNodes(page).some(n=>n.textContent.includes('步骤记录存在缺口')));
+for(const [error_code,label] of [['session_rest','等待下一轮'],['action_gap','等待下次来源访问'],['global_pause','系统暂停，等待恢复']]){
+  page=await render({node_events:{available:true,schema:'crowd-node-events-v1',checked_at:now,cursor:1,events:[{id:1,node_seq:1,installation_id:installation,step:'session',status:'waiting',error_code}]}});
+  assert.ok(timelineNodes(page).some(n=>n.textContent.includes(label)),error_code);
+  assert.ok(!timelineNodes(page).some(n=>n.textContent.includes('异常代码待核对')),error_code);
+}
 console.log('PASS fleet UI: unified tasks/nodes, waiting vs issues, durable phases, safe errors, cursor/gap/read failures, unavailable backend');
