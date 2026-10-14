@@ -32,7 +32,12 @@ function available(configuration) {
       if (platform === 'android' && (release.channel !== 'apk' || url.pathname !== '/crowd/releases/crowd-android-v'+release.version+'-debug.apk')) continue;
       if (platform !== 'android' && release.channel !== 'desktop') continue;
     } else if (['windows','macos'].includes(platform) && release.channel === 'extension') {
-      if (!/^[a-p]{32}$/.test(release.extension_id || '') || !['chromewebstore.google.com','microsoftedge.microsoft.com'].includes(url.hostname)) continue;
+      const store = ['chromewebstore.google.com','microsoftedge.microsoft.com'].includes(url.hostname);
+      const archive = platform === 'macos' && release.extension_id === 'licijehcpohikchlnkbpjdjdfkcocndg' && hex(release.sha256) &&
+        url.origin === 'https://raw.githubusercontent.com' && !url.search && !url.hash &&
+        /^\/huming0018-dot\/crowd-pages\/[a-f0-9]{40}\/v4\/releases\/participants\//.test(url.pathname) &&
+        url.pathname.split('/').pop() === 'crowd-v' + release.version + '-mac.zip' && url.pathname.split('/').length === 8;
+      if (!/^[a-p]{32}$/.test(release.extension_id || '') || (!store && !archive)) continue;
     } else if (platform === 'ios') {
       if (!((release.channel === 'testflight' && url.hostname === 'testflight.apple.com') || (release.channel === 'appstore' && url.hostname === 'apps.apple.com'))) continue;
     } else if (platform === 'harmony') {
