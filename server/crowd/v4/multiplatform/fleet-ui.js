@@ -1,0 +1,111 @@
+'use strict';
+// Read-only fleet projection. Dispatch and receipts keep their existing contracts.
+(() => {
+  const panel=node('details'),heading=node('summary','云端任务与终端 · 正在读取'),body=node('div');
+  panel.append(heading,body);$('connection').after(panel);
+  const timeline=node('details'),timelineHeading=node('summary','采集步骤'),timelineBody=node('div');
+  timeline.append(timelineHeading,timelineBody);panel.after(timeline);
+  const local=node('details'),localHeading=node('summary','本机执行阶段'),localBody=node('div');
+  local.append(localHeading,localBody);timeline.after(local);
+  const platforms={xhs:'小红书',dy:'抖音',ks:'快手',bili:'B站',wb:'微博',zhihu:'知乎',tieba:'贴吧'};
+  const states={open:'等待分配',leased:'已领取，等待终端进度',complete:'本轮已完成',exhausted:'本轮已结束，未达目标',closed:'任务已关闭',running:'采集中',queued:'等待分配',active:'可分配',waiting:'待处理',completed:'本轮已结束',stopped:'已停止',paused:'已暂停',failed:'待处理',partial:'已有部分结果',unknown:'结果待核对',interrupted_unknown:'执行已中断，结果待核对',login_required:'等待原账号登录'};
+  const login={ready:'登录可用',authenticated:'登录可用',resumed:'原账号已恢复',needs_login:'需本人重新登录',login_required:'需本人重新登录',verification:'需本人完成验证',unknown:'登录尚未核验'};
+  const steps={claim:'领取任务',claiming:'领取任务',authorized:'任务已分配',session:'核验登录与执行会话',telemetry_gap:'步骤记录存在缺口',session_check:'核验登录',login_check:'核验登录',navigate:'打开采集页',navigation:'打开采集页',list:'读取列表',detail:'读取正文',comments:'读取评论',comments_page:'读取评论页',comment_page:'读取评论页',media:'处理媒体',subtitle:'取得字幕',outbox:'保存待回传',upload:'上传结果',receipt:'核对回执',stop:'停止采集',ota:'自动更新',recovery:'恢复版本',idle:'等待任务',dispatching:'启动采集',running:'采集中',importing:'导入结果',delivering:'回传结果',finishing:'确认云端回执',waiting_login:'等待原账号登录',login_resumed:'原账号核验通过，等待重新领取',completed:'本轮云端交付已确认',paused:'本轮来源执行已停止',local_stop_unknown:'停止结果待核对',reconciling_no_dispatch:'核对未启动任务',state_unreadable:'无法读取执行状态'};
+  const statuses={started:'开始',running:'进行中',completed:'已完成',succeeded:'已完成',success:'已完成',failed:'失败',error:'异常',waiting:'等待',paused:'已暂停',stopped:'已停止',pending:'待处理',received:'已确认',skipped:'跳过'};
+  const reasons={login_required:'需本人重新登录',captcha:'需本人完成验证码',rate_limit:'平台限流，已暂停',source_outcome_unknown:'来源结果待核对',cloud_outcome_unknown:'云端回执待核对',telemetry_gap:'步骤记录存在缺口',user_stopped:'本人已停止',test_completed:'本轮已完成',no_task:'等待可用任务',task_full:'当前任务已分配完',session_rest:'等待下一轮',daily_quota:'本日额度已用完',action_gap:'等待下次来源访问'};
+  const count=value=>Number.isSafeInteger(value)&&value>=0?String(value):'未统计';
+  const short=value=>typeof value==='string'&&/^[a-zA-Z0-9:_-]{1,100}$/.test(value)?value.slice(-8):'未登记';
+  const when=value=>{const date=new Date(typeof value==='number'?value*1000:value);return value&&Number.isFinite(date.getTime())?date.toLocaleString():'尚无记录';};
+  const call=(action,payload={})=>api('/api/cloud',{action,payload});
+  let pending=false,eventPending=false,localPending=false,cursor=0,rows=[],checkedAt=null,allowedInstallations=null,lastHasMore=false;
+  const sequences=new Map(),gaps=new Set();
+  const problem=value=>['failed','waiting','unknown','interrupted_unknown','login_required','partial'].includes(value);
+  function unavailable(value){return value.reason==='not_connected'?'尚未连接云端':value.reason==='upgrade_or_access_required'?'云端版本或访问权限待核对，尚未接通':'云端接口待升级，任务与步骤状态尚未接通';}
+  async function refresh(){
+    if(pending||document.hidden)return;pending=true;
+    try{
+      const [value,dispatches]=await Promise.all([call('unified_status',{limit:100}),call('unified_dispatches').catch(()=>null)]);
+      if(!value.available){heading.textContent='云端任务与终端 · '+unavailable(value);body.replaceChildren();return;}
+      if(value.schema!=='crowd-unified-status-v1'||!Array.isArray(value.tasks)||!Array.isArray(value.nodes))throw Error('invalid_projection');
+      const tasks=value.tasks,nodes=value.nodes,issues=nodes.filter(row=>row.stale||['needs_login','login_required','verification'].includes(row.login_state));
+      allowedInstallations=new Set(nodes.filter(row=>row.diagnostics_enabled===true&&typeof row.installation_id==='string').map(row=>row.installation_id));
+      rows=rows.filter(row=>allowedInstallations.has(row.installation_id));
+      for(const id of sequences.keys())if(!allowedInstallations.has(id)){sequences.delete(id);gaps.delete(id);}
+      renderEvents(lastHasMore);
+      heading.textContent='云端任务 '+tasks.length+' 个 · 终端 '+nodes.length+' 个 · '+issues.length+' 个终端需处理';
+      body.replaceChildren(node('p','更新时间：'+when(value.checked_at)+'。此列表展示最近最多 100 个任务和终端；已收数量以云端回执为准。'));
+      const dispatchList=node('section');dispatchList.append(node('h3','统一派发'));
+      if(dispatches?.available===true&&dispatches.schema==='crowd-unified-dispatch-list-v1'&&Array.isArray(dispatches.dispatches)){
+        for(const dispatch of dispatches.dispatches.slice(0,20)){
+          const row=node('p');row.textContent='派发 '+short(dispatch.dispatch_id)+' · '+when(dispatch.created_at)+' · '+(dispatch.created===true?'已保存；执行结果见下方任务':'派发状态待核对');
+          for(const route of dispatch.routes||[])row.append(node('small',' · '+(platforms[route.platform]||'平台待核对')+'：'+(route.execution_kind==='participant_extension'?'参与者终端':'采集机器')+' · '+(states[route.state]||'状态待核对')+' · 内容配置 '+count(route.item_quota)));
+          dispatchList.append(row);
+        }
+        if(!dispatches.dispatches.length)dispatchList.append(node('p','尚无统一派发记录；旧任务继续保留。'));
+      }else dispatchList.append(node('p','统一派发记录暂不可用；旧任务状态继续显示。'));
+      body.append(dispatchList);
+      const taskList=node('div');taskList.append(node('h3','任务'));
+      for(const task of tasks){
+        const item=node('p'),title=typeof task.title==='string'?task.title.slice(0,120):'';item.textContent=(task.execution_kind==='participant_extension'?'参与者':'机器')+'任务 '+short(task.logical_task_id)+(title?' · '+title:'')+' · '+(task.platforms||[]).map(p=>platforms[p]||'待识别平台').join(' / ')+' · '+(states[task.state]||'状态待核对')+' · 正文已收 '+count(task.received)+' · 评论 '+count(task.comments);
+        if(problem(task.state))item.className='error';taskList.append(item);
+      }
+      if(!tasks.length)taskList.append(node('p','当前没有云端任务。'));
+      body.append(taskList,node('h3','终端'));
+      for(const row of nodes){
+        const item=node('p'),version=typeof row.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(row.version)?row.version:'未知';
+        const updated=when(row.updated_at),age=Date.parse(value.checked_at)-Date.parse(row.updated_at),fresh=row.stale===false&&updated!=='尚无记录'&&Number.isFinite(age)&&age>=-60000&&age<=180000;
+        item.textContent=short(row.installation_id||row.node_id)+' · '+(row.stale===true?'离线待核对':fresh?'最近有上报':'上报状态待核验')+' · '+(row.enabled===false?'采集已关闭':'采集启用状态见任务')+' · '+(login[row.login_state]||'登录尚未核验')+' · 版本 '+version+' · 上报 '+updated;
+        if(row.stale||['needs_login','login_required','verification'].includes(row.login_state))item.className='error';
+        if(row.diagnostics_enabled===false)item.textContent+=' · 未开启诊断';
+        body.append(item);
+      }
+      if(!nodes.length)body.append(node('p','还没有终端登记，不能视为两设备验收通过。'));
+      body.append(node('p','参与者步骤只覆盖已升级且开启诊断的终端；机器的细步骤云端上报尚未接入。本机执行阶段另行显示。'));
+    }catch(_error){heading.textContent='云端任务与终端 · 查询失败，状态待核对';body.replaceChildren(node('p','无法读取最新状态；不会据此判定终端正常或重新发送任务。'));}
+    finally{pending=false;}
+  }
+  function renderEvents(more){
+    timelineBody.replaceChildren(node('p','云端更新时间：'+when(checkedAt)+' · 保存最近 7 天，面板显示最近 60 条。'+(more?'正在继续读取后续记录；当前尚未追平。':'')));
+    if(gaps.size)timelineBody.append(node('p','有 '+gaps.size+' 个终端的步骤序号曾有跳跃或更早记录未保留，需核对补传完整性。'));
+    for(const row of rows.slice(-60).reverse()){
+      const item=node('p');item.textContent=when(row.occurred_at||row.received_at)+' · 终端 '+short(row.installation_id)+' · 任务 '+short(row.logical_task_id)+' · '+(steps[row.step]||'未识别步骤')+'：'+(statuses[row.status]||'状态待核对');
+      if(row.error_code)item.textContent+=' · '+(reasons[row.error_code]||'异常代码待核对');
+      if(Number.isFinite(row.duration_ms)&&row.duration_ms>=0)item.textContent+=' · '+(row.duration_ms/1000).toFixed(2)+' 秒';
+      timelineBody.append(item);
+    }
+    if(!rows.length)timelineBody.append(node('p','尚未收到步骤记录；只有健康心跳不代表完成采集。'));
+  }
+  async function refreshEvents(){
+    if(eventPending||document.hidden)return;eventPending=true;
+    try{
+      const value=await call('node_events',{after_id:cursor,limit:200});
+      if(!value.available){timelineHeading.textContent='采集步骤 · '+unavailable(value);timelineBody.replaceChildren();return;}
+      if(value.schema!=='crowd-node-events-v1'||!Array.isArray(value.events)||!Number.isSafeInteger(value.cursor)||value.cursor<cursor)throw Error('invalid_events');
+      let latest=cursor;
+      for(const row of value.events){
+        if(!Number.isSafeInteger(row.id)||row.id<=latest||!Number.isSafeInteger(row.node_seq)||row.node_seq<1||typeof row.installation_id!=='string')throw Error('invalid_events');
+        latest=row.id;
+      }
+      if(value.cursor!==latest)throw Error('invalid_cursor');
+      const visible=value.events.filter(row=>allowedInstallations===null||allowedInstallations.has(row.installation_id));
+      for(const row of visible){const prior=sequences.get(row.installation_id)||0;if(row.node_seq>prior+1)gaps.add(row.installation_id);sequences.set(row.installation_id,Math.max(prior,row.node_seq));}
+      rows=[...rows,...visible].slice(-200);cursor=value.cursor;checkedAt=value.checked_at;lastHasMore=value.has_more===true;
+      timelineHeading.textContent='采集步骤 · 已读取至 '+cursor+' · '+(value.has_more?'仍有后续记录':'已读取本次返回记录');renderEvents(value.has_more);
+    }catch(_error){timelineHeading.textContent='采集步骤 · 查询失败，已显示记录可能过期';}
+    finally{eventPending=false;}
+  }
+  async function refreshLocal(){
+    if(localPending||document.hidden)return;localPending=true;
+    try{
+      const value=await call('workflow_events');local.hidden=value.coverage==='not_connected';if(local.hidden)return;
+      localHeading.textContent='本机执行阶段 · '+(value.monitor_error?'记录不可用，需处理':count(value.event_count)+' 条保留记录');
+      localBody.replaceChildren(node('p','仅记录本机控制器阶段变化，保存在此设备；不包含每个来源请求，尚未同步到云端。'));
+      if(value.truncated)localBody.append(node('p','更早阶段已超出保留窗口；当前记录不是完整历史。'));
+      for(const row of value.events||[])localBody.append(node('p',when(row.at)+' · '+(platforms[row.platform]||'调度')+' · 任务 '+short(row.task_id)+' · '+(steps[row.phase]||'状态待核对')));
+      if(!(value.events||[]).length)localBody.append(node('p','尚无本机阶段记录。'));
+    }catch(_error){localHeading.textContent='本机执行阶段 · 查询失败，需处理';}
+    finally{localPending=false;}
+  }
+  refresh();refreshEvents();refreshLocal();
+  setInterval(refresh,5000);setInterval(refreshEvents,5000);setInterval(refreshLocal,5000);
+})();

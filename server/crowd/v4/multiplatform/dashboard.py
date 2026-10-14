@@ -150,6 +150,61 @@ class Application:
             if self.cloud_client is None:
                 return {'ok': True, 'storage_scope': 'local', 'participants': [], 'events': []}
             return {'ok': True, 'storage_scope': 'cloud', **self.cloud_client.call('participant_health', {})}
+        if action == 'workflow_events' and not payload:
+            if self.cloud_worker is None:
+                return {'ok': True, 'storage_scope': 'local', 'events': [], 'coverage': 'not_connected'}
+            return {'ok': True, 'storage_scope': 'local', 'coverage': 'machine_lifecycle_phases',
+                    **self.cloud_worker.workflow_events.status()}
+        if action in ('unified_preview', 'unified_create', 'unified_dispatches'):
+            from owner_tasks import FIELDS
+            from cloud_sync import CloudError
+            fields = FIELDS | {'delivery_basis', 'record_refs_by_platform', 'start_page', 'interval_seconds', 'wordcloud'}
+            if (action == 'unified_dispatches' and set(payload) - {'idempotency_key'} or
+                    action != 'unified_dispatches' and set(payload) - fields or
+                    (action != 'unified_dispatches' or 'idempotency_key' in payload) and
+                    (not isinstance(payload.get('idempotency_key'), str) or not 1 <= len(payload['idempotency_key']) <= 160 or
+                     any(ord(c) < 32 or ord(c) == 127 for c in payload['idempotency_key']))):
+                raise ValueError('invalid_cloud_request')
+            if self.cloud_client is None:
+                return {'ok': True, 'storage_scope': 'local', 'available': False, 'reason': 'not_connected'}
+            try:
+                value = self.cloud_client.call(action, payload)
+            except CloudError as error:
+                if str(error) in ('invalid_action', 'unknown_action', 'unsupported_action', 'invalid_cloud_action', 'principal_denied'):
+                    return {'ok': True, 'storage_scope': 'cloud', 'available': False, 'reason': 'upgrade_or_access_required'}
+                raise
+            schema = 'crowd-unified-dispatch-list-v1' if action == 'unified_dispatches' else 'crowd-unified-dispatch-v1'
+            if value.get('schema') != schema:
+                raise CloudError('cloud_read_unavailable' if action != 'unified_create' else 'cloud_outcome_unknown')
+            return {**value, 'ok': True, 'storage_scope': 'cloud', 'available': True}
+        if action in ('unified_status', 'node_events'):
+            allowed = {'limit'} if action == 'unified_status' else {'limit', 'after_id', 'installation_id'}
+            if set(payload) - allowed:
+                raise ValueError('invalid_cloud_request')
+            if 'limit' in payload and (type(payload['limit']) is not int or
+                    not 1 <= payload['limit'] <= (100 if action == 'unified_status' else 200)):
+                raise ValueError('invalid_cloud_request')
+            if 'after_id' in payload and (type(payload['after_id']) is not int or not 0 <= payload['after_id'] <= 2**53-1):
+                raise ValueError('invalid_cloud_request')
+            if 'installation_id' in payload:
+                candidate = payload['installation_id']
+                if not isinstance(candidate, str) or str(uuid.UUID(candidate)) != candidate:
+                    raise ValueError('invalid_cloud_request')
+            if self.cloud_client is None:
+                return {'ok': True, 'storage_scope': 'local', 'available': False, 'reason': 'not_connected'}
+            from cloud_sync import CloudError
+            try:
+                value = self.cloud_client.call(action, payload)
+            except CloudError as error:
+                if str(error) == 'principal_denied':
+                    return {'ok': True, 'storage_scope': 'cloud', 'available': False, 'reason': 'upgrade_or_access_required'}
+                if str(error) not in ('invalid_action', 'unknown_action', 'unsupported_action', 'invalid_cloud_action'):
+                    raise
+                return {'ok': True, 'storage_scope': 'cloud', 'available': False, 'reason': 'upgrade_required'}
+            schema = 'crowd-unified-status-v1' if action == 'unified_status' else 'crowd-node-events-v1'
+            if value.get('schema') != schema:
+                return {'ok': True, 'storage_scope': 'cloud', 'available': False, 'reason': 'upgrade_required'}
+            return {**value, 'ok': True, 'storage_scope': 'cloud', 'available': True}
         raise ValueError('invalid_cloud_action')
 
     def configure(self, body):
@@ -746,7 +801,7 @@ def make_server(app, port=45937):
             if path == '/':
                 document = (HERE / 'dashboard.html').read_text()
                 return self.send(document.replace('__NONCE__', app.token), html=True)
-            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js', '/accounts-ui.js', '/cloud-ui.js'):
+            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js', '/accounts-ui.js', '/cloud-ui.js', '/fleet-ui.js'):
                 data = (HERE / path[1:]).read_bytes()
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/javascript; charset=utf-8')

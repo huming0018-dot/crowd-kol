@@ -178,7 +178,7 @@ class CloudClient:
                 if (attempt + 1 < attempts and not http_response
                         and isinstance(error, (urllib.error.URLError, TimeoutError))):
                     continue
-                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get', 'participant_health') else 'cloud_outcome_unknown'
+                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
                 raise CloudError(code) from None
 
 
@@ -376,6 +376,8 @@ class CloudWorker:
         self.session_selector, self.existing_reader = session_selector, existing_reader
         self.postprocessing_callback = postprocessing_callback
         self.outbox = CloudOutbox(root, client)
+        from health_events import HealthEvents
+        self.workflow_events = HealthEvents(root, max_events=2000, workflow=True)
         self.interval = interval
         self.closed = threading.Event()
         self.thread = None
@@ -391,6 +393,7 @@ class CloudWorker:
         self.stop_unknown_run_id = None
 
     def _save(self, state):
+        prior = {}
         if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:
             state['phase']='local_stop_unknown'
         if self.path.exists():
@@ -412,6 +415,22 @@ class CloudWorker:
                     raise CloudError('collector_session_ambiguous')
                 bindings[lease['child_id']] = binding
         mc_runner.write(self.path, state)
+        # Journal actual durable phase changes, including transitions too short
+        # for the five-second health observer. Never store the request or session.
+        if state.get('phase') == 'authorized' and prior.get('phase') == 'claiming':
+            self._observe_workflow(state, 'claiming')
+        self._observe_workflow(state)
+
+    def _observe_workflow(self, state, phase=None):
+        lease = state.get('lease') or {}
+        count = sum(v.get('desired_state', 'running') == 'running'
+                    for v in state.get('waiting_logins', []))
+        effective = phase or ('waiting_login' if state.get('phase') == 'idle' and count else state.get('phase'))
+        if effective == 'claiming' and not lease:
+            return  # Empty queue polling must not evict actual run history.
+        self.workflow_events.observe({'phase': effective, 'task_id': lease.get('task_id'),
+            'run_id': lease.get('run_id'), 'local_run_id': state.get('local_run_id'),
+            'platform': lease.get('platform'), 'waiting_login_count': count})
 
     def _runner(self, action, payload):
         try:
@@ -591,7 +610,8 @@ class CloudWorker:
             if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:phase='local_stop_unknown'
             observation_error='runner_status_unavailable' if state.get('phase')=='running' and state.get('status_read_error')=='runner_status_unavailable' else None
             summary={'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error or observation_error,
-                    'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats()}
+                    'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats(),
+                    'workflow_monitor_error': self.workflow_events.error}
             last=self._stop_summary(self.last_stop or state.get('last_stop'))
             if last:summary['last_stop']=last
             return {**summary, **self.scheduler_status()}
@@ -794,6 +814,8 @@ class CloudWorker:
                 raise CloudError('unacknowledged_capture')
             payload['finish_hash'] = _hash('crowd-machine-finish-v1', payload)
             response = self.client.call('finish', payload)
+            self._observe_workflow(state, 'waiting_login' if state['outcome'] == 'login_required' else
+                                   'completed' if state['outcome'] == 'completed' else 'paused')
             if (self.postprocessing_callback and state['outcome'] == 'completed' and state.get('local_run_id')
                     and state['lease'].get('request', {}).get('platform_options', {}).get('transcript_only') is True):
                 state['postprocessing_runs'] = list(dict.fromkeys([*state.get('postprocessing_runs', []), state['local_run_id']]))
@@ -886,6 +908,7 @@ class CloudWorker:
             'generation':context['generation'],'account_ref':context.get('account_ref'),
             'identity_status':account.get('identity_status'),'verified_at_ms':int(account['verified_at']*1000),
             'authorized_for_run':account['authorized_for_run']})
+        self._observe_workflow(state, 'login_resumed')
         return True
 
     def start_scheduler(self):

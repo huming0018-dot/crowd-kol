@@ -9,7 +9,8 @@ import time
 import uuid
 
 PHASES = {'idle', 'claiming', 'authorized', 'dispatching', 'running', 'importing',
-          'delivering', 'finishing', 'waiting_login', 'local_stop_unknown', 'state_unreadable'}
+          'delivering', 'finishing', 'waiting_login', 'local_stop_unknown', 'state_unreadable',
+          'reconciling_no_dispatch', 'completed', 'login_resumed', 'paused'}
 HEALTH_ERRORS = {'scheduler_dead', 'scheduler_stale', 'cloud_lock_unavailable',
                  'cloud_scheduler_failed', 'postprocessing_enqueue_failed',
                  'postprocessing_tick_failed', 'health_observation_failed', 'health_history_unavailable',
@@ -35,12 +36,22 @@ def safe_snapshot(value):
     for key in ('pending', 'acknowledged'):
         number = outbox.get(key)
         snapshot[key] = number if type(number) is int and 0 <= number <= 10**9 else 0
+    for key in ('task_id', 'run_id', 'local_run_id'):
+        candidate = value.get(key)
+        try:
+            snapshot[key] = str(uuid.UUID(candidate)) if isinstance(candidate, str) else None
+        except ValueError:
+            snapshot[key] = None
+    platform = value.get('platform')
+    snapshot['platform'] = platform if isinstance(platform, str) and platform in {'xhs', 'bili', 'dy', 'ks', 'wb', 'zhihu', 'tieba'} else None
+    count = value.get('waiting_login_count')
+    snapshot['waiting_login_count'] = count if type(count) is int and 0 <= count <= 1000 else 0
     return snapshot
 
 
 class HealthEvents:
-    def __init__(self, root, *, clock=time.time, max_events=1000, retention_seconds=7*86400):
-        self.root = Path(root) / 'health-monitor'
+    def __init__(self, root, *, clock=time.time, max_events=1000, retention_seconds=7*86400, workflow=False):
+        self.root = Path(root) / ('workflow-events' if workflow else 'health-monitor')
         self.clock = clock
         self.max_events = max_events
         self.retention_seconds = retention_seconds
@@ -76,7 +87,10 @@ class HealthEvents:
                 if type(timestamp) not in (float, int) or not 0 <= timestamp <= 1e12 or not math.isfinite(timestamp):
                     raise ValueError('invalid_health_history')
                 # Re-sanitize disk contents before serving or rewriting them.
-                result.append({'at': timestamp, **safe_snapshot({**event, 'outbox': {
+                sequence = event.get('seq', len(result) + 1)
+                if type(sequence) is not int or not 1 <= sequence <= 2**53-1 or (result and sequence <= result[-1]['seq']):
+                    raise ValueError('invalid_health_history')
+                result.append({'at': timestamp, 'seq': sequence, **safe_snapshot({**event, 'outbox': {
                     key: event.get(key) for key in ('pending', 'acknowledged')}})})
                 if len(result) > self.max_events:
                     raise ValueError('invalid_health_history')
@@ -93,9 +107,12 @@ class HealthEvents:
                 original = self._read(fd)
                 events = [event for event in original if now-self.retention_seconds <= event['at'] <= now]
                 # Tick timestamps are liveness, not a new incident every five seconds.
-                compare = lambda row: {k: v for k, v in row.items() if k not in ('at', *TIMES)}
+                compare = lambda row: {k: v for k, v in row.items() if k not in ('at', 'seq', *TIMES)}
                 if not events or compare(events[-1]) != compare(snapshot):
-                    events.append({'at': now, **snapshot})
+                    sequence = original[-1]['seq'] + 1 if original else 1
+                    if sequence > 2**53-1:
+                        raise ValueError('invalid_health_history')
+                    events.append({'at': now, 'seq': sequence, **snapshot})
                 elif len(events) == len(original):
                     self.error = None
                     return
@@ -138,6 +155,9 @@ class HealthEvents:
                     'monitor_error': self.error,
                     'retention_days': 7, 'max_events': self.max_events,
                     'event_count': len(events), 'incident_count': len(incidents),
+                    'first_sequence': events[0]['seq'] if events else None,
+                    'last_sequence': events[-1]['seq'] if events else None,
+                    'truncated': bool(events and events[0]['seq'] > 1),
                     'events': list(reversed(events[-50:])),
                     'incidents': list(reversed(incidents[-50:]))}
 
