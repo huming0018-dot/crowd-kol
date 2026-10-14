@@ -9,7 +9,7 @@ import time
 import uuid
 
 PHASES = {'idle', 'claiming', 'authorized', 'dispatching', 'running', 'importing',
-          'delivering', 'finishing', 'waiting_login', 'local_stop_unknown', 'state_unreadable',
+          'delivering', 'deferring_delivery', 'finishing', 'waiting_login', 'local_stop_unknown', 'state_unreadable',
           'reconciling_no_dispatch', 'completed', 'login_resumed', 'paused'}
 HEALTH_ERRORS = {'scheduler_dead', 'scheduler_stale', 'cloud_lock_unavailable',
                  'cloud_scheduler_failed', 'postprocessing_enqueue_failed',

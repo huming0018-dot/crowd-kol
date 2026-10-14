@@ -1,8 +1,59 @@
 'use strict';
 (() => {
   const status=node('p');status.className='hint';status.setAttribute('role','status');
-  $('connection').after(status);let pending=false;
+  $('runs').before(status);let pending=false;
   const health=node('p');health.className='hint';health.setAttribute('role','status');status.after(health);
+  const delivery=node('details'),deliveryTitle=node('summary','待回传处理'),deliveryBody=node('div'),deliveryNotice=node('p');
+  delivery.hidden=true;deliveryNotice.setAttribute('role','status');delivery.append(deliveryTitle,deliveryNotice,deliveryBody);$('runs').before(delivery);
+  const deliveryRefresh=node('button','刷新回传状态');deliveryRefresh.type='button';deliveryRefresh.onclick=()=>refreshDelivery();delivery.append(deliveryRefresh);
+  let deliveryPending=false,deliveryAction=false;
+  const deliveryReasons={delivery_pending:'等待后台核对并回传原记录',quarantined_delivery:'这些记录已保留，修复原因后可按原编号重试',source_outcome_unknown:'来源执行结果尚未确认，当前不能恢复回传',invalid_capture_retry:'原记录选择已失效，请刷新后重试',delivery_retry_denied:'原任务状态或执行权限已变化，请核对任务后再恢复',delivery_resume_denied:'原任务暂不能恢复回传，请核对任务状态',cloud_controller_busy:'后台正在处理，请稍后刷新',invalid_capture:'记录格式不符合云端要求，需维护者修复后重试',invalid_capture_record:'记录字段未通过云端检查，需维护者修复后重试',invalid_machine_provenance:'记录来源校验未通过，需维护者核对',capture_hash_conflict:'原记录与云端记录不一致，需维护者核对',capture_size_limit:'记录超过接收大小，需要维护者处理',sensitive_capture:'记录未通过数据检查，需要维护者处理',invalid_local_capture:'本机保存的记录损坏，需要维护者核对',delivery_attempt_limit:'多次回传未确认，已保留原记录等待处理',cloud_outcome_unknown:'上次操作结果待核对，先刷新状态；不要重复提交',invalid_cloud_ack:'云端回执不完整，原记录继续保留',cloud_read_unavailable:'云端状态暂不可读，请稍后刷新',cloud_delivery_lease_unavailable:'暂不能核验原任务权限，请稍后刷新',cloud_delivery_lease_denied:'原任务权限已变化，需要核对后再回传',worker_revoked:'这台终端的授权已失效，请联系Owner恢复',principal_denied:'没有该任务的操作权限，请核对Owner连接',owner_authorization_required:'需要有效的Owner连接才能处理回传',task_scope_denied:'此记录不属于当前Owner任务',task_not_found:'原云端任务不可用，需要维护者核对',task_paused:'原任务已暂停，请先在任务列表继续',task_stopped:'原任务已停止，不能直接恢复回传',delivery_state_conflict:'记录状态已变化，请刷新后处理',capture_not_quarantined:'记录已在处理或已确认，请刷新状态',delivery_not_deferred:'原任务尚未进入回传恢复状态，请稍后刷新',delivery_recovery_busy:'后台正在处理，请稍后刷新',controller_busy:'后台正在处理，请稍后刷新',delivery_binding_mismatch:'记录与原任务绑定不符，需要维护者核对',delivery_retry_run_mismatch:'只能恢复同一个原任务的记录，请刷新后按任务处理',delivery_resume_required:'需先恢复原任务的回传权限',cloud_upgrade_required:'后台需要升级后才能恢复回传',cloud_configuration_required:'尚未连接云端Owner',delivery_recovery_unavailable:'回传恢复暂不可用，请刷新状态或联系维护者'};
+  const deliveryReason=value=>Object.prototype.hasOwnProperty.call(deliveryReasons,value)?deliveryReasons[value]:'回传状态需要核对，请刷新或联系维护者';
+  const number=value=>Number.isSafeInteger(value)&&value>=0?value:0;
+  const platformNames={xhs:'小红书',xiaohongshu:'小红书',bili:'B站',bilibili:'B站',dy:'抖音',douyin:'抖音',ks:'快手',kuaishou:'快手',wb:'微博',weibo:'微博',zhihu:'知乎',tieba:'贴吧'};
+  const captureIds=group=>Array.isArray(group.quarantined_capture_ids)&&group.quarantined_capture_ids.length<=2000&&group.quarantined_capture_ids.every(id=>typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id))&&new Set(group.quarantined_capture_ids).size===group.quarantined_capture_ids.length?group.quarantined_capture_ids:[];
+  async function retryDelivery(group,button){
+    if(deliveryAction||group.retry_allowed!==true)return;
+    const ids=captureIds(group);if(!ids.length)return;
+    deliveryAction=true;button.disabled=true;deliveryNotice.textContent='正在核对原任务和回执…';
+    try{
+      const value=await api('/api/cloud',{action:'retry_delivery',payload:{capture_ids:ids}});
+      if(value.schema!=='crowd-delivery-retry-v1'||value.accepted!==true||value.state!=='queued'||!Array.isArray(value.requeued_capture_ids)||!value.requeued_capture_ids.every(id=>ids.includes(id))||new Set(value.requeued_capture_ids).size!==value.requeued_capture_ids.length)throw Error('cloud_outcome_unknown');
+      deliveryNotice.textContent='原记录已重新排队，等待云端回执。';
+    }catch(error){deliveryNotice.textContent=deliveryReason(error.message);}
+    finally{deliveryAction=false;await refreshDelivery();}
+  }
+  async function refreshDelivery(){
+    if(deliveryPending||deliveryAction||document.hidden)return;deliveryPending=true;
+    try{
+      const value=await api('/api/cloud',{action:'delivery_status',payload:{}});
+      if(value.storage_scope==='local'){delivery.hidden=true;deliveryBody.replaceChildren();return;}
+      delivery.hidden=false;deliveryBody.replaceChildren();
+      if(value.available!==true){deliveryTitle.textContent='回传恢复入口待升级';deliveryBody.append(node('p','后台尚未提供恢复接口；原待回传记录保持。'));return;}
+      if(value.schema!=='crowd-delivery-status-v1'||!Array.isArray(value.groups))throw Error('cloud_read_unavailable');
+      const groups=value.groups.filter(group=>group&&typeof group==='object'),pendingCount=groups.reduce((sum,group)=>sum+number(group.pending),0),quarantined=groups.reduce((sum,group)=>sum+number(group.quarantined),0);
+      deliveryTitle.textContent='待回传 '+pendingCount+' 条 · 需处理 '+quarantined+' 条';
+      if(quarantined)delivery.open=true;
+      if(!groups.length){deliveryBody.append(node('p','当前没有需要处理的回传记录。'));return;}
+      deliveryBody.append(node('p','重试只回传已保存的原记录；后台先核对回执，并保留原记录和提交编号。'));
+      for(const group of groups){
+        const item=node('div');item.className='record';
+        item.append(node('strong',(Object.prototype.hasOwnProperty.call(platformNames,group.platform)?platformNames[group.platform]:'采集任务')+' · '+(group.title?String(group.title).slice(0,120):'任务 '+String(group.task_id||'').slice(-8))));
+        item.append(node('p','待回传 '+number(group.pending)+' 条 · 已确认 '+number(group.acknowledged)+' 条 · 需处理 '+number(group.quarantined)+' 条'));
+        if(number(group.deferred))item.append(node('p',number(group.deferred)+' 条等待自动重试'+(typeof group.next_retry_at==='number'&&Number.isFinite(group.next_retry_at)?'，最早 '+new Date(group.next_retry_at*1000).toLocaleString():'')));
+        const reasons=[...new Set([group.reason,...(Array.isArray(group.errors)?group.errors:[])].filter(Boolean))];
+        for(const reason of reasons)item.append(node('p',deliveryReason(reason)));
+        const ids=captureIds(group);
+        if(number(group.quarantined)){
+          const retry=node('button',ids.length?'重试这 '+ids.length+' 条回传':'暂不能重试');retry.type='button';retry.disabled=group.retry_allowed!==true||!ids.length;
+          retry.onclick=()=>retryDelivery(group,retry);item.append(retry);
+          if(retry.disabled&&!reasons.length)item.append(node('p','后台正在核对原任务，暂不能重试；请稍后刷新。'));
+        }
+        deliveryBody.append(item);
+      }
+    }catch(_error){delivery.hidden=false;deliveryTitle.textContent='待回传状态暂不可读';deliveryBody.replaceChildren();deliveryBody.append(node('p','暂不能确认回传状态，请稍后刷新；原记录继续保留。'));}
+    finally{deliveryPending=false;}
+  }
   const history=node('details'),historyTitle=node('summary','运行异常记录（最近 7 天）'),historyBody=node('div');
   history.append(historyTitle,historyBody);health.after(history);let healthPending=false;
   const participants=node('details'),participantsTitle=node('summary','参与者监控'),participantsBody=node('div');
@@ -39,7 +90,7 @@
       for(const event of events){const row=node('p');row.textContent=timeLabel(event.at)+' · '+(errorLabels[event.health_error||event.postprocessing_error||event.last_error]||event.health_error||event.postprocessing_error||event.last_error||'调度健康异常')+' · 状态 '+(labels[event.phase]||event.phase)+' · 待回传 '+event.pending;historyBody.append(row);}
       if(!events.length)historyBody.append(node('p','当前保留的状态变化中没有异常；不代表未监控时段无故障。'));
     }catch(_error){health.textContent='需要处理：运行监控暂不可用。';}finally{healthPending=false;}}
-  const labels={idle:'等待云端任务',claiming:'正在领取云端任务',authorized:'已获云端分配',
+  const labels={deferring_delivery:'正在保存待回传清单',idle:'等待云端任务',claiming:'正在领取云端任务',authorized:'已获云端分配',
     dispatching:'正在启动采集',running:'正在采集',importing:'正在保存采集结果',
     delivering:'正在回传云端',finishing:'正在确认云端回执',waiting_login:'等待原账号登录恢复',
     local_stop_unknown:'采集停止结果待核对'};
@@ -51,6 +102,7 @@
       if(value.health_error)status.textContent='需要处理：'+(errorLabels[value.health_error]||value.health_error)+' · 当前任务状态 '+(labels[value.phase]||value.phase);
     }catch(error){status.textContent='云端连接待核对：'+error.message;}finally{pending=false;}}
   refresh();setInterval(refresh,5000);
+  refreshDelivery();setInterval(refreshDelivery,5000);
   refreshHealth();setInterval(refreshHealth,5000);
   refreshParticipants();setInterval(refreshParticipants,30000);
 })();

@@ -83,6 +83,21 @@ create table if not exists crowd_machine.captures (
  canonical_envelope text not null, envelope jsonb not null, receipt jsonb not null,
  received_at timestamptz not null default clock_timestamp()
 );
+
+-- Known terminal source attempts may wait for delivery without occupying the source executor.
+create table if not exists crowd_machine.deliveries (
+ run_id uuid primary key, worker_id uuid not null references crowd_machine.workers,
+ child_id uuid not null references crowd_machine.children, lease_epoch integer not null,
+ defer_id uuid not null unique, manifest_hash text not null check(manifest_hash ~ '^[a-f0-9]{64}$'),
+ manifest jsonb not null, charged_requests integer not null check(charged_requests>=0),
+ created_at timestamptz not null default clock_timestamp()
+);
+alter table crowd_machine.deliveries enable row level security;
+revoke all on crowd_machine.deliveries from public,anon,authenticated;
+grant select,insert on crowd_machine.deliveries to service_role;
+alter table crowd_machine.children drop constraint if exists children_state_check;
+alter table crowd_machine.children add constraint children_state_check check(state in ('queued','waiting','running','delivery_pending','unknown','completed','failed','stopped'));
+
 create index if not exists crowd_machine_captures_task on crowd_machine.captures(task_id,child_id,received_at);
 alter table crowd_machine.workers enable row level security;
 alter table crowd_machine.tasks enable row level security;
@@ -93,7 +108,7 @@ alter table crowd_machine.resolutions enable row level security;
 alter table crowd_machine.recoveries enable row level security;
 revoke all on all tables in schema crowd_machine from public, anon, authenticated;
 grant select,insert,update on all tables in schema crowd_machine to service_role;
-revoke update,delete on crowd_machine.resolutions,crowd_machine.recoveries,crowd_machine.terminal_audits from service_role;
+revoke update,delete on crowd_machine.resolutions,crowd_machine.recoveries,crowd_machine.terminal_audits,crowd_machine.deliveries from service_role;
 
 -- Freeze the unique original ACK identity; Bili's native store can report AID for a BV locator.
 create or replace function crowd_machine.bili_bound_content(p_child uuid) returns text
@@ -140,6 +155,7 @@ select jsonb_build_object(
    when not exists(select 1 from crowd_machine.children c where c.task_id=t.task_id and c.state<>'completed') then 'completed'
    when exists(select 1 from crowd_machine.children c where c.task_id=t.task_id and c.state='running') then 'running'
    when exists(select 1 from crowd_machine.children c where c.task_id=t.task_id and c.state='queued') then 'queued'
+   when exists(select 1 from crowd_machine.children c where c.task_id=t.task_id and c.state='delivery_pending') then 'delivery_pending'
    when exists(select 1 from crowd_machine.children c where c.task_id=t.task_id and c.reason_code like 'audited_%') then 'failed'
    else 'waiting' end,
  'contents',(select count(distinct concat(z.envelope->'record'->>'platform',':',z.envelope->'record'->>'kind',':',z.envelope->'record'->>'content_id')) from crowd_machine.captures z where z.task_id=t.task_id and z.envelope->'record'->>'kind' in ('content','dynamic') and length(btrim(coalesce(z.envelope->'record'->>'body','')||coalesce(z.envelope->'record'->>'title','')||coalesce(z.envelope->'record'->>'text','')))>0),
@@ -161,8 +177,9 @@ select jsonb_build_object(
    'contents',(select count(distinct concat(x.envelope->'record'->>'kind',':',x.envelope->'record'->>'content_id')) from crowd_machine.captures x where x.child_id=c.child_id and x.envelope->'record'->>'kind' in ('content','dynamic') and length(btrim(coalesce(x.envelope->'record'->>'body','')||coalesce(x.envelope->'record'->>'title','')||coalesce(x.envelope->'record'->>'text','')))>0),
    'comments',(select count(distinct concat(x.envelope->'record'->>'content_id',':',x.envelope->'record'->>'comment_id')) from crowd_machine.captures x where x.child_id=c.child_id and x.envelope->'record'->>'kind'='comment' and nullif(x.envelope->'record'->>'comment_id','') is not null),
    'received_captures',(select count(*) from crowd_machine.captures x where x.child_id=c.child_id),
-   'delivery_state',case when exists(select 1 from crowd_machine.captures x where x.child_id=c.child_id) then 'cloud_received' else 'none' end,
+   'delivery_state',case when c.state='delivery_pending' then 'delivery_pending' when exists(select 1 from crowd_machine.captures x where x.child_id=c.child_id) then 'cloud_received' else 'none' end,
    'terminal_audit',(select jsonb_build_object('audit_id',a.audit_id,'mode',a.mode,'outcome',case when a.mode='terminal_unknown' then 'unknown' else 'executor_completed' end,'charged_requests',a.charged_requests,'released_requests',a.released_requests,'body_coverage',a.body_coverage,'audit_hash',a.audit_hash,'created_at',a.created_at) from crowd_machine.terminal_audits a where a.child_id=c.child_id and a.run_id=c.run_id and a.lease_epoch=c.lease_epoch),
+   'delivery_manifest',(select jsonb_build_object('expected_captures',(select count(*) from jsonb_object_keys(d.manifest->'capture_refs')),'acknowledged',(select count(*) from crowd_machine.captures z where z.run_id=d.run_id),'source_outcome',d.manifest->>'outcome','charged_requests',d.charged_requests) from crowd_machine.deliveries d where d.run_id=c.run_id),
    'coverage','observed_machine_receipts_only','session_selection','worker_local','session_login_state','unverified'
  ) order by c.platform) from crowd_machine.children c where c.task_id=t.task_id),'[]'::jsonb))
 from crowd_machine.tasks t where t.task_id=p_id;
@@ -196,6 +213,7 @@ create or replace function public.crowd_machine_rpc(p_owner_scope text,p_actor_k
 returns jsonb language plpgsql security invoker set search_path='' as $$
 #variable_conflict use_column
 declare w crowd_machine.workers%rowtype; t crowd_machine.tasks%rowtype; c crowd_machine.children%rowtype;
+ delivery crowd_machine.deliveries%rowtype;
  x crowd_machine.captures%rowtype; claimed crowd_machine.claims%rowtype;
  v_proposal jsonb; item jsonb; v_id uuid; v_hash text; now_at timestamptz;
  envelope jsonb; receipt jsonb; content_count integer; ids jsonb; resolution crowd_machine.resolutions%rowtype;
@@ -206,7 +224,7 @@ begin
  if p_actor_kind='worker' then
    select * into w from crowd_machine.workers where owner_scope=p_owner_scope and token_hash=p_worker_hash for update;
    if not found or not w.enabled or w.expires_at<=clock_timestamp() then raise exception 'worker_revoked'; end if;
-   if p_action not in ('claim','heartbeat','capture','receipt','finish','resume_login','reconcile_no_dispatch') then raise exception 'principal_denied'; end if;
+   if p_action not in ('claim','heartbeat','capture','receipt','finish','resume_login','reconcile_no_dispatch','delivery_defer','delivery_resume') then raise exception 'principal_denied'; end if;
  else
    if p_action not in ('task_create','task_list','task_status','task_control','task_reconcile','retry_supplemental','worker_pair','worker_revoke','worker_list','results') then raise exception 'principal_denied'; end if;
  end if;
@@ -455,12 +473,46 @@ begin
  -- All remaining worker operations bind to the registered worker, immutable run and epoch.
  select * into c from crowd_machine.children where run_id=(p_payload->>'run_id')::uuid and worker_id=w.worker_id for update;
  if not found or c.lease_epoch<>(p_payload->>'lease_epoch')::integer then raise exception 'lease_binding_denied'; end if;
- if p_action in ('capture','finish','resume_login') and exists(select 1 from crowd_machine.resolutions where worker_id=w.worker_id and run_id=c.run_id and lease_epoch=c.lease_epoch) then raise exception 'run_reconciled_no_dispatch'; end if;
- if p_action in ('capture','finish','resume_login') and exists(select 1 from crowd_machine.terminal_audits where worker_id=w.worker_id and run_id=c.run_id and lease_epoch=c.lease_epoch) then raise exception 'run_terminally_reconciled'; end if;
+ if p_action in ('capture','finish','resume_login','delivery_defer','delivery_resume') and exists(select 1 from crowd_machine.resolutions where worker_id=w.worker_id and run_id=c.run_id and lease_epoch=c.lease_epoch) then raise exception 'run_reconciled_no_dispatch'; end if;
+ if p_action in ('capture','finish','resume_login','delivery_defer','delivery_resume') and exists(select 1 from crowd_machine.terminal_audits where worker_id=w.worker_id and run_id=c.run_id and lease_epoch=c.lease_epoch) then raise exception 'run_terminally_reconciled'; end if;
  select * into t from crowd_machine.tasks where task_id=c.task_id and owner_scope=p_owner_scope;
  if not found then raise exception 'principal_denied'; end if;
  now_at=clock_timestamp();
- if p_action='receipt' then
+ select * into delivery from crowd_machine.deliveries where run_id=c.run_id;
+ if p_action='delivery_defer' then
+   v_hash=p_payload->>'manifest_hash';
+   if delivery.run_id is not null then
+     if delivery.manifest_hash is distinct from v_hash or delivery.manifest is distinct from p_payload-'manifest_hash'-'canonical_manifest' then raise exception 'delivery_manifest_conflict'; end if;
+   else
+     if c.state is distinct from 'running' or c.lease_until is null or c.lease_until<=now_at or c.finish_hash is not null
+       or p_payload->>'outcome' is null or p_payload->>'outcome' not in ('completed','failed','stopped')
+       or jsonb_typeof(p_payload->'api_attempts') is distinct from 'number' or coalesce(p_payload->>'api_attempts','') !~ '^[0-9]{1,3}$'
+       or (p_payload->>'api_attempts')::integer>c.requests_reserved
+       or p_payload->'local_run_id' is distinct from to_jsonb(c.local_run_id) and not(c.local_run_id is null and p_payload->'local_run_id'='null'::jsonb)
+       or c.local_run_id is null and t.proposal->>'delivery_basis'<>'existing_saved'
+       or jsonb_typeof(p_payload->'capture_refs') is distinct from 'object'
+       then raise exception 'delivery_defer_denied'; end if;
+     if (select count(*) from jsonb_object_keys(p_payload->'capture_refs')) not between 1 and 2000
+       or exists(select 1 from jsonb_each_text(p_payload->'capture_refs') r where r.key !~ '^[a-f0-9-]{36}$' or r.value !~ '^[a-f0-9]{64}$')
+       or exists(select 1 from crowd_machine.captures z where z.run_id=c.run_id and (p_payload->'capture_refs'->>z.capture_id::text is distinct from z.envelope_hash))
+       or exists(select 1 from jsonb_each_text(p_payload->'capture_refs') r join crowd_machine.captures z on z.capture_id=r.key::uuid where z.run_id<>c.run_id or z.worker_id<>w.worker_id or z.lease_epoch<>c.lease_epoch or z.envelope_hash<>r.value)
+       or (p_payload->>'canonical_manifest')::jsonb is distinct from p_payload-'manifest_hash'-'canonical_manifest'
+       or encode(sha256(convert_to('crowd-machine-delivery-v1'||chr(10)||(p_payload->>'canonical_manifest'),'UTF8')),'hex') is distinct from v_hash
+       then raise exception 'delivery_manifest_conflict'; end if;
+     charged=(p_payload->>'api_attempts')::integer;
+     insert into crowd_machine.deliveries(run_id,worker_id,child_id,lease_epoch,defer_id,manifest_hash,manifest,charged_requests)
+       values(c.run_id,w.worker_id,c.child_id,c.lease_epoch,(p_payload->>'defer_id')::uuid,v_hash,p_payload-'manifest_hash'-'canonical_manifest',charged) returning * into delivery;
+     update crowd_machine.children set state='delivery_pending',reason_code='unacknowledged_delivery',requests_spent=requests_spent+charged,requests_reserved=0 where child_id=c.child_id;
+     update crowd_machine.claims set local_run_id=c.local_run_id,outcome=p_payload->>'outcome',api_attempts=charged,finished_at=now_at where worker_id=w.worker_id and run_id=c.run_id and lease_epoch=c.lease_epoch;
+   end if;
+   return jsonb_build_object('deferred',true,'run_id',c.run_id,'lease_epoch',c.lease_epoch,'worker_id',w.worker_id,'manifest_hash',delivery.manifest_hash,'lease',crowd_machine.lease_view(c.child_id));
+ elsif p_action='delivery_resume' then
+   if delivery.run_id is null or delivery.manifest_hash is distinct from p_payload->>'manifest_hash' then raise exception 'delivery_resume_denied'; end if;
+   if c.state='delivery_pending' and t.desired_state='running' then
+     update crowd_machine.children set lease_until=now_at+interval '90 seconds' where child_id=c.child_id;
+   end if;
+   return jsonb_build_object('may_deliver',c.state='delivery_pending' and t.desired_state='running','run_id',c.run_id,'lease_epoch',c.lease_epoch,'worker_id',w.worker_id,'manifest_hash',delivery.manifest_hash,'lease',crowd_machine.lease_view(c.child_id));
+ elsif p_action='receipt' then
    select * into x from crowd_machine.captures where capture_id=(p_payload->>'capture_id')::uuid and worker_id=w.worker_id and run_id=c.run_id;
    if not found then return jsonb_build_object('receipt',null); end if;
    if x.envelope_hash<>p_payload->>'envelope_hash' then raise exception 'capture_hash_conflict'; end if;
@@ -475,6 +527,7 @@ begin
    if envelope->>'schema'<>'crowd-machine-capture-v1' or envelope->>'source_kind'<>'machine_api' or envelope->>'task_id'<>t.task_id::text or envelope->>'child_id'<>c.child_id::text or envelope->>'run_id'<>c.run_id::text or (envelope->>'lease_epoch')::integer<>c.lease_epoch or envelope->>'delivery_basis'<>t.proposal->>'delivery_basis' or envelope->'record'->>'reward_eligible'<>'false' or envelope->'record'->>'source_kind'<>'mediacrawler_api' or envelope->'record'->>'platform'<>envelope->>'platform' or envelope->>'platform'<>(jsonb_build_object('xhs','xiaohongshu','dy','douyin','ks','kuaishou','bili','bilibili','wb','weibo','tieba','tieba','zhihu','zhihu')->>c.platform) then raise exception 'invalid_capture'; end if;
    if c.recovery_id is not null and envelope->'record'->>'content_id' is distinct from (select source_content_id from crowd_machine.recoveries where recovery_id=c.recovery_id) then raise exception 'invalid_capture'; end if;
    if octet_length(p_payload->>'canonical_envelope')>262144 or (p_payload->>'canonical_envelope')::jsonb<>envelope or encode(sha256(convert_to('crowd-machine-capture-v1'||chr(10)||(p_payload->>'canonical_envelope'),'UTF8')),'hex')<>v_hash then raise exception 'capture_hash_conflict'; end if;
+   if delivery.run_id is not null and (c.state is distinct from 'delivery_pending' or t.desired_state<>'running' or delivery.manifest->'capture_refs'->>v_id::text is distinct from v_hash) then raise exception 'delivery_resume_denied'; end if;
    -- Delivery is allowed after source authorization ends, for a bounded cached outbox window.
    -- It never renews the lease or authorizes another source action.
    if c.lease_until is null or now_at>c.lease_until+interval '24 hours' then raise exception 'delivery_window_expired'; end if;
@@ -510,6 +563,7 @@ begin
      return jsonb_build_object('task',crowd_machine.public_task(t.task_id),'replayed',true);
    end if;
    ids=p_payload->'capture_ids';
+   if delivery.run_id is not null and (c.state is distinct from 'delivery_pending' or t.desired_state<>'running' or p_payload->>'outcome' is distinct from delivery.manifest->>'outcome' or p_payload->'api_attempts' is distinct from delivery.manifest->'api_attempts' or (select jsonb_agg(k order by k) from jsonb_object_keys(delivery.manifest->'capture_refs') k) is distinct from (select jsonb_agg(k order by k) from jsonb_array_elements_text(ids) k)) then raise exception 'unacknowledged_capture'; end if;
    if jsonb_typeof(ids)<>'array' or jsonb_array_length(ids)>2000 or exists(select 1 from jsonb_array_elements_text(ids) v where not exists(select 1 from crowd_machine.captures cx where cx.capture_id=v::uuid and cx.run_id=c.run_id and cx.worker_id=w.worker_id)) then raise exception 'unacknowledged_capture'; end if;
    select count(distinct concat(envelope->'record'->>'kind',':',envelope->'record'->>'content_id')) into content_count from crowd_machine.captures where child_id=c.child_id and envelope->'record'->>'kind' in ('content','dynamic') and length(btrim(coalesce(envelope->'record'->>'body','')||coalesce(envelope->'record'->>'title','')||coalesce(envelope->'record'->>'text','')))>0;
    if p_payload->>'outcome' not in ('completed','stopped','failed','unknown','login_required') then raise exception 'invalid_request'; end if;

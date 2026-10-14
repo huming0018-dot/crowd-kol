@@ -49,6 +49,15 @@ class FakeCloud:
                 self.lose_claim = False
                 raise CloudError('cloud_outcome_unknown')
             return {'lease':None if self.lease['platform'] in payload.get('unavailable_platforms',[]) else self.lease}
+        if action == 'delivery_defer':
+            self.manifest=payload
+            self.lease={**self.lease,'state':'delivery_pending','may_dispatch':False}
+            return {'deferred':True,'run_id':self.lease['run_id'],'lease_epoch':self.lease['lease_epoch'],
+                'worker_id':self.lease['worker_id'],'manifest_hash':payload['manifest_hash'],'lease':self.lease}
+        if action == 'delivery_resume':
+            return {'may_deliver':self.lease['desired_state']=='running','run_id':self.lease['run_id'],
+                'lease_epoch':self.lease['lease_epoch'],'worker_id':self.lease['worker_id'],
+                'manifest_hash':payload['manifest_hash'],'lease':self.lease}
         if action == 'heartbeat':
             if self.fail_heartbeat:
                 raise CloudError('cloud_outcome_unknown')
@@ -68,7 +77,8 @@ class FakeCloud:
             expected=dict(payload);expected.pop('finish_hash')
             assert payload['finish_hash']==_hash('crowd-machine-finish-v1', expected)
             assert all(i in self.receipts for i in payload['capture_ids'])
-            return {'task':{'state':payload['outcome']}}
+            state='waiting' if payload['outcome']=='login_required' else payload['outcome']
+            return {'task':{'state':state,'task_id':self.lease['task_id'],'children':[{'state':state,'child_id':self.lease['child_id'],'worker_id':self.lease['worker_id'],'lease_epoch':self.lease['lease_epoch'],'runs':[self.lease['run_id']],'finish_hash':payload['finish_hash']}]}}
         if action == 'resume_login':
             self.lease = {**self.lease, 'run_id':uid(), 'lease_epoch':self.lease['lease_epoch']+1}
             return {'resumed':True}
@@ -107,11 +117,12 @@ class Tests(unittest.TestCase):
         self.assertFalse(self.actions)
         self.cloud.bad_ack=True
         blocked=worker.tick()
-        self.assertEqual((blocked['pending'],blocked['acknowledged'],blocked['delivery_progress']),(5,4,False))
+        self.assertEqual((blocked['pending'],blocked['acknowledged'],blocked['state']),(5,4,'delivery_pending'))
         self.assertEqual(blocked['errors'],['invalid_cloud_ack'])
         self.cloud.bad_ack=False
         resumed=worker.tick()
-        self.assertEqual((resumed['pending'],resumed['delivery_progress'],resumed['errors']),(1,True,[]))
+        # Fair delivery tries the untouched ninth row before rechecking older bad ACKs.
+        self.assertEqual((resumed['pending'],resumed['state'],resumed['errors']),(1,'delivery_pending',['invalid_cloud_ack']))
         self.assertEqual(worker.tick()['state'],'finished')
         self.assertFalse(self.actions)
 
@@ -487,7 +498,7 @@ class Tests(unittest.TestCase):
     def test_lost_capture_response_does_not_repeat_source(self):
         self.cloud.lose_capture=True
         worker=CloudWorker(self.root,self.cloud,self.runner)
-        self.assertEqual(worker.tick()['state'],'delivering')
+        self.assertEqual(worker.tick()['state'],'delivery_pending')
         self.assertEqual(worker.tick()['state'],'finished')
         self.assertEqual(sum(a=='start' for a,_ in self.actions),1)
         self.assertEqual(sum(a=='capture' for a,_ in self.cloud.calls),1)

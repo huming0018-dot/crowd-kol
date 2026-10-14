@@ -4,7 +4,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('./cloud-ui.js',import.meta.url),'utf8');
 async function render(healthValue, fail=false, participantValue=null, participantFailure=false){
   const nodes=[];
-  const node=(tag,text='')=>{const item={tag,textContent:text,children:[],setAttribute(){},after(){},append(...children){this.children.push(...children);},replaceChildren(){this.children=[];}};nodes.push(item);return item;};
+  const node=(tag,text='')=>{const item={tag,textContent:text,children:[],setAttribute(){},after(){},before(){},append(...children){this.children.push(...children);},replaceChildren(){this.children=[];}};nodes.push(item);return item;};
   const byId=new Map();
   vm.runInNewContext(source,{node,$:id=>{if(!byId.has(id))byId.set(id,node('div'));return byId.get(id);},document:{hidden:false},Date,setInterval(){},api:async (path,body)=>{
     if(path==='/api/health'){if(fail)throw Error('Cookie=SECRET');return healthValue;}

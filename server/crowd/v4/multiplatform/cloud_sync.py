@@ -26,7 +26,8 @@ WORKER_ERRORS = mc_runner.STOP_ERRORS | {'source_outcome_unknown','invalid_cloud
     'capture_size_limit','cloud_response_size_limit','invalid_cloud_response','cloud_redirect_denied','unacknowledged_capture',
     'supplemental_account_binding_denied','invalid_cloud_reconciliation','invalid_encoding','integer_required',
     'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown',
-    'runner_status_unavailable','cloud_delivery_lease_unavailable','cloud_delivery_lease_denied'}
+    'runner_status_unavailable','cloud_delivery_lease_unavailable','cloud_delivery_lease_denied',
+    'invalid_cloud_delivery','invalid_delivery_manifest','delivery_manifest_conflict','delivery_defer_denied','delivery_resume_denied'}
 RECORD_FIELDS = {'platform','content_id','kind','source_kind','reward_eligible','coverage','origin','discovery_kind',
  'comment_id','parent_comment_id','text','reported_reply_count','title','body','content_type',
  'canonical_id_scheme','platform_fields','author','author_id','author_id_scheme','author_id_status',
@@ -224,6 +225,11 @@ class CloudOwnerAdapter:
 
 
 class CloudOutbox:
+    MAX_DELIVERY_ATTEMPTS = 5
+    PERMANENT_DELIVERY_ERRORS = frozenset({'invalid_capture', 'invalid_capture_record',
+        'invalid_machine_provenance', 'capture_hash_conflict', 'capture_size_limit',
+        'sensitive_capture', 'invalid_local_capture'})
+
     def __init__(self, root, client):
         self.root = _private_root(root, 'cloud-outbox')
         self.path = self.root / 'outbox.sqlite3'
@@ -231,6 +237,8 @@ class CloudOutbox:
         self.client = client
         with self._db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS captures(id TEXT PRIMARY KEY, run_id TEXT NOT NULL, envelope TEXT NOT NULL, digest TEXT NOT NULL, state TEXT NOT NULL, receipt TEXT, error TEXT)')
+            # Keep the original seven-column table and immutable envelope/ACK bytes intact.
+            db.execute('CREATE TABLE IF NOT EXISTS capture_delivery(id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, total_attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at REAL NOT NULL DEFAULT 0, last_attempt_at REAL NOT NULL DEFAULT 0, quarantined INTEGER NOT NULL DEFAULT 0, requeues INTEGER NOT NULL DEFAULT 0, last_error TEXT, attempt_token TEXT)')
 
     @contextmanager
     def _db(self):
@@ -322,45 +330,138 @@ class CloudOutbox:
         if type(limit) is not int or not 1 <= limit <= 2000:
             raise CloudError('invalid_imported_records')
         with self._db() as db:
-            rows = db.execute('SELECT id,envelope,digest FROM captures WHERE state=?' +
-                (' AND run_id=?' if run_id else '') + ' ORDER BY rowid LIMIT ?',
-                ('pending', run_id, limit) if run_id else ('pending', limit)).fetchall()
-        for capture_id, encoded, digest in rows:
-            envelope = json.loads(encoded)
-            binding = {'run_id': envelope['run_id'], 'lease_epoch': envelope['lease_epoch']}
+            rows = db.execute('SELECT c.id,c.envelope,c.digest,c.run_id FROM captures c LEFT JOIN capture_delivery d ON d.id=c.id WHERE c.state=? AND coalesce(d.quarantined,0)=0 AND coalesce(d.next_attempt_at,0)<=?' +
+                (' AND c.run_id=?' if run_id else '') + ' ORDER BY coalesce(d.total_attempts,0),coalesce(d.last_attempt_at,0),c.rowid LIMIT ?',
+                ('pending', time.time(), run_id, limit) if run_id else ('pending', time.time(), limit)).fetchall()
+        for capture_id, encoded, digest, saved_run_id in rows:
+            attempt = None
+            attempt_token = None
             try:
                 if before_send:
                     before_send()
-                receipt = self.client.call('receipt', {**binding, 'capture_id': capture_id, 'envelope_hash': digest}).get('receipt')
+                # Suppress overlap for 90s; later overlap still uses the same cloud idempotency ID.
+                with self._db() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    state = db.execute('SELECT state,digest FROM captures WHERE id=?', (capture_id,)).fetchone()
+                    db.execute('INSERT OR IGNORE INTO capture_delivery(id) VALUES(?)', (capture_id,))
+                    retry = db.execute('SELECT attempts,next_attempt_at,quarantined FROM capture_delivery WHERE id=?', (capture_id,)).fetchone()
+                    now = time.time()
+                    if state != ('pending', digest) or retry[2] or retry[1] > now:
+                        continue
+                    if retry[0] >= self.MAX_DELIVERY_ATTEMPTS:
+                        db.execute('UPDATE capture_delivery SET quarantined=1 WHERE id=?', (capture_id,))
+                        db.execute('UPDATE captures SET error=coalesce(error,?) WHERE id=?', ('delivery_attempt_limit', capture_id))
+                        continue
+                    attempt = retry[0] + 1
+                    attempt_token = str(uuid.uuid4())
+                    db.execute('UPDATE capture_delivery SET attempts=?,total_attempts=total_attempts+1,last_attempt_at=?,next_attempt_at=?,attempt_token=? WHERE id=?',
+                               (attempt, now, now + 90, attempt_token, capture_id))
+                try:
+                    envelope = json.loads(encoded)
+                    if (not isinstance(envelope, dict) or envelope.get('capture_id') != capture_id
+                            or envelope.get('run_id') != saved_run_id or type(envelope.get('lease_epoch')) is not int
+                            or not 1 <= envelope['lease_epoch'] <= 2147483647
+                            or not all(mc_runner.uid(envelope.get(k)) == envelope[k] for k in ('task_id','child_id','run_id'))
+                            or canonical(envelope) != encoded or _hash(SCHEMA, envelope) != digest):
+                        raise ValueError('invalid_local_capture')
+                    binding = {'run_id': envelope['run_id'], 'lease_epoch': envelope['lease_epoch']}
+                except (ValueError, TypeError, KeyError, mc_runner.BridgeError):
+                    raise CloudError('invalid_local_capture') from None
+                response = self.client.call('receipt', {**binding, 'capture_id': capture_id, 'envelope_hash': digest})
+                if not isinstance(response, dict) or 'receipt' not in response:
+                    raise CloudError('invalid_cloud_response')
+                receipt = response['receipt']
                 if receipt is None:
                     if before_send:
                         before_send()
-                    receipt = self.client.call('capture', {**binding, 'envelope': envelope, 'envelope_hash': digest}).get('receipt')
-                if not isinstance(receipt, dict) or any(receipt.get(k) != v for k, v in {
+                    response = self.client.call('capture', {**binding, 'envelope': envelope, 'envelope_hash': digest})
+                    if not isinstance(response, dict) or 'receipt' not in response:
+                        raise CloudError('invalid_cloud_response')
+                    receipt = response['receipt']
+                if not isinstance(receipt, dict) or type(receipt.get('lease_epoch')) is not int or any(canonical(receipt.get(k)) != canonical(v) for k, v in {
                     'capture_id': capture_id, 'envelope_hash': digest, **binding, 'task_id': envelope['task_id'],
                     'child_id': envelope['child_id'], 'status': 'received', 'source_kind': 'machine_api', 'reward_eligible': False}.items()):
                     raise CloudError('invalid_cloud_ack')
                 with self._db() as db:
-                    db.execute('UPDATE captures SET state=?,receipt=?,error=NULL WHERE id=? AND digest=?',
-                               ('acknowledged', canonical(receipt), capture_id, digest))
+                    db.execute('UPDATE captures SET state=?,receipt=?,error=NULL WHERE id=? AND digest=? AND state=?',
+                               ('acknowledged', canonical(receipt), capture_id, digest, 'pending'))
+                    db.execute('UPDATE capture_delivery SET next_attempt_at=0,quarantined=0 WHERE id=?', (capture_id,))
             except DeliveryLeaseError:
+                if attempt is not None:
+                    with self._db() as db:
+                        # A denied send did not consume a payload retry; actual lookup count stays.
+                        db.execute('UPDATE capture_delivery SET attempts=max(0,attempts-1),next_attempt_at=0 WHERE id=? AND attempt_token=?', (capture_id, attempt_token))
                 raise
             except (CloudError, ValueError) as error:
                 code = str(error) if re.fullmatch(r'[a-z_]{1,80}', str(error)) else 'cloud_outcome_unknown'
                 with self._db() as db:
-                    db.execute('UPDATE captures SET error=? WHERE id=?', (code, capture_id))
+                    updated = db.execute('UPDATE captures SET error=? WHERE id=? AND digest=? AND state=?' +
+                        (' AND EXISTS(SELECT 1 FROM capture_delivery d WHERE d.id=captures.id AND d.attempt_token=?)' if attempt_token else ''),
+                        (code, capture_id, digest, 'pending', attempt_token) if attempt_token else (code, capture_id, digest, 'pending')).rowcount
+                    if updated and attempt is not None:
+                        quarantined = code in self.PERMANENT_DELIVERY_ERRORS or attempt >= self.MAX_DELIVERY_ATTEMPTS
+                        delay = 0 if attempt == 1 else min(300, 5 * 2 ** (attempt - 2))
+                        db.execute('UPDATE capture_delivery SET quarantined=?,next_attempt_at=?,last_error=? WHERE id=?',
+                                   (int(quarantined), time.time() + delay, code, capture_id))
                 # A lost response never deletes data or causes another source dispatch.
                 if code in ('worker_revoked', 'principal_denied', 'cloud_outcome_unknown'):
                     break
         return self.stats(run_id)
 
+    def retry_quarantined(self, capture_ids):
+        """Explicit operator retry of the same bytes after backend repair; never a source retry."""
+        if not isinstance(capture_ids, list) or not 1 <= len(capture_ids) <= 2000:
+            raise CloudError('invalid_capture_retry')
+        try:
+            ids = [mc_runner.uid(value) for value in capture_ids]
+        except (mc_runner.BridgeError, ValueError, TypeError):
+            raise CloudError('invalid_capture_retry') from None
+        if len(set(ids)) != len(ids):
+            raise CloudError('invalid_capture_retry')
+        with self._db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            for identity in ids:
+                state = db.execute('SELECT c.state,d.quarantined FROM captures c JOIN capture_delivery d ON d.id=c.id WHERE c.id=?', (identity,)).fetchone()
+                if state != ('pending', 1):
+                    raise CloudError('capture_not_quarantined')
+            for identity in ids:
+                db.execute('UPDATE capture_delivery SET attempts=0,next_attempt_at=0,last_attempt_at=?,quarantined=0,requeues=requeues+1,attempt_token=NULL WHERE id=?', (time.time(), identity))
+        return {'requeued_capture_ids': ids, **self.stats()}
+
+    def manifest(self, lease):
+        """Freeze every required original capture, including ACKs; never restage after parking."""
+        refs = {}
+        with self._db() as db:
+            rows = db.execute('SELECT id,envelope,digest FROM captures WHERE run_id=? ORDER BY id', (lease['run_id'],)).fetchall()
+        for identity, encoded, digest in rows:
+            try:
+                envelope = _strict_json(encoded)
+                if (canonical(envelope) != encoded or _hash(SCHEMA, envelope) != digest
+                        or envelope.get('capture_id') != identity
+                        or type(envelope.get('lease_epoch')) is not int
+                        or any(envelope.get(k) != lease[k] for k in ('run_id','task_id','child_id','lease_epoch'))):
+                    raise CloudError('invalid_delivery_manifest')
+            except (ValueError, TypeError, KeyError):
+                raise CloudError('invalid_delivery_manifest') from None
+            refs[identity] = digest
+        if not 1 <= len(refs) <= 2000:
+            raise CloudError('invalid_delivery_manifest')
+        return refs
+
     def stats(self, run_id=None):
         with self._db() as db:
-            rows = db.execute('SELECT id,state,error FROM captures' + (' WHERE run_id=?' if run_id else ''),
+            rows = db.execute('SELECT c.id,c.state,c.error,coalesce(d.quarantined,0),coalesce(d.next_attempt_at,0),coalesce(d.total_attempts,0) FROM captures c LEFT JOIN capture_delivery d ON d.id=c.id' + (' WHERE c.run_id=?' if run_id else ''),
                               (run_id,) if run_id else ()).fetchall()
+        now = time.time()
+        quarantined = [r[0] for r in rows if r[1] == 'pending' and r[3]]
+        retry_times = [r[4] for r in rows if r[1] == 'pending' and not r[3] and r[4] > now]
         return {'pending': sum(r[1] == 'pending' for r in rows),
                 'acknowledged': sum(r[1] == 'acknowledged' for r in rows),
-                'capture_ids': [r[0] for r in rows], 'errors': list(dict.fromkeys(r[2] for r in rows if r[2]))}
+                'capture_ids': [r[0] for r in rows], 'errors': list(dict.fromkeys(r[2] for r in rows if r[2])),
+                'quarantined': len(quarantined), 'quarantined_capture_ids': quarantined,
+                'retryable': sum(r[1] == 'pending' and not r[3] and r[4] <= now for r in rows),
+                'deferred': len(retry_times), 'next_retry_at': min(retry_times) if retry_times else None,
+                'delivery_attempts': sum(r[5] for r in rows)}
 
 
 class CloudWorker:
@@ -401,6 +502,7 @@ class CloudWorker:
             if 'session_bindings' not in state:state['session_bindings']=prior.get('session_bindings',{})
             if 'waiting_logins' not in state:state['waiting_logins']=prior.get('waiting_logins',[])
             if 'postprocessing_runs' not in state:state['postprocessing_runs']=prior.get('postprocessing_runs',[])
+            if 'pending_deliveries' not in state:state['pending_deliveries']=prior.get('pending_deliveries',[])
             if 'last_stop' not in state and 'last_stop' in prior:state['last_stop']=prior['last_stop']
         if self.last_stop is not None:state['last_stop']=self.last_stop
         bindings = state.setdefault('session_bindings', {})
@@ -461,6 +563,16 @@ class CloudWorker:
 
     def _renew_delivery(self, state):
         try:
+            if state.get('delivery_manifest'):
+                payload=state['delivery_manifest']
+                response=self.client.call('delivery_resume', {k:payload[k] for k in ('run_id','lease_epoch','manifest_hash')})
+                self._delivery_echo(response,state)
+                state['lease']=response['lease'];self._save(state)
+                if response.get('may_deliver') is not True and not (state.get('phase')=='finishing'
+                        and response['lease'].get('state') in ('completed','failed','stopped','waiting')
+                        and self.outbox.stats(state['lease']['run_id'])['pending']==0):
+                    raise DeliveryLeaseError('cloud_delivery_lease_denied')
+                return state['lease']
             lease = self._heartbeat(state)
         except (CloudError, ValueError, OSError, sqlite3.Error):
             raise DeliveryLeaseError('cloud_delivery_lease_unavailable') from None
@@ -621,6 +733,102 @@ class CloudWorker:
             if last:summary['last_stop']=last
             return {**summary, **self.scheduler_status()}
 
+    @staticmethod
+    def _delivery_echo(response, state):
+        lease, manifest = state['lease'], state['delivery_manifest']
+        if (not isinstance(response, dict) or type(response.get('lease_epoch')) is not int
+                or any(response.get(k) != lease[k] for k in ('run_id','lease_epoch','worker_id'))
+                or response.get('manifest_hash') != manifest['manifest_hash']
+                or not isinstance(response.get('lease'), dict)
+                or type(response['lease'].get('lease_epoch')) is not int
+                or any(response['lease'].get(k) != lease[k] for k in ('run_id','task_id','child_id','worker_id','lease_epoch'))
+                or response['lease'].get('may_dispatch') is not False):
+            raise CloudError('invalid_cloud_delivery')
+
+    def _park_delivery(self, state):
+        if not state.get('delivery_manifest'):
+            # Commit the exact manifest before the potentially unknown remote write.
+            payload = {'run_id':state['lease']['run_id'], 'lease_epoch':state['lease']['lease_epoch'],
+                'defer_id':str(uuid.uuid4()), 'local_run_id':state.get('local_run_id'),
+                'outcome':state['outcome'], 'api_attempts':state.get('api_attempts',0),
+                'capture_refs':self.outbox.manifest(state['lease'])}
+            payload['manifest_hash'] = _hash('crowd-machine-delivery-v1',payload)
+            state.update(phase='deferring_delivery', delivery_manifest=payload)
+            self._save(state)
+        if state['phase']=='deferring_delivery':
+            response=self.client.call('delivery_defer',state['delivery_manifest'])
+            self._delivery_echo(response,state)
+            if response.get('deferred') is not True:
+                raise CloudError('invalid_cloud_delivery')
+            state['lease']=response['lease']
+        pending=[p for p in state.get('pending_deliveries',[]) if p['lease']['run_id']!=state['lease']['run_id']]
+        context={k:v for k,v in state.items() if k not in ('pending_deliveries','waiting_logins','session_bindings','postprocessing_runs')}
+        context.update(phase='delivering', retry_requested=False, desired_state=state['lease'].get('desired_state','running'))
+        if state.get('delivery_check_failed'):context['delivery_check_at']=time.time()+30
+        else:context.pop('delivery_check_at',None)
+        context.pop('delivery_check_failed',None)
+        pending.append(context)
+        self._save({'phase':'idle','pending_deliveries':pending})
+        return {'state':'delivery_pending', **self.outbox.stats(state['lease']['run_id'])}
+
+    def delivery_status(self):
+        state=mc_runner.read(self.path) if self.path.exists() else {'phase':'idle'}
+        contexts=list(state.get('pending_deliveries',[]))
+        if state.get('lease') and state.get('phase') in ('delivering','deferring_delivery','finishing'):
+            contexts.append(state)
+        groups=[]
+        for context in contexts:
+            lease=context['lease'];stats=self.outbox.stats(lease['run_id'])
+            known=context.get('outcome') in ('completed','stopped','failed')
+            groups.append({'run_id':lease['run_id'],'task_id':lease['task_id'],'platform':lease['platform'],
+                **{k:stats[k] for k in ('pending','acknowledged','quarantined','deferred','next_retry_at','errors','quarantined_capture_ids')},
+                'retry_allowed':known and context.get('desired_state','running')=='running' and stats['quarantined']>0,
+                'reason':'task_'+context['desired_state'] if context.get('desired_state') in ('paused','stopped') else 'quarantined_delivery' if known and stats['quarantined'] else 'source_outcome_unknown' if not known else 'delivery_pending'})
+        return {'schema':'crowd-delivery-status-v1','groups':groups}
+
+    def retry_delivery(self, capture_ids, owner_client):
+        if getattr(owner_client,'role',None)!='owner':
+            raise CloudError('principal_denied')
+        if not isinstance(capture_ids,list) or not 1<=len(capture_ids)<=2000 or len(set(str(v) for v in capture_ids))!=len(capture_ids):
+            raise CloudError('invalid_capture_retry')
+        try: ids=[mc_runner.uid(v) for v in capture_ids]
+        except (ValueError,mc_runner.BridgeError,TypeError):raise CloudError('invalid_capture_retry') from None
+        if self.lock_path.is_symlink():raise CloudError('unsafe_cloud_file')
+        with open(self.lock_path,'r+') as lock:
+            try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError: raise CloudError('cloud_controller_busy') from None
+            state=mc_runner.read(self.path)
+            with self.outbox._db() as db:
+                rows=[db.execute('SELECT run_id,state FROM captures WHERE id=?',(v,)).fetchone() for v in ids]
+            if any(r is None for r in rows):raise CloudError('invalid_capture_retry')
+            runs={r[0] for r in rows}
+            if len(runs)!=1:raise CloudError('delivery_retry_run_mismatch')
+            run_id=next(iter(runs));contexts=[state,*state.get('pending_deliveries',[])]
+            context=next((v for v in contexts if v.get('lease',{}).get('run_id')==run_id),None)
+            if context is None or context.get('outcome') not in ('completed','failed','stopped'):
+                raise CloudError('delivery_retry_denied')
+            lease=context['lease']
+            response=owner_client.call('task_status',{'task_id':lease['task_id']})
+            task=response.get('task',{})
+            if task.get('task_id')==lease['task_id'] and task.get('desired_state') in ('paused','stopped'):
+                context['desired_state']=task['desired_state'];self._save(state)
+                raise CloudError('task_'+task['desired_state'])
+            child=next((v for v in task.get('children',[]) if v.get('child_id')==lease['child_id']),{})
+            if (task.get('task_id')!=lease['task_id'] or task.get('desired_state')!='running'
+                    or child.get('state') not in ('running','delivery_pending')
+                    or child.get('worker_id')!=lease['worker_id'] or type(child.get('lease_epoch')) is not int or child.get('lease_epoch')!=lease['lease_epoch']
+                    or run_id not in child.get('runs',[])):
+                raise CloudError('delivery_retry_denied')
+            stats=self.outbox.stats(run_id)
+            to_retry=[v for v in ids if v in stats['quarantined_capture_ids']]
+            if any(r[1]!='acknowledged' and v not in to_retry for v,r in zip(ids,rows)):
+                raise CloudError('capture_not_quarantined')
+            if to_retry:self.outbox.retry_quarantined(to_retry)
+            context['retry_requested']=True
+            context['desired_state']='running'
+            self._save(state)
+            return {'schema':'crowd-delivery-retry-v1','accepted':True,'requeued_capture_ids':to_retry,'state':'queued'}
+
     def scheduler_status(self):
         alive = bool(self.thread and self.thread.is_alive())
         threshold = max(30, self.interval * 3)
@@ -661,6 +869,15 @@ class CloudWorker:
         state['waiting_logins'] = waiting
         self._save(state)
         if state['phase'] == 'idle':
+            pending=state.get('pending_deliveries',[])
+            for context in list(pending):
+                stats=self.outbox.stats(context['lease']['run_id'])
+                if context.get('retry_requested') or time.time()>=context.get('delivery_check_at',0) and ((stats['retryable']>0 or stats['pending']==0) or context.get('desired_state') in ('paused','stopped')):
+                    pending.remove(context)
+                    state={**context,'phase':'delivering','pending_deliveries':pending,'waiting_logins':waiting}
+                    self._save(state)
+                    break
+        if state['phase'] == 'idle':
             state = {'phase': 'claiming', 'claim_id': str(uuid.uuid4()), 'waiting_logins': waiting,
                      'unavailable_platforms': sorted({v['lease']['platform'] for v in waiting if v.get('desired_state','running') == 'running'})}
             self._save(state)
@@ -684,6 +901,8 @@ class CloudWorker:
             return {'state': state['phase'], 'error': 'source_outcome_unknown'}
         if state['phase'] == 'reconciling_no_dispatch':
             return self._reconcile_no_dispatch(state, waiting)
+        if state['phase']=='deferring_delivery':
+            return self._park_delivery(state)
         lease = state['lease']
         if state['phase'] == 'waiting_login':
             # Upgrade the previous single-wait durable state without discarding context.
@@ -794,10 +1013,19 @@ class CloudWorker:
             state['phase'] = 'delivering'
             self._save(state)
         if state['phase'] == 'delivering':
+            # Deferred/isolated rows still own this lease; absence of sends is not release.
+            try:self._renew_delivery(state)
+            except DeliveryLeaseError:
+                if state.get('delivery_manifest'):
+                    state['delivery_check_failed']=True
+                    return self._park_delivery(state)
+                raise
             acknowledged_before = self.outbox.stats(state['lease']['run_id'])['acknowledged']
             status = self.outbox.flush(state['lease']['run_id'], limit=4,
                                        before_send=lambda: self._renew_delivery(state))
             if status['pending']:
+                if state.get('outcome') in ('completed','failed','stopped') and (state.get('delivery_manifest') or state['lease'].get('state')=='running') and (status['quarantined'] or status['deferred'] or status['errors']):
+                    return self._park_delivery(state)
                 return {'state': 'delivering', **status,
                         'delivery_progress': status['acknowledged'] > acknowledged_before}
             state['phase'] = 'finishing'
@@ -814,6 +1042,15 @@ class CloudWorker:
                 raise CloudError('unacknowledged_capture')
             payload['finish_hash'] = _hash('crowd-machine-finish-v1', payload)
             response = self.client.call('finish', payload)
+            task=response.get('task')
+            child=next((v for v in task.get('children',[]) if isinstance(v,dict) and v.get('child_id')==state['lease']['child_id']),{}) if isinstance(task,dict) else {}
+            if (not isinstance(task,dict) or task.get('task_id')!=state['lease']['task_id']
+                    or type(child.get('lease_epoch')) is not int
+                    or child.get('state') not in ('completed','failed','stopped','waiting','unknown')
+                    or any(child.get(k)!=state['lease'][k] for k in ('worker_id','lease_epoch'))
+                    or child.get('finish_hash')!=payload['finish_hash']
+                    or not isinstance(child.get('runs'),list) or state['lease']['run_id'] not in child['runs']):
+                raise CloudError('invalid_cloud_ack')
             self._observe_workflow(state, 'waiting_login' if state['outcome'] == 'login_required' else
                                    'completed' if state['outcome'] == 'completed' else 'paused')
             if (self.postprocessing_callback and state['outcome'] == 'completed' and state.get('local_run_id')

@@ -262,7 +262,7 @@ def capabilities(mc):
         if p=='tieba': features.append({'id':'public_post_media','support_state':'implemented','live_verified':False,'notes':'own adapter downloads at most three public CDN assets from the same native page response; not upstream media support'})
         if p=='zhihu': features.extend([{'id':'public_body_media','support_state':'implemented','live_verified':False,'notes':'own adapter observes at most three public body assets from the same native detail HTML or search/creator JSON; excerpt and CDN availability may limit coverage'}, {'id':'creator_articles','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}, {'id':'creator_videos','support_state':'planned','live_verified':False,'notes':'installed creator traversal is commented out'}])
         platforms.append({'id':p,'name':name,'label':name,'notes':'source completeness unverified; max_items is upstream configuration','modes':['search','detail','creator',*discovery_modes],'support_state':'implemented','comments':True,'replies':True,'media':p in MEDIA,'live_verified':False,'limitations':(['creator currently answers only'] if p=='zhihu' else ['stored title/description may be truncated at 500 characters'] if p=='bili' else []),'platform_features':features})
-    return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'native_video_platforms':['dy','ks','bili'],'native_video_single_file_bytes':67108864,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'creator_profile_import':False,'login':'persistent profile by default; explicit selected existing loopback browser supported; native account verification; no credential import or debug-port launch'}
+    return {'schema':'crowd_mc_capabilities_v2','source':info,'platforms':platforms, 'source_kind':'mediacrawler_api','reward_eligible':False,'max_items_semantics':'upstream_configuration_not_hard_source_limit','api_request_limit_scope':'Python httpx/requests attempts, not browser resource requests','coverage':'unverified','execution_limits':{'session_concurrency':1,'start_page':[1,10000],'interval_seconds':[0,300],'interval_default':'installed_upstream_default'},'media_limits':{'single_file_bytes':26214400,'native_video_platforms':['dy','ks','bili'],'native_video_single_file_bytes':67108864,'python_response_bytes':104857600,'output_watchdog_bytes':104857600},'optional_pro_executor':{'selection_env':'CROWD_EXECUTOR=pro','operation_platforms':['xhs','dy','bili'],'modes':['search','detail','creator'],'media':'references_only; media=true keeps MC','fallback':'before launch only','delivery':'existing normalized import and outbox; local commit is not ACK','live_verified':False},'creator_profile_import':False,'login':'persistent profile by default; explicit selected existing loopback browser supported; native account verification; no credential import or debug-port launch'}
 
 def configure_executor(config,p):
     config.CREATOR_MODE=True
@@ -448,10 +448,10 @@ def run_dir(root, run_id):
 
 def start(root, mc, payload):
     p = validate(payload)
-    info = source_info(mc)
+    from pro_executor import selection, prepare
+    executor, info, python = prepare(root, mc, p, selection(p))
     root = Path(root).resolve()
     mc = Path(mc).resolve()
-    python = mc/'.venv/bin/python'
     if not python.is_file():
         fail('external_python_missing')
     if root == mc or mc in root.parents:
@@ -482,12 +482,14 @@ def start(root, mc, payload):
     (run/'media_platform/kuaishou/graphql').symlink_to(mc/'media_platform/kuaishou/graphql',target_is_directory=True)
     (run/'browser_data').symlink_to(session/'browser_data',target_is_directory=True)
     (session/'browser_data').mkdir(exist_ok=True,mode=0o700)
-    manifest = {'run_id':run_id,'request':p,'source':info,'created_at':time.time(),'source_kind':'mediacrawler_api','reward_eligible':False,'discovery_contract_version':1}
+    if executor['backend']=='pro':
+        (run/'schema').symlink_to(Path(executor['root'])/'schema',target_is_directory=True)
+    manifest = {'run_id':run_id,'request':p,'source':info,'executor':executor,'created_at':time.time(),'source_kind':'mediacrawler_api','reward_eligible':False,'discovery_contract_version':1}
     write(run/'manifest.json',manifest)
-    write(run/'status.json',{'run_id':run_id,'state':'starting','phase':'starting','session_id':p['session_id'],'platform':p['platform'],'mode':p['mode'],'source_kind':'mediacrawler_api','reward_eligible':False,'updated_at':time.time()})
+    write(run/'status.json',{'run_id':run_id,'state':'starting','phase':'starting','session_id':p['session_id'],'platform':p['platform'],'mode':p['mode'],'executor':executor['backend'],'executor_fallback_reason':executor.get('fallback_reason'),'source_kind':'mediacrawler_api','reward_eligible':False,'updated_at':time.time()})
     proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_worker','--run-id',run_id,'--lock-fd',str(lock.fileno())],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock.fileno(),))
     lock.close()
-    return {'run_id':run_id,'state':'starting','session_id':p['session_id'],'supervisor_pid':proc.pid,'source_kind':'mediacrawler_api','reward_eligible':False}
+    return {'run_id':run_id,'state':'starting','session_id':p['session_id'],'supervisor_pid':proc.pid,'executor':executor['backend'],'executor_fallback_reason':executor.get('fallback_reason'),'source_kind':'mediacrawler_api','reward_eligible':False}
 
 def argv_for(p, output):
     args = ['--platform',p['platform'],'--type','search' if p['mode'] in ('homefeed','trending') else p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--start',str(p.get('start_page',1)),'--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media'] and p['platform'] in NATIVE_MEDIA).lower(),'--enable_ip_proxy','false']
@@ -573,9 +575,11 @@ def worker(root, mc, run_id, lock_fd):
     state = read(run/'status.json')
     from browser_session import existing_browser_session, terminate_executor
     # Legacy supervisors have no browser binding metadata: keep their owned-process shutdown.
-    borrowed=existing_browser_session(root,p['session_id']) if 'session_id' in p else False
+    selected=manifest.get('executor',{})
+    borrowed=existing_browser_session(root,p['session_id']) if 'session_id' in p and selected.get('backend')!='pro' else False
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUNBUFFERED='1', MPLCONFIGDIR=str(run/'cache/matplotlib'), XDG_CACHE_HOME=str(run/'cache'),CROWD_MC_SUPERVISOR_PID=str(os.getpid()))
-    child = subprocess.Popen([str(Path(mc)/'.venv/bin/python'),str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_execute','--run-id',run_id],cwd=run,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock_fd,))
+    python=selected['python'] if selected.get('backend')=='pro' else str(Path(mc)/'.venv/bin/python')
+    child = subprocess.Popen([python,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_execute','--run-id',run_id],cwd=run,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock_fd,))
     started = time.monotonic()
     reason = None
     from native_media_scope import output_byte_usage
@@ -608,13 +612,17 @@ def worker(root, mc, run_id, lock_fd):
             and progress.get('failure_stage') == 'homepage_observation'
             and progress.get('failure_reason') == 'discovery_empty_or_unavailable'):
         reason='discovery_empty_or_unavailable'
-    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
+    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed',79:'rate_limited',80:'captcha_required',81:'platform_blocked',82:'platform_signature_rejected'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
     write(run/'status.json',state)
     os.close(lock_fd)
 
 def execute(root, mc, run_id):
     run = run_dir(root,run_id)
-    p = read(run/'manifest.json')['request']
+    manifest = read(run/'manifest.json')
+    if manifest.get('executor',{}).get('backend')=='pro':
+        from pro_executor import execute as execute_pro
+        return execute_pro(run,manifest)
+    p = manifest['request']
     os.chdir(run)
     sys.path.insert(0,str(Path(mc).resolve()))
     sys.dont_write_bytecode=True
@@ -900,6 +908,12 @@ def import_output(root,payload):
         if folder.is_symlink() or folder.parent.is_symlink(): fail('unsafe_output_file')
         paths.extend(sorted(folder.glob('*.jsonl')))
     seen_rows={}
+    pro_evidence=None
+    pro_media=[]
+    if manifest.get('executor',{}).get('backend')=='pro':
+        from pro_executor import import_records
+        records,pro_media,pro_evidence=import_records(run,manifest)
+        paths=[]  # Pro operation-scoped SQLite, never import unrelated upstream JSONL.
     for path in paths:
         if path.is_symlink() or not path.resolve().is_relative_to(output.resolve()) or path.stat().st_size>50_000_000: fail('unsafe_output_file')
         kind='comment' if '_comments_' in path.name else 'content' if '_contents_' in path.name else 'dynamic' if p=='bili' and '_dynamics_' in path.name else None
@@ -920,7 +934,7 @@ def import_output(root,payload):
                 except (BridgeError,ValueError):
                     rejected+=1
                 if len(records)>10000: fail('output_limit')
-    media=[]
+    media=list(pro_media)
     media_bytes=0
     artifacts=[]
     artifact_bytes=0
@@ -978,6 +992,7 @@ def import_output(root,payload):
             # Metadata is outside the established normalized record_hash; the capture hash covers it.
             record['discovery_kind'] = discovery_kind
     data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'discovery':discovery,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
+    if pro_evidence is not None:data['pro_acquisition']=pro_evidence
     write(run/'normalized.json',data)
     return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'dynamics':sum(r['kind']=='dynamic' for r in records),'media_files':len(media),'rejected_records':rejected,'coverage':'unverified'}}
 
@@ -1012,4 +1027,5 @@ def main():
     return 0
 
 if __name__=='__main__':
+    sys.modules.setdefault('mc_runner',sys.modules[__name__])
     sys.exit(main() or 0)

@@ -19,6 +19,13 @@ import webbrowser
 
 HERE = Path(__file__).resolve().parent
 ACTIONS = {'capabilities', 'start', 'status', 'stop', 'import', 'list'}
+DELIVERY_ERRORS = {'invalid_capture_retry', 'capture_not_quarantined', 'owner_authorization_required',
+    'worker_revoked', 'principal_denied', 'task_not_found', 'task_paused', 'task_stopped',
+    'delivery_state_conflict', 'delivery_not_deferred', 'delivery_recovery_busy', 'controller_busy',
+    'cloud_outcome_unknown', 'cloud_read_unavailable', 'cloud_delivery_lease_unavailable',
+    'cloud_delivery_lease_denied', 'delivery_binding_mismatch', 'delivery_resume_required',
+    'task_scope_denied', 'cloud_upgrade_required', 'delivery_recovery_unavailable', 'delivery_retry_run_mismatch',
+    'delivery_retry_denied', 'delivery_resume_denied', 'cloud_controller_busy'}
 
 
 class Application:
@@ -140,6 +147,45 @@ class Application:
     def cloud(self, action, payload):
         if not isinstance(payload, dict):
             raise ValueError('invalid_cloud_request')
+        if action in ('delivery_status', 'retry_delivery'):
+            if action == 'delivery_status' and payload or action == 'retry_delivery' and set(payload) != {'capture_ids'}:
+                raise ValueError('invalid_delivery_request')
+            if self.cloud_client is None or self.cloud_worker is None:
+                if action == 'delivery_status':
+                    return {'ok': True, 'storage_scope': 'local', 'available': False, 'reason': 'not_connected'}
+                raise ValueError('cloud_configuration_required')
+            if getattr(self.cloud_client, 'role', None) != 'owner':
+                raise ValueError('owner_authorization_required')
+            if action == 'retry_delivery':
+                ids = payload['capture_ids']
+                if not isinstance(ids, list) or not 1 <= len(ids) <= 2000:
+                    raise ValueError('invalid_delivery_request')
+                try:
+                    valid = all(isinstance(value, str) and str(uuid.UUID(value)) == value for value in ids)
+                except ValueError:
+                    valid = False
+                if not valid or len(set(ids)) != len(ids):
+                    raise ValueError('invalid_delivery_request')
+            method = getattr(self.cloud_worker, action, None)
+            if not callable(method):
+                if action == 'delivery_status':
+                    return {'ok': True, 'storage_scope': 'cloud', 'available': False, 'reason': 'upgrade_required'}
+                raise ValueError('cloud_upgrade_required')
+            try:
+                value = method() if action == 'delivery_status' else method(ids, self.cloud_client)
+            except (ValueError, TypeError, OSError) as error:
+                raise ValueError(str(error) if str(error) in DELIVERY_ERRORS else 'delivery_recovery_unavailable') from None
+            schema = 'crowd-delivery-status-v1' if action == 'delivery_status' else 'crowd-delivery-retry-v1'
+            if (not isinstance(value, dict) or value.get('schema') != schema or
+                    action == 'delivery_status' and not isinstance(value.get('groups'), list) or
+                    action == 'retry_delivery' and (value.get('accepted') is not True or value.get('state') != 'queued')):
+                raise ValueError('cloud_read_unavailable' if action == 'delivery_status' else 'cloud_outcome_unknown')
+            if action == 'retry_delivery':
+                requeued = value.get('requeued_capture_ids')
+                if (not isinstance(requeued, list) or not all(isinstance(item, str) and item in ids for item in requeued)
+                        or len(set(requeued)) != len(requeued)):
+                    raise ValueError('cloud_outcome_unknown')
+            return {**value, 'ok': True, 'storage_scope': 'cloud', 'available': True}
         if action == 'status' and not payload:
             if self.cloud_worker is None:
                 return {'ok': True, 'storage_scope': 'local', 'worker_state': 'not_connected'}
@@ -821,10 +867,12 @@ def make_server(app, port=45937):
                 return self.send({'ok': False, 'error': 'local_origin_required'}, 403)
             try:
                 length = int(self.headers.get('Content-Length', '0'))
-                if not 0 < length <= 32768 or self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
+                limit = 131072 if self.path == '/api/cloud' else 32768
+                if not 0 < length <= limit or self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
                     raise ValueError('invalid_request')
                 body = json.loads(self.rfile.read(length))
-                if not isinstance(body, dict):
+                if (not isinstance(body, dict) or length > 32768 and
+                        (self.path != '/api/cloud' or body.get('action') != 'retry_delivery')):
                     raise ValueError('invalid_request')
                 if self.path == '/api/config':
                     return self.send(app.configure(body))

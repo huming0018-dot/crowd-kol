@@ -2,15 +2,15 @@
 // Read-only fleet projection. Dispatch and receipts keep their existing contracts.
 (() => {
   const panel=node('details'),heading=node('summary','云端任务与终端 · 正在读取'),body=node('div');
-  panel.append(heading,body);$('connection').after(panel);
+  panel.append(heading,body);$('runs').after(panel);
   const timeline=node('details'),timelineHeading=node('summary','采集步骤'),timelineBody=node('div');
   timeline.append(timelineHeading,timelineBody);panel.after(timeline);
   const local=node('details'),localHeading=node('summary','本机执行阶段'),localBody=node('div');
   local.append(localHeading,localBody);timeline.after(local);
   const platforms={xhs:'小红书',dy:'抖音',ks:'快手',bili:'B站',wb:'微博',zhihu:'知乎',tieba:'贴吧'};
-  const states={open:'等待分配',leased:'已领取，等待终端进度',complete:'本轮已完成',exhausted:'本轮已结束，未达目标',closed:'任务已关闭',running:'采集中',queued:'等待分配',active:'可分配',waiting:'待处理',completed:'本轮已结束',stopped:'已停止',paused:'已暂停',failed:'待处理',partial:'已有部分结果',unknown:'结果待核对',interrupted_unknown:'执行已中断，结果待核对',login_required:'等待原账号登录'};
+  const states={delivery_pending:'等待回传，尚未完成',open:'等待分配',leased:'已领取，等待终端进度',complete:'本轮已完成',exhausted:'本轮已结束，未达目标',closed:'任务已关闭',running:'采集中',queued:'等待分配',active:'可分配',waiting:'待处理',completed:'本轮已结束',stopped:'已停止',paused:'已暂停',failed:'待处理',partial:'已有部分结果',unknown:'结果待核对',interrupted_unknown:'执行已中断，结果待核对',login_required:'等待原账号登录'};
   const login={ready:'登录可用',authenticated:'登录可用',resumed:'原账号已恢复',needs_login:'需本人重新登录',login_required:'需本人重新登录',verification:'需本人完成验证',unknown:'登录尚未核验'};
-  const steps={claim:'领取任务',claiming:'领取任务',authorized:'任务已分配',session:'核验登录与执行会话',telemetry_gap:'步骤记录存在缺口',session_check:'核验登录',login_check:'核验登录',navigate:'打开采集页',navigation:'打开采集页',list:'读取列表',detail:'读取正文',comments:'读取评论',comments_page:'读取评论页',comment_page:'读取评论页',media:'处理媒体',subtitle:'取得字幕',outbox:'保存待回传',upload:'上传结果',receipt:'核对回执',stop:'停止采集',ota:'自动更新',recovery:'恢复版本',idle:'等待任务',dispatching:'启动采集',running:'采集中',importing:'导入结果',delivering:'回传结果',finishing:'确认云端回执',waiting_login:'等待原账号登录',login_resumed:'原账号核验通过，等待重新领取',completed:'本轮云端交付已确认',paused:'本轮来源执行已停止',local_stop_unknown:'停止结果待核对',reconciling_no_dispatch:'核对未启动任务',state_unreadable:'无法读取执行状态'};
+  const steps={deferring_delivery:'保存原回传清单并释放采集槽',claim:'领取任务',claiming:'领取任务',authorized:'任务已分配',session:'核验登录与执行会话',telemetry_gap:'步骤记录存在缺口',session_check:'核验登录',login_check:'核验登录',navigate:'打开采集页',navigation:'打开采集页',list:'读取列表',detail:'读取正文',comments:'读取评论',comments_page:'读取评论页',comment_page:'读取评论页',media:'处理媒体',subtitle:'取得字幕',outbox:'保存待回传',upload:'上传结果',receipt:'核对回执',stop:'停止采集',ota:'自动更新',recovery:'恢复版本',idle:'等待任务',dispatching:'启动采集',running:'采集中',importing:'导入结果',delivering:'回传结果',finishing:'确认云端回执',waiting_login:'等待原账号登录',login_resumed:'原账号核验通过，等待重新领取',completed:'本轮云端交付已确认',paused:'本轮来源执行已停止',local_stop_unknown:'停止结果待核对',reconciling_no_dispatch:'核对未启动任务',state_unreadable:'无法读取执行状态'};
   const statuses={started:'开始',running:'进行中',completed:'已完成',succeeded:'已完成',success:'已完成',failed:'失败',error:'异常',waiting:'等待',paused:'已暂停',stopped:'已停止',pending:'待处理',received:'已确认',skipped:'跳过'};
   const reasons={login_required:'需本人重新登录',captcha:'需本人完成验证码',rate_limit:'平台限流，已暂停',source_outcome_unknown:'来源结果待核对',cloud_outcome_unknown:'云端回执待核对',telemetry_gap:'步骤记录存在缺口',user_stopped:'本人已停止',test_completed:'本轮已完成',no_task:'等待可用任务',task_full:'当前任务已分配完',session_rest:'等待下一轮',daily_quota:'本日额度已用完',action_gap:'等待下次来源访问',global_pause:'系统暂停，等待恢复'};
   const count=value=>Number.isSafeInteger(value)&&value>=0?String(value):'未统计';
