@@ -1,9 +1,9 @@
 {
-  "version": "4.2.62",
+  "version": "4.2.64",
   "channel": "extension",
   "extension_id": "licijehcpohikchlnkbpjdjdfkcocndg",
-  "url": "https://raw.githubusercontent.com/huming0018-dot/crowd-pages/09e4f88b575d25064f22195274724027956c2015/v4/releases/participants/crowd-v4.2.62-mac.zip",
-  "sha256": "cc2c7a99622bd88e5dd0e6edab3795364102c6b13bbc86afafe837c5d1d3e04e",
-  "bytes": 358039,
+  "url": "https://raw.githubusercontent.com/huming0018-dot/crowd-pages/8662d6477b56cd0737393fda940f55e3172e01ee/v4/releases/participants/crowd-v4.2.64-mac.zip",
+  "sha256": "030300f1682019c19550f7046a81a1142072aa84a9d0b6851191afbc7148ba73",
+  "bytes": 369167,
   "verified": true
 }
