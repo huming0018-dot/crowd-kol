@@ -3,6 +3,27 @@ import re
 from urllib.parse import urlsplit
 
 
+def validate_record_bindings(records, refs):
+    """Optional complete export-row binding, independent of a node's counter."""
+    from results_store import _sha
+    for ref in refs:
+        if 'record_sha256' not in ref:
+            continue
+        digest = ref['record_sha256']
+        if (not isinstance(digest, str) or not re.fullmatch(r'[a-f0-9]{64}', digest) or
+                type(ref.get('results_revision')) is not int or ref['results_revision'] <= 0 or
+                not isinstance(ref.get('version_hash'), str) or not re.fullmatch(r'[a-f0-9]{64}', ref['version_hash'])):
+            raise ValueError('existing_saved_selection_mismatch')
+        matches = [item.get('record', item) for item in records if isinstance(item, dict) and
+                   isinstance(item.get('record', item), dict) and
+                   item.get('record', item).get('content_id') == ref.get('content_id') and
+                   item.get('record', item).get('kind') == ref.get('kind', 'content') and
+                   item.get('record', item).get('version_hash') == ref['version_hash'] and
+                   (not ref.get('platform') or item.get('record', item).get('platform') == ref['platform'])]
+        if len(matches) != 1 or _sha(matches[0]) != digest:
+            raise ValueError('existing_saved_selection_mismatch')
+
+
 def bili_identifier(value):
     if not isinstance(value, str):
         return None

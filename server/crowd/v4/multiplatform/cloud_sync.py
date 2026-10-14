@@ -24,6 +24,7 @@ HEX = re.compile(r'[a-f0-9]{64}\Z')
 WORKER_ERRORS = mc_runner.STOP_ERRORS | {'source_outcome_unknown','invalid_cloud_ack','invalid_imported_records',
     'invalid_machine_provenance','invalid_capture_record','existing_saved_reader_missing','existing_saved_selection_mismatch',
     'existing_saved_target_mismatch','existing_saved_target_unverified',
+    'invalid_results_revision','results_version_not_found','invalid_results_version','existing_saved_selection_unavailable',
     'capture_size_limit','cloud_response_size_limit','invalid_cloud_response','cloud_redirect_denied','unacknowledged_capture',
     'supplemental_account_binding_denied','invalid_cloud_reconciliation','invalid_encoding','integer_required',
     'duplicate_json_key','invalid_unicode','encoding_limit','unsafe_cloud_file','unsafe_cloud_root','cloud_outcome_unknown',
@@ -713,8 +714,20 @@ class CloudWorker:
                     pass
                 if self.stop_unknown_run_id and state.get('local_run_id')==self.stop_unknown_run_id:
                     state['phase']='local_stop_unknown'
-                # Fail closed if authorization cannot be renewed. Never start another run.
+                # A proven local saved-only refusal owns no source attempt or staged row.
+                # Persist the original run's finish before any retry; unknown writes stay unchanged.
+                from existing_saved_rejection import rejected_before_dispatch
                 lease = state.get('lease')
+                if lease and state.get('phase') == 'authorized':
+                    try:
+                        if rejected_before_dispatch(state, code, self.outbox.stats(lease['run_id'])):
+                            terminal = {**state, 'phase':'finishing', 'outcome':'failed',
+                                        'api_attempts':0, 'validation_error':code}
+                            self._save(terminal)
+                            state = terminal
+                    except (ValueError, OSError, sqlite3.Error):
+                        self.last_error = 'cloud_rejection_persistence_failed'
+                # Fail closed if authorization cannot be renewed. Never start another run.
                 if lease and state.get('local_run_id') and state.get('phase') == 'running':
                     try:
                         self._stop_local(state, 'cloud_controller_error', code)
@@ -944,6 +957,8 @@ class CloudWorker:
             elif lease['delivery_basis'] == 'existing_saved':
                 if not isinstance(lease.get('record_refs'), list) or len(lease['record_refs']) > 200:
                     raise CloudError('existing_saved_selection_mismatch')
+                if any('results_revision' in ref and (type(ref['results_revision']) is not int or ref['results_revision'] <= 0 or not ref.get('version_hash')) for ref in lease['record_refs']):
+                    raise CloudError('existing_saved_selection_mismatch')
                 if self.existing_reader is None:
                     raise CloudError('existing_saved_reader_missing')
                 with self._delivery_keepalive(state):
@@ -953,6 +968,8 @@ class CloudWorker:
                     refs = lease.get('record_refs', [])
                     if not isinstance(records, list) or any(not any((r.get('record', r).get('content_id') == ref['content_id'] and r.get('record', r).get('kind') == ref.get('kind','content')) for ref in refs) for r in records):
                         raise CloudError('existing_saved_selection_mismatch')
+                    from existing_saved import validate_record_bindings
+                    validate_record_bindings(records, refs)
                     self.outbox.stage_imported(records, state['lease'])
                 state.update(phase='delivering', outcome='completed', api_attempts=0)
                 self._save(state)

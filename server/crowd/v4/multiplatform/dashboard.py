@@ -130,14 +130,16 @@ class Application:
             raise ValueError('existing_saved_selection_unavailable')
         from results_store import ResultsStore
         from mc_runner import PLATFORMS
-        from existing_saved import validate_existing_targets
+        from existing_saved import validate_existing_targets, validate_record_bindings
         platform = PLATFORMS[lease['platform']]
         store = ResultsStore(self.root)
         records = []
         for ref in lease.get('record_refs', []):
+            if 'results_revision' in ref and (type(ref['results_revision']) is not int or ref['results_revision'] <= 0 or not ref.get('version_hash')):
+                raise ValueError('invalid_results_revision')
             if ref.get('version_hash'):
                 records.append(store.saved_version(platform, ref['content_id'],
-                               ref.get('kind', 'content'), ref['version_hash']))
+                               ref.get('kind', 'content'), ref['version_hash'], revision=ref.get('results_revision')))
                 continue
             result = store.list_results(
                 filters={'platform': platform, 'content_id': ref['content_id'],
@@ -146,6 +148,7 @@ class Application:
             if len(chosen) != 1:
                 raise ValueError('existing_saved_selection_unavailable')
             records.extend(chosen)
+        validate_record_bindings(records, lease['record_refs'])
         if records:
             validate_existing_targets(lease, records, store)
         return records

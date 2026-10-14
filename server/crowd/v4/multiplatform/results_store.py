@@ -394,16 +394,22 @@ class ResultsStore:
         return {'schema': SCHEMA, 'results_revision': revision, 'items': items[offset:end],
                 'total': len(items), 'next_cursor': next_cursor, 'coverage': 'observed_local_imports_only'}
 
-    def saved_version(self, platform, content_id, kind, version_hash):
+    def saved_version(self, platform, content_id, kind, version_hash, revision=None):
         platform, content_id = _platform(platform), _identifier(content_id, 'content_id')
         if kind not in KINDS or not isinstance(version_hash, str) or not re.fullmatch(r'[a-f0-9]{64}', version_hash):
             raise ValueError('invalid_results_version')
         with closing(self._connect()) as db:
-            versions = db.execute('SELECT MIN(revision) AS revision FROM versions WHERE platform=? AND content_id=? AND kind=? AND version_hash=? HAVING COUNT(*)>0',
-                                  (platform, content_id, kind, version_hash)).fetchall()
-            if len(versions) != 1:
-                raise ValueError('results_version_not_found')
-            records = self._rows(db, {'platform': platform, 'content_id': content_id, 'kind': kind}, versions[0]['revision'])
+            if revision is None:
+                versions = db.execute('SELECT MIN(revision) AS revision FROM versions WHERE platform=? AND content_id=? AND kind=? AND version_hash=? HAVING COUNT(*)>0',
+                                      (platform, content_id, kind, version_hash)).fetchall()
+                if len(versions) != 1:
+                    raise ValueError('results_version_not_found')
+                snapshot = versions[0]['revision']
+            else:
+                if type(revision) is not int or revision <= 0:
+                    raise ValueError('invalid_results_revision')
+                snapshot = self._revision(db, revision)
+            records = self._rows(db, {'platform': platform, 'content_id': content_id, 'kind': kind}, snapshot)
         matching = [row for row in records if row['version_hash'] == version_hash]
         if len(matching) != 1:
             raise ValueError('results_version_not_found')

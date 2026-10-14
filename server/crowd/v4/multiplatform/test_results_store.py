@@ -31,6 +31,27 @@ def imported(run='run-1', body='Original text', likes=1):
 
 
 class ResultsTests(unittest.TestCase):
+    def test_saved_version_snapshot_retains_exact_observation_and_legacy_default(self):
+        first=self.store.ingest(imported('old',likes=1))['results_revision']
+        original=self.store.list_results(filters={'platform':'xiaohongshu','kind':'content'},revision=first)['items'][0]
+        second=self.store.ingest(imported('new',likes=9))['results_revision']
+        current=self.store.list_results(filters={'platform':'xiaohongshu','kind':'content'},revision=second)['items'][0]
+        self.assertEqual(original['version_hash'],current['version_hash'])
+        for revision, expected in ((first,original),(second,current)):
+            actual=self.store.saved_version('xiaohongshu','n1','content',original['version_hash'],revision=revision)
+            self.assertEqual(actual,expected)
+        self.assertEqual(self.store.saved_version('xiaohongshu','n1','content',original['version_hash']),original)
+        self.store.ingest(imported('changed',body='Changed text'))
+        with self.assertRaisesRegex(ValueError,'version_not_found'):
+            self.store.saved_version('xiaohongshu','n1','content',original['version_hash'],revision=second+1)
+
+    def test_saved_version_snapshot_rejects_future_negative_float_bool_zero(self):
+        revision=self.store.ingest(imported())['results_revision']
+        version=self.store.list_results(filters={'kind':'content'})['items'][0]['version_hash']
+        for bad in (-1,0,1.0,True,revision+1):
+            with self.subTest(revision=bad),self.assertRaisesRegex(ValueError,'invalid_results_revision'):
+                self.store.saved_version('xiaohongshu','n1','content',version,revision=bad)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

@@ -58,6 +58,21 @@ class CloudDashboardTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'version_not_found'):
                 app._cloud_existing(lease)
 
+    def test_existing_saved_snapshot_passes_revision_to_exact_observation(self):
+        app=self.app();store=ResultsStore(self.root)
+        record={'kind':'content','platform':'xiaohongshu','content_id':'n1','body':'Same body','origin':{'run_id':'old'},'metrics':{'likes':1}}
+        first=store.ingest({'run_id':'old','records':[record]})['results_revision']
+        old=store.list_results()['items'][0]
+        second=store.ingest({'run_id':'new','records':[{**record,'origin':{'run_id':'new'},'metrics':{'likes':2}}]})['results_revision']
+        current=store.list_results()['items'][0]
+        for revision,expected in ((first,old),(second,current)):
+            lease={'platform':'xhs','record_refs':[{'content_id':'n1','kind':'content','version_hash':old['version_hash'],'results_revision':revision}]}
+            self.assertEqual(app._cloud_existing(lease),[expected])
+        for bad in (0,-1,True,1.0,second+1):
+            lease['record_refs'][0]['results_revision']=bad
+            with self.assertRaisesRegex(ValueError,'invalid_results_revision'):
+                app._cloud_existing(lease)
+
     def test_cloud_status_is_public_state_without_auth_material(self):
         app = self.app()
         folder = self.root / 'worker'; folder.mkdir()

@@ -477,6 +477,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(worker.tick()['error'],'existing_saved_selection_mismatch')
         self.assertEqual(self.actions,[])
 
+    def test_existing_saved_snapshot_type_rejected_before_reader(self):
+        for index,bad in enumerate((0,-1,True,1.0,None)):
+            value=lease('existing_saved');value['record_refs'][0].update(version_hash='a'*64,results_revision=bad)
+            reader=Mock(return_value=[row()]);worker=CloudWorker(self.root/str(index),FakeCloud(value),self.runner,existing_reader=reader)
+            self.assertEqual(worker.tick()['error'],'existing_saved_selection_mismatch')
+            reader.assert_not_called()
+
     def test_live_lifecycle_commits_before_start_and_delivers(self):
         def runner(action,payload):
             if action=='start':

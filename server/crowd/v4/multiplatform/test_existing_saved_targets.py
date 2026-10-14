@@ -8,8 +8,8 @@ from unittest.mock import Mock
 
 from cloud_sync import CloudOwnerAdapter, CloudWorker
 from dashboard import Application
-from existing_saved import bili_identifier, validate_existing_targets
-from results_store import ResultsStore
+from existing_saved import bili_identifier, validate_existing_targets, validate_record_bindings
+from results_store import ResultsStore, _sha
 from test_cloud_sync import FakeCloud, lease
 
 BV='BV1ocaW6rETo'
@@ -57,6 +57,49 @@ class ExistingSavedTargetsTest(unittest.TestCase):
     def test_local_existing_reader_rejects_201_refs(self):
         with self.assertRaisesRegex(ValueError,'selection_unavailable'):
             self.app._cloud_existing({'platform':'bili','record_refs':self.refs()[:1]*201})
+
+    def snapshot_binding(self):
+        record=self.store.list_results(filters={'platform':'bilibili','kind':'content'})['items'][0]
+        return record,{'platform':'bilibili','content_id':AID,'kind':'content',
+            'version_hash':record['version_hash'],'results_revision':1,'record_sha256':_sha(record)}
+
+    def test_complete_snapshot_binding_accepts_exact_store_and_rejects_same_counter_other_store(self):
+        record,ref=self.snapshot_binding()
+        value={'platform':'bili','record_refs':[ref],'request':{'mode':'detail','targets':[BV]}}
+        self.assertEqual(self.app._cloud_existing(value),[record])
+        other_root=self.root/'other';other=ResultsStore(other_root)
+        other.ingest({'run_id':'other','records':[{**self.body,'origin':{'run_id':'other'},'metrics':{'likes':999}}]})
+        wrong=other.list_results()['items'][0]
+        self.assertEqual(wrong['version_hash'],ref['version_hash'])
+        other_app=object.__new__(Application);other_app.root=other_root
+        with self.assertRaisesRegex(ValueError,'selection_mismatch'):
+            other_app._cloud_existing(value)
+        # Local-only snapshot compatibility remains; it is not cross-node proof.
+        value['record_refs']=[{k:v for k,v in ref.items() if k!='record_sha256'}]
+        self.assertEqual(other_app._cloud_existing(value),[wrong])
+
+    def test_complete_snapshot_digest_requires_typed_revision_version_and_hex(self):
+        record,ref=self.snapshot_binding()
+        for delta in ({'record_sha256':'bad'},{'record_sha256':'A'*64},{'record_sha256':None},
+                      {'results_revision':True},{'results_revision':1.0},{'results_revision':0},{'version_hash':'bad'}):
+            with self.subTest(delta=delta),self.assertRaisesRegex(ValueError,'selection_mismatch'):
+                validate_record_bindings([record],[{**ref,**delta}])
+        for field in ('results_revision','version_hash'):
+            missing={k:v for k,v in ref.items() if k!=field}
+            with self.assertRaisesRegex(ValueError,'selection_mismatch'):
+                validate_record_bindings([record],[missing])
+
+    def test_worker_complete_snapshot_binding_before_staging(self):
+        record,ref=self.snapshot_binding()
+        for index,output in enumerate((record,{**record,'metrics':{'likes':999}})):
+            value=lease('existing_saved');value.update(platform='bili',record_refs=[ref]);value['request'].update(platform='bili',targets=[BV])
+            cloud=FakeCloud(value);worker=CloudWorker(self.root/('worker-'+str(index)),cloud,Mock(),existing_reader=lambda _: [output])
+            result=worker.tick()
+            if index==0:
+                self.assertEqual(result['state'],'finished');self.assertEqual(worker.outbox.stats()['acknowledged'],1)
+            else:
+                self.assertEqual(result['error'],'existing_saved_selection_mismatch')
+                self.assertEqual(worker.outbox.stats()['acknowledged'],0)
 
     def route(self,action,payload):
         return self.app.cloud(action,payload) if action.startswith('unified_') else self.app.tasks(action,payload)
