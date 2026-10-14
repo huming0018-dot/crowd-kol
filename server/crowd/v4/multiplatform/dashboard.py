@@ -126,6 +126,8 @@ class Application:
         return choices[0]['session_id']
 
     def _cloud_existing(self, lease):
+        if not isinstance(lease.get('record_refs'), list) or len(lease['record_refs']) > 200:
+            raise ValueError('existing_saved_selection_unavailable')
         from results_store import ResultsStore
         from mc_runner import PLATFORMS
         from existing_saved import validate_existing_targets
@@ -157,7 +159,7 @@ class Application:
         if not isinstance(mapping, dict) or not isinstance(targets, dict):
             raise ValueError('existing_saved_target_unverified')
         refs = mapping.get('bili', [])
-        if (not isinstance(refs, list) or len(refs) > 100 or any(not isinstance(ref, dict)
+        if (not isinstance(refs, list) or len(refs) > 200 or any(not isinstance(ref, dict)
                 or not isinstance(ref.get('content_id'), str) or not ref['content_id']
                 or ref.get('kind', 'content') not in ('content','comment','media','dynamic','author')
                 or ref.get('platform', 'bilibili') != 'bilibili' for ref in refs)):

@@ -453,6 +453,24 @@ class Tests(unittest.TestCase):
         finish=next(p for a,p in self.cloud.calls if a=='finish')
         self.assertEqual(finish['api_attempts'],0)
 
+    def test_existing_saved_200_delivers_all_and_201_rejects_before_reader(self):
+        records=[row()]+[{**row(),'kind':'comment','comment_id':str(i),'text':'saved comment'} for i in range(199)]
+        self.cloud.lease=lease('existing_saved')
+        self.cloud.lease['record_refs']=[{'content_id':r['content_id'],'kind':r['kind'],'version_hash':hashlib.sha256(str(i).encode()).hexdigest()} for i,r in enumerate(records)]
+        worker=CloudWorker(self.root,self.cloud,self.runner,existing_reader=lambda _:records)
+        for _ in range(60):
+            result=worker.tick()
+            if result['state']=='finished':break
+        self.assertEqual(result['state'],'finished')
+        self.assertEqual(worker.outbox.stats()['acknowledged'],200)
+        self.assertEqual(self.actions,[])
+        self.assertEqual(next(p for a,p in self.cloud.calls if a=='finish')['api_attempts'],0)
+        fresh=Path(self.temp.name)/'over-limit'
+        cloud=FakeCloud(lease('existing_saved'));cloud.lease['record_refs']=[{'content_id':row()['content_id'],'kind':'content'}]*201
+        reader=Mock(return_value=[row()]);worker=CloudWorker(fresh,cloud,self.runner,existing_reader=reader)
+        self.assertEqual(worker.tick()['error'],'existing_saved_selection_mismatch')
+        reader.assert_not_called()
+
     def test_existing_saved_rejects_other_content(self):
         self.cloud.lease=lease('existing_saved')
         worker=CloudWorker(self.root,self.cloud,self.runner,existing_reader=lambda _:[{**row(),'content_id':'other'}])

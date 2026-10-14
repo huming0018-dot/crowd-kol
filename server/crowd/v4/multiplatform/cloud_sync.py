@@ -942,6 +942,8 @@ class CloudWorker:
                 state.update(phase='finishing', outcome='unknown', api_attempts=0)
                 self._save(state)
             elif lease['delivery_basis'] == 'existing_saved':
+                if not isinstance(lease.get('record_refs'), list) or len(lease['record_refs']) > 200:
+                    raise CloudError('existing_saved_selection_mismatch')
                 if self.existing_reader is None:
                     raise CloudError('existing_saved_reader_missing')
                 with self._delivery_keepalive(state):

@@ -43,6 +43,21 @@ class ExistingSavedTargetsTest(unittest.TestCase):
             'max_api_requests':0,'targets_by_platform':{'bili':[target]},'record_refs_by_platform':{'bili':self.refs(kind)},
             'idempotency_key':'fixture-only','purpose':'noncommercial_research','comments':True,'replies':True,'media':False}
 
+    def test_owner_existing_refs_200_allowed_201_rejected_before_cloud(self):
+        payload=self.payload();payload['record_refs_by_platform']['bili']=self.refs()[:1]*200
+        from unittest.mock import patch
+        with patch.object(self.app,'_cloud_existing') as reader:
+            self.app._validate_cloud_existing(payload)
+            self.assertEqual(len(reader.call_args.args[0]['record_refs']),200)
+            payload['record_refs_by_platform']['bili'].append(self.refs()[0])
+            with self.assertRaisesRegex(ValueError,'target_unverified'):
+                self.app._validate_cloud_existing(payload)
+            self.assertEqual(reader.call_count,1)
+
+    def test_local_existing_reader_rejects_201_refs(self):
+        with self.assertRaisesRegex(ValueError,'selection_unavailable'):
+            self.app._cloud_existing({'platform':'bili','record_refs':self.refs()[:1]*201})
+
     def route(self,action,payload):
         return self.app.cloud(action,payload) if action.startswith('unified_') else self.app.tasks(action,payload)
 
