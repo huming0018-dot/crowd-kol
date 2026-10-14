@@ -314,6 +314,37 @@ def is_root_comment(row):
     return 'parent_comment_id' in row and row['parent_comment_id'] in ('', '0')
 
 
+def pinned_comments(value, depth=0):
+    """Recognize explicit empty slots and roots; malformed shapes stay unknown."""
+    if depth > 8:
+        return [], False
+    if value is None:
+        return [], True
+    if isinstance(value, dict):
+        if 'rpid' in value:
+            entity = page_id(value['rpid'])
+            return ([value], True) if entity is not None else ([], False)
+        if set(value) != {'admin', 'upper', 'vote'}:
+            return [], False
+        value = list(value.values())
+    if isinstance(value, list):
+        if len(value) > MAX_ROWS:
+            return [], False
+        comments = []
+        for child in value:
+            child_comments, valid = pinned_comments(child, depth+1)
+            if not valid:
+                return [], False
+            comments.extend(child_comments)
+        return comments, True
+    return [], False
+
+
+def pinned_ids(value):
+    comments, valid = pinned_comments(value)
+    return {page_id(c['rpid']) for c in comments}, valid
+
+
 def pagination_summary(run, manifest):
     """Coverage evidence is separate from upstream commit and cloud delivery."""
     unknown = {'coverage': 'unknown', 'reason': 'pagination_evidence_missing'}
@@ -427,11 +458,8 @@ class BiliPagination:
                         reply_roots={page_id(c.comment_id): page_number(c.sub_comment_count) for c in comments})
             page['invalid'] |= page['cursor_in'] is None or page['cursor_out'] is None or type(end) is not bool or None in page['reply_roots'].values()
             for key in ('top', 'top_replies'):
-                entries = data.get(key) if isinstance(data, dict) else None
-                if entries is not None and not isinstance(entries, (list, dict)):
-                    page['pinned_gap'] = True
-                entries = entries if isinstance(entries, list) else [entries] if isinstance(entries, dict) else []
-                if any(not isinstance(c, dict) or page_id(c.get('rpid')) not in ids for c in entries):
+                entries, valid = pinned_ids(data.get(key) if isinstance(data, dict) else None)
+                if not valid or not entries.issubset(set(ids)):
                     page['pinned_gap'] = True
         else:
             info = data.get('page', {}) if isinstance(data, dict) else {}
@@ -454,6 +482,7 @@ class BiliPagination:
             bound = inspect.signature(root).bind(*args, **kwargs)
             bound.apply_defaults()
             value = await root(*args, **kwargs)
+            value = self.merge_pinned(bound.arguments[next(iter(bound.signature.parameters))], bound.arguments['video_id'], value)
             self.response('root', bound.arguments['video_id'], *value, cursor=bound.arguments['next_page'])
             return value
         async def replies(*args, **kwargs):
@@ -491,6 +520,38 @@ class BiliPagination:
         client_type.get_video_comments, client_type.get_video_sub_comments = roots, replies
         store.batch_update_bilibili_video_comments = saved
         manager_type.update_note_comment_cursor = committed
+
+    def merge_pinned(self, client, aid, value):
+        comments, data = value
+        raw = []
+        for key in ('top', 'top_replies'):
+            pinned, valid = pinned_comments(data.get(key) if isinstance(data, dict) else None)
+            if not valid:
+                return value  # The observer keeps malformed pinned structures unknown.
+            raw.extend(pinned)
+        if not raw:
+            return value
+        try:
+            parsed = client._extractor.extract_comments_from_dict(video_id=aid, comments_data=raw)
+            if len(parsed) != len(raw):
+                raise ValueError()
+            known = {page_id(c.comment_id): c for c in comments}
+            added = []
+            for original, comment in zip(raw, parsed):
+                entity = page_id(comment.comment_id)
+                if (entity != page_id(original['rpid']) or str(comment.video_id) != str(aid) or
+                        not is_root_comment(comment.model_dump()) or page_number(comment.sub_comment_count) is None):
+                    raise ValueError()
+                if entity in known:
+                    if bridge().canonical(known[entity].model_dump()) != bridge().canonical(comment.model_dump()):
+                        raise ValueError()
+                else:
+                    known[entity] = comment
+                    added.append(comment)
+            return (comments+added, data) if added else value
+        except (AttributeError, TypeError, ValueError, KeyError):
+            self.invalid = True
+            return value
 
 
 class ProgressSink:
@@ -649,6 +710,8 @@ def execute(run, manifest):
     try:
         with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
             import config
+            # Pinned clients capture this value at import, before main parses CLI.
+            config.PER_NOTE_MAX_COMMENTS_COUNT = request['max_comments']
             config.SAVE_DATA_OPTION = 'db'
             config.DB_TYPE, config.SQLITE_DB_PATH = 'sqlite', str(run/DB_NAME)
             config.USE_CACHE_TYPE, config.CHECKPOINT_STORAGE_TYPE = 'memory', 'file'

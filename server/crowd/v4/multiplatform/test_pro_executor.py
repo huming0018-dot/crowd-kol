@@ -1,5 +1,6 @@
 """Offline protocol/import tests. No credential read, browser or source request."""
 import asyncio
+import ast
 from contextvars import ContextVar
 from copy import deepcopy
 import json
@@ -105,6 +106,54 @@ class ProTest(unittest.TestCase):
     def test_old_run_has_unknown_coverage(self):
         self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
 
+    def test_pinned_parent_loop_stops_after_complete_first_batch(self):
+        source=Path('/Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/MediaCrawlerPro-Python/media_platform/bilibili/processors/comment_processor.py')
+        if not source.is_file():self.skipTest('Pinned private source not installed')
+        tree=ast.parse(source.read_text())
+        original_class=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='CommentProcessor')
+        methods=[n for n in original_class.body if isinstance(n,ast.AsyncFunctionDef) and n.name in ('get_video_all_comments','get_comments_all_sub_comments')]
+        captured=next(n for n in tree.body if isinstance(n,ast.ImportFrom) and n.module=='config' and any(a.name=='PER_NOTE_MAX_COMMENTS_COUNT' for a in n.names))
+        config=SimpleNamespace(PER_NOTE_MAX_COMMENTS_COUNT=0,CRAWLER_TIME_SLEEP=0,ENABLE_GET_SUB_COMMENTS=True)
+        execute_tree=ast.parse(Path(pro.__file__).read_text())
+        execute=next(n for n in execute_tree.body if isinstance(n,ast.FunctionDef) and n.name=='execute')
+        seed=next(n for n in ast.walk(execute) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Attribute) and t.attr=='PER_NOTE_MAX_COMMENTS_COUNT' for t in n.targets))
+        main_import=next(n for n in ast.walk(execute) if isinstance(n,ast.Import) and any(a.name=='main' for a in n.names))
+        self.assertLess(seed.lineno,main_import.lineno)
+        namespace={'config':config,'request':self.request}
+        exec(compile(ast.Module(body=[seed],type_ignores=[]),'<actual bridge seed>','exec'),namespace)
+        namespace.update(asyncio=asyncio,Optional=object,Callable=object,List=list,Dict=dict,
+                         BilibiliComment=SimpleNamespace,CommentOrderType=SimpleNamespace(DEFAULT=1),utils=SimpleNamespace(logger=Mock()))
+        with patch.dict('sys.modules',{'config':config}):
+            exec(compile(ast.Module(body=[captured],type_ignores=[]),'<pinned config capture>','exec'),namespace)
+        for method in methods:
+            for arg in method.args.args:arg.annotation=None
+            method.returns=None
+        holder=ast.ClassDef(name='Processor',bases=[],keywords=[],body=methods,decorator_list=[])
+        ast.fix_missing_locations(holder)
+        exec(compile(ast.Module(body=[holder],type_ignores=[]),'<pinned original loops>','exec'),namespace)
+        counts=[0]*4+[3]*3+[1]*2+[19,9,8]+[7]*2+[5]*2+[2]*2+[10]
+        self.assertEqual((len(counts),sum(counts)),(19,85))
+        roots=[SimpleNamespace(comment_id=str(100+i),sub_comment_count=str(count)) for i,count in enumerate(counts)]
+        calls=[];saved=[];updates=[]
+        class Client:
+            async def get_video_comments(client,aid,order,next_page):
+                calls.append(next_page)
+                if next_page:raise AssertionError('Second parent page must not be fetched')
+                return roots,{'cursor':{'next':1,'is_end':False}}
+            async def get_video_sub_comments(client,video_id,root_comment_id,pn,ps,order_mode):
+                count=counts[int(root_comment_id)-100]
+                return [SimpleNamespace(comment_id=f'{root_comment_id}{j+100}') for j in range((pn-1)*ps,min(pn*ps,count))],{'page':{'count':count}}
+        class Manager:
+            async def get_note_comment_cursor(manager,**kwargs):return None
+            async def get_note_info_from_checkpont(manager,*args):return SimpleNamespace(saved_comment_count=0)
+            async def update_note_comment_cursor(manager,**kwargs):updates.append(kwargs);return True
+        async def callback(aid,comments):saved.extend(comments)
+        processor=namespace['Processor']();processor.bili_client=Client();processor.checkpoint_manager=Manager()
+        result=asyncio.run(processor.get_video_all_comments('123','BV1ocaW6rETo',callback,self.rid))
+        self.assertEqual(calls,[0]);self.assertEqual(len(saved),104);self.assertEqual(len(result),104)
+        self.assertEqual(updates[-1]['saved_comment_count'],104)
+        self.assertTrue(updates[-1]['is_success_crawled_comments'])
+
     def test_real_vox_checkpoint_legacy_compatibility_and_conflict(self):
         vox=self.run/'data/checkpoints/vox'/(self.rid+'.json')
         legacy=vox.parent.parent/vox.name
@@ -189,6 +238,78 @@ class ProTest(unittest.TestCase):
             observer=pro.BiliPagination(self.run,self.manifest)
             observer.response('reply','123',[],{'page':{'count':0,**fields}},parent='10',pn=1,ps=10)
             self.assertTrue(observer.pages[-1]['invalid'])
+
+    def test_pinned_nested_empty_slots_real_roots_and_dirty_shapes(self):
+        empty={'admin':None,'upper':None,'vote':None}
+        self.assertEqual(pro.pinned_ids(empty),(set(),True))
+        self.assertEqual(pro.pinned_ids({'admin':None,'upper':{'rpid':10},'vote':None}),({'10'},True))
+        for value in ('dirty',{'admin':None},{'admin':None,'upper':'dirty','vote':None},{'rpid':None}):
+            self.assertFalse(pro.pinned_ids(value)[1])
+        for top,gap in ((empty,False),({'admin':None,'upper':{'rpid':99},'vote':None},True)):
+            observer=pro.BiliPagination(self.run,self.manifest)
+            observer.response('root','123',[SimpleNamespace(comment_id='10',sub_comment_count='0')],
+                              {'cursor':{'next':1,'is_end':True},'top':top})
+            self.assertEqual(observer.pages[0]['pinned_gap'],gap)
+
+    def pinned_extractor_fixture(self):
+        from pydantic import BaseModel, Field
+        from typing import Dict, List, Optional
+        private=Path('/Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/MediaCrawlerPro-Python')
+        model=private/'model/m_bilibili.py';extractor=private/'media_platform/bilibili/extractor.py'
+        if not model.is_file() or not extractor.is_file():self.skipTest('Pinned private source not installed')
+        model_node=next(n for n in ast.parse(model.read_text()).body if isinstance(n,ast.ClassDef) and n.name=='BilibiliComment')
+        # Original model fields; privacy helper uses offline fixed pseudonyms.
+        namespace={'PrivacyBaseModel':BaseModel,'Field':Field,'Optional':Optional,'List':List,'Dict':Dict,
+                   'anonymize_user_id':lambda value:'offline-anonymous','mask_nickname':lambda value:'测试*'}
+        exec(compile(ast.Module(body=[model_node],type_ignores=[]),'<pinned comment model fields>','exec'),namespace)
+        original_class=next(n for n in ast.parse(extractor.read_text()).body if isinstance(n,ast.ClassDef))
+        methods=[n for n in original_class.body if isinstance(n,ast.FunctionDef) and n.name in
+                 ('extract_comments_from_dict','_extract_comment_from_dict','_extract_comment_image_list')]
+        holder=ast.ClassDef(name='Extractor',bases=[],keywords=[],body=methods,decorator_list=[]);ast.fix_missing_locations(holder)
+        exec(compile(ast.Module(body=[holder],type_ignores=[]),'<pinned original comment extractor>','exec'),namespace)
+        return namespace['Extractor']()
+
+    def pinned_payload(self, entity='99', parent=0, message='置顶完整正文', replies=2):
+        return {'rpid':entity,'parent':parent,'rcount':replies,'ctime':1,'like':5,
+                'content':{'message':message,'pictures':[{'img_src':'http://i0.hdslb.com/pin.jpg'}]},
+                'member':{'mid':'offline','uname':'offline'}}
+
+    def test_pinned_reuses_original_extractor_fields_and_preserves_regular_order(self):
+        extractor=self.pinned_extractor_fixture();raw=self.pinned_payload()
+        regular=extractor.extract_comments_from_dict('123',[self.pinned_payload('10',message='普通正文')])
+        data={'top':{'admin':None,'upper':raw,'vote':None},'cursor':{'next':1,'is_end':False}}
+        observer=pro.BiliPagination(self.run,self.manifest)
+        merged=observer.merge_pinned(SimpleNamespace(_extractor=extractor),'123',(regular,data))
+        self.assertEqual([c.comment_id for c in merged[0]],['10','99']);self.assertIs(merged[1],data)
+        pin=merged[0][-1]
+        self.assertEqual((pin.content,pin.parent_comment_id,pin.sub_comment_count,pin.pictures),
+                         ('置顶完整正文','','2','https://i0.hdslb.com/pin.jpg'))
+        observer.response('root','123',*merged)
+        self.assertEqual(observer.pages[-1]['reply_roots']['99'],2)
+        self.assertFalse(observer.pages[-1]['pinned_gap'])
+
+    def test_no_pinned_and_same_duplicate_keep_original_return(self):
+        extractor=self.pinned_extractor_fixture();raw=self.pinned_payload()
+        regular=extractor.extract_comments_from_dict('123',[raw]);client=SimpleNamespace(_extractor=extractor)
+        for data in ({'top':{'admin':None,'upper':None,'vote':None}}, {'top_replies':[raw,raw]}):
+            value=(regular,data);observer=pro.BiliPagination(self.run,self.manifest)
+            self.assertIs(observer.merge_pinned(client,'123',value),value)
+            self.assertFalse(observer.invalid)
+
+    def test_pinned_conflicting_content_or_parent_is_unknown_without_overwrite(self):
+        extractor=self.pinned_extractor_fixture();raw=self.pinned_payload()
+        regular=extractor.extract_comments_from_dict('123',[raw]);client=SimpleNamespace(_extractor=extractor)
+        for conflicting in (self.pinned_payload(message='不同正文'),self.pinned_payload(parent='77')):
+            value=(regular,{'top_replies':[conflicting]});observer=pro.BiliPagination(self.run,self.manifest)
+            self.assertIs(observer.merge_pinned(client,'123',value),value)
+            self.assertTrue(observer.invalid);self.assertEqual(regular[0].content,'置顶完整正文')
+
+    def test_dirty_pinned_keeps_original_data_and_observer_unknown(self):
+        extractor=self.pinned_extractor_fixture();value=([],{'top':{'admin':None,'upper':'dirty','vote':None},'cursor':{'next':1,'is_end':True}})
+        observer=pro.BiliPagination(self.run,self.manifest)
+        self.assertIs(observer.merge_pinned(SimpleNamespace(_extractor=extractor),'123',value),value)
+        observer.response('root','123',*value)
+        self.assertTrue(observer.pages[-1]['pinned_gap'])
 
     def test_pagination_root_observation_must_be_root(self):
         self.pagination_fixture()
