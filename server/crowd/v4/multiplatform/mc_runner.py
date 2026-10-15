@@ -178,10 +178,12 @@ def validate_options(p):
             p.setdefault(field,False)
 
 def validate(payload):
-    allowed = {'platform','mode','targets','max_items','comments','replies','media','purpose','authorization_ref','session_id','max_api_requests','timeout_seconds','max_comments','headless','start_page','interval_seconds','platform_options','wordcloud'}
+    allowed = {'platform','mode','targets','max_items','comments','replies','media','purpose','authorization_ref','session_id','max_api_requests','timeout_seconds','max_comments','headless','start_page','interval_seconds','platform_options','wordcloud','source_executor'}
     if not isinstance(payload, dict) or set(payload) - allowed:
         fail('invalid_request')
     p = dict(payload)
+    if 'source_executor' in p and (not isinstance(p['source_executor'],str) or p['source_executor'] not in ('mc','pro')):
+        fail('invalid_source_executor')
     if not isinstance(p.get('platform'),str) or p.get('platform') not in PLATFORMS or p.get('mode') not in ('search','detail','creator','homefeed','trending'):
         fail('unsupported_platform_or_mode')
     from discovery import SUPPORT
@@ -236,6 +238,10 @@ def validate(payload):
         fail('media_not_supported_by_upstream')
     if p['headless'] and not p.get('session_id'): fail('headless_requires_existing_session')
     p['session_id'] = uid(p['session_id']) if p.get('session_id') else str(uuid.uuid4())
+    if p.get('source_executor') == 'pro':
+        from pro_executor import explicit_unsupported
+        reason = explicit_unsupported(p)
+        if reason: fail(reason)
     return p
 
 def source_info(mc):
@@ -450,8 +456,8 @@ def run_dir(root, run_id):
 
 def start(root, mc, payload):
     p = validate(payload)
-    from pro_executor import selection, prepare
-    executor, info, python = prepare(root, mc, p, selection(p))
+    from pro_executor import selection, prepare, task_installation
+    executor, info, python = prepare(root, mc, p, selection(p, installation=task_installation(root,p)))
     root = Path(root).resolve()
     mc = Path(mc).resolve()
     if not python.is_file():

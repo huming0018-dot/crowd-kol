@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import resource
 import sqlite3
+import stat
 import subprocess
 import sys
 import threading
@@ -37,14 +38,67 @@ def bridge():
     return mc_runner
 
 
-def selection(request, environ=None):
+def explicit_unsupported(request):
+    """Explicit task engines never silently substitute a different collector."""
+    if request.get('platform') not in NATIVE_SUPPORTED:
+        return 'pro_operation_platform_not_adapted'
+    if request.get('mode') not in ('search','detail','creator'):
+        return 'pro_mode_unsupported'
+    if request.get('media'):
+        return 'pro_media_pipeline_unavailable'
+    if request.get('wordcloud') or request.get('platform_options'):
+        return 'pro_options_unsupported'
+    if request.get('comments') and request.get('max_comments') == 0:
+        return 'pro_zero_comments_means_unlimited'
+    return None
+
+
+def task_installation(root, request):
+    """Operator installation metadata only; no process-wide executor mutation."""
+    if request.get('source_executor') != 'pro':
+        return None
+    m=bridge();path=Path(root)/'pro-executor.json'
+    try:
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    except OSError:m.fail('pro_task_installation_missing')
+    try:
+        info=os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077
+                or info.st_uid != os.getuid() or not 0 < info.st_size <= 16384):
+            m.fail('pro_task_installation_invalid')
+        raw=os.read(fd,16385)
+        after=os.fstat(fd)
+        if (len(raw)!=info.st_size or len(raw)>16384 or
+                (info.st_size,info.st_mtime_ns,info.st_ctime_ns)!=(after.st_size,after.st_mtime_ns,after.st_ctime_ns)):
+            m.fail('pro_task_installation_invalid')
+        value=json.loads(raw.decode('utf-8'))
+    except (OSError,ValueError,UnicodeError,RecursionError):m.fail('pro_task_installation_invalid')
+    finally:os.close(fd)
+    if not isinstance(value,dict) or set(value)!={'root','python'}:
+        m.fail('pro_task_installation_invalid')
+    for field in ('root','python'):
+        if not isinstance(value[field],str) or not value[field] or len(value[field])>4096:
+            m.fail('pro_task_installation_invalid')
+        p=Path(value[field])
+        if not p.is_absolute() or (field=='root' and p.is_symlink()) or (not p.is_dir() if field=='root' else not p.is_file() or not os.access(p,os.X_OK)):
+            m.fail('pro_task_installation_invalid')
+    return value
+
+
+def selection(request, environ=None, installation=None):
     """Only fall back BEFORE creating a run; an uncertain Pro run never reruns MC."""
     env = os.environ if environ is None else environ
-    requested = env.get('CROWD_EXECUTOR', 'mc')
+    explicit = 'source_executor' in request
+    requested = request.get('source_executor', env.get('CROWD_EXECUTOR', 'mc'))
     if requested not in ('mc', 'pro'):
         bridge().fail('invalid_executor_selection')
     if requested == 'mc':
         return {'backend': 'mc', 'requested_backend': 'mc'}
+    if explicit:
+        reason=explicit_unsupported(request)
+        if reason:bridge().fail(reason)
+        if not installation:bridge().fail('pro_task_installation_missing')
+        return {'backend':'pro','requested_backend':'pro','root':str(Path(installation['root']).resolve()),'python':installation['python']}
     reason = None
     if request['platform'] == 'wb' and env.get('CROWD_PRO_WEIBO_ENABLED') != '1':
         reason = 'pro_weibo_adapter_not_enabled'
@@ -123,7 +177,7 @@ def prepare(root, mc, request, chosen):
         m.fail('runtime_must_be_outside_upstream')
     # No secrets in this binding (client reference only); cookies stay in memory.
     bound = binding_for(root, request)
-    python = Path(os.environ.get('CROWD_PRO_PYTHON', str(external/'.venv/bin/python')))
+    python = Path(chosen.get('python') or os.environ.get('CROWD_PRO_PYTHON', str(external/'.venv/bin/python')))
     if not python.is_absolute() or not python.is_file():
         m.fail('pro_python_missing')
     return {**chosen, 'python': str(python), 'protocol': PROTOCOL, 'binding': bound}, source, python

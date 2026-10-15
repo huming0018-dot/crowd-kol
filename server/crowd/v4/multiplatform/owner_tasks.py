@@ -29,7 +29,7 @@ TERMINAL = {'completed', 'failed', 'stopped', 'login_required', 'interrupted_unk
 FIELDS = {'platforms', 'mode', 'targets', 'targets_by_platform', 'desired_items',
           'max_api_requests', 'comments', 'replies', 'media', 'purpose',
           'authorization_ref', 'session_by_platform', 'timeout_seconds',
-          'max_comments', 'headless', 'idempotency_key', 'platform_options_by_platform'}
+          'max_comments', 'headless', 'idempotency_key', 'platform_options_by_platform', 'source_executor'}
 
 
 def parse_batch(text, mode='detail'):
@@ -143,7 +143,7 @@ def plan(payload):
         if count > 100 or budget > 500:
             raise ValueError('per_platform_budget_limit')
         request = {k: payload[k] for k in ('comments', 'replies', 'media', 'purpose',
-                    'authorization_ref', 'timeout_seconds', 'max_comments', 'headless') if k in payload}
+                    'authorization_ref', 'timeout_seconds', 'max_comments', 'headless', 'source_executor') if k in payload}
         if platform in options:
             request['platform_options'] = options[platform]
         missing_targets = not discovery_mode and not targets.get(platform)
