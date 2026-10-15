@@ -12,6 +12,7 @@ const ownerView = (() => {
   const names = {delivery_pending:'等待回传，尚未完成',observing:'本轮正在观察',blocked:'需要处理',budget_exhausted:'跟踪总额已用完',unknown:'结果未知，待核对',dispatching:'正在分配',scheduled:'等待下个周期',observed_only:'本轮观察已保存',queued:'等待分配',running:'正在采集',waiting:'需要处理',paused:'已暂停',stopped:'已停止',completed:'执行已结束',partial:'部分结果',failed:'需要处理',interrupted_unknown:'中断，待核对'};
   const reasons = {pro_bili_wbi_unavailable:"B站签名参数暂不可用，采集已停止；不代表账号登出，请查看本机诊断。",pro_native_credentials_unavailable:"暂时无法复用原浏览器登录资料，采集已停止；不代表账号登出，请查看本机诊断。",pro_content_access_denied:"该内容访问被拒绝，采集已停止；不代表账号登出，请本人检查原页面。",pro_cookiebridge_unavailable:'原浏览器登录桥暂不可用；请恢复原浏览器扩展连接，当前不能判断平台是否登出。',pro_login_verification_failed:'连接或身份核验失败，采集已暂停；不代表账号登出，请查看诊断。',pro_self_check_unsupported:'该采集引擎暂不支持此平台登录核验，原采集方式保留。',unacknowledged_delivery:'原记录已保存，请在待回传处理查看原因与恢复',same_account_resumed:'原账号核验已通过，等待按剩余额度继续。',lease_expired_source_outcome_unknown:'执行租约已过期，来源结果待核对，不会自动重发。',missing_targets:'此平台没有匹配目标；在新任务中补入本平台链接。',budget_not_allocated:'总额度不足以分配此平台；不会暗增额度。',budget_exhausted:'该平台额度已用完，已保存结果保留。',no_content_observed:'本轮没有取得可展示内容；原因见任务详情。',discovery_empty_or_unavailable:'首页尚未取得可采候选。',observed_window_partial:'已取得部分内容；需要继续时仅使用剩余额度。',result_import_failed:'已采结果尚未保存到资料库；核对本机存储后重试导入，不重新采集。',dispatch_outcome_unknown:'启动结果未知；先核对原执行进程，不会自动重开。',source_outcome_unknown:'执行状态未知；先核对原任务与文件。',upstream_search_minimum_20:'每个平台搜索至少需配置20条；总量不足时不会自动扩大。',login_required:'需要本人重新登录；已有结果保留。',session_busy:'本平台登录资料正在使用，等待空闲。',unsupported_target:'此平台没有匹配的目标。',start_outcome_unknown:'启动结果未知，请先核对，不会自动重开。',media_not_supported_by_upstream:'该平台暂不支持所选媒体下载。',watch_budget_exhausted:'跟踪计划总额已用完；已有资料保留。',insufficient_cycle_budget:'剩余额度不足以执行完整一轮；不会扩大预算。',prior_task_outcome_unknown:'上一轮结果未知；先核对原任务。',prior_task_manually_stopped:'上一轮已被本人停止；不会自动恢复。',prior_cycle_unknown:'上一轮结果未知；先核对原任务。',prior_cycle_requires_action:'上一轮需要处理；打开原任务核对具体平台。',prior_cycle_failed:'上一轮执行失败；已有资料保留。',owner_task_user_stop:'原采集任务已被本人停止，不会自动恢复。',total_request_budget_exhausted:'整个跟踪计划额度已用完；已有资料保留。',user_stop:'本人已暂停。',owner_stop_requested:'Owner已明确请求停止，系统执行；已有结果保留。',cloud_controller_error:'系统因云端控制检查失败停止，已有结果保留；不会自动重采。',cloud_dispatch_denied:'系统因云端授权不可继续而停止，已有结果保留。',cloud_worker_shutdown:'工作台关闭时系统停止，已有结果保留。',worker_shutdown:'容器关闭时系统停止，已有结果保留。',legacy_stop_requested:'旧停止记录没有调用者，不能确认是本人停止。'};
   Object.assign(reasons,{audited_terminal_unknown:'旧执行结果仍未知；已核对并保守计费封账，不会重采旧任务。',audited_executor_completed:'原执行与全部云回执已对账；正文和媒体是否完整请查看结果。',audited_executor_completed_without_content:'原执行与回执已对账，但没有取得正文。'});
+  let accountEntrySequence=0;
   let watches = [], items = [], busy = false, preview = null, previewRequest = null, generation = 0, listPromise = null, unifiedMode = false, unresolvedKey = null;
   const pendingDispatchKey='crowd_unified_pending_dispatch';
   const unifiedCall=(action,payload={})=>api('/api/cloud',{action,payload});
@@ -127,13 +128,25 @@ const ownerView = (() => {
     dialog.showModal();lockPending();if(!unresolvedKey)$('owner_targets').focus();
   }
   function render() {
+    accountEntrySequence++;
     const focused=document.activeElement?.closest('#owner_tasks')?document.activeElement:null, key=focused?.dataset.taskKey;
     section.replaceChildren();const shownWatches=filter==='attention'?watches.filter(w=>['waiting','failed','paused','blocked','budget_exhausted','interrupted_unknown'].includes(w.state)):watches;for(const watch of shownWatches){const card=node('article');card.className='task';card.style.marginBottom='12px';card.append(node('h3',watch.title||'博主持续跟踪'),node('p','已观察 '+watch.cycle_count+' 轮 · 剩余接口总额 '+watch.request_budget_remaining+' · '+(names[watch.state]||watch.state)));if(watch.reason_code)card.append(node('p',reasons[watch.reason_code]||watch.reason_code));if(watch.next_due_at)card.append(node('small','下一轮计划 '+dateText(watch.next_due_at)));const actions=node('div');actions.className='actions';for(const [action,text]of [['stop','暂停跟踪'],['resume','继续跟踪']])actions.append(button(text,async()=>{await api('/api/watchlists',{action,payload:{watch_id:watch.watch_id}});await reload();}));card.append(actions);section.append(card);} const shown=filter==='attention'?items.filter(x=>['waiting','failed','partial','unknown','interrupted_unknown','delivery_pending'].includes(x.state)):items;
     for(const task of shown){const card=node('article');card.className='task';card.style.marginBottom='12px';const title=(task.display_title||task.title||task.request?.title||'多平台 '+(modeNames[task.mode||task.request?.mode]||'采集'));
       const head=node('div');head.className='task-heading';head.append(node('h3',title),node('span',names[task.state]||'状态待核对'));head.lastChild.className='pill';card.append(head);
       for(const c of task.children||[]){const row=node('p');row.append(node('strong',(platformNames[c.platform]||c.platform)+'：'),node('span',(names[c.state]||labels[c.state]||'状态待核对')+' '+(reasons[c.local_stop_reason||c.local_failure_reason||c.reason_code||c.reason]||((c.local_stop_reason||c.local_failure_reason||c.reason_code||c.reason)?'原因待核对，见分配与预算详情。':''))));
         if(task.storage_scope==='cloud'&&c.state==='waiting'&&c.reason_code==='login_required'){
-          const recover=button('核验原账号以恢复此任务',async()=>{recover.disabled=true;try{
+          const recover=button('核验原账号以恢复此任务',async()=>{const entry=++accountEntrySequence,accountRevision=c.platform==='bili'?accountView.revision():null;recover.disabled=true;try{
+            if(c.platform==='bili'){
+              const accounts=await api('/api/accounts',{action:'list',payload:{}});
+              if(entry!==accountEntrySequence||accountRevision!==accountView.revision())return;
+              const sessions=Array.isArray(accounts.sessions)?accounts.sessions:[];
+              const matches=sessions.filter(session=>session.platform==='bili'&&session.login_recovery?.kind==='cloud_pro'&&session.login_recovery.task_id===task.task_id&&session.login_recovery.child_id===c.child_id);
+              const executor=c.request?.source_executor??c.source_executor??task.request?.source_executor??task.source_executor;
+              if(matches.length===1){await accountView.open({task_id:task.task_id,child_id:c.child_id});return;}
+              if(matches.length>1||executor!=='mc'||!Array.isArray(accounts.sessions)||sessions.some(session=>session.platform==='bili'&&session.login_recovery?.kind==='blocked')){
+                message('原任务账号上下文缺失或存在多个匹配，请核对原任务；尚未核验，也不会切换会话。');return;
+              }
+            }
             const result=await api('/api/accounts',{action:'recover_cloud_login',payload:{task_id:task.task_id,child_id:c.child_id}});
             const intro=result.browser_started===false?'正在使用已有登录进行后台官方核验，请稍后查看账号状态；':'已打开原账号核验；';
             message(intro+(result.owner_continue_required?'核验通过后请点继续，任务只使用剩余额度。':'核验通过后按原运行意图自动接续，只使用剩余额度。'));await reload();

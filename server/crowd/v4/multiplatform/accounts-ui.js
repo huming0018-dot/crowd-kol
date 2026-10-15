@@ -33,8 +33,8 @@ const accountView = (() => {
     }
     return phase+'；'+request('bridge','登录桥')+'；'+request('official_self','平台官方核验')+'。';
   }
-  let generation=0,timer=null,sequence=0;
-  dialog.addEventListener('close',()=>{generation++;clearTimeout(timer);browserDialog.close();});
+  let generation=0,timer=null,sequence=0,taskFocus=null;
+  dialog.addEventListener('close',()=>{generation++;taskFocus=null;clearTimeout(timer);browserDialog.close();});
   async function chooseBrowser(session,ticket,restartConnection=false,refreshTargets=false,recovery=null){
     const selection=++browserSequence;let choosing=false;
     const current=()=>ticket===generation&&selection===browserSequence&&browserDialog.open;
@@ -78,7 +78,12 @@ const accountView = (() => {
     let result;try{result=await call('list');}catch(error){if(ticket===generation&&current===sequence&&dialog.open){$('accounts_error').textContent=error.message;timer=setTimeout(()=>guarded(()=>refresh(ticket)),3000);}return;}
     if(ticket!==generation||current!==sequence||!dialog.open)return;
     $('accounts_error').textContent='';$('accounts_list').replaceChildren();
-    for(const session of result.sessions){
+    let sessions=result.sessions;
+    if(taskFocus){
+      sessions=Array.isArray(sessions)?sessions.filter(session=>session.platform==='bili'&&session.login_recovery?.kind==='cloud_pro'&&session.login_recovery.task_id===taskFocus.task_id&&session.login_recovery.child_id===taskFocus.child_id):[];
+      if(sessions.length!==1){browserSequence++;browserDialog.close();$('accounts_error').textContent='原任务账号上下文缺失或存在多个匹配，请核对原任务；尚未核验，也不会切换会话。';timer=setTimeout(()=>guarded(()=>refresh(ticket)),3000);return;}
+    }
+    for(const session of sessions){
       const unavailable=session.platform==='ks'&&session.login_verification_available===false&&session.login_diagnostic?.graphql_errors==='present';
       const row=node('article');row.className='task';row.append(node('h3',platformNames[session.platform]||session.platform),node('p',unavailable?'登录核验接口失败，登录状态尚未确认；已登录者无需重复扫码。':labels[session.state]||session.state));
       if(unavailable){const diagnostic={schema_validation:'当前核验请求与平台接口不兼容，不能据此认定账号登出。',authentication_required:'接口提示需要登录；原会话与任务保留。',rate_or_permission:'接口返回频率或权限限制，保持暂停。',unknown:'接口错误原因尚未定位，保留原会话与任务。'};row.append(node('p',diagnostic[session.login_diagnostic.graphql_error_kind]||diagnostic.unknown));}
@@ -119,9 +124,19 @@ const accountView = (() => {
       if(session.state==='account_changed')row.append(node('p','请创建独立会话或新任务；原账号的剩余额度和结果不会转给新账号。'));
       row.append(actions);$('accounts_list').append(row);
     }
-    if(!result.sessions.length)$('accounts_list').append(node('p','还没有平台会话。首次建任务时会打开登录页。'));
+    if(!sessions.length)$('accounts_list').append(node('p','还没有平台会话。首次建任务时会打开登录页。'));
     timer=setTimeout(()=>guarded(()=>refresh(ticket)),3000);
   }
-  async function open(){generation++;clearTimeout(timer);$('accounts_error').textContent='';dialog.showModal();await refresh(generation);}
-  return {open};
+  async function open(context=null){
+    generation++;clearTimeout(timer);browserSequence++;browserDialog.close();taskFocus=null;
+    const valid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+    if(context!==null){
+      if(!context||typeof context!=='object'||Array.isArray(context)||Object.keys(context).sort().join(',')!=='child_id,task_id'||!valid(context.task_id)||!valid(context.child_id)){
+        $('accounts_list').replaceChildren();$('accounts_error').textContent='原任务账号上下文无效，请回到原任务重新打开。';if(!dialog.open)dialog.showModal();return;
+      }
+      taskFocus={task_id:context.task_id,child_id:context.child_id};
+    }
+    $('accounts_list').replaceChildren();$('accounts_error').textContent='';if(!dialog.open)dialog.showModal();await refresh(generation);
+  }
+  return {open,revision:()=>generation};
 })();
