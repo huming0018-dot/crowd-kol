@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E38为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E39为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -232,3 +232,11 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN15/xhs-post-restore-self/{INTENT,RESULT}.json及independent/{FINAL,ACTUAL-SELF-FINAL}.json：驱动执行前与实际结果分开独审，单次1/1/1官方200/api0、guest未标true、原主体相同、原文件不变；source=cache不是实时凭据同步，不新bind/改Owner状态/重启548。
 - RUN15/pro-next-platform/SIGN-XHS-POST-RESTORE-LIFECYCLE.jsonl及xhs-post-restore-self/SIGNER-STOP-INTENT.json：自有23420 started→stopped/sign1/failedfalse/来源采集0，无浏览器启动；原23266/Bridge保留。
 - RUN15/task-executor-route/{FREEZE.json,DELIVERY.md,CONTRACT-PGLITE33.json}：5文件候选初9路线/117回归/原Edge鉴权和PGlite合同33检查通过，非正式采用/来源。独审随后发现本地安装描述的TOCTOU风险，待同FD安全读取修复和复核，初freeze不能作为最终放行。完整媒体门禁仍关闭。
+
+
+## E39｜2026-10-15 23:52 CST 单任务路由正式运行与媒体预算阻断
+- RUN15/task-executor-route/independent/FINAL-V2.json：非作者实际descriptor5、route9、portable9、旧回归117、原Edge鉴权/PGlite33通过；V1文件替换反例保留。同FD读取修复、真实正常venv入口/官方能力probe0来源。
+- RUN15/task-route-adoption/independent/{PREPARATION-FINAL,ACTUAL-RUNTIME-FINAL,ACTUAL-EDGE30-FINAL,XHS-PRESERVED-METADATA}.json：脚本生命周期AST保持；实际27475唯一/21129停、4源码/401其余与完整fileset/五库actualbackup原行与schema/125资产保持、idle/alive/pending0。fresh实际Edge30对payload26运行模块相同，对29仅contract/core，无SQL/image/codec/index倒退。原XHS23266/连接/登记保持，审查者0getCookies/self。
+- RUN15/task-route-adoption/{FORMAL-SIX-FILE-LIST,EDGE-DEPLOY-INTENT,EDGE-DEPLOY-RESULT,SOURCE-PUBLISH-RECEIPT}.json及runtime-adoption/ADOPTED.json：源码800949f推送返回0/远端同SHA；4runtime+2Edge六文件精确；默认MC不变、完整媒体拒绝，无新任务/来源。正式portable9再跑通过。
+- RUN15/pro-shared-budget/INDEPENDENT-REDIRECT-INITIAL-FAILURE.json：非作者本机临时HTTP302实测2请求只扣1，0真实平台/凭据/云；另坏stage免扣反例保留，候选未过。媒体V2依赖旧预算不能整体放行；后续修复须新freeze/复核。
+- RUN15/batches/BATCH-2330{,-RESULT}.md：官方Python文档证据与独立推演分别记录；不能把目标或受控transport测试当真实平台验收。

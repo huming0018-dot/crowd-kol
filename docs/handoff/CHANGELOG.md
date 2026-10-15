@@ -223,3 +223,12 @@
 - **版本/部署**：正式2cfa680、当前21129/Edge29/SQL150035不变。路由5文件候选初测试通过，独审发现描述符TOCTOU，作者修复中，未采用/部署/启动新采集。
 - **证据/发布**：E38及实际RESULT、重启元信息、签名生命周期；固定三文档精确发布后见HANDOFF-E38-PUBLISH-RECEIPT.json。Pro私码/凭据/PRIVATE原件不发布。
 - **遗留/下一步**：Pro单任务路由复核、成熟媒体隔离与共享预算、同输入正文/分页/媒体/导出/云ACK；OTA71实际采用、两设备及48h仍未全验，watchdog保持暂停。
+
+
+## 2026-10-15 23:52 CST｜单任务路由正式采用、实际独审和源码发布
+- **接力者/独审**：native实现路由；root精确接线/Edge部署/采用；native_diagnostics_review独立代码、准备包和实际运行审查。
+- **改动/版本**：mc_runner/owner_tasks/pro_executor/portabletest及crowd-machine contract/core共6文件；800949f已push/远端同SHA。缺省旧hash/MC保持，显式Pro不静默fallback。无SQL、凭据或旧任务修改。
+- **发现/修复**：描述文件TOCTOU同FD修复；正常venv入口曾被误拒，保留原入口修复；旧负例保留。descriptor5/route9/portable9/回归117/PGlite33实际独审通过。
+- **部署/线上**：Edge30 ACTIVE实际26模块等审包，29仅两模块变；27475/task-executor-route-85e5f3863629e220唯一，旧21129停。五锁五库actualbackup及125资产守护、4源码/401其余/fullset与实际cloudidle已非作者核。原XHS连接/登记保持，未重发登录请求。
+- **业务验收限制**：只完成每任务路由，完整Pro媒体仍拒绝，未新建来源任务或上传。共享预算真实302漏扣、坏stage免扣阻断待修，不能以8测试通过替代；媒体V2仅受控SDK流程。
+- **下一步/证据**：E39实际报告、SOURCE-PUBLISH-RECEIPT、运行ADOPTED；修共享预算并组合媒体主调用，再同输入正文/分页/媒体/导出/云ACK。OTA71实际采用、全端/两设备/48h未全验，watchdog暂停。E39交接发布以HANDOFF-E39-PUBLISH-RECEIPT.json为准。
