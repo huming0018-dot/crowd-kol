@@ -85,7 +85,8 @@ def project(run,manifest=None):
     stage='page_saved' if len(saved)==len(page['ids']) else 'page_partially_saved'
     fact_key=digest({'page':page_hash,'stage':stage,'durable_ids':saved})
     facts.append((fact_key,{'source_stage':stage,'scope':page['scope'],'saved_rows':len(saved),'page_sha256':page_hash}))
- if not facts:return {'facts_added':0,'readback_only':True}
+ counts={'contents':len(topics),'comments':len(comments)}
+ if not facts:return {'facts_added':0,'readback_only':True,'saved_counts':counts}
  path=safe_path(run/'mc-source-steps.sqlite3')
  for suffix in ('-wal','-shm'):safe_path(run/('mc-source-steps.sqlite3'+suffix))
  if path.exists() and (not path.is_file() or path.stat().st_size>10_000_000):raise ValueError('pro_steps_journal_invalid')
@@ -109,4 +110,4 @@ def project(run,manifest=None):
     db.execute('INSERT INTO pro_source_facts VALUES(?,?)',(fact,sequence));count+=1;added+=1
    db.commit()
  except (sqlite3.Error,OSError,RecursionError,TypeError,AttributeError):raise ValueError('pro_steps_journal_unavailable') from None
- return {'facts_added':added,'readback_only':True}
+ return {'facts_added':added,'readback_only':True,'saved_counts':counts}

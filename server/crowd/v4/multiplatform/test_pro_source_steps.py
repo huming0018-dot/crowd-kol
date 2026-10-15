@@ -50,4 +50,30 @@ class Tests(unittest.TestCase):
   result=mc_runner.status(root,{'run_id':self.rid});self.assertEqual(result['state'],'failed');self.assertEqual(result['reason'],'original_failure');self.assertEqual(result['source_monitor_error'],'pro_steps_observation_failed');self.assertEqual(result['source_steps'][0]['source_stage'],'content_saved')
  def test_default_mc_no_journal_no_changed_behavior(self):
   self.m['executor']={'backend':'mc'};self.assertEqual(project(self.run,self.m)['facts_added'],0);self.assertFalse((self.run/'mc-source-steps.sqlite3').exists())
+ def test_failed_progress_counts_are_current_storage_not_success_or_file_mutation(self):
+  import mc_runner,time
+  self.put('comment','10',{'comment_id':'10','video_id':'1','parent_comment_id':'0'})
+  folder=self.run.parent/'runs';folder.mkdir();self.run.rename(folder/self.rid);self.run=folder/self.rid;self.db=self.run/DB_NAME
+  raw={'run_id':self.rid,'state':'failed','executor':'mediacrawler_pro','updated_at':time.time(),'reason':'original_failure','item_count':0,'comment_count':0}
+  status=self.run/'status.json';status.write_text(json.dumps(raw));before=status.read_bytes()
+  result=mc_runner.status(folder.parent,{'run_id':self.rid})
+  self.assertEqual((result['item_count'],result['comment_count']),(1,1));self.assertEqual(result['source_reported_counts'],{'item_count':0,'comment_count':0})
+  self.assertEqual(result['count_basis'],'current_durable_pro_observations');self.assertEqual(result['state'],'failed');self.assertEqual(result['reason'],'original_failure');self.assertEqual(status.read_bytes(),before)
+ def test_empty_valid_storage_is_known_zero_not_missing_storage(self):
+  with sqlite3.connect(self.db) as db:db.execute('DELETE FROM vox_crawl_observation')
+  self.assertEqual(project(self.run)['saved_counts'],{'contents':0,'comments':0})
+  self.db.unlink();self.assertNotIn('saved_counts',project(self.run))
+ def test_counts_do_not_bypass_broken_page_proof(self):
+  doc=self.pages();doc['sha256']='0'*64;(self.run/'pro-pagination.json').write_text(json.dumps(doc))
+  with self.assertRaises(ValueError):project(self.run)
+ def test_invalid_counts_keep_status_failure_visible_without_crashing(self):
+  import mc_runner,time
+  from unittest.mock import patch
+  folder=self.run.parent/'runs';folder.mkdir();self.run.rename(folder/self.rid);self.run=folder/self.rid;self.db=self.run/DB_NAME
+  raw={'run_id':self.rid,'state':'failed','executor':'mediacrawler_pro','updated_at':time.time(),'reason':'original_failure','item_count':0,'comment_count':0}
+  status=self.run/'status.json';status.write_text(json.dumps(raw));before=status.read_bytes();project(self.run)
+  bad_values=[[],{},True,{'contents':True,'comments':1},{'contents':1,'comments':False},{'contents':-1,'comments':1},{'contents':1,'comments':100001},{'contents':1.0,'comments':1},{'contents':1,'comments':1,'extra':1}]
+  for bad in bad_values:
+   with self.subTest(bad=bad),patch('pro_source_steps.project',return_value={'saved_counts':bad}):result=mc_runner.status(folder.parent,{'run_id':self.rid})
+   self.assertEqual(result['source_monitor_error'],'pro_steps_observation_failed');self.assertEqual(result['state'],'failed');self.assertEqual((result['item_count'],result['comment_count']),(0,0));self.assertEqual(status.read_bytes(),before)
 if __name__=='__main__':unittest.main()

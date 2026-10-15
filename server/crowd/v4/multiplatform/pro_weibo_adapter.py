@@ -123,8 +123,8 @@ class WeiboPagination:
         self.bridge.write(self.run/'pro-pagination.json',{**d,'sha256':hashlib.sha256(raw.encode()).hexdigest()})
     def notify(self,page):
         # Only the existing central step reader's safe descriptor; no content/UID/cookies.
-        try:self.event('page_saved',{'page_sha256':hashlib.sha256(self.bridge.canonical(page).encode()).hexdigest(),
-                'page_index':self.pages.index(page)+1,'scope':page['scope'],'saved_rows':len(page['ids']),
+        try:self.event('page_saved' if page['saved'] else 'page_partially_saved',{'page_sha256':hashlib.sha256(self.bridge.canonical(page).encode()).hexdigest(),
+                'page_index':self.pages.index(page)+1,'scope':page['scope'],'saved_rows':len(page.get('selected_ids',page['ids'])),
                 'checkpoint_committed':page['checkpoint_committed']})
         except Exception:pass
     def page(self,note,scope,models,incoming,outgoing,more,parent=None):
@@ -140,13 +140,13 @@ class WeiboPagination:
             if models:await callback(page['content_id'],models)
             from pro_executor import observations
             rows={entity:row for kind,entity,row in observations(self.run,self.manifest) if kind=='comment'}
-            for identity in page['ids']:
+            for identity in page.get('selected_ids',page['ids']):
                 row=rows.get(identity,{})
                 if str(row.get('note_id'))!=page['content_id']:raise ValueError('wb_save_not_durable')
                 parent=str(row.get('parent_comment_id') or '')
                 if (page['scope']=='reply' and parent!=page['parent_id']) or (page['scope']=='root' and parent not in ('','0',identity)):
                     raise ValueError('wb_comment_parent_invalid')
-            page['saved']=True;self.persist();self.notify(page)
+            page['saved']=len(page.get('selected_ids',page['ids']))==len(page['ids']);page['selected_saved']=True;self.persist();self.notify(page)
         except BaseException:
             self.reason='wb_save_failed'
             try:self.persist()
@@ -218,7 +218,14 @@ class WeiboPagination:
             models,meta=await processor.wb_client.get_note_comments(note_id,incoming,cursor_type)
             outgoing=meta.get('max_id');next_type=meta.get('max_id_type',0)
             if type(outgoing) is not int or outgoing<0 or type(next_type) is not int or not 0<=next_type<=9:raise WeiboAdapterStop('wb_page_cursor_invalid')
-            root=self.page(note_id,'root',models,[incoming,cursor_type],[outgoing,next_type],outgoing!=0)
+            received=models
+            limit=self.manifest['request']['max_comments']
+            remaining=max(0,limit-previous_count-len(result)) if limit else len(received)
+            models=received[:remaining]
+            if received and not models:raise WeiboAdapterStop('wb_comment_limit_state_invalid')
+            root=self.page(note_id,'root',received,[incoming,cursor_type],[outgoing,next_type],outgoing!=0)
+            truncated=len(models)!=len(received)
+            if truncated:root['selected_ids']=[str(v.comment_id) for v in models];root['selection_limit']=limit;root['selection_completed']=False
             await self.save(root,models,callback);result.extend(models)
             complete=True
             if self.manifest['request']['replies']:
@@ -229,12 +236,17 @@ class WeiboPagination:
                 self.coverage='partial';self.persist();raise WeiboAdapterStop(self.reason)
             limit=self.manifest['request']['max_comments'];limited=bool(limit and previous_count+len(result)>=limit)
             terminal=outgoing==0 or limited
-            ok=await manager.update_note_comment_cursor(checkpoint_id=checkpoint_id,note_id=note_id,comment_cursor=str(outgoing),
+            # A selected prefix cannot advance beyond unprocessed roots in this page.
+            committed_cursor=incoming if truncated else outgoing
+            ok=await manager.update_note_comment_cursor(checkpoint_id=checkpoint_id,note_id=note_id,comment_cursor=str(committed_cursor),
                 saved_comment_count=previous_count+len(result),is_success_crawled_comments=terminal)
             actual=await manager.get_note_info_from_checkpont(checkpoint_id,note_id)
-            if ok is not True or await manager.get_note_comment_cursor(checkpoint_id,note_id)!=str(outgoing) or actual.saved_comment_count!=previous_count+len(result):
+            if ok is not True or await manager.get_note_comment_cursor(checkpoint_id,note_id)!=str(committed_cursor) or actual.saved_comment_count!=previous_count+len(result):
                 raise WeiboAdapterStop('wb_checkpoint_unconfirmed')
-            root['checkpoint_committed']=True;self.coverage='exhausted' if outgoing==0 else 'limit_reached' if limited else 'partial';self.reason='accessible_chain_ended' if outgoing==0 else 'whole_page_soft_limit' if limited else 'more_pages'
+            root['checkpoint_committed']=not truncated
+            if truncated:root['selection_completed']=True
+            self.coverage='limit_reached' if truncated else 'exhausted' if outgoing==0 else 'limit_reached' if limited else 'partial'
+            self.reason='selected_root_prefix_limit' if truncated else 'accessible_chain_ended' if outgoing==0 else 'comment_limit' if limited else 'more_pages'
             self.persist();self.notify(root)
             if terminal:return result
             incoming,cursor_type=outgoing,next_type
@@ -273,11 +285,18 @@ def pagination_summary(run,manifest,executor):
                         pair[0]<(-1 if key=='cursor_in' else 0) or not 0<=pair[1]<=9):raise ValueError('cursor')
                 if type(page['has_more']) is not bool:raise ValueError('terminal')
                 if index and (roots[index-1]['has_more'] is not True or page['cursor_in']!=roots[index-1]['cursor_out']):raise ValueError('chain')
-                if page['saved'] is not True or page['checkpoint_committed'] is not True:return {'coverage':'partial','reason':'wb_parent_checkpoint_unconfirmed'}
-                root_ids.update(page['ids'])
+                selected=page.get('selected_ids')
+                if selected is not None:
+                    consumed=sum(len(v.get('selected_ids',v['ids'])) for v in evidence.pages[:evidence.pages.index(page)] if v['content_id']==note)
+                    if len(selected)!=min(len(page['ids']),max(0,manifest['request']['max_comments']-consumed)):raise ValueError('selection_count')
+                    if (index!=len(roots)-1 or not isinstance(selected,list) or not selected or selected!=page['ids'][:len(selected)] or len(selected)>=len(page['ids']) or
+                        page['saved'] is not False or page['checkpoint_committed'] is not False or page.get('selected_saved') is not True or page.get('selection_completed') is not True or
+                        type(page.get('selection_limit')) is not int or page['selection_limit']!=manifest['request']['max_comments'] or len(selected)>page['selection_limit']):raise ValueError('selection')
+                elif page['saved'] is not True or page['checkpoint_committed'] is not True:return {'coverage':'partial','reason':'wb_parent_checkpoint_unconfirmed'}
+                root_ids.update(selected if selected is not None else page['ids'])
             selected=[p for p in evidence.pages if p['content_id']==note]
             for page in selected:
-                if page['scope'] not in ('root','reply') or page['saved'] is not True:return {'coverage':'partial','reason':'wb_page_not_saved'}
+                if page['scope'] not in ('root','reply') or (page['saved'] is not True and page.get('selection_completed') is not True):return {'coverage':'partial','reason':'wb_page_not_saved'}
                 if page['scope']=='reply':
                     if page['parent_id'] not in root_ids or page['checkpoint_committed'] is not False:return {'coverage':'partial','reason':'wb_reply_binding_invalid'}
                     chain=[p for p in selected if p['scope']=='reply' and p['parent_id']==page['parent_id']]
@@ -298,7 +317,7 @@ def pagination_summary(run,manifest,executor):
                             targets=part.get('targets')
                             if not isinstance(targets,dict) or not set(targets).issubset(part['ids']) or any(t!=page['parent_id'] and t not in identities for t in targets.values()):raise ValueError('reply_target')
                 if len(page['ids'])!=len(set(page['ids'])):raise ValueError('duplicates')
-                for identity in page['ids']:
+                for identity in page.get('selected_ids',page['ids']):
                     if identity in seen:raise ValueError('replayed')
                     seen.add(identity);count+=1;row=saved.get(identity,{})
                     if str(row.get('note_id'))!=note:raise ValueError('durable')
@@ -307,15 +326,18 @@ def pagination_summary(run,manifest,executor):
                     if page['scope']=='reply' and parent!=page['parent_id']:raise ValueError('reply_parent')
             cp=notes.get(note,{})
             if (cp.get('is_success_crawled_comments') is not True or type(cp.get('saved_comment_count')) is not int or cp.get('saved_comment_count')!=count or
-                str(cp.get('current_note_comment_cursor'))!=str(roots[-1]['cursor_out'][0])):return {'coverage':'partial','reason':'wb_checkpoint_count_or_cursor_mismatch'}
+                str(cp.get('current_note_comment_cursor'))!=str(roots[-1]['cursor_in'][0] if roots[-1].get('selection_completed') else roots[-1]['cursor_out'][0])):return {'coverage':'partial','reason':'wb_checkpoint_count_or_cursor_mismatch'}
             last=roots[-1]
-            if last['has_more'] is False:
+            if last.get('selection_completed') is True:
+                if not manifest['request']['max_comments'] or count<manifest['request']['max_comments']:raise ValueError('selection_limit')
+                all_exhausted=False
+            elif last['has_more'] is False:
                 if last['cursor_out'][0]!=0:raise ValueError('terminal')
             elif last['has_more'] is True:
                 if not manifest['request']['max_comments'] or count<manifest['request']['max_comments']:return {'coverage':'partial','reason':'wb_limit_unconfirmed'}
                 all_exhausted=False
             else:raise ValueError('terminal')
         if set(saved)!=seen or any(p['content_id'] not in topics for p in evidence.pages):raise ValueError('unbound')
-        return {'coverage':'exhausted' if all_exhausted else 'limit_reached','reason':'accessible_chain_ended' if all_exhausted else 'whole_page_soft_limit','reply_scope':'embedded_or_verified_child_cursor'}
+        return {'coverage':'exhausted' if all_exhausted else 'limit_reached','reason':'accessible_chain_ended' if all_exhausted else 'selected_root_prefix_limit' if any(p.get('selection_completed') is True for p in evidence.pages) else 'comment_limit','reply_scope':'embedded_or_verified_child_cursor'}
     except (OSError,ValueError,KeyError,TypeError,AttributeError,RecursionError,executor.bridge().BridgeError):
         return {'coverage':'unknown','reason':'wb_pagination_evidence_invalid'}

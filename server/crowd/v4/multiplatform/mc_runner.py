@@ -12,6 +12,7 @@ import re
 import resource
 import signal
 import stat
+import sqlite3
 import subprocess
 import sys
 import time
@@ -562,7 +563,15 @@ def status(root, payload):
     if state.get('executor')=='mediacrawler_pro':
         try:
             from pro_source_steps import project
-            project(run)
+            projected=project(run)
+            counts=projected.get('saved_counts')
+            if counts is not None:
+                if (not isinstance(counts,dict) or set(counts)!={'contents','comments'} or
+                    any(type(value) is not int or not 0<=value<=100000 for value in counts.values())):
+                    raise ValueError('pro_steps_counts_invalid')
+                state={**state,'source_reported_counts':{key:state[key] for key in ('item_count','comment_count') if key in state},
+                    'item_count':counts['contents'],'comment_count':counts['comments'],
+                    'count_basis':'current_durable_pro_observations'}
             if safe_phase_progress(run).get('source_monitor_error')=='pro_steps_observation_failed':
                 state={**state,'source_monitor_error':'pro_steps_observation_failed'}
         except (ValueError,OSError,sqlite3.Error,BridgeError):
