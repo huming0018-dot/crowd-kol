@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-15 00:04 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-15 15:02 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -21,6 +21,21 @@
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
+
+### 2026-10-15当前增量（优先于下列10-14历史时点）
+
+- 按14:22开始的15分钟批次并行推进，三作者分工、非作者交叉独审。正式功能源码5f40ef3、03a38fe及发布b6be7cd均已推送。正式工作台5文件已采用，PID31520；独立核386其他源码、121历史文件、4库与实际备份逐行等同。旧1526ACK保持，新的source0验收使当前1529ACK、pending0。数据repr摘要的跨Python差异已用同解释器和原始行比较解释，不隐藏差异。
+- 中央机器步骤SQL及Edge24正式部署，12文件相对actual23仅core/unified_monitor两改+machine_steps新增，其他9精确保留。机器沿原worker/claim/run/epoch；不削弱参与者表FK。SQLite耐久队列、未知ACK原事件重放、永久坏组保留隔离、独立上传线程、Owner最近200/历史分页已独审。Pro每个持久保存页有hash绑定事件；MC原引擎逐页仍缺，不称全平台逐请求监控完成。
+- 新验收task `b619f7f5-8a2c-49a8-b752-674b9dc1441a` completed，1正文+根评论1+回复1、3唯一ACK、source spent/reserved0；6中央步骤与本地持久队列/Owner真实HTTP逐项一致，全文字段/parent/media引用/origin/metrics/冻结rev71/原envelope与finish均独审通过。此为已保存数据交付，不是新来源、媒体字节或登录恢复现场验收。
+- 登录共享层已修：checking/logout/check_failed撤销旧核验，原生pong异常耐久check_failed；原session/pending_run/account_ref/outbox保留。36测试及root独立真实store13负例通过。完整真实登出重登与原云任务继续尚未验；Pro专属原生账号状态接线仍在补，不把MC隔离结果外推。
+- 原生helper通用binary `8198638abe0013ff3540e3d1a41f682a8fc206d793bd61e4d97cc666f3272a91`已在原本机沿既有锁/备份/reconnect采用。实际Chrome native schema1/applied70；原配置/state与身份/进度保护通过。updater_enabled原储存两侧均缺失，不能从摘要相等推为显式开启。
+- OTA70 source03a38fe，签名seq2026101570；固定ZIP2992d9f，ZIP SHA `ac2f529ea19f45917e23e942b725ad045efb5fcc42754f897e9ea00636e42531`、release SHA `9e5b46b1ace6a612c2897ef95113b82a9884593daae1beb190f64b1bf0ccc284`，通道及一键helper已发布b6be7cd。原本机69→70、identity/queue/history/进度/原received2/outbox0与真实云started/waiting/completed已独审。另一原节点14:57实查仍69，远端helper未验。首个只读native错误漏取安全错误码、升级后两个原Chrome进程消失原因未知；已核句柄不存在后只重开同一原XHS profile，不重发apply。
+- 新错误码固定分类及生产三函数已部署，实际定义/ACL/原source/receipt保持独审通过。历史失败fresh全表为12条unexpected_error，旧四条只是旧快照，均保留；没有自然ota_*新错误现场，不能倒填根因或称自然故障码往返已过。
+- CookieBridge曾因原进程退出与Chrome开发者模式关闭失联；本机服务已用同一已审封装恢复。原Bili client正常复连但Bili/DY Cookie当前无，其他单Cookie不代表登录有效。用户已新增明确授权原XHS profile加载同组件并仅同步127:8274；安装正常目录选择器已打开，原生控制只能定位另一份日常Chrome，等待用户在原选择器选目录。没有改日常Chrome或搬运Cookie作旁路。
+- XHS/DY轻量Signer原SDK候选已修NODE_OPTIONS预载、Python DNS/UDP等拦截缺口并独审准入validate-only；不是平台接受签名或实际采集通过。XHS/DY分页/Pro账号适配继续并行。默认MC保持；48h和看门狗不启动。详见E28及本轮日志。
+
+
+### 10-14历史基线（现态以本节上述增量为准）
 
 - 中央delivery_pending释放来源槽、原manifest/epoch交付恢复、Owner原ID恢复入口已独审并部署（E16/E17），Edge23保留原合同；尚无自然坏组完整恢复现场证据。参与者XHS pilot与机器多平台仍是两执行链，机器中央全部步骤、任意任务任意节点尚未全通。本轮不替换原身份/评分/参与者流程，原两设备各2条预算保持。
 - 正式功能提交：crowd-kol `30139a2`（绑定/拒绝收尾提交8c3444a及HTTP窄扩容）、crawler-extension `c5ff909`、crowd-pages `76474d2999e752e0b385b544e5a60f33e65a2033`，均已推送原授权分支；后续交接文档提交另见git log。
@@ -54,7 +69,7 @@
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/saved-http-fa00c58899c78085/ | 最近已采用工作台源码快照；工作树HEAD不是运行版本 |
+| .crowd-launch/runtime-revisions/machine-steps-ed2cbd370253e241/ | 最近已采用工作台源码快照；工作树HEAD不是运行版本 |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -69,11 +84,11 @@
 
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
-| crawler-extension | c5ff909 | OTA69 source published; other pre-existing assets preserved |
-| crowd-kol | 功能提交30139a2 | 绑定、已知拒绝收尾与HTTP窄扩容正式采用；交接文档提交另见git log |
-| crowd-pages | 76474d2999e752e0b385b544e5a60f33e65a2033 | Signed OTA69; pinned ZIP 678cfd9875abc255b552116363591ea3515f1402 |
+| crawler-extension | 03a38fe | OTA70已发布；其他未提交资产保持 |
+| crowd-kol | 功能提交5f40ef3 | 中央机器步骤/共享登录状态与安全OTA合同正式采用；其他未提交资产保持，文档提交另见git log |
+| crowd-pages | b6be7cd | 签名OTA70；固定ZIP提交2992d9ffc5388453ead9af0d1641af9da908a4f9；helper工具已发布 |
 
-以上HEAD本轮实际读取。运行源码以第3节及E26后续采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+以上HEAD本轮实际读取。运行源码以第3节当前增量及E28采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -92,11 +107,11 @@
 
 | ID/优先级 | 问题、证据与影响 | 解决所需证据 |
 |---|---|---|
-| R1–R4 | 本机连续OTA已过，两节点已上报69与准确release摘要；完整登录恢复/真实评论休眠分页及远端原生连续链未全验 | 保持原任务、同账号，以原ID继续/准确partial/ACK证明，不新建任务制造成功 |
+| R1–R4 | 本机68→69→70已过，本机70/另一原节点仍69各有准确release摘要；完整登录恢复/真实评论休眠分页及远端原生连续链未全验 | 保持原任务、同账号，以原ID继续/准确partial/ACK证明，不新建任务制造成功 |
 | D1 | 槽释放、原ID交付恢复、Owner入口已上线；当前无真实坏组可验 | 实际defer→原ID ACK→finish链；不人为破坏用户数据充当验收 |
-| D2–D3 | 通用参与者派单、机器中央逐步骤仍不完整；supervisor未持久记录child PID/预算标记时刻 | 任意任务两节点不重复领取、完整中央来源至ACK时间线 |
+| D2–D3 | 机器中央phase/Pro保存页/ACK已部署并source0实证；MC原生逐页、通用参与者派单及supervisor child PID/预算标记时间仍不完整 | 任意任务两节点不重复领取、完整中央来源至ACK时间线 |
 | D4–D7 | 用户中台恢复、克隆身份围栏、跨任务去重和并发仍未全验 | 同UID不清outbox恢复、双节点epoch竞态、失败隔离与受控并发 |
-| Pro接入 | CookieBridge正式加载已跨重启通过；原SignSrv受限封装已独审并历史运行，三个试验服务当前均已正常停止，各试验预算不复用；CookieBridge127:8274保持运行 | 正常重启仍有原扩展；只连127.0.0.1:8274；明确client/native pong；同输入正文、分页回复、媒体、导出 |
+| Pro接入 | CookieBridge正式加载已跨重启通过；原Bili SignSrv三试验均已正常停止且预算不复用；CookieBridge本轮恢复、原XHS同组件安装已获新增授权但尚待目录选择；XHS/DY新Signer仅validate准入 | 正常重启仍有原扩展；只连127.0.0.1:8274；明确client/native pong；同输入正文、分页回复、媒体、导出 |
 | 审查容量 | 3名独审代理本轮多次返回模型容量错误 | 不改用未经要求的新模型、不把未出结论的检查算通过；接续已有审查工件 |
 | 全端及质量 | Windows/VM/mobile、全评论媒体字幕、ASR质量和48h未全验 | 分OS/平台/维度的真实证据，不以Mac样本外推 |
 
@@ -107,7 +122,7 @@
 
 安全起步：读取源码/文档、uname/pwd/git status/log、SHA比对、既存脱敏证据；用已授权连接器执行明确只读查询。测试先审其副作用。不要为了核验调用claim/start/finish/arm，或启动会自动执行任务的服务。
 
-下一步：先读取E27两云任务已完成的最终逐条独审证据，不重复创建或交付；接着补native安全诊断分类、机器中央步骤和原任务登录恢复。不得重建未知任务、重复扫码或把批次上限称全量完成。证据及发现见E25–E27与本轮日志。
+下一步：先读E28本轮正式采用与真实source0步骤、OTA70独审，不重复创建这些任务或重发OTA；继续原XHS CookieBridge安装后的本人会话核验、Pro分页/登录恢复及其他平台同输入媒体字节/导出/真实云验收，补MC原引擎逐页。不得重建未知任务、重复扫码或把批次上限称全量完成。证据及发现见E25–E27与本轮日志。
 
 
 ## 9. 维护与共享

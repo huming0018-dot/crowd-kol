@@ -106,3 +106,10 @@
 ### 同轮实际发布核验
 - 五份Markdown提交6277182d56a9d9ff5bc1203e000ee04538d5adc7已推送；git ls-remote原仓原分支实际返回同SHA。功能提交仍30139a2，运行服务未因此变化。固定入口为https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md。
 - 非作者五MD复核通过；EOF空行已修、diff --check通过。JSON原件、PRIVATE资料、其他未提交资产未发布。该追加记录为文档发布凭据，不代表重新核验全部线上业务。
+
+## 2026-10-15 15:02 CST｜三路并行、正式采用及真实门禁
+- Codex/root统筹，native_diagnostics/central_steps/login_recovery实现，非作者交叉审查；root独审登录store，native_diagnostics_review独审原生/包/正式采用。工作按RUN15的15分钟批次推进，未将剩余Pro平台缩出目标。
+- 源码5f40ef3与03a38fe已推送；SQL两迁移及Edge24部署、runtime machine-steps-ed2cbd370253e241/PID31520采用，原4库/121资产/原ACK保持独审。新source0三观测task b619f7f5…及6中央步骤、精确云回执独审，1529ACK/pending0。
+- OTA70固定ZIP2992d9f、签名通道/助手工具b6be7cd已发布；本机原helper已采用并69→70/原身份进度与真实云completed独审。另一台仍69，远端助手未验。历史错误fresh12条保留，不把后续分类倒填；Chrome进程消失和首个漏取码错误未知，未重发apply。
+- XHS新增CookieBridge profile权限最初auto-review拒绝，用户随后明确授权；安装未完成、原目录选择器等待本人选择，未搬Cookie绕行。XHS/DY轻量签名复用原SDK并修独审注入/网络缺口，只准入validate；分页与Pro账号接线继续，完整重登和其他平台媒体/导出/回执未验。
+- 证据E28/RUN15；正式canonical本轮更新精炼状态与下一步，未上传PRIVATE/凭据或Pro私源码。48h及看门狗保持未启动。

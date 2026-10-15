@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-14。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E27为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E28为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -105,3 +105,16 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - `pro-followup-live/INDEPENDENT-CLOUD129-SNAPSHOT-FINAL.json`与`pro-cap-live/INDEPENDENT-CLOUD107-SNAPSHOT-FINAL.json`：两纠正版completed/source spent/reserved0；所有交付采集字段（含origin/metrics/父子/media）=冻结export70/71+原规范records，差异0；236真实ACK与原envelope/digest/epoch完整唯一、finish重算分别94efe0d7681402364281da23094845f37503e071c22b2fa160d20cbaeeba9def、f50c68728f5b1432a9edea6ac8c74f55ac9ff2f9efddfc7e85fc0afefb477d20，等独立SQL。导出展示/人工评价元数据不是采集字段，完整行digest另在stage前核过。
 - `existing-saved-snapshot/independent/FINAL-REAL-CLOUD236.json`最终PASS_ACTUAL_BOUND236_CLOUD_DELIVERY_WITH_LIMITS；236是两冻结快照观测数，实体去重131=正文1+评论130，不能称236独立新内容。`LEGACY-CLOUD-FRESH-PRESERVATION.json`核旧失败保真任务原字段/ACK/finish保持；原2fe仍failed，新f2c bounded completed，不说全评论耗尽。
 - `FINAL-WORKBENCH-STATUS.json`：idle、scheduler alive、stale=false、1526ACK、pending/quarantine/deferred0。`pro-cap-live/COUNTER-SCOPE-CORRECTION.json`校准40为含loopback的runner HTTP尝试+另1Signer外部nav，平台专属请求未独立测，浏览器请求未计。
+
+
+### E28｜2026-10-15并行正式采用、中央真实步骤与OTA70
+
+本条新增RUN15=`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-15`，仅本地原件，不随Markdown发布。
+- `OPTIMIZATION_PLAN.md`固定14:22起15分钟批次/职责/验收；native_diagnostics、central_steps、login_recovery作者，互不参与实现的代理与root交叉独审。独审报告也在WORKSPACE/outputs/mediacrawler-execution/reviews/20261015-*。
+- `login-recovery/{RESULT,INDEPENDENT}.json`及before/after：共享登录状态两根因、36测试/root13独立store负例，SHA6e24f252…，已随5运行文件采用。真实登出重登、Pro接线未验。
+- `central-steps/{FREEZE.json,independent/FINAL.json}`：12文件；实际原DDL/完整Edge、38CloudWorker/9dashboard、队列/慢传输/故障/DOM；修真实claims无task_id、旧200窗口、同步遥测反阻等，不用方便stub放行。
+- `adoption/independent/{FINAL.json,EDGE23-24-COMPARE.json,SYSTEM-PYTHON-REPR.json}`：PID31520、5SHA/386旧源码/121资产/4库原行与备份保持、原1526ACK；actual23→24仅两改一增/其余9byte保持；新SQL函数/RLS/ACL实查，非作者确认。
+- `cloud-step-acceptance/INDEPENDENT-FINAL.json`：task b619f7f5… 3真实唯一ACK/6中央事件，原epoch/事件ID/queue/OwnerHTTP逐项一致；冻结rev71原内容/父子/media引用/origin/metrics、envelope/finish重算通过。1529总ACK/pending0，source0/local_run null，不代表来源分页或媒体下载验收。
+- `native-diagnostics/independent/{FINAL.json,RELEASE70-FINAL.json,ACTUAL-HELPER-ADOPTION.json,ACTUAL-SQL-ADOPTION.json,OTA70-ACTUAL-FINAL.json}`：Swift实际编译/真实负例、PGlite生产函数/ACL、通用binary独立重建一致、工具迁移9正负例；正式本机helper/schema1/LaunchAgents/配置身份保持、3函数部署精确；70包/工具/通道公网GET/hash/签名/真实本机升级与云事件通过，另一节点仍69，远端helper及自然报错未验。
+- `pro-next-platform/{PLAN.md,SIGN-RUNTIME.md,SIGN-FREEZE.json,independent/REVIEW.md}`：实际原SDK临时loopback链/无来源，Node环境注入及Python DNS/UDP初失败与修复保留。仅validate准入，Node非OS网络沙箱，XHS/DY实际平台接受签名及分页/媒体/导出未完成。
+- `BRIDGE-*.json`与native `ORIGINAL-PARTICIPANT-REOPEN.json`记录本轮进程/真实连接边界。正常扩展页拖入未成功；原XHS加载用户已精确授权、实际目录选择尚待。不得把授权或目录已打开写成安装完成。
