@@ -945,4 +945,65 @@ class RecoveryTests(unittest.TestCase):
             finally: service.close()
 
 
+
+
+class BiliRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name).resolve()
+        self.sid = str(uuid.uuid4())
+        self.session = self.root / 'sessions' / self.sid
+        self.session.mkdir(parents=True)
+        (self.session / 'identity.json').write_text('{"platform":"bili"}')
+        self.store = AccountSessions(self.root)
+        self.store.observe(self.sid, 'bili', 'authenticated', account_id='123')
+        self.run = str(uuid.uuid4())
+        self.store.observe(self.sid, 'bili', 'logged_out', self.run)
+        class Client:
+            async def request(inner): return inner.payload
+            async def pong(inner): return bool((await inner.request()).get('isLogin'))
+            async def update_cookies(inner, **kw): pass
+        self.Client = Client
+        self.client = Client()
+        install_hooks(self.root, self.sid, 'bili', None, lambda *args: None,
+                      client_class=Client, interactive_login=True)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_truthy_flags_and_invalid_official_subject_never_authorize(self):
+        for value in ({'isLogin':'true','mid':123}, {'isLogin':1,'mid':123},
+                      {'isLogin':True,'mid':True}, {'isLogin':True,'mid':123.0},
+                      {'isLogin':True}, {'isLogin':True,'mid':0}, {}):
+            with self.subTest(value=value):
+                self.client.payload = value
+                self.assertFalse(asyncio.run(self.client.pong()))
+                state = self.store.status(self.sid)
+                self.assertIsNone(state.get('authorized_for_run'))
+                self.assertEqual(state.get('login_error_code'), 'login_verification_unavailable')
+
+    def test_official_subject_must_match_original_account(self):
+        self.client.payload = {'isLogin':True,'mid':456}
+        with self.assertRaises(SystemExit) as raised:
+            asyncio.run(self.client.pong())
+        self.assertEqual(raised.exception.code, 78)
+        self.assertEqual(self.store.status(self.sid)['state'], 'account_changed')
+        self.assertEqual(self.store.status(self.sid)['pending_run_id'], self.run)
+        self.assertIsNone(self.store.status(self.sid).get('authorized_for_run'))
+
+    def test_ready_but_closed_original_page_stops_before_self_request(self):
+        class Login:
+            async def begin(inner): raise SystemExit(None)
+        self.store._update(self.sid, 'bili', lambda value: value.update(login_page_ready=True))
+        crawler = SimpleNamespace(context_page=SimpleNamespace(is_closed=lambda: True),
+                                  bili_client=self.client)
+        install_manual_login_fallback(crawler, self.store, self.sid, 'bili',
+                                      time.monotonic()+180, login_class=Login,
+                                      client_class=self.Client, utilities=SimpleNamespace())
+        with self.assertRaises(LoginFlowError) as raised:
+            asyncio.run(self.client.pong())
+        self.assertEqual(raised.exception.code, 'login_browser_closed')
+        self.assertEqual(self.store.status(self.sid)['pending_run_id'], self.run)
+
+
 if __name__ == '__main__': unittest.main()
