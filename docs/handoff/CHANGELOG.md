@@ -152,3 +152,16 @@
 - 作者主动补whole原SDK嵌套孙回复负例，复现旧119926dc候选漏6而完成，撤回候选放行并补partial/旧cursor保护。原失败保留，修后冻结/非作者复核尚待完成，未进入正式runtime/云采集。此反证不改变媒体已正式通过的边界。
 
 - WB反证修后generation2模块8b046e62作者whole第7例已证partial74/游标保持，原6例及59unit重过；仍候选待非作者复核和正式采用，不覆盖原失败、不称完整子回复采集。
+
+
+## 2026-10-15 17:26 CST｜Codex /root，WB模块实际采用
+- root采用、central实现、reviewer非作者核验、native图片合同；WB嵌套漏回复/schema bool修后v3独审通过，自有五文件3c164f6。能力展示和环境误激活守门、五锁五库/原PID/回滚保持。
+- 实际pro-weibo-aa40fc9b67a0e98d/PID68433，旧61381停；rev73/1624ACK0/123配置/五库原行/身份OTA保持。默认MC/WB不激活。非作者raw/source通过，最终idle/能力在核，不算WB真实采集。
+- 自行定位原WB profile/6旧样本；0正文completed不算业务成功，根parent=self不用XHS投影。无新登录窗、重报身份或来源。
+- 图片云6本地合同通过但root额外反例发现TOCTOU换图被接受，保留失败退作者修。候选未采用；权威RPC/真实decoder/MIME兼容/云回取未完成，字段合同不是权威ACK。
+- 下一步：采用终审/图片换图复核，继续原WB账号桥接同输入闭环和图片正式云链，其他平台/MC来源逐页/原任务恢复/远端helper未完成；48h不arm，看门狗PAUSED。
+
+### 17:29本轮结论更新
+- WB采用后独审实际PASS：PID68433/唯一端口/旧61381停、6冻结/391其他source/完整fileset、123保护、5库schema原行=实际备份；自然idle且73/1624ACK0/58步骤保持。首次claiming正常瞬态及检查脚本2新增错误假设保留，实际3新增2修改。默认MC/WB未开，无新来源/云任务。
+- 图片TOCTOU最小修后root非作者9组与原恶意替图脚本复跑通过，完整typed sidecar/注册版本/字节像素及文件代际核验，错误image_attachment_binding_changed。只允许本地候选准入，未采用/部署/上传；权威云合同、成熟Edge decoder及视频MIME兼容仍是明确下一步。
+- 每轮handoff更新继续；本轮源码3c164f6已推送授权crowd-kol分支（8acde50→3c164f6），远端ls-remote同SHA；本三份交接文档随后发布，尚不称已发布。不外发PRIVATE/图片/Pro私码。

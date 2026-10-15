@@ -159,3 +159,14 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - E32补充：WB whole execute嵌套子回复负例随后复现旧119926dc候选保存12却漏6孙回复，原候选放行撤回，execute_sdk_nested.py保留反证；正在窄修未覆盖即partial/游标不前移，尚无新freeze独审。当前正式媒体runtime不含该候选，原MC不受影响。
 
 - E32后续候选：WB generation2模块8b046e62修后whole第7嵌套用例partial74/父cursor不前移，原6路径/59unit作者重跑通过；修复反证不是全回复接口完成，peer复核与正式采用仍未完成，实际新freeze为准。
+
+
+### E33｜2026-10-15 17:26 WB正式模块采用及图片云反证
+- RUN15/batches/BATCH-1713.md：root实际采用/交接、central WB、reviewer非作者、native图片合同。自有五文件3c164f6eadae3a45c950453c4b61ca6ea597c0cd已推送crowd-kol/codex/v4.0.6-handoff，远端ls-remote同SHA；本三份交接文档随后发布。
+- pro-weibo-integration/FREEZE.json v3及IND/WB-INTEGRATION-FINAL.json：f237/aa40/944842，7原SDK/59unit/6旧平台及9严格篡改。原嵌套缺6/schema bool失败均保留。报告20261015-pro-weibo-executor-integration-v3-independent-review.md。
+- WB-RUNTIME-FREEZE.json gate改后b54cb2974e16644b5c0e6670d8e4b2a2e03d6b0ac25599236a34570b36670443、adopt-pro-weibo.py SHA675570e2cdd3e74acc50183f91a9921e1bd88a640104790662260034ee3daf94及IND/WB-ADOPTION-PACKAGE-FINAL.json：6源码、61unit/3环境/2最终能力测试；生命周期AST同已审media脚本。原三required与上游四actual分域，默认MC/WB unset。
+- pro-weibo-adoption/ADOPTED.json：唯一apply实际PID68433，旧61381停，五库备份/原始行及123配置保持；IND/WB-ADOPTION-LIVE-FINAL.json非作者最终PASS：391其他源码逐字节/完整fileset批准内、五库schema/rawrow同实际备份、123保护、73/1624ACK0/58step全ACK，HTTP自然idle/alive/stale=false、WB gatefalse/defaultMC/required3准确。最初claiming瞬态与错误假设只有2新增的检查失败日志保留；实际3新增2修改，不改产品造绿。
+- pro-weibo-integration/WB-{EXISTING-SESSION-READONLY,LOCAL-PRESENCE-READONLY,ORIGINAL-BROWSER-PRESENCE,BASELINE-INVENTORY}.json及WB-SAME-INPUT-PRECHECK.md：原会话仍在/无运行browser或Bridge绑定、未读Cookie值；6个completed之一0正文不能算成功。89da正文1/评论4（reported_root3/reported1）/media1；原根parent=self不适用XHS投影。无新来源。
+- image-cloud/FREEZE.json、DELIVERY.md、ROOT-INDEPENDENT-UNIT.log：6组合成回执/真实临时图片合同通过，仅本地准备，非权威ACK。root额外真实Pillow/ResultsStore反例ROOT-TOCTOU-INITIAL.log：resolve后替换同尺寸PNG仍获接受，退作者修；未采用/上传/部署。中央image表RPC/真实decoder/MIME与视频兼容/真实回取仍缺。pro-next-platform/IMAGE-CLOUD-DUAL-ROUTE-1716.md记录双路线，官方标准小图上传可复用，changelog.md取读失败明示。
+
+- E33最终补充（17:29）：image-cloud/ROOT-INDEPENDENT-FINAL.json、ROOT-INDEPENDENT-FIXED-UNIT.log、ROOT-TOCTOU-FIXED.log核候选Python cdd0b5c6/JS2b288d45/test7f8538a2。root独立9组通过，原同尺寸替图恶意脚本现image_attachment_binding_changed拒绝；原失败保留。返回字段receipt_contract_verified=true/authoritative_receipt_origin_verified=false，不冒称云ACK。尚无中央图片权威RPC/真实Edge decoder/MIME兼容/实际上传回取，候选未采用。正式review 20261015-image-cloud-local-contract-independent-review.md。
