@@ -32,8 +32,15 @@ class MediaStage:
   topics=[row for kind,entity,row in rows if kind=='topic']
   # The present child owns one fresh output/dispatch intent, so no implicit fanout.
   if len(topics)!=1 or manifest['request']['max_items']!=1:raise ValueError('hybrid_media_single_content_required')
-  note=topics[0];view=self.view.response_for(note);headers=self.headers.get(note.get('bvid'))
-  if headers is None:raise ValueError('hybrid_media_headers_unavailable')
+  note=topics[0]
+  if manifest['request'].get('platform')=='wb':
+   from pro_hybrid_media import weibo_mblog
+   from shared_request_budget import canonical
+   weibo_mblog(note)
+   view={'weibo_observation_sha256':hashlib.sha256(canonical(note).encode()).hexdigest()};headers={}
+  else:
+   view=self.view.response_for(note);headers=self.headers.get(note.get('bvid'))
+   if headers is None:raise ValueError('hybrid_media_headers_unavailable')
   if remaining<=0:raise SystemExit(80)
   mc_root=Path(mc_root);python=mc_root/'.venv/bin/python'
   if not mc_root.is_absolute() or not mc_root.is_dir() or not python.is_file():raise ValueError('hybrid_media_runtime_unavailable')
@@ -50,6 +57,19 @@ def summary(run,manifest):
  if not path.exists():return None
  value=_read(path,1048576)[0]
  if not isinstance(value,dict) or type(value.get('schema_version')) is not int or value.get('schema_version')!=1 or type(value.get('api_attempts')) is not int or not 0<=value['api_attempts']<=manifest['request']['max_api_requests'] or value.get('run_id')!=manifest['run_id'] or value.get('request_hash')!=request_fingerprint(manifest['request']) or value.get('state') not in ('completed','partial') or value.get('cloud_ack') is not False or value.get('content_engine')!='mediacrawler_pro' or value.get('media_engine')!='native_mc_media_only' or not isinstance(value.get('assets'),list):raise ValueError('hybrid_media_result_binding_invalid')
+ if manifest['request'].get('platform')=='wb':
+  from pro_executor import observations
+  from wb_media_child import verify_assets
+  from shared_request_budget import canonical
+  topics=[row for kind,entity,row in observations(Path(run),manifest) if kind=='topic']
+  if len(topics)!=1:raise ValueError('hybrid_media_single_content_required')
+  checked=verify_assets(Path(run),topics[0])
+  from pro_hybrid_media import weibo_image_plan
+  from shared_request_budget import RunRequestBudget
+  complete=len(checked)==len(weibo_image_plan(topics[0]))
+  ledger=RunRequestBudget(Path(run)/'request-budget.json',manifest['run_id'],request_fingerprint(manifest['request']),manifest['request']['max_api_requests'])
+  if (canonical(checked)!=canonical(value['assets']) or value['state']!=('completed' if complete else 'partial')
+      or value.get('subtitle_available') is not False or value['api_attempts']!=ledger.snapshot()['used']):raise ValueError('hybrid_weibo_asset_mismatch')
  return value
 
 def annotate_import(run,manifest,media):
@@ -58,7 +78,7 @@ def annotate_import(run,manifest,media):
  if result is None:return
  expected=result['assets'];paths=set()
  from cloud_sync import canonical
- fields=('path','bytes','sha256','platform','content_id','source_media_id','bilibili_view_cid','bilibili_media_identity_sha256')
+ fields=(('path','bytes','sha256','platform','content_id') if manifest['request'].get('platform')=='wb' else ('path','bytes','sha256','platform','content_id','source_media_id','bilibili_view_cid','bilibili_media_identity_sha256'))
  for asset in expected:
   if not isinstance(asset,dict) or asset.get('path') in paths:raise ValueError('hybrid_media_result_binding_invalid')
   paths.add(asset.get('path'))
@@ -70,5 +90,7 @@ def annotate_import(run,manifest,media):
   kind='audio' if suffix=='.m4a' else 'video' if suffix=='.mp4' else 'image'
   if asset.get('kind')!=kind:raise ValueError('hybrid_media_asset_mismatch')
   item.update(kind=kind,status='downloaded_by_hybrid_media_executor',content_engine='mediacrawler_pro',media_engine='native_mc_media_only')
+  if manifest['request'].get('platform')=='wb':
+   item.update({key:asset[key] for key in ('source_media_id','original_url','transport_url','image_index','weibo_observation_sha256','width','height','rgba_sha256')})
  # No unchecked file may get silently attributed to this hybrid child.
  if any(m.get('path') not in paths for m in media if m.get('path')):raise ValueError('hybrid_media_unregistered_asset')

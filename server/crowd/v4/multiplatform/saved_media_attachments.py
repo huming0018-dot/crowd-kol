@@ -12,6 +12,7 @@ from urllib.parse import urlsplit,urlunsplit
 from results_store import _record
 
 LIMIT=2*1024*1024
+WB_LIMIT=25*1024*1024
 HEX=re.compile(r'[a-f0-9]{64}')
 SCHEMA='crowd-saved-media-attachment-v1'
 MIMES={'JPEG':('image/jpeg','.jpg'),'PNG':('image/png','.png'),'WEBP':('image/webp','.webp')}
@@ -86,15 +87,16 @@ def verify_source(run,media_id):
     files={name:read(run/name,32*1024*1024 if name=='normalized.json' else 1024*1024) for name in ('manifest.json','status.json','normalized.json')}
     manifest,status,norm=(parse_json_object(files[n]) for n in ('manifest.json','status.json','normalized.json'))
     if not isinstance(manifest.get('executor'),dict) or not isinstance(manifest.get('request'),dict) or not isinstance(norm.get('media'),list) or not isinstance(norm.get('records'),list):raise ValueError('attachment_source_shape_invalid')
-    if any(row.get('run_id')!=rid for row in (manifest,status,norm)) or status.get('state')!='completed' or norm.get('run_state')!='completed' or manifest.get('executor',{}).get('backend')!='pro' or manifest.get('request',{}).get('platform')!='xhs' or norm.get('source_kind')!='mediacrawler_api' or norm.get('reward_eligible') is not False:raise ValueError('attachment_source_not_verified')
+    if any(row.get('run_id')!=rid for row in (manifest,status,norm)) or status.get('state')!='completed' or norm.get('run_state')!='completed' or manifest.get('executor',{}).get('backend')!='pro' or manifest.get('request',{}).get('platform') not in ('xhs','wb') or norm.get('source_kind')!='mediacrawler_api' or norm.get('reward_eligible') is not False:raise ValueError('attachment_source_not_verified')
     refs=[r for r in norm.get('media',[]) if isinstance(r,dict) and r.get('media_id')==media_id]
     if len(refs)!=1:raise ValueError('attachment_reference_ambiguous')
     ref=refs[0]
-    if ref.get('kind') not in ('image','comment_image','cover') or ref.get('platform')!='xiaohongshu' or ref.get('status')!='reference_only' or ref.get('source_kind')!='mediacrawler_api' or ref.get('reward_eligible') is not False:raise ValueError('attachment_reference_invalid')
+    if ref.get('kind') not in ('image','comment_image','cover') or ref.get('platform')!=('weibo' if manifest['request']['platform']=='wb' else 'xiaohongshu') or ref.get('status')!='reference_only' or ref.get('source_kind')!='mediacrawler_api' or ref.get('reward_eligible') is not False:raise ValueError('attachment_reference_invalid')
     if not isinstance(ref.get('url'),str):raise ValueError('attachment_reference_url_invalid')
     parsed=urlsplit(ref['url'])
     host=parsed.hostname or ''
-    if parsed.scheme not in ('http','https') or parsed.username or parsed.password or parsed.fragment or parsed.port not in ((None,80) if parsed.scheme=='http' else (None,443)) or not any(host==domain or host.endswith('.'+domain) for domain in ('xhscdn.com','xhsimg.com')):raise ValueError('attachment_reference_url_invalid')
+    if parsed.scheme not in ('http','https') or parsed.username or parsed.password or parsed.fragment or parsed.port not in ((None,80) if parsed.scheme=='http' else (None,443)) or not any(host==domain or host.endswith('.'+domain) for domain in (('sinaimg.cn',) if ref['platform']=='weibo' else ('xhscdn.com','xhsimg.com'))):raise ValueError('attachment_reference_url_invalid')
+    if ref['platform']=='weibo' and (ref.get('kind')!='image' or ref.get('comment_id') is not None or manifest['request'].get('media') is not True):raise ValueError('attachment_reference_invalid')
     rows=[r for r in norm.get('records',[]) if isinstance(r,dict) and r.get('content_id')==ref.get('content_id') and r.get('platform')==ref['platform'] and r.get('kind')==('comment' if ref.get('comment_id') else 'content') and (not ref.get('comment_id') or r.get('comment_id')==ref['comment_id']) and isinstance(r.get('media'),list) and ref in r['media']]
     if len(rows)!=1:raise ValueError('attachment_source_ambiguous')
     body=rows[0];origin=body.get('origin',{})
@@ -104,8 +106,19 @@ def verify_source(run,media_id):
 
 
 
+def reference_limit(ref):return WB_LIMIT if ref.get('platform')=='weibo' else LIMIT
+
+def reference_transport(ref):
+    url=urlsplit(ref['url'])
+    if ref['platform']=='weibo':
+        parts=[x for x in url.path.split('/') if x]
+        if parts:parts[0]='large'
+        return 'https://i1.wp.com/'+url.netloc+('/'+'/'.join(parts) if parts else url.path)
+    return urlunsplit(('https',url.hostname,url.path,url.query,'')) if url.scheme=='http' else ref['url']
+
+
 def _sidecar(run_id,media_id,ref,body,files,data,decoded):
-    url=urlsplit(ref['url']);transport=urlunsplit(('https',url.hostname,url.path,url.query,'')) if url.scheme=='http' else ref['url']
+    transport=reference_transport(ref)
     identity={'run_id':run_id,'media_id':media_id,'normalized_sha256':files['normalized.json'],'asset_sha256':sha(data)}
     aid=sha(identity);mime,suffix=MIMES[decoded['format']];filename=sha(data)+suffix
     return {'schema':SCHEMA,**identity,'path':'attachments/'+aid+'/'+filename,'asset_file':filename,
@@ -145,11 +158,30 @@ class SavedMediaAttachments:
         finally:temporary.unlink(missing_ok=True)
 
     def attach(self,run_id,media_id,asset_path,receipt):
+        if verify_source(self._run(run_id),media_id)[0]['platform']=='weibo':raise ValueError('attachment_native_proof_required')
+        return self._attach_verified(run_id,media_id,asset_path,receipt)
+
+    def attach_native(self,run_id,media_id):
+        # No source request: re-verify the committed original SDK child result.
+        from pro_media_integration import summary
+        run=self._run(run_id);ref,body,files=verify_source(run,media_id)
+        if ref['platform']!='weibo':raise ValueError('attachment_native_platform_invalid')
+        manifest=read_json_object(run/'manifest.json',1024*1024)
+        info=summary(run,manifest)
+        if not isinstance(info,dict) or info.get('state')!='completed' or not isinstance(info.get('assets'),list):raise ValueError('attachment_native_incomplete')
+        assets=[a for a in info['assets'] if isinstance(a,dict) and a.get('original_url')==ref['url'] and a.get('content_id')==ref['content_id']]
+        if len(assets)!=1:raise ValueError('attachment_native_ambiguous')
+        a=assets[0];asset=safe_path(run/a['path'],run);data=read(asset,WB_LIMIT);decoded=decode_bytes(data)
+        if a.get('transport_url')!=reference_transport(ref) or a.get('sha256')!=sha(data) or a.get('bytes')!=len(data):raise ValueError('attachment_native_binding_invalid')
+        receipt={'state':'downloaded_not_imported_or_cloud_saved','source_files_unchanged':True,'run_id':run_id,'media_id':media_id,'platform_http_requests':None,'native_stage_verified':True,'cloud_ack':False,'reference_sha256':sha(ref),'source_record_hash':body['record_hash'],'asset_file':asset.name,'asset_sha256':sha(data),'bytes':len(data),'url_sha256':sha(ref['url']),'transport_url_sha256':sha(reference_transport(ref)),'normalized_sha256':files['normalized.json'],'manifest_sha256':files['manifest.json'],'status_sha256':files['status.json'],'content_type':MIMES[decoded['format']][0]}
+        return self._attach_verified(run_id,media_id,asset,receipt)
+
+    def _attach_verified(self,run_id,media_id,asset_path,receipt):
         run=self._run(run_id);ref,body,files=verify_source(run,media_id)
         if not isinstance(receipt,dict):raise ValueError('attachment_receipt_invalid')
-        asset=safe_path(asset_path);data=read(asset,LIMIT)
-        if not data or receipt.get('state')!='downloaded_not_imported_or_cloud_saved' or receipt.get('source_files_unchanged') is not True or receipt.get('run_id')!=run_id or receipt.get('media_id')!=media_id or type(receipt.get('platform_http_requests')) is not int or receipt['platform_http_requests']!=1 or receipt.get('cloud_ack') is not False or receipt.get('reference_sha256')!=sha(ref) or receipt.get('source_record_hash')!=body['record_hash'] or receipt.get('asset_file')!=asset.name or receipt.get('asset_sha256')!=sha(data) or type(receipt.get('bytes')) is not int or receipt['bytes']!=len(data):raise ValueError('attachment_receipt_invalid')
-        url=urlsplit(ref['url']);transport=urlunsplit(('https',url.hostname,url.path,url.query,'')) if url.scheme=='http' else ref['url']
+        asset=safe_path(asset_path);data=read(asset,reference_limit(ref))
+        if not data or receipt.get('state')!='downloaded_not_imported_or_cloud_saved' or receipt.get('source_files_unchanged') is not True or receipt.get('run_id')!=run_id or receipt.get('media_id')!=media_id or not ((ref['platform']=='weibo' and receipt.get('native_stage_verified') is True and receipt.get('platform_http_requests') is None) or (ref['platform']!='weibo' and type(receipt.get('platform_http_requests')) is int and receipt['platform_http_requests']==1)) or receipt.get('cloud_ack') is not False or receipt.get('reference_sha256')!=sha(ref) or receipt.get('source_record_hash')!=body['record_hash'] or receipt.get('asset_file')!=asset.name or receipt.get('asset_sha256')!=sha(data) or type(receipt.get('bytes')) is not int or receipt['bytes']!=len(data):raise ValueError('attachment_receipt_invalid')
+        transport=reference_transport(ref)
         if receipt.get('url_sha256')!=sha(ref['url']) or receipt.get('transport_url_sha256')!=sha(transport):raise ValueError('attachment_transport_binding_invalid')
         if any(receipt.get(field)!=files[name] for name,field in [('normalized.json','normalized_sha256'),('manifest.json','manifest_sha256'),('status.json','status_sha256')]):raise ValueError('attachment_source_changed')
         decoded=decode_bytes(data)
@@ -181,7 +213,7 @@ class SavedMediaAttachments:
         if not isinstance(virtual,str) or not re.fullmatch(r'attachments/[a-f0-9]{64}/[a-f0-9]{64}\.(jpg|png|webp)',virtual):raise ValueError('attachment_path_invalid')
         _,aid,filename=virtual.split('/');folder=safe_path(self.root/run_id/aid,self.root)
         sidecar=read_json_object(folder/'attachment.json',1024*1024);ref,body,files=verify_source(run,sidecar.get('media_id'))
-        asset=safe_path(folder/filename,self.root);data=read(asset,LIMIT);actual_decode=decode_bytes(data)
+        asset=safe_path(folder/filename,self.root);data=read(asset,reference_limit(ref));actual_decode=decode_bytes(data)
         expected=_sidecar(run_id,sidecar['media_id'],ref,body,files,data,actual_decode)
         if canonical(sidecar)!=canonical(expected) or expected['path']!=virtual:
             raise ValueError('attachment_binding_changed')

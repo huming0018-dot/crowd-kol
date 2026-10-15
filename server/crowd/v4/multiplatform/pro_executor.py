@@ -57,7 +57,9 @@ def explicit_unsupported(request):
     if request.get('mode') not in ('search','detail','creator'):
         return 'pro_mode_unsupported'
     audio_supported=supports_bili_audio_request(request)
-    if request.get('media') and not audio_supported:
+    from pro_hybrid_media import supports_weibo_images
+    wb_images_supported=supports_weibo_images(request)
+    if request.get('media') and not (audio_supported or wb_images_supported):
         return 'pro_media_pipeline_unavailable'
     if request.get('wordcloud') or request.get('platform_options') and not audio_supported:
         return 'pro_options_unsupported'

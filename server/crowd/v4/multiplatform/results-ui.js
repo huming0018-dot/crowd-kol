@@ -22,6 +22,18 @@ const resultsView = (() => {
     const versions=value.versions||value.content_versions||[];for(const v of versions){const record=v.record||v.data||v;const card=node('article');card.className='record';card.append(node('h3','正文版本 '+(v.version??v.version_id??v.revision??'')),node('p',record.body||record.text||''));card.lastChild.className='body';card.append(node('small','采集入口：'+entryText(record)));$('library_records').append(card);}
     const comments=value.comments||[];$('library_records').append(node('h3','已保存评论 · '+comments.length));for(const c of comments.slice(0,100)){const card=node('article');card.className='record';card.append(node('strong',c.parent_comment_id&&c.parent_comment_id!=='0'?'回复':'评论'),node('p',c.text||c.body||'未取得评论文字'));card.lastChild.className='body';card.append(node('small','采集入口：'+entryText(c)));$('library_records').append(card);}if(comments.length>100)$('library_records').append(node('p','此处展示前100条；导出保留完整已保存评论。'));
     const unassigned=value.unassigned_comments||[];if(unassigned.length){$('library_records').append(node('h3','归属类型未确认的评论 · '+unassigned.length),node('p','以下评论只关联原平台数字标识，未归入当前正文。'));for(const c of unassigned.slice(0,100)){$('library_records').append(node('p',c.text||c.body||'未取得评论文字'));}if(unassigned.length>100)$('library_records').append(node('p','此处展示前100条；其余保留在资料库。'));}const unknownMedia=value.unassigned_media||[];if(unknownMedia.length){$('library_records').append(node('h3','归属类型未确认的媒体 · '+unknownMedia.length));for(const m of unknownMedia.slice(0,100))$('library_records').append(node('p',String(m.path||m.media_id||'未报告文件名').split('/').pop()));}
+    for(const item of (value.media||[]).filter(m=>m.platform==='weibo'&&m.status==='reference_only'&&(m.media_kind==='image'||(/^https?:\/\/(?:[a-z0-9-]+\.)*sinaimg\.cn\//).test(m.url||''))&&typeof m.run_id==='string')){
+      const register=button('核验已采原图',()=>guarded(async()=>{
+        if(ticket!==generation||!dialog.open)return;register.disabled=true;
+        try{
+          const response=await fetch('/api/media-processing',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({action:'image_attach_native',payload:{run_id:item.run_id,media_id:item.media_id}})});
+          if(!response.ok)throw Error('原图尚未完整保存或来源核验未通过，请查看运行诊断。');
+          const result=await response.json();if(ticket!==generation||!dialog.open)return;
+          revision=result.results?.import_revision||result.results?.results_revision||revision;
+          await detail(row);
+        }finally{register.disabled=false;}
+      }));$('library_records').append(register);
+    }
     const attachments=(value.media||[]).filter(item=>item.status==='local_bytes_verified'&&typeof item.path==='string'&&item.path.startsWith('attachments/'));
     if(attachments.length){
       $('library_records').append(node('h3','已保存图片 · '+attachments.length));

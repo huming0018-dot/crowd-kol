@@ -1,7 +1,7 @@
 """Parent-side own glue. Captures the same original Pro response, no repeat detail."""
 import json,os,subprocess,uuid,signal,time,threading
 from pathlib import Path
-from pro_hybrid_media import bili_view
+from pro_hybrid_media import bili_view,weibo_mblog
 
 class BiliDetailObserver:
  def __init__(self):self.views={}
@@ -30,8 +30,15 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
  from shared_request_budget import request_fingerprint
  run=Path(run);manifest=json.loads((run/'manifest.json').read_text());request=manifest['request']
  if str(uuid.UUID(run.name))!=run.name or manifest['run_id']!=run.name:raise ValueError('hybrid_media_run_invalid')
- bili_view(note,response)
- child=Path(__file__).with_name('bili_media_child.py')
+ if request['platform']=='wb':
+  from shared_request_budget import canonical
+  import hashlib
+  weibo_mblog(note)
+  if response!={'weibo_observation_sha256':hashlib.sha256(canonical(note).encode()).hexdigest()} or headers!={}:raise ValueError('hybrid_weibo_observation_mismatch')
+  child=Path(__file__).with_name('wb_media_child.py')
+ else:
+  bili_view(note,response)
+  child=Path(__file__).with_name('bili_media_child.py')
  env=os.environ.copy()
  for k in ('PYTHONHOME','NODE_OPTIONS','NODE_PATH','CROWD_EXECUTOR','CROWD_PRO_WEIBO_ENABLED'):env.pop(k,None)
  env['PYTHONPATH']=os.pathsep.join([str(Path(__file__).parent),str(budget_module_root),str(runtime_root),str(mc_root)])

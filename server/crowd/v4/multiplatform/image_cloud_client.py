@@ -10,7 +10,7 @@ from pathlib import Path
 
 from analysis_artifact import _safe_ancestors
 from cloud_sync import CloudError, SCHEMA, _hash, _strict_json, canonical
-from image_cloud import (LIMIT, prepare_image, validate_manifest, verify_receipt,
+from image_cloud import (LIMIT, image_limit, prepare_image, validate_manifest, verify_receipt,
                          verify_retrieved, signed_url)
 from image_cloud import uid as valid_uuid
 from mc_runner import write
@@ -212,7 +212,7 @@ def download(jobs, adapter, outbox_path, client, run_id, virtual_path, opener=No
         with opener.open(urllib.request.Request(url, headers={'Accept': manifest['content_mime']}), timeout=60) as stream:
             if stream.status != 200 or stream.headers.get('Content-Range'):
                 raise ValueError('image_cloud_download_mismatch')
-            data = stream.read(LIMIT + 1)
+            data = stream.read(image_limit(manifest) + 1)
     except (OSError, urllib.error.URLError):
         raise ValueError('image_cloud_download_failed') from None
     verify_retrieved(data, receipt, manifest)

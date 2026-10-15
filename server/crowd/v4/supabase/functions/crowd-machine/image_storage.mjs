@@ -1,5 +1,5 @@
 import {assert} from './contract.mjs';
-import {IMAGE_BUCKET as MEDIA_BUCKET,IMAGE_LIMIT, imageManifest,verifyImageBytes} from './image_storage_contract.mjs';
+import {IMAGE_BUCKET as MEDIA_BUCKET,IMAGE_LIMIT,imageLimit, imageManifest,verifyImageBytes} from './image_storage_contract.mjs';
 import {uuid} from './contract.mjs';
 function imageID(value){assert(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===1&&uuid(value.artifact_id),'invalid_image_manifest');return value;}
 const MEDIA_LIMIT=52428800, MIMES=['video/mp4','image/jpeg','image/png','image/webp'];
@@ -35,7 +35,7 @@ export async function verifyImageStorageObject(backend,row,fetcher=fetch){
  if(declared!==null&&(!/^[0-9]{1,10}$/.test(declared)||Number(declared)!==row.manifest.asset_bytes)){await response.body?.cancel();throw new Error('image_object_mismatch');}
  const reader=response.body?.getReader();assert(reader,'image_object_mismatch');let count=0,chunks=[];
  try{
-  for(;;){const {done,value}=await reader.read();if(done)break;count+=value.length;assert(count<=IMAGE_LIMIT&&count<=row.manifest.asset_bytes,'image_object_mismatch');chunks.push(value.slice());}
+  for(;;){const {done,value}=await reader.read();if(done)break;count+=value.length;assert(count<=imageLimit(row.manifest)&&count<=row.manifest.asset_bytes,'image_object_mismatch');chunks.push(value.slice());}
  }catch(error){throw new Error(error.message==='image_object_mismatch'?error.message:'image_storage_unavailable');}
  finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
  const data=new Uint8Array(count);let offset=0;for(const c of chunks){data.set(c,offset);offset+=c.length;}

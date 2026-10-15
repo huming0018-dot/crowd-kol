@@ -25,6 +25,15 @@ def weibo_mblog(note):
  if not urls or len(urls)>100 or len(set(urls))!=len(urls):raise MediaContractError('hybrid_media_image_list_invalid')
  return {'id':note['note_id'],'pics':[{'url':u} for u in urls]}
 
+def weibo_image_plan(note):
+ mblog=weibo_mblog(note);plan=[]
+ for index,pic in enumerate(mblog['pics'],1):
+  value=pic['url'];u=urlsplit(value);parts=[p for p in u.path.split('/') if p]
+  if parts:parts[0]='large'
+  path='/'+('/'.join(parts)) if parts else u.path
+  plan.append({'index':index,'original_url':value,'transport_url':'https://i1.wp.com/'+u.netloc+path})
+ return plan
+
 async def download_weibo_images(note,media_module,downloader):
  """Run actual installed MC extractor/downloader; original image URLs stay separate.
  Downloader must be newly constructed for this run, without inherited old files.
@@ -61,10 +70,17 @@ async def download_bili(note,official_response,media_only_callback):
          'content_id':note['video_id'],'bvid':note['bvid'],'bytes_verified':False,
          'cloud_ack':False,'cached_asset_reuse':False}
 
+def supports_weibo_images(request):
+ return (isinstance(request,dict) and request.get('platform')=='wb' and request.get('source_executor')=='pro'
+         and request.get('mode')=='detail' and request.get('media') is True
+         and type(request.get('max_items')) is int and request['max_items']==1
+         and request.get('wordcloud',False) is False and request.get('platform_options',{})=={})
+
 def supports_request(request):
  """Candidate Bili implementation capability; caller still requires adoption gate.
  Non-long-audio transcript-only has no mature wrapper here and is rejected.
  """
+ if supports_weibo_images(request):return True
  if not isinstance(request,dict) or request.get('platform')!='bili' or request.get('media') is not True:return False
  options=request.get('platform_options',{})
  if not isinstance(options,dict) or set(options)-{'quality','long_audio','transcript_only'}:return False

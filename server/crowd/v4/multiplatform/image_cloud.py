@@ -17,6 +17,8 @@ from results_store import _record
 
 BUCKET='crowd-machine-media'
 LIMIT=2*1024*1024
+WB_LIMIT=25*1024*1024
+def image_limit(value):return WB_LIMIT if isinstance(value,dict) and value.get('schema')=='crowd-image-object-v2' and value.get('platform')=='weibo' else LIMIT
 FIELDS=('schema','manifest_version','idempotency_key','task_id','child_id','run_id','lease_epoch',
  'local_run_id','local_job_id','capture_id','envelope_hash','platform','content_kind','content_id',
  'comment_id','entity_ref','media_id','attachment_id','asset_sha256','asset_bytes','content_mime',
@@ -35,24 +37,29 @@ def uid(value):
 
 def validate_manifest(value):
     if not isinstance(value,dict) or set(value)!=set(FIELDS):raise ValueError('invalid_image_manifest')
-    if value['schema']!='crowd-image-object-v1' or type(value['manifest_version']) is not int or value['manifest_version']!=1:raise ValueError('invalid_image_manifest')
+    version=2 if value['schema']=='crowd-image-object-v2' and value['platform']=='weibo' else 1
+    if value['schema']!=('crowd-image-object-v'+str(version)) or type(value['manifest_version']) is not int or value['manifest_version']!=version:raise ValueError('invalid_image_manifest')
     if not all(uid(value[k]) for k in ('task_id','child_id','run_id','local_run_id','local_job_id','capture_id')):raise ValueError('invalid_image_manifest')
     if not all(isinstance(value[k],str) and HEX.fullmatch(value[k]) for k in HASH_FIELDS):raise ValueError('invalid_image_manifest')
-    if value['idempotency_key']!='image:'+value['local_job_id'] or value['platform']!='xiaohongshu' or value['content_kind'] not in ('content','comment') or not isinstance(value['content_id'],str) or not ID.fullmatch(value['content_id']):raise ValueError('invalid_image_manifest')
+    if value['idempotency_key']!='image:'+value['local_job_id'] or value['platform']!=('weibo' if version==2 else 'xiaohongshu') or value['content_kind'] not in (('content',) if version==2 else ('content','comment')) or not isinstance(value['content_id'],str) or not ID.fullmatch(value['content_id']):raise ValueError('invalid_image_manifest')
     if value['content_kind']=='comment':
         if not isinstance(value['comment_id'],str) or not ID.fullmatch(value['comment_id']):raise ValueError('invalid_image_manifest')
     elif value['comment_id'] is not None:raise ValueError('invalid_image_manifest')
     entity=value['platform']+':'+value['content_kind']+':'+value['content_id']+(':'+value['comment_id'] if value['comment_id'] else '')
     if value['entity_ref']!=entity:raise ValueError('invalid_image_manifest')
     if any(type(value[k]) is not int for k in ('lease_epoch','asset_bytes','width','height','frames')):raise ValueError('invalid_image_manifest')
-    if not 1<=value['lease_epoch']<=2147483647 or not 1<=value['asset_bytes']<=LIMIT or not 1<=value['width']<=16384 or not 1<=value['height']<=16384 or value['width']*value['height']>16_000_000 or value['frames']!=1 or value['content_mime'] not in ('image/jpeg','image/png','image/webp'):raise ValueError('invalid_image_manifest')
+    if not 1<=value['lease_epoch']<=2147483647 or not 1<=value['asset_bytes']<=image_limit(value) or not 1<=value['width']<=16384 or not 1<=value['height']<=16384 or value['width']*value['height']>16_000_000 or value['frames']!=1 or value['content_mime'] not in ('image/jpeg','image/png','image/webp'):raise ValueError('invalid_image_manifest')
     try:
         if not isinstance(value['canonical_reference'],str) or len(value['canonical_reference'])>16000:raise ValueError()
         ref=json.loads(value['canonical_reference'])
-        if not isinstance(ref,dict) or canonical(ref)!=value['canonical_reference'] or sha(ref)!=value['source_reference_sha256'] or ref.get('media_id')!=value['media_id'] or ref.get('platform')!=value['platform'] or ref.get('content_id')!=value['content_id'] or ref.get('comment_id')!=value['comment_id'] or ref.get('kind') not in ('image','comment_image','cover') or ref.get('status')!='reference_only' or ref.get('source_kind')!='mediacrawler_api' or ref.get('reward_eligible') is not False or not isinstance(ref.get('url'),str) or any(ord(c)<=32 for c in ref['url']):raise ValueError()
+        if not isinstance(ref,dict) or canonical(ref)!=value['canonical_reference'] or sha(ref)!=value['source_reference_sha256'] or ref.get('media_id')!=value['media_id'] or ref.get('platform')!=value['platform'] or ref.get('content_id')!=value['content_id'] or ref.get('comment_id')!=value['comment_id'] or ref.get('kind') not in (('image',) if version==2 else ('image','comment_image','cover')) or ref.get('status')!='reference_only' or ref.get('source_kind')!='mediacrawler_api' or ref.get('reward_eligible') is not False or not isinstance(ref.get('url'),str) or any(ord(c)<=32 for c in ref['url']):raise ValueError()
         url=urlsplit(ref['url']);host=url.hostname or ''
-        if url.scheme not in ('http','https') or url.username or url.password or url.fragment or url.port not in ((None,80) if url.scheme=='http' else (None,443)) or not any(host==d or host.endswith('.'+d) for d in ('xhscdn.com','xhsimg.com')):raise ValueError()
+        if url.scheme not in ('http','https') or url.username or url.password or url.fragment or url.port not in ((None,80) if url.scheme=='http' else (None,443)) or not any(host==d or host.endswith('.'+d) for d in (('sinaimg.cn',) if version==2 else ('xhscdn.com','xhsimg.com'))):raise ValueError()
         transport=urlunsplit(('https',host,url.path,url.query,'')) if url.scheme=='http' else ref['url']
+        if version==2:
+            parts=[x for x in url.path.split('/') if x]
+            if parts:parts[0]='large'
+            transport='https://i1.wp.com/'+url.netloc+('/'+'/'.join(parts) if parts else url.path)
         if value['source_url_sha256']!=sha(ref['url']) or value['transport_url_sha256']!=sha(transport):raise ValueError()
     except (ValueError,TypeError,UnicodeError,RecursionError):raise ValueError('invalid_image_manifest') from None
     try:
@@ -65,7 +72,7 @@ def validate_manifest(value):
         if not isinstance(origin,dict) or origin.get('run_id')!=value['local_run_id'] or origin.get('operation_id')!=value['local_run_id'] or origin.get('executor')!='mediacrawler_pro' or origin.get('observation_sha256')!=value['source_observation_sha256']:raise ValueError()
         if not isinstance(source.get('media'),list) or sum(canonical(x)==canonical(ref) for x in source['media'])!=1:raise ValueError()
     except (ValueError,TypeError,UnicodeError,RecursionError):raise ValueError('invalid_image_manifest') from None
-    return {'canonical_manifest':canonical(value),'manifest_hash':hashlib.sha256(('crowd-media-image-v1\n'+canonical(value)).encode()).hexdigest()}
+    return {'canonical_manifest':canonical(value),'manifest_hash':hashlib.sha256(('crowd-media-image-v'+str(version)+'\n'+canonical(value)).encode()).hexdigest()}
 
 
 
@@ -117,7 +124,7 @@ def prepare_image(adapter,run_id,virtual_path,capture):
     if canonical(projected)!=canonical(source):raise ValueError('image_source_binding_denied')
     if receipt.get('status')!='received' or receipt.get('reward_eligible') is not False or record.get('reward_eligible') is not False or record.get('origin',{}).get('run_id')!=run_id:raise ValueError('image_source_binding_denied')
     if not all(uid(receipt.get(k)) for k in ('task_id','child_id','run_id','capture_id')) or type(receipt.get('lease_epoch')) is not int or not 1<=receipt['lease_epoch']<=2147483647 or not isinstance(receipt.get('envelope_hash'),str) or not HEX.fullmatch(receipt['envelope_hash']):raise ValueError('image_source_binding_denied')
-    data,asset_generation=_snapshot(asset,LIMIT);decoded=decode_bytes(data);mime,_=MIMES[decoded['format']]
+    data,asset_generation=_snapshot(asset,WB_LIMIT if ref['platform']=='weibo' else LIMIT);decoded=decode_bytes(data);mime,_=MIMES[decoded['format']]
     expected_sidecar=_sidecar(run_id,sidecar['media_id'],ref,body,files,data,decoded)
     if canonical(sidecar)!=canonical(expected_sidecar) or expected_sidecar['path']!=virtual_path or sidecar.get('asset_file')!=asset.name:
         raise ValueError('image_attachment_binding_changed')
@@ -132,8 +139,10 @@ def prepare_image(adapter,run_id,virtual_path,capture):
     if saved.get('attachment_id')!=aid or saved.get('path')!=virtual_path or saved.get('first_version_revision')!=revision:
         raise ValueError('image_attachment_registration_changed')
     identity={k:receipt[k] for k in ('task_id','child_id','run_id','lease_epoch','capture_id','envelope_hash')}
-    local_job=str(uuid.uuid5(uuid.NAMESPACE_URL,'crowd-image-object-v1:'+canonical({**identity,'attachment_id':sidecar['path'].split('/')[1],'local_run_id':run_id})))
-    value={'schema':'crowd-image-object-v1','manifest_version':1,'idempotency_key':'image:'+local_job,
+    version=2 if ref['platform']=='weibo' else 1
+    schema='crowd-image-object-v'+str(version)
+    local_job=str(uuid.uuid5(uuid.NAMESPACE_URL,schema+':'+canonical({**identity,'attachment_id':sidecar['path'].split('/')[1],'local_run_id':run_id})))
+    value={'schema':schema,'manifest_version':version,'idempotency_key':'image:'+local_job,
            **identity,'local_run_id':run_id,'local_job_id':local_job,'platform':ref['platform'],
            'content_kind':body['kind'],'content_id':ref['content_id'],'comment_id':ref.get('comment_id'),
            'entity_ref':ref['platform']+':'+body['kind']+':'+ref['content_id']+(':'+ref['comment_id'] if ref.get('comment_id') else ''),
@@ -172,7 +181,7 @@ def signed_url(endpoint,url,receipt,manifest,kind='sign'):
 
 def verify_retrieved(data,receipt,manifest):
     verify_receipt(receipt,manifest)
-    if not isinstance(data,bytes) or len(data)!=manifest['asset_bytes'] or len(data)>LIMIT or sha(data)!=manifest['asset_sha256']:raise ValueError('image_object_mismatch')
+    if not isinstance(data,bytes) or len(data)!=manifest['asset_bytes'] or len(data)>image_limit(manifest) or sha(data)!=manifest['asset_sha256']:raise ValueError('image_object_mismatch')
     decoded=decode_bytes(data);mime,_=MIMES[decoded['format']]
     if mime!=manifest['content_mime'] or any(canonical(decoded[k])!=canonical(manifest[k]) for k in ('width','height','frames','pixel_sha256')):raise ValueError('image_object_mismatch')
     return {'state':'downloaded_and_decoded','bytes':len(data),'sha256':sha(data),'decoded':decoded,'receipt_contract_verified':True,'authoritative_receipt_origin_verified':False}

@@ -862,6 +862,15 @@ class Application:
             return self.media_jobs.playback(source, payload['asset_sha256'])
         if action == 'video_file' and set(payload) == {'job_id','asset_sha256'}:
             return self.media_jobs.video_file(payload['job_id'],payload['asset_sha256'])
+        if action == 'image_attach_native':
+            if set(payload)!={'run_id','media_id'}:raise ValueError('invalid_image_attachment_request')
+            from saved_media_attachments import SavedMediaAttachments
+            with self.lock:
+                if self.results_store is None:
+                    from results_store import ResultsStore
+                    self.results_store=ResultsStore(self.root)
+            adapter=SavedMediaAttachments(self.root,lambda rid:self._registered_run_root(rid)/'runs'/rid,self.results_store)
+            return adapter.attach_native(payload['run_id'],payload['media_id'])
         if action in ('image_cloud_status', 'image_cloud_save', 'image_cloud_file'):
             fields={'run_id','path'}|({'asset_sha256'} if action=='image_cloud_file' else set())
             if set(payload)!=fields or not isinstance(payload['path'],str) or not payload['path'].startswith('attachments/'):
