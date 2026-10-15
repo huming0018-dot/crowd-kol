@@ -37,7 +37,30 @@ const resultsView = (() => {
             const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=item.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
           }finally{get.disabled=false;}
         }));
-        $('library_records').append(get,node('small','原图已核验并保存在本机；云端保存待完成。'));
+        const cloudNote=node('small','原图已核验并保存在本机；尚未查询云端状态。');
+        const cloudButtons=[];
+        const cloudErrors={cloud_configuration_required:'尚未配置项目云连接。',image_capture_not_received:'正文尚未取得云端回执，请先完成数据回传。',image_capture_ambiguous:'存在多个来源回执，尚未确定图片归属。',image_upload_outcome_unknown:'上传结果待核对，请稍后查询状态；不会重复上传。',image_cloud_not_saved:'图片尚未保存到云端。'};
+        const cloudAction=(label,action,file=false)=>{
+          const b=button(label,()=>guarded(async()=>{
+            if(ticket!==generation||!dialog.open)return;
+            cloudButtons.forEach(x=>x.disabled=true);
+            try{
+              const payload={run_id:item.run_id,path:item.path};if(file)payload.asset_sha256=item.sha256;
+              const response=await fetch('/api/media-processing',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({action,payload})});
+              if(!response.ok){const problem=(await response.json()).error;throw Error(cloudErrors[problem]||'云端图片操作未完成，请查看运行诊断。');}
+              if(file){
+                if(response.headers.get('X-Content-SHA256')!==item.sha256)throw Error('云端图片校验未通过。');
+                const blob=await response.blob();if(ticket!==generation||!dialog.open)return;
+                const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=item.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+                cloudNote.textContent='已从私有云回取并核验原图。';
+              }else{
+                const result=await response.json();if(ticket!==generation||!dialog.open)return;
+                cloudNote.textContent=result.state==='received'?'私有云已保存，云端回执已核对。':'图片尚未保存到私有云。';
+              }
+            }finally{cloudButtons.forEach(x=>x.disabled=false);}
+          }));cloudButtons.push(b);return b;
+        };
+        $('library_records').append(get,cloudNote,cloudAction('查看云状态','image_cloud_status'),cloudAction('保存至私有云','image_cloud_save'),cloudAction('下载云端图片','image_cloud_file',true));
       }
     }
     const info=node('details');info.append(node('summary','来源、版本标识与原始字段'),node('pre',JSON.stringify(value,null,2)));$('library_records').append(info);$('library_previous').disabled=true;$('library_next').disabled=true;

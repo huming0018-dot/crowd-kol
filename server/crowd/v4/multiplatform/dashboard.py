@@ -766,6 +766,28 @@ class Application:
             return self.media_jobs.playback(source, payload['asset_sha256'])
         if action == 'video_file' and set(payload) == {'job_id','asset_sha256'}:
             return self.media_jobs.video_file(payload['job_id'],payload['asset_sha256'])
+        if action in ('image_cloud_status', 'image_cloud_save', 'image_cloud_file'):
+            fields={'run_id','path'}|({'asset_sha256'} if action=='image_cloud_file' else set())
+            if set(payload)!=fields or not isinstance(payload['path'],str) or not payload['path'].startswith('attachments/'):
+                raise ValueError('invalid_image_cloud_request')
+            from mc_runner import uid
+            from saved_media_attachments import SavedMediaAttachments
+            from image_cloud_client import status,publish,download
+            try:run_id=str(uuid.UUID(payload['run_id']))
+            except (ValueError,TypeError,AttributeError):raise ValueError('invalid_image_cloud_request') from None
+            if run_id!=payload['run_id']:raise ValueError('invalid_image_cloud_request')
+            if self.cloud_client is None:raise ValueError('cloud_configuration_required')
+            with self.lock:
+                if self.results_store is None:
+                    from results_store import ResultsStore
+                    self.results_store=ResultsStore(self.root)
+            adapter=SavedMediaAttachments(self.root,lambda rid:self._registered_run_root(rid)/'runs'/rid,self.results_store)
+            args=(self.media_jobs,adapter,self.root/'cloud-outbox/outbox.sqlite3',self.cloud_client,run_id,payload['path'])
+            if action=='image_cloud_status':return status(*args)
+            if action=='image_cloud_save':return publish(*args)
+            result=download(*args)
+            if result['sha256']!=payload['asset_sha256']:raise ValueError('image_cloud_download_mismatch')
+            return result
         if action in ('native_video_cloud_status', 'native_video_cloud_save', 'native_video_cloud_file'):
             if set(payload) not in ({'run_id', 'content_id', 'asset_sha256'}, {'run_id', 'content_id', 'asset_sha256', 'entity_ref'}):
                 raise ValueError('invalid_native_video_cloud_request')
@@ -956,7 +978,7 @@ def make_server(app, port=45937):
                 if self.path == '/api/media-processing':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_media_processing_request')
-                    if body['action'] in ('playback', 'video_file', 'video_cloud_file', 'native_video_cloud_file'):
+                    if body['action'] in ('playback', 'video_file', 'video_cloud_file', 'native_video_cloud_file', 'image_cloud_file'):
                         value = app.process_media(body['action'], body['payload'])
                         self.send_response(200)
                         self.send_header('Content-Type', value['mime'])

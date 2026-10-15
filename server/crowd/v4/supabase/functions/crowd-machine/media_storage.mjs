@@ -14,7 +14,7 @@ async function bucket(backend,create=false){
   if(made.error)throw new Error('media_storage_unavailable');
   response=await backend.storage.getBucket(MEDIA_BUCKET);
  }
- assert(!response.error&&response.data?.id===MEDIA_BUCKET&&response.data.public===false&&Number(response.data.file_size_limit)===MEDIA_LIMIT&&Array.isArray(response.data.allowed_mime_types)&&response.data.allowed_mime_types.length===1&&response.data.allowed_mime_types[0]==='video/mp4','media_storage_unavailable');
+ assert(!response.error&&response.data?.id===MEDIA_BUCKET&&response.data.public===false&&Number(response.data.file_size_limit)===MEDIA_LIMIT&&Array.isArray(response.data.allowed_mime_types)&&(response.data.allowed_mime_types.length===1&&response.data.allowed_mime_types[0]==='video/mp4'||response.data.allowed_mime_types.length===4&&['video/mp4','image/jpeg','image/png','image/webp'].every(m=>response.data.allowed_mime_types.includes(m))),'media_storage_unavailable');
 }
 function storageURL(backend,value,path,kind){
  const base=new URL(backend.storage.url),url=new URL(value);
