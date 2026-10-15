@@ -146,6 +146,47 @@ def _record_bili_self_diagnostic(store, session_id, request, verification, respo
         pass
 
 
+def _preserve_bound_xhs_bridge(root, session_id, platform, browser_name, user_data_dir, options):
+    """Only keep the already-bound XHS profile's installed extensions enabled.
+
+    No extension is installed/loaded here; missing registration remains a separate
+    recovery condition. MC profiles without an explicit Pro binding stay unchanged.
+    """
+    result = dict(options)
+    if platform != 'xhs' or browser_name != 'chromium':
+        return result
+    try:
+        session = Path(root).resolve() / 'sessions' / identifier(session_id)
+        expected = session / 'browser_data' / 'xhs_bridge_profile'
+        binding = session / 'pro-binding.json'
+        if (session.is_symlink() or session.parent.is_symlink() or expected.parent.is_symlink()
+                or not expected.is_dir() or expected.is_symlink() or not binding.is_file()
+                or binding.is_symlink() or binding.stat().st_size > 16384):
+            return result
+        if Path(user_data_dir).resolve() != expected.resolve():
+            return result
+        value = json.loads(binding.read_text())
+        if (not isinstance(value, dict) or set(value) != {'platform', 'client_id', 'cookiebridge_url', 'sign_url'}
+                or value.get('platform') != 'xhs' or not isinstance(value.get('client_id'), str)
+                or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', value['client_id'])):
+            return result
+        for field in ('cookiebridge_url', 'sign_url'):
+            if not isinstance(value[field], str):
+                return result
+            url = urlsplit(value[field])
+            if not (url.scheme == 'http' and url.hostname in ('localhost', '127.0.0.1', '::1')
+                    and url.port and not url.username and not url.password
+                    and url.path in ('', '/') and not url.query and not url.fragment):
+                return result
+        ignored = result.get('ignore_default_args', [])
+        if not isinstance(ignored, (list, tuple)) or not all(isinstance(x, str) for x in ignored):
+            return result
+        result['ignore_default_args'] = list(dict.fromkeys([*ignored, '--disable-extensions']))
+    except (OSError, ValueError, TypeError, RecursionError):
+        return dict(options)
+    return result
+
+
 def identifier(value):
     if not isinstance(value, str) or str(uuid.UUID(value)) != value:
         raise ValueError('invalid_session_id')
@@ -779,6 +820,8 @@ async def login_worker(args):
         async def persistent(self, *a, **kw):
             if self.name == 'chromium' and not Path(self.executable_path).is_file():
                 kw['executable_path'] = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+            profile = a[0] if a else kw.get('user_data_dir')
+            kw = _preserve_bound_xhs_bridge(args.root, args.session_id, args.platform, self.name, profile, kw)
             return await original(self, *a, **kw)
         BrowserType.launch_persistent_context = persistent
         from browser_session import install_browser_reuse
