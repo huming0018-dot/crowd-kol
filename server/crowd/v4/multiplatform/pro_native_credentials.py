@@ -14,7 +14,7 @@ def scope_for(platform):
  return SCOPES[platform]
 def schema_for(platform):
  scope_for(platform);return 'crowd-native-'+platform+'-credentials-v1'
-SAFE_ERRORS={'native_provider_profile_invalid','native_provider_session_invalid','native_provider_profile_missing','native_provider_profile_busy','native_provider_mc_missing','native_provider_lock_invalid','native_provider_busy','native_provider_cookie_scope_invalid','native_provider_cookie_shape_invalid','native_provider_credentials_unavailable','native_provider_browser_unavailable','native_provider_persistence_unavailable','native_provider_unavailable','native_provider_retry_forbidden','native_provider_exit_observer_unavailable','native_provider_ownership_lost','native_provider_cleanup_unknown'}
+SAFE_ERRORS={'native_provider_profile_mode_unverified','native_provider_profile_invalid','native_provider_session_invalid','native_provider_profile_missing','native_provider_profile_busy','native_provider_mc_missing','native_provider_lock_invalid','native_provider_busy','native_provider_cookie_scope_invalid','native_provider_cookie_shape_invalid','native_provider_credentials_unavailable','native_provider_browser_unavailable','native_provider_persistence_unavailable','native_provider_unavailable','native_provider_retry_forbidden','native_provider_exit_observer_unavailable','native_provider_ownership_lost','native_provider_cleanup_unknown'}
 
 def safe_path(path):
  if not isinstance(path,(str,os.PathLike)):raise CredentialError('native_provider_profile_invalid')
@@ -58,7 +58,14 @@ def validate_credentials(value,platform='wb'):
  if size>LIMIT:raise CredentialError('native_provider_credentials_unavailable')
  return cookie
 
+def assert_profile_mode(platform):
+ # Normal Chrome's existing Bili credential-store mode has not been verified
+ # compatible with Playwright defaults. Do not launch it to discover this.
+ scope_for(platform)
+ if platform=='bili':raise CredentialError('native_provider_profile_mode_unverified')
+
 async def collect_original_context(root,session_id,mc_root,platform='wb'):
+ assert_profile_mode(platform)
  _,url,domains=scope_for(platform)
  session,profile=profile_for(root,session_id,platform);mc=safe_path(mc_root)
  converter=safe_path(mc/'tools/crawler_util.py')
@@ -134,6 +141,7 @@ def active_group(pgid):
  return result
 
 async def read_credentials(root,session_id,mc_root,*,timeout=25,platform='wb'):
+ assert_profile_mode(platform)
  if not isinstance(timeout,(int,float)) or isinstance(timeout,bool) or not 1<=timeout<=30:raise CredentialError('native_provider_timeout_invalid')
  profile_for(root,session_id,platform);mc=safe_path(mc_root);python=mc/'.venv/bin/python'
  if not python.is_file():raise CredentialError('native_provider_python_missing')
