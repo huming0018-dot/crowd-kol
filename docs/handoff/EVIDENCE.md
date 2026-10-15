@@ -118,3 +118,30 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - `native-diagnostics/independent/{FINAL.json,RELEASE70-FINAL.json,ACTUAL-HELPER-ADOPTION.json,ACTUAL-SQL-ADOPTION.json,OTA70-ACTUAL-FINAL.json}`：Swift实际编译/真实负例、PGlite生产函数/ACL、通用binary独立重建一致、工具迁移9正负例；正式本机helper/schema1/LaunchAgents/配置身份保持、3函数部署精确；70包/工具/通道公网GET/hash/签名/真实本机升级与云事件通过，另一节点仍69，远端helper及自然报错未验。
 - `pro-next-platform/{PLAN.md,SIGN-RUNTIME.md,SIGN-FREEZE.json,independent/REVIEW.md}`：实际原SDK临时loopback链/无来源，Node环境注入及Python DNS/UDP初失败与修复保留。仅validate准入，Node非OS网络沙箱，XHS/DY实际平台接受签名及分页/媒体/导出未完成。
 - `BRIDGE-*.json`与native `ORIGINAL-PARTICIPANT-REOPEN.json`记录本轮进程/真实连接边界。正常扩展页拖入未成功；原XHS加载用户已精确授权、实际目录选择尚待。不得把授权或目录已打开写成安装完成。
+
+### E29｜原XHS加载、一次self与分页/账号修后独审（2026-10-15 15:22）
+- RUN15/pro-next-platform/XHS-BRIDGE-CLIENT.json、XHS-BRIDGE-PRESENCE.json：原session/client/CDP绑定、worker连接及13Cookie存在；值不落盘，不等于登录有效。XHS-SELF-CHECK-INTENT/RESULT.json为唯一一次self已终态false、platform1/signer1/bridge1。未保留HTTP业务码，根因未知，不重发旧意图或称已恢复。driver-independent/FINAL.json为真实调用前非作者whole-driver合成底层测试。SIGN-XHS-FIRST-LIFECYCLE.jsonl记录新8990进程，无外部导航/浏览器。
+- RUN15/pro-pagination-next/independent/FINAL.json：冻结核对、52项、三个完整私仓SDK+SQLite/checkpoint和三导出非空路径重跑、独立14正负例；真实旧ID但HTTP游标/has_more合成，未做新来源/完整字段等价。合并99测试在实际Pro Python3.11通过；误用系统3.9缺依赖/timeout合同产生5error，已明确保留，不改产品造通过。
+- RUN15/native-diagnostics/independent/PRO-ACCOUNT-{INITIAL,FINAL}.json：最初诊断写失败覆盖SystemExit73，窄修复后47项及完整SDK本机HTTP/guard顺序独审；默认MC保留，DY零历史请求且Pro明确unsupported。4文件未部署、executor实际接线仍待独审，不称真实重登恢复。
+- RUN15/native-diagnostics/independent/PRO-ADOPTION-SCRIPT-FINAL.json：采用脚本补第5库machine-steps.sqlite3原件检查、备份及前后/回滚比较；尚未执行，须最终源码冻结、idle及原5锁通过。
+
+### E30｜Pro正式采用、原账号核验及真实新来源失败（2026-10-15 15:55）
+- RUN15/native-diagnostics/independent/account-integration/FINAL.json：最初真实worker坏phase会卡running，窄修共享安全读取后55单元/14原SDK执行器/34监督场景及深JSON等独核；原/新MC30完全同4fail2error，MC-REGRESSION-COMPARE.json保留。并非全套绿色或全平台现场完成。
+- RUN15/pro-adoption/ADOPTED.json及native-diagnostics/independent/PRO-ADOPTION-LIVE-FINAL.json：正式PID42837/原31520终止、6SHA/387其他source/121历史资产/5库schema+原始行=实际备份，1529ACK/pending0/调度健康。owner备份首次ro无法读改immutable读已冻结备份，原件不改；不是作者自述或跨解释器摘要代替核行。源码99bb1bb仅8份自有文件已推送，私仓未复制。
+- RUN15/pro-next-platform/XHS-SELF-DIAGNOSTIC-RESULT.json为官方200/-100；XHS-COOKIE-SCOPE-CHECK.json、XHS-BRIDGE-CURRENT-MATCH.json仅计数/布尔核原域与当前会话一致；用户本人登录后XHS-AFTER-HUMAN-LOGIN-PAGE.json登录提示消失。XHS-LOGIN-VERIFY-RESULT.json platform0/sign1终态失败保留，泛Exception不单独证明原因；原Signer stop记录2次native/failed=false。新epoch经独审后XHS-LOGIN-REBOUND-RESULT.json官方200/code0/self摘要成功，原548status/manifest保持、不重启。
+- RUN15/pro-next-platform/XHS-TRIAL-START-INTENT/STARTED.json与native-diagnostics/independent/XHS-TRIAL-TERMINAL-FINAL.json：唯一f4de已终态77/check_failed，actual SQLite quick_check/观察0、无页/检查点；来源专属计数未知（guard3含本机），原548、原MC normalized/两raw/98878B媒体哈希保持。未制造新云任务称成功。已知self摘要保持，但本次共享授权已撤回/pending=f4de，不外推为登出或已恢复。
+- RUN15/pro-next-platform/FIDELITY-SOURCE-FREEZE-FINAL-2.json及native-diagnostics/independent/XHS-FIDELITY-FINAL.json：只读比较工具6类误放行修复（字段存在/类型、导出版本、foreign-note、重复CSV头、作者身份），14回归+7独立负例通过。只作工具准入，尚无新Pro正文/评论/媒体/三导出真实比较或新云ACK。
+- RUN15/pro-next-platform/SIGN-COOKIE-FIX-FREEZE.json及pro-auth-failure-next/FREEZE.json为下一候选：临时签名器去冗余Cookie猜账号锁、身份仍在固定client+官方UID层；核验未知86/明确登出77、字幕factory窄调用及中文状态。此时尚未完成独审/未采用，不能用候选覆盖f4de失败。followup仅候选且预算3+57=60，不重启旧意图。
+
+### E31｜真实XHS来源、95云交付与正式修复（2026-10-15 16:18）
+- RUN15/pro-next-platform/XHS-FOLLOWUP-START-{INTENT,STARTED}.json与native-diagnostics/independent/XHS-FOLLOWUP-TERMINAL.json：e7真实1正文94评论（44根/50回复）、46guard尝试、43持久页。此前f4失败、548旧预算/MC基线保留；原账号self摘要通过，但不是原548重新完成。
+- RUN15/pro-next-platform/XHS-EXPORT72-RECEIPTS.json、FIDELITY-HASH-FREEZE.json和XHS-FIDELITY72-HASH-CONTRACT.json：97导出行中95新正文评论；来源record_hash、结果version_hash和body_hash分域重算。工具18测试与真实临时库三格式；非作者FIDELITY-HASH-FINAL.json已重跑18测试与7恶意负例拒绝。旧实体10无字段缺失/改变；媒体URL差异/新字节0两门禁明确未过。
+- RUN15/pro-next-platform/cloud95/{CREATE-INTENT.json,CREATED.PRIVATE.json,STATUS.PRIVATE.json,RESULTS.PRIVATE.json,ROOT-READBACK.json}：唯一task 2dcf771d-c73e-4e22-b4f0-0b689ba8c2aa实际completed，95回执、正文评论typed字段与冻结相同、source0；1624总ACK/pending0。非作者CLOUD95-ACTUAL-FINAL.json核95原始canonical_envelope/域hash/UUID/receipt、原outbox ACK bytes、finish/source0；52中央步骤seq7–58连续。
+- RUN15/native-diagnostics/independent/{AUTH86-FINAL.json,CAP-FINAL.json}：104单元/42实际worker/15原SDK执行器/2字幕module+2原类/3JS；cap两行正反例原processor+真实临时SQLite/checkpoint通过，20整页软阈值保存24后不请求第3页，非硬20。真实94保留，修复后新来源cap未验。
+- RUN15/PRO-RUNTIME-CAP-FREEZE.json、PRO-CAP-ADOPTION-ROOT-REVIEW.json与pro-cap-adoption/ADOPTED.json：新revision bbbda8cf/PID52074正式采用，原PID42837终止；5锁、原5库备份及原行/历史配置守护通过。非作者PRO-CAP-ADOPTION-LIVE-FINAL.json核8SHA、385其他source/123保护文件与5库逐原行等于实际备份，58本地耐久step全ACK、健康idle。自有8文件提交23f7ae4，私仓未复制；正式默认MC不改。
+- RUN15/pro-next-platform/SIGN-XHS-COOKIEFIX-LIFECYCLE.jsonl：已审临时Signer最终22native签名、source_requests0（纯签名无外部nav），failed=false、正常stopped。此数不能外推runner或浏览器平台请求总数。CookieBridge/原浏览器保留。
+
+- E31补充：RUN15/native-diagnostics/independent/SAVED-MEDIA-ACTUAL-FAILURE.json核原INTENT、三源文件SHA和空资产目录。原driver实际一次失败、次数/根因未留不可补写；SAVED-MEDIA-POSTFAIL-READONLY.json受限环境DNS失败与SAVED-MEDIA-POSTFAIL-DNS-HOST.json主机resolved1/non_public1只作现态，0HTTP诊断不等于旧尝试0HTTP。SAVED-MEDIA-CANDIDATE-FREEZE.json/22测试及SAVED-MEDIA-DOWNLOADER-NEGATIVES.json为工具门禁，不是下载成功；现有image云合同仍缺。
+- E31补充：RUN15/platform-priority/{MATRIX.md,RUN-METADATA.json,PRO-CAPABILITY-SOURCE.json,LOCAL-CLOUD-ORIGIN-MATCHES.json,ARTIFACT-RECEIPTS.json}只读实际SDK/历史run/保存回执盘点，不是fresh登录或新来源验收。SAMPLES.PRIVATE.json仅本地600完整输入。B站两旧run不同target；Pro知乎creator只answers的已知局限正面保留。在线最新Pro代码未核。
+
+- E31最终补充：SAVED-MEDIA-DIAGNOSTICS-FREEZE.json/READY.json及IND/SAVED-MEDIA-{DIAGNOSTICS-UNIT.log,DIAGNOSTICS-DOWNLOADER.json,JOURNAL-NEGATIVES.json}核新driver4afd2fbd、23单元/7原下载器/2wholemain journal异常负例；失败日志只固定reason/type/phase/attempt计数，日志写失败不遮unknown、重复意图在loader前拒绝。工具本地就绪，不是工作台新媒体功能，不回放旧意图、不倒填旧因。原SDK完整登录/新真实cap/媒体/远端OTA等门禁仍分别未过。
