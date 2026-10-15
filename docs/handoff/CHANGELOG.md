@@ -335,3 +335,13 @@
 - **版本/发布**：自有5文件e71b10c2a3e22cbbe29c42d6a3bfc939583cb444已push0/远端同，parent99b49bd。三MD为另一次发布，状态以RUN16/HANDOFF-E52-PUBLISH-RECEIPT.json为准；缺失不认定文档已发。
 - **审批阻塞**：完整V3 a83e+f83b离线独审9293通过，但云端创建持久表并整体替核心任务RPC被自动审批拒绝，未执行；已向本人请求精确授权，待回复，无换路径。实际SELECT无续采表且三RPC MD5保持原值。Fallback不带continuation/云诊断/新Edge/SQL，不能说完整中央升级上线。
 - **下一步**：当前95308基线重新窄合V3，授权前只继续独立测试/诊断；批准后远端/迁移/Edge/采用逐项独审，再原WB剩9真实续验；不动原29ACK或重投旧数据。Bridge05:14缓存fresh17.5秒不等于新self，本机participant/71仍缺；Bili暂停、watchdog暂停、48h未启。
+
+## 2026-10-16｜E53 原生Bili复用真实失败，正式止损并转成熟连接路径
+
+- 分工：native_diagnostics实现原生/WBI媒体链及本轮安全模式保护/诊断；native_diagnostics_review独审组件并执行现场核验；root实现账号诊断UI、唯一采用/metadata安装/恢复诊断/发布，central_steps非作者审UI及准备采用映射和交接候选。保留V3 FIFO阻塞及修复历史，各实现与独审分开。
+- 代码/隔离/正式：V4十四文件曾在1426通过受控SDK音轨HTTP5/nav1/三导出和现场核验，源码9235已发布；真实持久登录却未取得凭据，不能叫业务通过。三文件止损现已采用5663/native-profile-guard-5d33f0c10dc9461d，旧1426停；Bili凭据读取的read/collect两入口均在profileIO/spawn前拒未验证模式，固定native原因及中文UI不再误指未用Bridge。非作者86a3/d67a及现场481989ec核三源码/其余fullset、五库当前schema/raw备份、166保护/6＋19＋9＋3保持。
+- 当前发布：源码7b3f6212d85ec7bfe28f7345a6c5026101fe7f1d已push0/远端同，父92353178；Edge35/三RPC不变、默认MC。本三MD以HANDOFF-E53-PUBLISH-RECEIPT.json为准，未冒已发布。
+- 实际恢复：原V2唯一400仍UNKNOWN，具体错误/marker影响未知。独立有限核销后root一次diagnostic已apply，已知终态check_failed/Bridge0/官方nav0，原source仍paused/spent1of12/reserved0/ACK0，未恢复。Bili account cace及native绑定为本轮已知诊断/operator变化，之后采用保持当前原件；不能倒填旧77f/8b05永远不变。
+- 数据及因果：CookieDB当前0条/mtime1792102016.584已独立只读元数据核验，无Cookie值。早前19尚无可复核before固化证据，不能声称19→0或删除因果已证；实际bundled mock/basic启动参数只构成机制疑点/时间关联。停止继续开原profile试旗；先匹配原持久浏览器凭据模式，成熟Bridge/CDP优先。
+- 当前候选：Bridge→同次navWBI→原MC媒体仅受控6HTTP/三导出通过，未正式/未新sourceACK。Chrome69991/9222找到，root一次现成browser_candidates仍pending/0targets/credentials_imported=false/未绑定，已请本人确认连接；不能当已登录或同主体证明。
+- 遗留与下一步：完成成熟连接的官方同主体后才审原任务剩11，不重试旧未知/新diagnostic，不新增任务扩额。云DDL授权pending、WB29ACK/剩9、ZH停止12/12/0ACK、本机71/全端/48h未过、watchdog暂停保持。证据E53/E53R/E53G/E53C。
