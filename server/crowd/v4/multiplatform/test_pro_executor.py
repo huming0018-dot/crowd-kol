@@ -20,6 +20,28 @@ from results_store import ResultsStore
 from cloud_sync import CloudOutbox
 
 
+class WeiboSelectionTest(unittest.TestCase):
+    def test_weibo_requires_explicit_feature_flag(self):
+        request={'platform':'wb','mode':'detail','media':False,'comments':True,'max_comments':20}
+        self.assertEqual(pro.selection(request,{'CROWD_EXECUTOR':'pro'})['backend'],'mc')
+        chosen=pro.selection(request,{'CROWD_EXECUTOR':'pro','CROWD_PRO_WEIBO_ENABLED':'1','CROWD_PRO_ROOT':'/synthetic'})
+        self.assertEqual(chosen['backend'],'pro')
+    def test_native_probe_does_not_require_upstream_weibo_advertisement(self):
+        response=SimpleNamespace(returncode=0,stdout=json.dumps({'schema_version':pro.PROTOCOL,'platforms':['bili','xhs','dy','reddit']}))
+        with patch.object(m,'source_info',return_value={'commit':pro.PINNED_COMMIT,'dirty':False}),patch.object(pro.subprocess,'run',return_value=response):
+            value=pro.probe('/synthetic')
+        self.assertEqual(value['local_adapter_platforms'],['wb'])
+        self.assertNotIn('wb',value['native_protocol_platforms'])
+    def test_native_protocol_missing_platform_still_rejected(self):
+        response=SimpleNamespace(returncode=0,stdout=json.dumps({'schema_version':pro.PROTOCOL,'platforms':['bili','xhs']}))
+        with patch.object(m,'source_info',return_value={'commit':pro.PINNED_COMMIT,'dirty':False}),patch.object(pro.subprocess,'run',return_value=response):
+            with self.assertRaisesRegex(m.BridgeError,'pro_protocol_incompatible'):pro.probe('/synthetic')
+    def test_weibo_unsupported_mode_and_media_still_use_original(self):
+        for values in ({'mode':'homefeed'},{'media':True}):
+            request={'platform':'wb','mode':'detail','media':False,'comments':True,'max_comments':20,**values}
+            self.assertEqual(pro.selection(request,{'CROWD_EXECUTOR':'pro','CROWD_PRO_WEIBO_ENABLED':'1'})['backend'],'mc')
+
+
 class ProTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

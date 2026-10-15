@@ -21,10 +21,12 @@ import time
 from urllib.parse import urlsplit
 
 from pro_cursor_pages import CursorStalled
+from pro_weibo_adapter import WeiboAdapterStop
 
 PROTOCOL = 'vox-acquisition-v1'
 PINNED_COMMIT = 'd32dd565277116ba4880c28ccd417a7c376cb62d'
-SUPPORTED = ('xhs', 'dy', 'bili')
+NATIVE_SUPPORTED = ('xhs', 'dy', 'bili')
+SUPPORTED = NATIVE_SUPPORTED + ('wb',)
 DB_NAME = 'pro-observations.sqlite3'
 MAX_DB_BYTES = 104857600
 MAX_ROWS = 10000
@@ -44,7 +46,9 @@ def selection(request, environ=None):
     if requested == 'mc':
         return {'backend': 'mc', 'requested_backend': 'mc'}
     reason = None
-    if request['platform'] not in SUPPORTED:
+    if request['platform'] == 'wb' and env.get('CROWD_PRO_WEIBO_ENABLED') != '1':
+        reason = 'pro_weibo_adapter_not_enabled'
+    elif request['platform'] not in SUPPORTED:
         reason = 'pro_operation_platform_not_adapted'
     elif request['mode'] not in ('search', 'detail', 'creator'):
         reason = 'discovery_retains_original_executor'
@@ -75,9 +79,11 @@ def probe(root, python=sys.executable):
         caps = json.loads(result.stdout) if len(result.stdout) <= 4096 else None
     except ValueError:
         caps = None
-    if result.returncode or not isinstance(caps, dict) or caps.get('schema_version') != PROTOCOL or not set(SUPPORTED) <= set(caps.get('platforms', [])):
+    if result.returncode or not isinstance(caps, dict) or caps.get('schema_version') != PROTOCOL or not set(NATIVE_SUPPORTED) <= set(caps.get('platforms', [])):
         m.fail('pro_protocol_incompatible')
-    return {**info, 'executor': 'mediacrawler_pro', 'protocol': PROTOCOL}
+    return {**info, 'executor': 'mediacrawler_pro', 'protocol': PROTOCOL,
+            'native_protocol_platforms': sorted(caps['platforms']),
+            'local_adapter_platforms': ['wb']}
 
 
 def binding_for(root, request):
@@ -210,6 +216,10 @@ def completion(run, manifest, summary):
         checkpoint_topics = set(mapping)
     if len(notes) != len(checkpoint_topics) or {str(n.get('note_id')) for n in notes} != checkpoint_topics:
         m.fail('pro_checkpoint_observation_mismatch')
+    if p['platform']=='wb' and p['comments']:
+        coverage=pagination_summary(run,manifest)
+        if coverage.get('coverage') not in ('exhausted','limit_reached'):
+            m.fail('pro_weibo_pagination_partial')
     return {'operation_id': manifest['run_id'], 'local_committed': True, 'cloud_ack': False,
             'content_count': len(topics), 'comment_count': sum(k == 'comment' for k, _, _ in rows),
             'checkpoint_id': manifest['run_id'], 'coverage': 'unverified'}
@@ -349,6 +359,9 @@ def pinned_ids(value):
 
 def pagination_summary(run, manifest):
     """Coverage evidence is separate from upstream commit and cloud delivery."""
+    if manifest['request']['platform']=='wb':
+        import pro_weibo_adapter
+        return pro_weibo_adapter.pagination_summary(run,manifest,sys.modules[__name__])
     if manifest['request']['platform'] in ('xhs','dy'):
         import pro_cursor_pages
         return pro_cursor_pages.summary(run,manifest,sys.modules[__name__])
@@ -693,7 +706,7 @@ async def run_upstream_bounded(upstream,timeout):
     # Carry deliberate process exits out of wait_for's child task before raising.
     async def attempt():
         try:return True,await run_upstream(upstream)
-        except (SystemExit,CursorStalled) as error:return False,error
+        except (SystemExit,CursorStalled,WeiboAdapterStop) as error:return False,error
     succeeded,value=await asyncio.wait_for(attempt(),timeout=timeout)
     if not succeeded:raise value
     return value
@@ -718,6 +731,7 @@ def execute(run, manifest):
     sink = ProgressSink(run, manifest)
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
     account_hook=None
+    pagination_hook=None
     finished = threading.Event()
     def watch_parent():
         while not finished.wait(.5):
@@ -753,10 +767,15 @@ def execute(run, manifest):
             aiohttp.ClientSession._request = bounded_aio
             from pkg.account_pool.pool import AccountPoolManager
             install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx)
+            if request['platform']=='wb':
+                import acquisition_protocol
+                from pro_weibo_adapter import prepare as prepare_weibo
+                prepare_weibo(config,acquisition_protocol,request)
             import main as upstream
             clients = {'xhs': ('media_platform.xhs.client', 'XiaoHongShuClient'),
                        'bili': ('media_platform.bilibili.client', 'BilibiliClient'),
-                       'dy': ('media_platform.douyin.client', 'DouYinApiClient')}
+                       'dy': ('media_platform.douyin.client', 'DouYinApiClient'),
+                       'wb': ('media_platform.weibo.client','WeiboClient')}
             import importlib
             module, name = clients[request['platform']]
             client_type = getattr(importlib.import_module(module), name)
@@ -785,13 +804,23 @@ def execute(run, manifest):
                 sink.update(phase='failed',account_state='identity_unverified',account_identity_status='baseline_unverified',
                             failure_reason='pro_pending_run_resolution_required')
                 raise SystemExit(85)
-            account_hook=install_pro_account_hooks(run.parent.parent,request['session_id'],request['platform'],
-                manifest['run_id'],account_event,httpx,client_type)
+            if request['platform']=='wb':
+                from pro_weibo_adapter import WeiboIdentity,WeiboPagination
+                account_hook=WeiboIdentity(run.parent.parent,request['session_id'],manifest['run_id'],account_event).install(client_type,httpx)
+                if request['comments']:
+                    from media_platform.weibo.processors.comment_processor import CommentProcessor
+                    pagination_hook=WeiboPagination(run,manifest,m).install(CommentProcessor)
+            else:
+                account_hook=install_pro_account_hooks(run.parent.parent,request['session_id'],request['platform'],
+                    manifest['run_id'],account_event,httpx,client_type)
             sys.argv = [str(root/'main.py'), *argv_for(request)]
             asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
             sink.update(**result)
+    except WeiboAdapterStop as error:
+        sink.update(phase='failed',failure_reason=error.reason if re.fullmatch(r'wb_[a-z_]{1,80}',error.reason) else 'pro_weibo_pagination_partial',coverage='partial')
+        raise SystemExit(74)
     except CursorStalled:
         sink.update(phase='failed',failure_reason='pro_pagination_cursor_stalled')
         raise SystemExit(74)
@@ -808,5 +837,6 @@ def execute(run, manifest):
         sink.update(phase='failed', failure_reason=str(exc) if isinstance(exc, m.BridgeError) else 'pro_executor_error')
         raise SystemExit(74)
     finally:
+        if pagination_hook is not None:pagination_hook.restore()
         if account_hook is not None:account_hook.restore()
         finished.set()
