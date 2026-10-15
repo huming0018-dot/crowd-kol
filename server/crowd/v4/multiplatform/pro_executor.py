@@ -163,6 +163,9 @@ def binding_for(root, request):
     if not path.is_file() or path.is_symlink():
         m.fail('pro_account_binding_required')
     value = m.read(path)
+    if isinstance(value,dict) and set(value)=={'platform','provider'} and value.get('provider')=='native_persistent':
+        if value.get('platform')!='wb' or request['platform']!='wb':m.fail('pro_native_provider_platform_unsupported')
+        return value
     if not isinstance(value, dict) or set(value) != {'platform', 'client_id', 'cookiebridge_url', 'sign_url'} or value.get('platform') != request['platform']:
         m.fail('pro_account_binding_invalid')
     if not isinstance(value['client_id'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', value['client_id']):
@@ -932,13 +935,15 @@ def execute(run, manifest, *, mc_root=None):
             config.DB_TYPE, config.SQLITE_DB_PATH = 'sqlite', str(run/DB_NAME)
             config.USE_CACHE_TYPE, config.CHECKPOINT_STORAGE_TYPE = 'memory', 'file'
             config.ACCOUNT_POOL_SAVE_TYPE = 'cookie_bridge'
-            config.COOKIE_BRIDGE_URL = selected['binding']['cookiebridge_url']
+            native_provider=selected['binding'].get('provider')=='native_persistent'
+            if not native_provider:config.COOKIE_BRIDGE_URL = selected['binding']['cookiebridge_url']
             config.ENABLE_IP_PROXY, config.ENABLE_LOG_FILE = False, False
             config.MAX_CONCURRENCY_NUM, config.START_PAGE = 1, request['start_page']
             config.SPECIFIED_CHECKPOINT_ID = manifest['run_id']
             if 'interval_seconds' in request: config.CRAWLER_TIME_SLEEP = request['interval_seconds']
-            sign = urlsplit(selected['binding']['sign_url'])
-            config.SIGN_SRV_HOST, config.SIGN_SRV_PORT = sign.hostname, str(sign.port)
+            if not native_provider:
+                sign = urlsplit(selected['binding']['sign_url'])
+                config.SIGN_SRV_HOST, config.SIGN_SRV_PORT = sign.hostname, str(sign.port)
             import httpx
             def observe_response(response):
                 if account_hook:account_hook.observe_response(response)
@@ -948,7 +953,12 @@ def execute(run, manifest, *, mc_root=None):
             import aiohttp
             install_aio_transport(aiohttp, request, debit, native_steps, sink)
             from pkg.account_pool.pool import AccountPoolManager
-            install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx,sink=sink)
+            if native_provider:
+                if request['platform']!='wb':raise SystemExit(78)
+                from pro_native_credentials import install_native_account
+                install_native_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,run=run,sink=sink)
+            else:
+                install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx,sink=sink)
             if request['platform']=='wb':
                 import acquisition_protocol
                 from pro_weibo_adapter import prepare as prepare_weibo
