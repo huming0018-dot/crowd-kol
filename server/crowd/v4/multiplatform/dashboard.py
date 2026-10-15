@@ -650,6 +650,11 @@ class Application:
         run_id = str(uuid.UUID(body['run_id']))
         if run_id != body['run_id']:
             raise ValueError('invalid_run_id')
+        if not artifact and body['path'].startswith('attachments/'):
+            from saved_media_attachments import SavedMediaAttachments
+            attachments = SavedMediaAttachments(self.root,
+                lambda rid: self._registered_run_root(rid) / 'runs' / rid, self.results_store)
+            return attachments.resolve(run_id, body['path'])
         response = self.run('import', {'run_id': run_id})
         if response.get('ok') is False:
             raise ValueError('results_not_ready')
