@@ -364,3 +364,14 @@
 - 下一步先等本人原Chrome确认与精确CDP绑定/官方同主体，再只按原任务剩11验正文、分页、新媒体、导出与云ACK。云审批pending、WB29/剩9、ZH停止12/12/0ACK、XHS桥在线非participant恢复、OTA/全端/48h缺口与watchdog暂停保持。E55本三MD待root非作者审查后发布，另存HANDOFF-E55-PUBLISH-RECEIPT.json，不拿源码发布替文档发布。
 
 - 终审补充：实际读正式owner-ui.js:136–140，任务卡片恢复按钮仍直接recover_cloud_login，不会主动打开账号页选择器；本轮五文件只完成全局账号页原会话绑定。下一步接通任务卡片到原账号选择，避免默认native未关联时重复失败，不能写所有Owner入口完成。未额外改代码。
+
+
+## 2026-10-16 07:34 CST｜E56 原任务卡片联动正式采用；XHS只读恢复边界
+
+- 接力：native_diagnostics两JS实现，SDKpeer非作者6b64ae；central采用器/实际现场0c9117，root唯一copy/apply/push与真实UI。交接候选native_diagnostics整理，待root非作者核。
+- 目标/实际改动：原cloud Bili任务卡片先accounts.list权威匹配，再只打开原task/child限定账号页；不自动选择/绑定/核验/继续。V1三实证首败保留，V2修late响应、移除卡片与无引擎猜MC；20同VM及旧账号/Owner矩阵通过。全局账号列表和其他平台保留；无匹配未知Bili必须阻断。
+- 文件/版本：仅owner-ui.js b4e6bfa9、accounts-ui.js 4f11bd6a；V2 freeze08498。root采用19052/owner-cards-b4e6bfa9-4f11bd6a，旧15194停；源码160c351c6f0953d019bc6f9a974b74e5a68cfbdf/push0/remote同，父dabd0886。交接三文档本身尚未发布。
+- 验证/线上边界：非作者现场核2新+443其他/fullset、五库schema/raw等实际备份、170保护、当前6身份+24产物+9WB+3ZH保持；idle/alive/stale=false/pending0。root原IAB3卡片点击实见唯一原Bili对话框与两原账号按钮，无bind/self/source，新ACK0；原任务paused1/12保持。中央诊断四文件未纳入，Edge35/RPC沿07:19原件不称本轮fresh。
+- XHS：本人确认加载后root仅一次原d261本机刷新，extension/hascookies，值不输出/落盘；07:28:47缓存age1.7秒只属该快照。独审f226核原登记/账号元数据保持，participant仍未登记、官方self未新验。正式helper仅Bili，XHS现入口走MC且可触发desired_running自动resume，故没有安全纯Pro check-only；本轮只读定位，不创建新driver或请求平台。903d原gen/ref保留，pending191453不是旧548。
+- 风险/下一步：本人确认CDP后只在原任务选择绑定、单独官方sameUID，再剩11核正文/评论分页/新音轨/三导出/逐条ACK；产品级纯XHScheck-only应复用已购Pro query_self待正式实现/独审，不要求本人重复加载或扫码。云诊断/续采授权pending，不绕审批；WB29/剩9、ZH stopped12/12/0ACK、OTA/全端/48h未验、watchdog暂停。
+- 证据：E56C/A/U/X及上述本地原件；PRIVATE/JSON/截图未随Markdown公开，在线接力无法取得原件时须标未核验。
