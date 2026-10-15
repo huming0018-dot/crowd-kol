@@ -142,7 +142,7 @@ class RunnerTest(unittest.TestCase):
             folder=self.mc/'media_platform'/module;folder.mkdir(parents=True,exist_ok=True)
             (folder/'client.py').write_text('import config\nclass '+name+':\n async def pong(self,*a,**kw): return config.FAKE_AUTH_LOGGED_IN\n async def update_cookies(self,*a,**kw): return None\n')
         with (self.mc/'media_platform/tieba/client.py').open('a') as fixture:
-            fixture.write(' async def get_note_by_id(self,note_id): return None\n')
+            fixture.write(' async def get_note_by_id(self,note_id): return None\n async def _fetch_json_by_browser(self,uri,method="GET",params=None,data=None,use_sign=False): return {}\n async def _get_pc_page_data(self,note_id,page=1): return {}\n')
         (self.mc/'media_platform/tieba/help.py').write_text('class TieBaExtractor:\n def extract_note_detail_from_api(self,data): return None\n')
         with (self.mc/'media_platform/kuaishou/client.py').open('a') as fixture:
             fixture.write(' async def get_video_comments(self,*a,**kw): return {"result":1,"rootCommentsV2":[]}\n async def get_video_sub_comments(self,*a,**kw): return {"result":1,"subCommentsV2":[]}\n async def get_video_all_comments(self,*a,**kw): return []\n')
@@ -150,7 +150,9 @@ class RunnerTest(unittest.TestCase):
         (store/'__init__.py').write_text('class KuaishouStoreFactory:\n @staticmethod\n def create_store(): return None\n')
         (self.mc/'main.py').write_text('''import asyncio,json,pathlib,sys
 from types import SimpleNamespace
-CrawlerFactory=SimpleNamespace(CRAWLERS={key:None for key in ('xhs','dy','ks','bili','wb','tieba','zhihu')})
+class XhsFixtureCrawler:
+ async def download_media(self,note_detail): return None
+CrawlerFactory=SimpleNamespace(CRAWLERS={key:(XhsFixtureCrawler if key=='xhs' else None) for key in ('xhs','dy','ks','bili','wb','tieba','zhihu')})
 import config,httpx
 async def main():
  args=dict(zip(sys.argv[1::2],sys.argv[2::2]))
@@ -160,6 +162,11 @@ async def main():
  from account_sessions import CLIENTS
  module,name=CLIENTS[p]
  await getattr(importlib.import_module('media_platform.'+module+'.client'),name)().pong()
+ if p=='tieba':
+  await getattr(importlib.import_module('media_platform.'+module+'.client'),name)()._fetch_json_by_browser('/c/f/pb/page_pc')
+ if p=='xhs' and args['--get_media']=='true':
+  assert XhsFixtureCrawler.download_media.__module__=='subtitle_discovery'
+  await XhsFixtureCrawler().download_media({'note_id':'id123','title':'fixture'})
  assert config.ENABLE_CDP_MODE is False and config.COOKIES==''
  assert config.CRAWLER_MAX_SLEEP_SEC==2
  assert config.USER_DATA_DIR=='%s_bridge_profile'
