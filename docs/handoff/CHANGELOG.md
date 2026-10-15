@@ -165,3 +165,23 @@
 - WB采用后独审实际PASS：PID68433/唯一端口/旧61381停、6冻结/391其他source/完整fileset、123保护、5库schema原行=实际备份；自然idle且73/1624ACK0/58步骤保持。首次claiming正常瞬态及检查脚本2新增错误假设保留，实际3新增2修改。默认MC/WB未开，无新来源/云任务。
 - 图片TOCTOU最小修后root非作者9组与原恶意替图脚本复跑通过，完整typed sidecar/注册版本/字节像素及文件代际核验，错误image_attachment_binding_changed。只允许本地候选准入，未采用/部署/上传；权威云合同、成熟Edge decoder及视频MIME兼容仍是明确下一步。
 - 每轮handoff更新继续；本轮源码3c164f6已推送授权crowd-kol分支（8acde50→3c164f6），远端ls-remote同SHA；本三份交接文档随后发布，尚不称已发布。不外发PRIVATE/图片/Pro私码。
+
+
+## 2026-10-15 18:37 CST｜原单图真实私有云与Owner入口正式采用
+- **接力者/独审**：Codex /root统筹和采用；native_diagnostics、native_diagnostics_review按实现互不自审，central_steps准备精确包/复制清单。
+- **目标/实际改动**：补图片权威云合同、成熟公开解码器、本机Owner查询/保存/下载；保留原任务/参与身份/评分/outbox/OTA及原95内容。源36项精确合入，不含Pro私码或数据。
+- **版本**：源码b39029ff0743925613d3a7219cf21f993c14693b，授权crowd-kol分支已push/远端同SHA；实际SQL100501、Edge25→26→27；正式runtime image-cloud-b048d69fd3acc6ea/PID79817，旧68433停。文档本次随后另发布。
+- **定位/修复/复核**：首次真实正文短换行序列化不匹配，保持source/gateway双hash域；随后实际Deno像素数组hash兼容错误，保留原对象只commit/GET。两个失败原件不重写。102+9/PGlite原件、真实Deno/Node及偏移并发、38正式Python测试、独立实际云SQL/回取/OwnerHTTP通过。公开vendor原空白按pin保留；自有diff检查通过。
+- **部署/业务验收**：真实单98878B WebP云ready/receipt/下载byte与pixel同；原浏览器新按钮实际显示已保存并下载同图。独立5库原行等实际备份、123配置与源三文件不变，73/1624ACK0/58步骤全ACK保持；来源0。本轮未做新正文/评论采集或OTA。
+- **遗留/下一步**：MC逐页监控v3及Edge27/图片runtime基线包准备待采用；WB原账号同输入、来源自动媒体、其他Pro平台/OS、原任务重登、远端helper连续OTA和48h未全验。看门狗PAUSED，不arm实验。
+- **证据/状态**：E34、image-cloud-live/independent/FINAL-ACTUAL-IMAGE-GATE.json、IND/IMAGE-{ADOPTION-LIVE,OWNER-HTTP-ACTUAL}-FINAL.json、ACTUAL-BROWSER-DOWNLOAD.json；HANDOFF本轮日期/结论/下一步同步更新。PRIVATE只本地，在线接力仍须标明原件不可访问。
+
+
+## 2026-10-15 18:44 CST｜来源逐页监控从候选进入正式运行
+- **接力者/独审**：/root采用；central_steps实现/准备；native_diagnostics非作者真实基线/采用独核；native_diagnostics_review非作者图片回归与文档核验。
+- **实际改动/文件**：7份自有正式MC/CloudWorker/SQLite步骤/Owner展示与测试、1份实际SQL迁移；精确8文件c113aa60b4d313ac1de9df51cca1b3ff41f833c2已push授权crowd-kol分支。其他未提交资产不动。
+- **验证/发现修复**：V3的JSONL、畸形形状、跨phase字段泄漏修复已独审；新部署前fresh比当前线上定义，无旧版本回退。门禁仅metadata更新再独核，正式5单测+8重放断言通过。
+- **部署/线上**：SQL实际104015/Edge28（实际26运行模块逐字核包）/本机revision mc-source-steps-a93e3c362d9264ff PID82126，原79817停。非作者五库raw行等真实备份、123项配置与仅5source变化；idle/alive/pending0，无新来源。图片Owner云回取独立HTTP回归byte/pixel保持。
+- **业务验收边界**：接线已采用，现58条仍是旧交付阶段，尚无新真实来源source_step回执。没有造来源事件、重发未知任务或扩大预算。正文/分页/媒体/导出/原任务恢复各维度继续分别验。
+- **下一步/风险**：有界真实来源阶段云步骤及cap验证；WB原账号同输入与其他Pro平台；自动来源媒体、原任务重登、远端OTA原生链/全端/48h仍缺。原身份/评分/outbox/图片回执/OTA保持。watchdog PAUSED。
+- **证据/状态**：E35及mc-source-adoption/independent/ACTUAL-LOCAL-ADOPTION.json、IND/MC-AFTER-IMAGE-OWNER-HTTP-FINAL.json；固定入口日期/结论/下一步已更新，三份文档待最终独审后发布。

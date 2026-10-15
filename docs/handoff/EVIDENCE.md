@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E32为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E35为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -170,3 +170,24 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - image-cloud/FREEZE.json、DELIVERY.md、ROOT-INDEPENDENT-UNIT.log：6组合成回执/真实临时图片合同通过，仅本地准备，非权威ACK。root额外真实Pillow/ResultsStore反例ROOT-TOCTOU-INITIAL.log：resolve后替换同尺寸PNG仍获接受，退作者修；未采用/上传/部署。中央image表RPC/真实decoder/MIME与视频兼容/真实回取仍缺。pro-next-platform/IMAGE-CLOUD-DUAL-ROUTE-1716.md记录双路线，官方标准小图上传可复用，changelog.md取读失败明示。
 
 - E33最终补充（17:29）：image-cloud/ROOT-INDEPENDENT-FINAL.json、ROOT-INDEPENDENT-FIXED-UNIT.log、ROOT-TOCTOU-FIXED.log核候选Python cdd0b5c6/JS2b288d45/test7f8538a2。root独立9组通过，原同尺寸替图恶意脚本现image_attachment_binding_changed拒绝；原失败保留。返回字段receipt_contract_verified=true/authoritative_receipt_origin_verified=false，不冒称云ACK。尚无中央图片权威RPC/真实Edge decoder/MIME兼容/实际上传回取，候选未采用。正式review 20261015-image-cloud-local-contract-independent-review.md。
+
+
+### E34｜2026-10-15 18:37 原单图私有云、真实Deno修复与正式Owner采用
+- RUN15/image-cloud-server/FREEZE.json及IND/IMAGE-SERVER-INDEPENDENT-FINAL.json：权威image RPC/RLS/原capture来源投影、公开jSquash/image-size静态解码及原视频MIME兼容独审。实际迁移版本20261015100501，源SQL CLI文件093502仅本地过程；image-cloud-deployment/REMOTE-MIGRATION-BODY-READBACK.json及IND/IMAGE-MIGRATION-ACTUAL-READBACK.json双独立实查一statement MD5 7764fc5c0f6c93c1f78b840f7057ba35/15157字符等源SHA8ba752…，源码只保存实际远端版本。
+- RUN15/image-cloud-deployment/LIVE25.PRIVATE.json、IMAGE-STORAGE-INIT-RESULT.json：实际Edge25/私有bucket图片MIME能力生效。LIVE*.PRIVATE含部署入口配置，只在本地600，不公开。实际26运行文件，提交38含12公开版权/包元数据，不能把后者算运行文件。
+- RUN15/image-cloud-live/ACTUAL-IMAGE-ROUNDTRIP-{INTENT,RESULT}.json：第一次prepare失败invalid_image_manifest，Storage0。image-cloud-source-canonical-v2/FREEZE.json/e72f6a…与IND/SOURCE-CANONICAL-PATCH-CONTINUATION-GATE.json：原正文28短换行转义兼容，102跨语言/9负例、原权威envelope/receipt实际PGlite链独审通过；image-edge26-patch/LIVE26.PRIVATE.json实际唯一contract改动，其余25模块保持。
+- RUN15/image-cloud-live/ACTUAL-IMAGE-CONTINUATION-RESULT.json：原job/capture唯一一次PUT后commit mismatch。image-cloud-decoder-deno-v2/DENO-STAGES.log本机实际Deno2.5.4 metadata和decode成功（托管现场原错误分支未直接取证），6220800像素字节在node:crypto Hash.update触发类型错误；7a47fc…显式Uint8Array视图并补缺ImageData容器。IND/DECODER-EDGE27-RECONCILE-GATE.json：非作者实际Deno default/isolated/existing、Node、非零offset与busy负例通过。image-edge27-patch/LIVE27.PRIVATE.json实际27/26模块仅decoder变化，新canonical保持。
+- RUN15/image-cloud-live/ACTUAL-IMAGE-RECONCILE-{INTENT,RESULT}.json/原receipt PRIVATE/ROUNDTRIP.webp及independent/FINAL-ACTUAL-IMAGE-GATE.json：GET-only同artifact6bfc6313 ready，98878B/SHA64dad9b…/1080×1440/frames1/像素780b47…与原件同；非作者重算五库和原source与初意图相同，2个实际SQL核唯一行、16来源/绑定布尔及task/child/run/epoch/receipt全true。前两失败SHA保留。只有这一张WebP真实云验收，JPEG/PNG为本地解码测试，不外推平台全量。
+- RUN15/image-cloud-adoption/ADOPTED.json与IND/IMAGE-ADOPTION-LIVE-FINAL.json、IMAGE-OWNER-HTTP-ACTUAL-FINAL.json：正式PID79817/旧68433停止，6SHA/395其他source和完整fileset、123保护项/5库schema与raw行等真实备份；73/1624ACK0/58步骤全ACK保持。正式HTTP status/file及原IAB按钮真实回取同byte/pixel，ACTUAL-BROWSER-DOWNLOAD.json保存下载证据；首次验证误用系统Python缺Pillow保留，改用正式解释器通过，不是产品故障。
+- RUN15/image-source-merge/MANIFEST.json及IND/IMAGE-SOURCE-MERGE-GATE.json：36精确自有/公开依赖项排除index/MC脏候选/PRIVATE/原图/Pro；源码b39029ff0743925613d3a7219cf21f993c14693b已push/ls-remote一致。38正式联合Python测试通过；公开vendor两行尾空格按原pin保留，自有文件diffcheck通过。
+- RUN15/mc-source-steps/independent/REVIEW-V3-FINAL.json与mc-source-adoption/FREEZE-EDGE27.json、MC-SOURCE-ADOPTION-SCRIPT-FREEZE.json：MC逐页监控离线候选/后续采用准备，原JSONL/恶意形状/跨phase字段错误与修复保留；本条时未正式采用、未获得新来源中央步骤，不把当前58交付步骤当全平台全过程。watchdog PAUSED/48h未arm。
+
+
+### E35｜2026-10-15 18:44 来源逐页监控正式采用，不冒称新来源验收
+- RUN15/mc-source-adoption/independent/{PREPARATION-REVIEW,FINAL-FREEZE-METADATA-REVIEW}.json：非作者fresh Edge27真实定义/原SQL定义核基线，只替machine_steps保留图片e72f/7a47；采用脚本函数AST与已审保护流程一致，门禁metadata窄核通过。
+- RUN15/mc-source-adoption/SQL-APPLY-INTENT.json、ACTUAL-MIGRATION-READBACK.json、EDGE28-DEPLOY-RESULT.json及LIVE28.PRIVATE.json：实际SQL版本20261015104015，正文SHAac1bbfad…/MD5 86beeef08b1231b706679488eb47dc0c，一statement；CLI本地103312过程保留，正式仅104015。Edge28 ACTIVE，实际26运行模块逐字等已审payload38（12公开notice不冒称运行模块），唯一machine_steps变化，图片/原入口保持。
+- RUN15/mc-source-runtime-adoption/ADOPTED.json与mc-source-adoption/independent/ACTUAL-LOCAL-ADOPTION.json：真实PID82126/旧79817停、唯一45937监听；5源码、123保护项、5库schema/raw行等实际备份；idle/alive、pending0、原58步骤阶段保持，无新source_step伪造/新来源调用。
+- IND/MC-AFTER-IMAGE-OWNER-HTTP-FINAL.json：非作者MC版实际Owner HTTP图片status/file仍成功，原artifact6bfc、manifest154b、98878B/SHA64dad9b…及像素780b47…均保持，无save/PUT/source。
+- RUN15/mc-source-adoption/FORMAL-EIGHT-FILE-COMMIT-LIST.json：7份自有formal源码+实际104015迁移精确提交c113aa60b4d313ac1de9df51cca1b3ff41f833c2并push授权分支；无Pro私码/真实凭据/运行原件。正式test_native_steps/test_machine_steps共5单测及8 SQLite重放/隔离断言通过；此前原SDK+JSONL/队列/Edge10/跨phase10/SQL24复核见V3独审。不能据此称新真实source页中央回执或7平台全验证。
+
+- E35最终实际中央补证：mc-source-adoption/independent/FINAL-ACTUAL-ADOPTION-GATE.json（SHA592b1889cb783427054b5a9467e92def10a26ae8ae5a6a391e9228b6316bbd0d）、ACTUAL-CENTRAL-ADOPTION.json由非作者fresh connector核Edge28全部26模块、e72/7a47、pg_proc定义等V3/invoker+空search_path、anon/authenticated execute=false/service_role=true、migration104015唯一；中央与本地同58旧事件/source_step0，不伪造真实来源验收。
