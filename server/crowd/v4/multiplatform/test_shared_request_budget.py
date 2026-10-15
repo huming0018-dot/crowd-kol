@@ -98,11 +98,13 @@ class Budget(unittest.TestCase):
    self.assertEqual(calls,[True]);self.assertEqual(self.b.snapshot()['used'],1)
   finally:httpx.Response.aiter_bytes=original_bytes;httpx.Client.send=original_sync
  def test_actual_pro_aio_wrapper_same_debit_and_no_follow(self):
-  import ast
-  node=next(n for n in ast.walk(ast.parse(Path(p.__file__).read_text())) if isinstance(n,ast.AsyncFunctionDef) and n.name=='bounded_aio');calls=[];headers=[]
+  calls=[];headers=[]
   def debit():calls.append('debit');return self.b.debit('pro')
-  async def old(client,*a,**kw):headers.append(kw);return SimpleNamespace(status=302)
-  scope={'request':self.request,'debit':debit,'old_aio':old};exec(compile(ast.fix_missing_locations(ast.Module(body=[node],type_ignores=[])),'actual_pro_aio','exec'),scope)
-  with self.assertRaises(BudgetError):asyncio.run(scope['bounded_aio'](SimpleNamespace(_retry_connection=True),'GET','https://isolated.invalid',allow_redirects=True))
+  class Session:
+   _retry_connection=True
+   async def _request(self,*a,**kw):headers.append(kw);return SimpleNamespace(status=302)
+  fake=SimpleNamespace(ClientSession=Session)
+  p.install_aio_transport(fake,self.request,debit)
+  with self.assertRaises(BudgetError):asyncio.run(Session()._request('GET','https://isolated.invalid',allow_redirects=True))
   self.assertEqual(calls,['debit']);self.assertEqual(headers,[{'allow_redirects':False}]);self.assertEqual(self.b.snapshot()['used'],1)
 if __name__=='__main__':unittest.main()

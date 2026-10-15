@@ -17,7 +17,7 @@ class Route(unittest.TestCase):
   r=m.validate(self.request(source_executor='pro'));before=dict(os.environ);chosen=p.selection(r,{},installation={'root':'/private/tmp/pro-fixture','python':'/usr/bin/true'});self.assertEqual(chosen['backend'],'pro');self.assertEqual(os.environ,before)
   payload={'platforms':['bili'],'mode':'detail','targets_by_platform':{'bili':r['targets']},'desired_items':1,'max_api_requests':12,'max_comments':3,'purpose':r['purpose'],'idempotency_key':'pro-key','source_executor':'pro'};self.assertEqual(o.plan(payload)['children'][0]['request']['source_executor'],'pro')
  def test_explicit_pro_capability_failures_never_fallback(self):
-  for delta,code in [({'media':True},'pro_media_pipeline_unavailable'),({'platform_options':{'quality':16},'media':True},'pro_media_pipeline_unavailable'),({'platform_options':{'quality':16}},'pro_options_unsupported'),({'platform':'wb'},'pro_operation_platform_not_adapted'),({'mode':'homefeed'},'pro_mode_unsupported'),({'comments':True,'max_comments':0},'pro_zero_comments_means_unlimited')]:
+  for delta,code in [({'media':True},'pro_media_pipeline_unavailable'),({'platform_options':{'quality':16},'media':True},'pro_media_pipeline_unavailable'),({'platform_options':{'quality':16}},'pro_options_unsupported'),({'platform':'ks'},'pro_operation_platform_not_adapted'),({'mode':'homefeed'},'pro_mode_unsupported'),({'comments':True,'max_comments':0},'pro_zero_comments_means_unlimited')]:
    r=self.request(source_executor='pro');r.update(delta)
    with self.subTest(code=code),self.assertRaisesRegex(m.BridgeError,code):p.selection(r,{},installation={'root':'/private/tmp/pro-fixture','python':'/usr/bin/true'})
  def test_installation_only_explicit_and_strict(self):

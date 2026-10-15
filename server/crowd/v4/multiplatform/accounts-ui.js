@@ -11,6 +11,24 @@ const accountView = (() => {
   $('accounts_close').onclick=()=>dialog.close();
   const labels={check_failed:'连接或身份核验失败，不代表账号登出',checking:'正在核验登录',logged_out:'已登出，采集暂停',waiting_login:'请在弹出的浏览器本人登录',resumed:'登录已恢复，可继续原任务',account_changed:'账号已更换，原任务保持暂停',identity_unverified:'登录可用，需确认是否原账号',unverified:'尚未核验登录',authenticated:'登录已核验'};
   const loginErrors={login_browser_timeout:'登录页或二维码等待超时，请打开原会话重试。',login_browser_closed:'登录窗口已关闭，请重新打开。',login_dependency_missing:'登录执行器缺少依赖，请检查设置。',login_flow_ended_before_verification:'登录流程结束，但尚未通过账号核验。',login_executor_failed:'登录执行器未完成核验，请重试；原任务仍保留。'};
+  function proDiagnostic(value){
+    if(!value||value.method!=='pro_official_self')return null;
+    const phases={checking:'后台官方核验进行中',failed:'本次后台官方核验未通过',authenticated:'本次官方账号核验已通过'};
+    const phase=phases[value.phase]||'本次后台核验状态未知';
+    const integer=(x,min,max)=>Number.isInteger(x)&&x>=min&&x<=max;
+    const request=(key,label)=>{
+      const count=value[key+'_requests'];if(!integer(count,0,1))return label+'：请求次数未知';
+      if(count===0)return label+'：尚未请求';
+      const http=value[key+'_http_status'];let text=label+'：请求1次'+(integer(http,100,599)?'，HTTP '+http:'，响应状态未知');
+      const code=value[key+'_business_code'];
+      const bridge={0:'登录桥请求成功',1:'登录桥请求失败',2:'登录桥处理异常',3:'登录桥参数无效',4:'登录桥缺少参数',100:'原浏览器扩展未连接',101:'未取得本平台登录凭据',102:'登录凭据请求超时',103:'未找到原账号'};
+      const official={0:'官方核验请求成功','-101':'官方提示未登录','-400':'官方请求不适用','-403':'官方拒绝访问','-412':'官方频率或访问限制'};
+      const reasons=key==='bridge'?bridge:official;
+      if(Number.isInteger(code)&&Object.hasOwn(reasons,String(code)))text+='，'+reasons[code]+'（'+code+'）';
+      return text;
+    };
+    return phase+'；'+request('bridge','登录桥')+'；'+request('official_self','平台官方核验')+'。';
+  }
   let generation=0,timer=null,sequence=0;
   dialog.addEventListener('close',()=>{generation++;clearTimeout(timer);browserDialog.close();});
   async function chooseBrowser(session,ticket,restartConnection=false,refreshTargets=false){
@@ -54,14 +72,31 @@ const accountView = (() => {
       const row=node('article');row.className='task';row.append(node('h3',platformNames[session.platform]||session.platform),node('p',unavailable?'登录核验接口失败，登录状态尚未确认；已登录者无需重复扫码。':labels[session.state]||session.state));
       if(unavailable){const diagnostic={schema_validation:'当前核验请求与平台接口不兼容，不能据此认定账号登出。',authentication_required:'接口提示需要登录；原会话与任务保留。',rate_or_permission:'接口返回频率或权限限制，保持暂停。',unknown:'接口错误原因尚未定位，保留原会话与任务。'};row.append(node('p',diagnostic[session.login_diagnostic.graphql_error_kind]||diagnostic.unknown));}
       if(session.login_error_code)row.append(node('p',loginErrors[session.login_error_code]||'登录核验尚未完成。'));
+      const diagnostic=proDiagnostic(session.login_diagnostic);if(diagnostic)row.append(node('p',diagnostic));
+      const recovery=session.login_recovery;
+      if(recovery?.kind==='cloud_pro')row.append(node('p','此账号属于原云端等待任务。复用当前原浏览器在后台核验；不会另开登录窗口，也不会自动继续已暂停任务。'));
+      if(recovery?.kind==='blocked')row.append(node('p','原任务恢复上下文暂不可核对，请查看原任务；不会切换到其他登录方式。'));
       if(session.browser_connection)row.append(node('p','复用本人选择的已登录浏览器'));
       if(session.browser_connection_error)row.append(node('p','原浏览器连接暂不可用；任务仍保留，请恢复原窗口或重新选择。'));
       if(session.login_wait_reason==='verification_paused'&&session.login_in_progress===true)row.append(node('p','核验已暂停，原登录窗口保留。完成登录后点下方按钮继续核验。'));
       const actions=node('div');actions.className='actions';
-      const openLogin=button('打开原会话登录',()=>guarded(async()=>{await operate('open_login',{session_id:session.session_id,platform:session.platform},ticket);}));
-      openLogin.disabled=session.login_in_progress===true;actions.append(openLogin);
-      const reuse=button('使用已登录浏览器',()=>guarded(()=>chooseBrowser(session,ticket)));reuse.disabled=session.login_in_progress===true;actions.append(reuse);
-      if(session.browser_connection){const original=button('使用持久会话并核验',()=>guarded(async()=>{
+      if(recovery?.kind==='cloud_pro'){
+        const recover=button('复用原账号后台核验',()=>guarded(async()=>{
+          recover.disabled=true;
+          try{
+            const result=await call('recover_cloud_login',{task_id:recovery.task_id,child_id:recovery.child_id});
+            if(ticket!==generation||!dialog.open)return;
+            await refresh(ticket);
+            if(ticket===generation&&dialog.open)$('accounts_error').textContent=result.owner_continue_required?'正在后台核验；通过后请在原任务点继续，只使用剩余额度。':'正在后台核验；通过后按原任务的运行意图接续，只使用剩余额度。';
+          }catch(error){if(ticket===generation&&dialog.open)$('accounts_error').textContent=error.message;}
+          finally{recover.disabled=false;}
+        }));recover.disabled=session.login_in_progress===true;actions.append(recover);
+      }else if(recovery?.kind!=='blocked'){
+        const openLogin=button('打开原会话登录',()=>guarded(async()=>{await operate('open_login',{session_id:session.session_id,platform:session.platform},ticket);}));
+        openLogin.disabled=session.login_in_progress===true;actions.append(openLogin);
+        const reuse=button('使用已登录浏览器',()=>guarded(()=>chooseBrowser(session,ticket)));reuse.disabled=session.login_in_progress===true;actions.append(reuse);
+      }
+      if(session.browser_connection&&!recovery){const original=button('使用持久会话并核验',()=>guarded(async()=>{
         await call('use_persistent_browser',{session_id:session.session_id,expected_generation:session.generation});
         if(ticket!==generation||!dialog.open)return;
         await operate('open_login',{session_id:session.session_id,platform:session.platform},ticket);

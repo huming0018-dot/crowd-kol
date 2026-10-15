@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import stat
 import sqlite3
 import subprocess
 import sys
@@ -444,6 +445,75 @@ class Application:
         if action == 'tick':return self.light_transcripts.tick()
         raise ValueError('invalid_light_transcript_action')
 
+    def _account_cloud_login_routes(self):
+        """Read-only hints; the existing recovery endpoint revalidates authority."""
+        from account_sessions import identifier
+        worker = getattr(self, 'cloud_worker', None)
+        if worker is None:
+            root = getattr(self, 'root', None)
+            if root is None:
+                return {}
+            path = Path(root) / 'cloud-worker/state.json'
+            if not path.exists() and not path.is_symlink():
+                return {}
+        else:
+            path = getattr(worker, 'path', None)
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, 'rb') as stream:
+                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                    return None
+                raw = stream.read(4194305)
+            if len(raw) > 4194304:
+                return None
+            state = json.loads(raw)
+            if not isinstance(state, dict) or not isinstance(state.get('waiting_logins', []), list):
+                return None
+            routes = {}
+            for wait in state.get('waiting_logins', []):
+                if not isinstance(wait, dict) or not isinstance(wait.get('lease'), dict):
+                    return None
+                lease = wait['lease']; request = lease.get('request')
+                if not isinstance(request, dict):
+                    return None
+                executor = request.get('source_executor', 'mc')
+                if executor not in ('mc', 'pro'):
+                    return None
+                if executor != 'pro':
+                    continue
+                sid = identifier(wait.get('session_id'))
+                local = identifier(wait.get('local_run_id'))
+                task = identifier(lease.get('task_id')); child = identifier(lease.get('child_id'))
+                account = wait.get('account_context')
+                if (wait.get('outcome') != 'login_required' or not isinstance(account, dict)
+                        or account.get('session_id') != sid or request.get('session_id') != sid
+                        or lease.get('local_run_id') != local
+                        or lease.get('platform') not in ('xhs','dy','ks','bili','wb','tieba','zhihu')):
+                    return None
+                # Only Bili has the adopted no-browser Pro verification helper.
+                # Preserve other platforms' existing original-window behavior.
+                if lease['platform'] != 'bili':
+                    continue
+                route = {'kind':'cloud_pro', 'task_id':task, 'child_id':child,
+                         'platform':lease['platform']}
+                if sid in routes:
+                    route = {'kind':'blocked', 'reason':'cloud_login_context_ambiguous'}
+                routes[sid] = route
+            return routes
+        except (OSError, ValueError, TypeError, RecursionError):
+            return None
+
+    def _account_login_route(self, store, session_id, platform, routes):
+        if routes is None:
+            session, _ = store._session(session_id, platform)
+            if (session / 'pro-binding.json').exists() or (session / 'pro-binding.json').is_symlink():
+                return {'kind':'blocked', 'reason':'cloud_login_context_unavailable'}
+            return None
+        route = routes.get(session_id)
+        if route and route.get('kind') == 'cloud_pro' and route.get('platform') != platform:
+            return {'kind':'blocked', 'reason':'cloud_login_context_invalid'}
+        return route
+
     def accounts(self, action, payload):
         from account_sessions import AccountSessions, identifier
         if not isinstance(payload, dict):
@@ -470,6 +540,12 @@ class Application:
             ids = [s['session_id'] for s in sessions]
             if len(ids) != len(set(ids)):
                 raise ValueError('collector_session_ambiguous')
+            routes = self._account_cloud_login_routes()
+            for value in sessions:
+                matches = [root for root in self._roots() if (root/'sessions'/value['session_id']).is_dir()]
+                route = self._account_login_route(AccountSessions(matches[0]), value['session_id'], value['platform'], routes)
+                if route is not None:
+                    value['login_recovery'] = route
             return {'ok': True, 'sessions': sessions}
         if action=='create_browser_session' and set(payload)=={'platform','port','target_id','browser_fingerprint'}:
             return self._prefer_session(AccountSessions(self._roots()[0]).create_browser_session(**payload))
@@ -482,6 +558,11 @@ class Application:
         if action == 'status' and set(payload) in ({'session_id'}, {'session_id', 'platform'}):
             return store.status(session_id, payload.get('platform'))
         if action == 'open_login' and set(payload) == {'session_id', 'platform'}:
+            route = self._account_login_route(store, session_id, payload['platform'], self._account_cloud_login_routes())
+            if route:
+                if route['kind'] != 'cloud_pro':
+                    raise ValueError(route['reason'])
+                return self.accounts('recover_cloud_login', {key:route[key] for key in ('task_id','child_id')})
             return store.open_login(session_id, payload['platform'], self.mc_root)
         if action == 'browser_candidates' and {'session_id'} <= set(payload) <= {'session_id','port','restart_connection','refresh_targets'}:
             if 'restart_connection' in payload and type(payload['restart_connection']) is not bool:

@@ -52,7 +52,7 @@ def supports_bili_audio_request(request):
 
 def explicit_unsupported(request):
     """Explicit task engines never silently substitute a different collector."""
-    if request.get('platform') not in NATIVE_SUPPORTED:
+    if request.get('platform') not in SUPPORTED:
         return 'pro_operation_platform_not_adapted'
     if request.get('mode') not in ('search','detail','creator'):
         return 'pro_mode_unsupported'
@@ -683,7 +683,44 @@ class ProgressSink:
     def isatty(self): return False
 
 
-def install_transport_limits(httpx, request, sink, self_observer=None, debit_callback=None):
+def _observe_transport(steps, stage, attempt, status=0, sink=None):
+    if steps is None:
+        return
+    try:
+        steps.emit(stage, api_attempts=attempt, http_status=status if type(status) is int else 0)
+    except Exception:
+        # Monitoring must never issue another source request or suppress delivery.
+        steps.error = 'pro_transport_monitor_failed'
+    if steps.error and sink is not None:
+        try:
+            sink.update(source_monitor_error='pro_steps_observation_failed')
+        except Exception:
+            pass  # A failed diagnostic write must not retry or cancel the source.
+
+
+def install_aio_transport(aiohttp, request, debit, native_steps=None, sink=None):
+    original = aiohttp.ClientSession._request
+    async def bounded(client, *args, **kwargs):
+        if request.get('source_executor') == 'pro':
+            kwargs['allow_redirects'] = False
+            if hasattr(client, '_retry_connection'):
+                client._retry_connection = False
+        attempt = debit()
+        _observe_transport(native_steps, 'request_started', attempt, sink=sink)
+        try:
+            response = await original(client, *args, **kwargs)
+        except BaseException:
+            _observe_transport(native_steps, 'request_failed', attempt, sink=sink)
+            raise
+        _observe_transport(native_steps, 'response_received', attempt, response.status, sink=sink)
+        if request.get('source_executor') == 'pro' and type(response.status) is int and 300 <= response.status <= 399:
+            from shared_request_budget import BudgetError
+            raise BudgetError('request_budget_redirect_forbidden')
+        return response
+    aiohttp.ClientSession._request = bounded
+
+
+def install_transport_limits(httpx, request, sink, self_observer=None, debit_callback=None, native_steps=None):
     """Count every attempt including CookieBridge/signing; stop before overflow."""
     original_async, original_sync = httpx.AsyncClient.send, httpx.Client.send
     original_bytes = httpx.Response.aiter_bytes
@@ -706,6 +743,7 @@ def install_transport_limits(httpx, request, sink, self_observer=None, debit_cal
             raise SystemExit(73)
         sink.attempts += 1
         sink.update()
+        return sink.attempts
     def check_response(response):
         if _is_bound_bridge_response(response):return  # Bound loader classifies local availability, never platform logout.
         if (shared is not None or debit_callback is not None) and type(response.status_code) is int and 300<=response.status_code<=399:
@@ -729,14 +767,26 @@ def install_transport_limits(httpx, request, sink, self_observer=None, debit_cal
             raise SystemExit(81)
     async def send(client, *a, **kw):
         if shared is not None or debit_callback is not None:kw['follow_redirects']=False
-        debit()
-        response = await original_async(client, *a, **kw)
+        attempt = debit()
+        _observe_transport(native_steps, 'request_started', attempt, sink=sink)
+        try:
+            response = await original_async(client, *a, **kw)
+        except BaseException:
+            _observe_transport(native_steps, 'request_failed', attempt, sink=sink)
+            raise
+        _observe_transport(native_steps, 'response_received', attempt, response.status_code, sink=sink)
         check_response(response)
         return response
     def sync(client, *a, **kw):
         if shared is not None or debit_callback is not None:kw['follow_redirects']=False
-        debit()
-        response = original_sync(client, *a, **kw)
+        attempt = debit()
+        _observe_transport(native_steps, 'request_started', attempt, sink=sink)
+        try:
+            response = original_sync(client, *a, **kw)
+        except BaseException:
+            _observe_transport(native_steps, 'request_failed', attempt, sink=sink)
+            raise
+        _observe_transport(native_steps, 'response_received', attempt, response.status_code, sink=sink)
         check_response(response)
         return response
     async def chunks(response, *a, **kw):
@@ -854,6 +904,8 @@ def execute(run, manifest, *, mc_root=None):
                       VOX_ACQUISITION_RESUME='0', DB_TYPE='sqlite', SQLITE_DB_PATH=str(run/DB_NAME),
                       SAVE_DATA_OPTION='db', ACCOUNT_POOL_SAVE_TYPE='cookie_bridge', ENABLE_LOG_FILE='false')
     sink = ProgressSink(run, manifest)
+    from mc_source_steps import NativeSteps
+    native_steps = NativeSteps(run, manifest['run_id'], request['platform'])
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
     account_hook=None
     from pro_media_integration import MediaStage
@@ -888,21 +940,10 @@ def execute(run, manifest, *, mc_root=None):
             def observe_response(response):
                 if account_hook:account_hook.observe_response(response)
                 media_stage.observe(response)
-            debit = install_transport_limits(httpx, request, sink, observe_response)
+            debit = install_transport_limits(httpx, request, sink, observe_response, native_steps=native_steps)
             # SignSrv uses aiohttp, so include those attempts in the same fixed budget.
             import aiohttp
-            old_aio = aiohttp.ClientSession._request
-            async def bounded_aio(client, *a, **kw):
-                if request.get('source_executor') == 'pro':
-                    kw['allow_redirects']=False
-                    if hasattr(client,'_retry_connection'):client._retry_connection=False
-                debit()
-                response=await old_aio(client, *a, **kw)
-                if request.get('source_executor') == 'pro' and type(response.status) is int and 300<=response.status<=399:
-                    from shared_request_budget import BudgetError
-                    raise BudgetError('request_budget_redirect_forbidden')
-                return response
-            aiohttp.ClientSession._request = bounded_aio
+            install_aio_transport(aiohttp, request, debit, native_steps, sink)
             from pkg.account_pool.pool import AccountPoolManager
             install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx,sink=sink)
             if request['platform']=='wb':

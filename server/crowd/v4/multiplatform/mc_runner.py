@@ -556,8 +556,17 @@ def status(root, payload):
                     saved=[page for page in pages if isinstance(page,dict) and page.get('saved') is True and isinstance(page.get('ids'),list)]
                     state={**state,'step_counts':{'saved_pages':len(saved),'saved_rows':sum(len(page.get('ids',[])) for page in saved)},
                         'step_pages':[{'page_sha256':hashlib.sha256(canonical(page).encode()).hexdigest(),'page_index':index,'scope':page['scope'],'saved_rows':len(page['ids']),'checkpoint_committed':page['checkpoint_committed']} for index,page in enumerate(pages,1) if isinstance(page,dict) and page.get('saved') is True and page.get('scope') in ('root','reply') and isinstance(page.get('ids'),list) and type(page.get('checkpoint_committed')) is bool]}
-        except (ValueError,TypeError,OSError):
+        except (ValueError,TypeError,AttributeError,RecursionError,OSError):
             state={**state,'step_monitor_error':'pagination_observation_failed'}
+    # Pro facts are current durable readback, not backfilled historical HTTP events.
+    if state.get('executor')=='mediacrawler_pro':
+        try:
+            from pro_source_steps import project
+            project(run)
+            if safe_phase_progress(run).get('source_monitor_error')=='pro_steps_observation_failed':
+                state={**state,'source_monitor_error':'pro_steps_observation_failed'}
+        except (ValueError,OSError,sqlite3.Error,BridgeError):
+            state={**state,'source_monitor_error':'pro_steps_observation_failed'}
     from mc_source_steps import read_steps
     try:state={**state,'source_steps':read_steps(run,run.name)}
     except ValueError:state={**state,'source_monitor_error':'native_steps_observation_failed'}
