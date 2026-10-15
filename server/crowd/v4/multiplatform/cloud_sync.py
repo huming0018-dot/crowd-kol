@@ -251,6 +251,8 @@ class CloudOutbox:
             db.execute('CREATE TABLE IF NOT EXISTS captures(id TEXT PRIMARY KEY, run_id TEXT NOT NULL, envelope TEXT NOT NULL, digest TEXT NOT NULL, state TEXT NOT NULL, receipt TEXT, error TEXT)')
             # Keep the original seven-column table and immutable envelope/ACK bytes intact.
             db.execute('CREATE TABLE IF NOT EXISTS capture_delivery(id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, total_attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at REAL NOT NULL DEFAULT 0, last_attempt_at REAL NOT NULL DEFAULT 0, quarantined INTEGER NOT NULL DEFAULT 0, requeues INTEGER NOT NULL DEFAULT 0, last_error TEXT, attempt_token TEXT)')
+            # Only a new stage transaction may mint this proof; retries never restore it.
+            db.execute('CREATE TABLE IF NOT EXISTS capture_first_delivery(id TEXT PRIMARY KEY, digest TEXT NOT NULL, pristine INTEGER NOT NULL CHECK(pristine IN (0,1)))')
 
     @contextmanager
     def _db(self):
@@ -336,6 +338,8 @@ class CloudOutbox:
                     raise CloudError('capture_size_limit')
                 db.execute('INSERT INTO captures VALUES(?,?,?,?,?,?,?)',
                     (capture_id, lease['run_id'], encoded, _hash(SCHEMA, envelope), 'pending', None, None))
+                db.execute('INSERT INTO capture_delivery(id) VALUES(?)', (capture_id,))
+                db.execute('INSERT INTO capture_first_delivery VALUES(?,?,1)', (capture_id, _hash(SCHEMA, envelope)))
         return list(dict.fromkeys(ids))
 
     def flush(self, run_id=None, limit=2000, before_send=None):
@@ -348,22 +352,29 @@ class CloudOutbox:
         for capture_id, encoded, digest, saved_run_id in rows:
             attempt = None
             attempt_token = None
+            first_delivery = False
             try:
                 if before_send:
                     before_send()
                 # Suppress overlap for 90s; later overlap still uses the same cloud idempotency ID.
                 with self._db() as db:
                     db.execute('BEGIN IMMEDIATE')
-                    state = db.execute('SELECT state,digest FROM captures WHERE id=?', (capture_id,)).fetchone()
+                    state = db.execute('SELECT state,digest,receipt,error FROM captures WHERE id=?', (capture_id,)).fetchone()
+                    history_existed = db.execute('SELECT 1 FROM capture_delivery WHERE id=?', (capture_id,)).fetchone() is not None
                     db.execute('INSERT OR IGNORE INTO capture_delivery(id) VALUES(?)', (capture_id,))
-                    retry = db.execute('SELECT attempts,next_attempt_at,quarantined FROM capture_delivery WHERE id=?', (capture_id,)).fetchone()
+                    retry = db.execute('SELECT attempts,next_attempt_at,quarantined,total_attempts,last_attempt_at,requeues,last_error,attempt_token FROM capture_delivery WHERE id=?', (capture_id,)).fetchone()
                     now = time.time()
-                    if state != ('pending', digest) or retry[2] or retry[1] > now:
+                    if state is None or state[:2] != ('pending', digest) or retry[2] or retry[1] > now:
                         continue
                     if retry[0] >= self.MAX_DELIVERY_ATTEMPTS:
                         db.execute('UPDATE capture_delivery SET quarantined=1 WHERE id=?', (capture_id,))
                         db.execute('UPDATE captures SET error=coalesce(error,?) WHERE id=?', ('delivery_attempt_limit', capture_id))
                         continue
+                    proof = db.execute('SELECT digest,pristine FROM capture_first_delivery WHERE id=?', (capture_id,)).fetchone()
+                    first_delivery = (history_existed and proof == (digest, 1) and state[2:] == (None, None)
+                        and retry == (0, 0, 0, 0, 0, 0, None, None))
+                    # Consume before IO, even if the outcome is later unknown.
+                    db.execute('UPDATE capture_first_delivery SET pristine=0 WHERE id=?', (capture_id,))
                     attempt = retry[0] + 1
                     attempt_token = str(uuid.uuid4())
                     db.execute('UPDATE capture_delivery SET attempts=?,total_attempts=total_attempts+1,last_attempt_at=?,next_attempt_at=?,attempt_token=? WHERE id=?',
@@ -379,12 +390,14 @@ class CloudOutbox:
                     binding = {'run_id': envelope['run_id'], 'lease_epoch': envelope['lease_epoch']}
                 except (ValueError, TypeError, KeyError, mc_runner.BridgeError):
                     raise CloudError('invalid_local_capture') from None
-                response = self.client.call('receipt', {**binding, 'capture_id': capture_id, 'envelope_hash': digest})
-                if not isinstance(response, dict) or 'receipt' not in response:
-                    raise CloudError('invalid_cloud_response')
-                receipt = response['receipt']
+                receipt = None
+                if not first_delivery:
+                    response = self.client.call('receipt', {**binding, 'capture_id': capture_id, 'envelope_hash': digest})
+                    if not isinstance(response, dict) or 'receipt' not in response:
+                        raise CloudError('invalid_cloud_response')
+                    receipt = response['receipt']
                 if receipt is None:
-                    if before_send:
+                    if before_send and not first_delivery:
                         before_send()
                     response = self.client.call('capture', {**binding, 'envelope': envelope, 'envelope_hash': digest})
                     if not isinstance(response, dict) or 'receipt' not in response:
