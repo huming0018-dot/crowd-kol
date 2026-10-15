@@ -185,3 +185,19 @@
 - **业务验收边界**：接线已采用，现58条仍是旧交付阶段，尚无新真实来源source_step回执。没有造来源事件、重发未知任务或扩大预算。正文/分页/媒体/导出/原任务恢复各维度继续分别验。
 - **下一步/风险**：有界真实来源阶段云步骤及cap验证；WB原账号同输入与其他Pro平台；自动来源媒体、原任务重登、远端OTA原生链/全端/48h仍缺。原身份/评分/outbox/图片回执/OTA保持。watchdog PAUSED。
 - **证据/状态**：E35及mc-source-adoption/independent/ACTUAL-LOCAL-ADOPTION.json、IND/MC-AFTER-IMAGE-OWNER-HTTP-FINAL.json；固定入口日期/结论/下一步已更新，三份文档待最终独审后发布。
+
+
+## 2026-10-15 22:46 CST｜参与端71发布、Bili诊断正式采用及真实回执
+- **接力者/分工**：root发布/采用；native_diagnostics实现参与端71并独审Bili；central_steps独审参与端；native_diagnostics_review实现Bili并整理E36候选，不能自审自己的实现。
+- **实际改动/版本**：参与端登录状态诊断71，自有源码d7707cb/固定包deaab37/发布0a3bc4f；Bili持窗两文件4492/bfed独审后正式采用7018，源码0ff79f3已推送，原82126停。原身份/任务/评分/outbox/图片云/MC监控保留。
+- **验证/结果**：71原公钥签名/公网包回取/cache验证通过，实际native仍applied70，71安装/远端采用未证；Bili非作者9原SDK+whole+39、五库原行与123资产通过。原cleanenv36/候选36双过，初4失败为相同MC包路径遮蔽测试桩环境，原日志保留，不包装成修复。
+- **真实运行/边界**：旧Bili worker7216原窗口保留但self unavailable/8次暂停为历史；诊断采用后新原session有界核验一次官方200/code0、resumed/login_verified=true，无需用户扫码/未改proxy。旧登录失败原因仍未知；随后新有界Bili同输入任务已completed（详下）；不让用户重复扫码替代根因取证。原19/20各complete2/2不重跑；E35来源中央source_step0是历史；本轮新增Bili24来源步骤，原58仍旧交付步骤。
+- **安全诊断采用**：Bili安全诊断72ce/71ed已非作者复跑43+9/whole/原异常身份负例通过，随后正式采用10368/原7018停；非作者五库/live复核PASS，原五库/123资产/58steps保持且idle。源码6f8dbcb实际push返回0/ls-remote一致；只记录已发生请求安全分类，无新请求/改代理/清预算。root已正常结束已知暂停worker并完成同原session新有界诊断轮，旧失败不覆写。
+- **遗留/下一步**：71终端实际采用链、Bili缺失旧回复/根页保存事件/完整视频媒体，XHS当前浏览器会话桥接、WB及其他Pro平台、全端/48h仍分别验。watchdog PAUSED。
+- **证据/交接**：E36索引及本地handoff-e36候选；正式三文档此时未更新/未发布，须非作者审查后root精确复制/发布并记录HANDOFF-E36-PUBLISH-RECEIPT.json，PRIVATE/原件/Pro私码不发布。
+
+- **本轮真实Bili完成及反证**：taskc81/local95ed/cloud50fe completed，1正文17评论/API8、18ACK、24真实来源步骤、rev74三导出20行已非作者核原始envelope/typed字段/直接parent；40,367,529B同旧音频并非完整视频或本轮云媒体。旧1回复未出现、根页saved0/实存3根、无游标commit证明仍未通过，不能称全链路/全量保真完成。
+- **XHS新核验**：原client stale_cache单次1Bridge/1sign/1self，200/-100未通过；未改原账号/任务，548原摘要保持，Signer正常停止。旧v1与O_EXCL工具转录保留，转录不是独立原stderr；不判用户没登录、不自动重试或要求重复扫码。
+
+- **严格门禁纠正**：旧INSPECTION true保留不覆写；非作者以新配对纯函数重算原24事件，4received/3saved/根页未匹配，严格bounded验收false，正文/ACK/导出/音频各维度仍通过。证据INSPECTOR-PAGE-ACTUAL-CORRECTION.json；无新请求或导出。
+- **XHS原会话恢复进展**：root通过原API打开同903d，worker13403在waiting_login，尚未恢复；当前--disable-extensions/Bridge断线已证。“新旧profile不一致”初推测已由旧34252同nested目录记录推翻并撤回，正式修复在研，不擅换目录；后续工作按E37新增证据。

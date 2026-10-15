@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-15 18:44 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-15 22:46 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -24,14 +24,18 @@
 
 ### 2026-10-15当前增量（优先于下列10-14历史时点）
 
-- **最新现态优先（18:44，E35）**：MC来源逐页监控已正式接入，SQL实际20261015104015、crowd-machine Edge28 ACTIVE，本机mc-source-steps-a93e3c362d9264ff/PID82126，旧图片版79817停。自有源码8项提交c113aa60b4d313ac1de9df51cca1b3ff41f833c2已推送授权分支。非作者实查唯一监听、五库schema/raw行等真实备份、123保护项及仅5源码变化；调度idle/alive/pending0，无新source任务。图片代码保持，MC采用后真实Owner status/file回归同98878B及像素。当前58条仍为旧交付步骤，新真实来源source_step回执尚缺；不能把接线采用当全平台来源验收。
+- **最新现态优先（22:46，E36，快照截至本时点）**：参与端71登录状态诊断已独审、签名发布并公网回取；原公钥/固定ZIP/安装包逐文件核验通过，本机native仅已下载缓存71，实际status仍applied70，不能称71已安装或远端生效。B站原登录持窗修复4492已独审正式采用，随后安全诊断72ce正式采用为bili-login-diagnostics-72ce8a883f77366b/PID10368，原7018停；诊断两文件源码6f8dbcb2d9b85873f9ed0156b181bb14dcf1169f本地HEAD及origin跟踪同SHA，root已取得push返回0和ls-remote同SHA，本文未另发远端请求。旧原worker7216保留原窗口但self不可用、8次暂停为历史失败；安全诊断72ce8a88源码及实际采用均非作者通过，10368唯一监听/原五库及123资产保持。root正常结束旧暂停worker后，同原session新有界核验一次取得官方HTTP200/code0、resumed/login_verified=true，无需用户扫码、未修改proxy。旧失败根因仍未取证，不用新成功倒填。
+- **本轮真实采集增量（E36）**：原账号恢复后新有界Bili云task c81bb819-5486-4848-ad36-e7a48837d454、local95edb761-c070-4666-a192-7eed4d238d76、cloud run50fe2d98-55f0-4dce-927d-5ee92c8c40e8实际completed：1正文17评论/API8、18条云ACK，24中央来源步骤与本地SQLite typed一致；rev74三导出20行（18新来源实体的语义/正文hash/原始评论和直接parent已逐项核验）。40367529B音频SHA5c05e023…与旧75da相同，不是完整MP4、没有本次云媒体上传。正文/回执/导出/音频维度通过，完整验收未过：同输入旧9实体共享8无稳定字段差异，但旧1回复缺失/新10观察，原因未取证；根页received1/saved0虽实存3根，逐页保存监控不完整，无游标commit证明。非作者纯函数重算原24事件，严格页配对false；旧INSPECTION的bounded_sample_acceptance=true仅被独立旁证更正，原件不覆盖。原task19/20各complete2/2保持，原48h/watchdog不启动。
+- **XHS核验边界（E36）**：原Bridge client的stale_cache凭据单次self得到HTTP200/code-100，1Bridge/1Signer/1平台；原文件与548已耗尽任务保持。Signer正常停止/sign1/failed=false。只证明此缓存凭据未通过官方self，不能判本人当前浏览器未登录，未改身份或重发任务。root随后仅通过原API open_login打开同903d原session，worker13403/page_ready、waiting_login；未证明登录恢复。当前原浏览器带--disable-extensions且未加载Bridge；首次“新旧profile不一致”推测已由旧34252同nested目录记录反证撤回，不能擅换目录或清profile。正式修复在研。旧v1在Bridge1/平台0/签名0因本地枚举拒绝终止；重复执行被O_EXCL挡在请求前仅有工具转录定位，未另存原stderr，不冒作独立现场证据。
 
-- **本轮现态优先（18:37，E34）**：自有图片云源码36项提交b39029ff0743925613d3a7219cf21f993c14693b已推送授权分支并ls-remote同SHA。中央image迁移实际20261015100501、crowd-machine Edge27 ACTIVE（实际26运行文件逐byte核候选）和私有bucket图片MIME已生效。本机image-cloud-b048d69fd3acc6ea/PID79817正式采用，旧68433已停；非作者核6源码/完整文件集/395其他源码、123保护资产及原五库schema/raw行等实际备份。rev73、1624ACK/pending0、58步骤全ACK保持。
+- **18:44历史时点（E35；当前运行版见E36）**：MC来源逐页监控已正式接入，SQL实际20261015104015、crowd-machine Edge28 ACTIVE，本机mc-source-steps-a93e3c362d9264ff/PID82126，旧图片版79817停。自有源码8项提交c113aa60b4d313ac1de9df51cca1b3ff41f833c2已推送授权分支。非作者实查唯一监听、五库schema/raw行等真实备份、123保护项及仅5源码变化；调度idle/alive/pending0，无新source任务。图片代码保持，MC采用后真实Owner status/file回归同98878B及像素。当前58条仍为旧交付步骤，新真实来源source_step回执尚缺；不能把接线采用当全平台来源验收。
+
+- **18:37历史时点（E34）**：自有图片云源码36项提交b39029ff0743925613d3a7219cf21f993c14693b已推送授权分支并ls-remote同SHA。中央image迁移实际20261015100501、crowd-machine Edge27 ACTIVE（实际26运行文件逐byte核候选）和私有bucket图片MIME已生效。本机image-cloud-b048d69fd3acc6ea/PID79817正式采用，旧68433已停；非作者核6源码/完整文件集/395其他源码、123保护资产及原五库schema/raw行等实际备份。rev73、1624ACK/pending0、58步骤全ACK保持。
 - **真实图片云业务验收已过，仅此单图**：原e7正文/capture ac97394f、同job3179a0d4、artifact6bfc6313，原98878B WEBP一次PUT后仅GET续接；最终ready/receipt manifest154b6db9…、回取SHA64dad9b…/1080×1440/单帧/像素780b47…与原MC相同。非作者实际2个只读SQL核来源、capture/envelope、任务/child/run/epoch、引用/claim/私有bucket绑定；正式Owner HTTP与原浏览器“查看云状态/下载云端图片”真实通过。未重采来源、未重传原95内容、未改原五库和源三文件。
 - **两次真实失败保留**：最初image_prepare invalid_image_manifest（Storage操作0），定位原Python正文28短换行转义与网关canonical域不同；分别保留哈希域，102交叉/9负例及原件PGlite独审通过，Edge26采用。随后一次PUT后commit image_object_mismatch；本机真实Deno2.5.4重现解码成功但node:crypto拒Uint8ClampedArray（托管现场原错误分支未直接取到），显式Uint8Array偏移视图和缺ImageData兼容由非作者真实Deno/Node及偏移/并发复核后Edge27采用，原对象仅commit/GET成功。没有移除正文或像素校验、删除对象、改假fixture或覆盖旧失败。
 - **逐页监控18:37历史候选，后由E35正式接入**：MC source v3离线完整SDK/JSONL/SQLite/队列/Edge/SQL独审通过；发现JSONL假设、畸形事件与跨phase诊断字段泄漏均修复。后续Edge包基于实际27、runtime基于已采用图片版、CLI迁移20261015103312准备中；此时尚未部署/采用或取得新真实来源步骤回执。原WB真实链、自动来源媒体、原任务重登恢复、其他Pro平台保真/全端/远端原生连续OTA/48h仍未完成。watchdog保持PAUSED。
 
-- **本轮现态优先（17:26）**：WB自有五文件提交3c164f6eadae3a45c950453c4b61ca6ea597c0cd，独审后正式采用pro-weibo-aa40fc9b67a0e98d/PID68433，原61381正常退出。五锁/五库实际备份守护通过；非作者已核6文件/完整fileset/123配置/五库原始行不变，rev73、1624ACK/pending0及58步骤全ACK。非作者最终HTTP已自然idle/alive/stale=false，391其他源码字节与完整文件集保持，实际采用终审PASS。默认MC/WB未启用，未启动WB来源或新云任务。原媒体d744/真图/历史导出证据保持，不把模块采用称WB业务验收。
+- **17:26历史时点**：WB自有五文件提交3c164f6eadae3a45c950453c4b61ca6ea597c0cd，独审后正式采用pro-weibo-aa40fc9b67a0e98d/PID68433，原61381正常退出。五锁/五库实际备份守护通过；非作者已核6文件/完整fileset/123配置/五库原始行不变，rev73、1624ACK/pending0及58步骤全ACK。非作者最终HTTP已自然idle/alive/stale=false，391其他源码字节与完整文件集保持，实际采用终审PASS。默认MC/WB未启用，未启动WB来源或新云任务。原媒体d744/真图/历史导出证据保持，不把模块采用称WB业务验收。
 - 原XHS本人登录后官方200/code0/self摘要通过；先前f4de 77/check_failed/观察0保留，未抹成成功。临时Signer整串Cookie猜账号锁由独审修正，身份仍固定Bridge client和官方self摘要；新有界e7e01fbb-5e8e-47b3-b473-5d24fc77f1cc已真实completed，1正文+94评论（44根/50回复），46 guarded HTTP尝试含loopback，34.609秒意图至终态；不是平台专属总请求或端到端/P95。43持久页/checkpoint独核、可访问页链exhausted不代表平台全量。旧548失败73不重启；当前原会话已恢复并绑定e7，不能用新任务替代旧任务恢复验收。
 - 真正发现并修复：max_comments20只写聚合config，XHS/DY从base_config读取导致本次94条超阈值。原94及全部失败保持；2行初始化补接、原SDK实际processor/SQLite/checkpoint独审正反例通过。语义为整页含回复软阈值（20可保存24再停），不是硬20；修复后尚无新真实来源cap验收。未知核验失败新86与明确登出77分开、Owner中文提示、知乎/贴吧字幕module hook不依赖factory一并独审并采用；当时全MC测试有4继承fixture失败；本轮db58009已补真实SDK测试桩，正式36通过，原失败日志保持历史。
 - e7正式导入冻结rev72，JSON/JSONL/CSV三格式97项=95新正文评论+1新媒体引用+1旧媒体项；双哈希保真比较已重算来源/语义/正文合同，旧10实体无缺失或字段变化，85是新观察而非全新发布。原规范文件保持引用不重写；E32新增旁挂媒体经显式既有代理下载，已证明与旧MC字节/像素等价并进入正式rev73/HTTP下载。URL引用变化保留，不靠删参数判等价；图片云链在E34完成原单图真实验收；自动来源触发未验。
@@ -65,7 +69,7 @@
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/mc-source-steps-a93e3c362d9264ff/ | 当前已采用工作台源码快照；工作树HEAD不是运行版本 |
+| .crowd-launch/runtime-revisions/bili-login-diagnostics-72ce8a883f77366b/ | 截至E36当前已采用工作台源码快照；包含原MC监控/图片能力，工作树HEAD不是运行版本 |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -80,11 +84,11 @@
 
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
-| crawler-extension | 03a38fe | OTA70已发布；其他未提交资产保持 |
-| crowd-kol | 来源监控c113aa6；图片云b39029f；WB3c164f6；媒体c425fd9；测试db58009 | 正式runtime见E35；其他未提交资产保持 |
-| crowd-pages | b6be7cd | 签名OTA70；固定ZIP提交2992d9ffc5388453ead9af0d1641af9da908a4f9；helper工具已发布 |
+| crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，实际采用未证 |
+| crowd-kol | Bili诊断6f8dbcb；持窗0ff79f3；来源监控c113aa6；图片云b39029f | 正式runtime见E36；诊断采用后live独审已通过，原账号新self恢复已证，其他未提交资产保持 |
+| crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；实际终端采用未证 |
 
-以上HEAD本轮实际读取。运行源码以第3节当前增量及E33采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+以上HEAD本轮实际读取。运行源码以第3节当前增量及E36采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -103,11 +107,11 @@
 
 | ID/优先级 | 问题、证据与影响 | 解决所需证据 |
 |---|---|---|
-| R1–R4 | 本机68→69→70已过，fresh两原节点均70/同release摘要且各有完成事件；完整登录恢复/真实评论休眠分页及远端原生连续链仍未全验 | 保持原任务、同账号，以原ID继续/准确partial/ACK证明，不新建任务制造成功 |
+| R1–R4 | 本机68→69→70已过；71已签名发布并native缓存，但实际仍70/71采用未证。原task19/20各complete2/2；完整登录恢复/真实评论休眠分页及远端原生连续链仍未全验 | 保持原任务、同账号，以原ID继续/准确partial/ACK证明，不新建任务制造成功 |
 | D1 | 槽释放、原ID交付恢复、Owner入口已上线；当前无真实坏组可验 | 实际defer→原ID ACK→finish链；不人为破坏用户数据充当验收 |
-| D2–D3 | 机器中央phase/Pro保存页/ACK已部署并source0实证；MC逐页机制已在E35采用，但新来源中央事件未验；通用参与者派单及supervisor child PID/预算标记时间仍不完整 | 任意任务两节点不重复领取、完整中央来源至ACK时间线 |
+| D2–D3 | 机器中央phase/Pro保存页/ACK已部署并source0实证；MC逐页机制已在E35采用，E36 Bili24来源事件真实通过，但根页保存事件缺失及游标commit未证；通用参与者派单及supervisor child PID/预算标记时间仍不完整 | 任意任务两节点不重复领取、完整中央来源至ACK时间线 |
 | D4–D7 | 用户中台恢复、克隆身份围栏、跨任务去重和并发仍未全验 | 同UID不清outbox恢复、双节点epoch竞态、失败隔离与受控并发 |
-| Pro接入 | 原XHS本人self已通过，e7真实正文/94评论、三导出/95云ACK独审，软阈值/86状态已采用；临时Signer已停。图片新显式代理通路已取得同字节、工作台读取/导出/浏览器下载通过；E34原单图图片云合同/回取通过，自动来源媒体仍缺。微博模块已正式安装但未真实采集，其他平台Pro合同未补齐，B站旧两样本非同输入 | 图片云合同/自动来源触发，同输入其他平台完整字段、分页回复、媒体、导出与逐条回执；不以工具测试替代真实成功 |
+| Pro接入 | 原XHS本人self已通过，e7真实正文/94评论、三导出/95云ACK独审，软阈值/86状态已采用；临时Signer已停。图片新显式代理通路已取得同字节、工作台读取/导出/浏览器下载通过；E34原单图图片云合同/回取通过，自动来源媒体仍缺。微博模块已正式安装但未真实采集，其他平台Pro合同未补齐；E36 B站同输入有界批次正文/17评论/音频/导出/18ACK通过，但缺旧1回复/根保存事件/全视频仍未证 | 图片云合同/自动来源触发，同输入其他平台完整字段、分页回复、媒体、导出与逐条回执；不以工具测试替代真实成功 |
 | 审查容量 | 历史有模型容量错误；本轮已完成媒体/五库/导出/OTA独审，WB正式接线及采用独审已通过，原单图图片云实际合同/回取与正式Owner入口独审通过，无新外部服务凭据接入 | 后续仍须非作者实际审查，不能把未出结论算通过或自行改模型 |
 | 全端及质量 | Windows/VM/mobile、全评论媒体字幕、ASR质量和48h未全验 | 分OS/平台/维度的真实证据，不以Mac样本外推 |
 
@@ -118,14 +122,14 @@
 
 安全起步：读取源码/文档、uname/pwd/git status/log、SHA比对、既存脱敏证据；用已授权连接器执行明确只读查询。测试先审其副作用。不要为了核验调用claim/start/finish/arm，或启动会自动执行任务的服务。
 
-下一步：先读E35逐页监控正式采用、E34实际图片云闭环/正式Owner采用及E33的WB原会话同输入准备，不重做原图或重传旧95数据。E35的MC来源逐页监控已正式采用，下一步取得有界真实来源中央步骤回执（不得伪造或重发未知任务）；继续WB原账号桥接同输入正文/分页回复/媒体/导出/云回执。自动来源附件、其他平台/OS、完整原任务恢复及远端原生OTA仍分别验证。不重建未知任务、不重复扫码、不把整页软阈值称全量或硬20。
+下一步：先读E36的71发布/缓存边界及Bili持窗采用、原worker暂停与安全诊断实际采用边界，再读E35逐页监控正式采用、E34实际图片云闭环/正式Owner采用及E33的WB原会话同输入准备，不重做原图或重传旧95数据。Bili安全诊断/原账号恢复及本轮有界正文评论/导出/18云ACK已过，先定位缺失旧回复与根页保存监控缺口，再按原预算补完整视频媒体及余下平台，不要求重复扫码，不清来源预算、不重发未知任务。71实际采用应单独取证。E35的MC来源逐页监控已正式采用，复核Bili24真实来源步骤的根页保存缺口，再推进其他平台有界来源中央回执（不得伪造或重发未知任务）；继续WB原账号桥接同输入正文/分页回复/媒体/导出/云回执。自动来源附件、其他平台/OS、完整原任务恢复及远端原生OTA仍分别验证。不重建未知任务、不重复扫码、不把整页软阈值称全量或硬20。
 
 
 ## 9. 维护与共享
 
 唯一当前状态为本文件。WORKSPACE/HANDOFF.md和爬虫/HANDOFF.md仅指针。[证据](handoff/EVIDENCE.md)、[日志](handoff/CHANGELOG.md)、[模板](handoff/ENTRY_TEMPLATE.md)组成精简交接包。
 
-固定交接文件由本入口、证据、日志、模板及仓库AGENTS.md组成；此前WB自有源码3c164f6已推送并回读；本轮图片b39029f及来源监控c113aa6已推送授权分支；上一轮交接7a86a62已发布；本轮三份交接文档的提交、推送及远端回读以本地RUN15/HANDOFF-1844-PUBLISH-RECEIPT.json为准。该记录缺失或无法读取时，不能认定本轮文档已发布。授权目标为GitHub `huming0018-dot/crowd-kol` 的 `codex/v4.0.6-handoff` 分支。[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)。本次同步状态以变更日志实际推送记录为准；尚未创建另一个在线共享页面。源码功能提交与交接文档提交分别记录。证据索引中的JSON、PRIVATE文件、运行数据与原始日志均只在本地，不随交接文档发布；在线接力者若不能取得原件，须标未核验，不把相对本地路径当作在线证据。
+固定交接文件由本入口、证据、日志、模板及仓库AGENTS.md组成；此前WB自有源码3c164f6已推送并回读；本轮图片b39029f及来源监控c113aa6已推送授权分支；上一轮交接7a86a62已发布；E35三份交接已由本地RUN15/HANDOFF-1844-PUBLISH-RECEIPT.json记录提交4843031/推送/远端同SHA；E36三文档候选尚未发布，后续提交、推送及远端回读以本地RUN15/HANDOFF-E36-PUBLISH-RECEIPT.json为准。该记录缺失或无法读取时，不能认定本轮文档已发布。授权目标为GitHub `huming0018-dot/crowd-kol` 的 `codex/v4.0.6-handoff` 分支。[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)。本次同步状态以变更日志实际推送记录为准；尚未创建另一个在线共享页面。源码功能提交与交接文档提交分别记录。证据索引中的JSON、PRIVATE文件、运行数据与原始日志均只在本地，不随交接文档发布；在线接力者若不能取得原件，须标未核验，不把相对本地路径当作在线证据。
 
 给接力者的固定指令：先读取此入口、EVIDENCE.md和CHANGELOG.md，核对所涉源码与证据日期，再按第8节继续。每轮结束更新状态、证据和日志；无法核验就明确标未知。外部bot只收到Markdown时只能读取已记录状态；要核验原件还须按最小范围提供相应脱敏JSON/产物，不能声称已查询线上。
 
