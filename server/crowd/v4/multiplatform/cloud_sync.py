@@ -814,6 +814,84 @@ class CloudWorker:
                 'reason':'task_'+context['desired_state'] if context.get('desired_state') in ('paused','stopped') else 'quarantined_delivery' if known and stats['quarantined'] else 'source_outcome_unknown' if not known else 'delivery_pending'})
         return {'schema':'crowd-delivery-status-v1','groups':groups}
 
+    def recover_cloud_login(self, task_id, child_id, owner_client, open_login):
+        """Bind only an existing terminal login wait; never queue or restart source."""
+        if getattr(owner_client,'role',None) != 'owner':raise CloudError('principal_denied')
+        task_id,child_id=mc_runner.uid(task_id),mc_runner.uid(child_id)
+        if self.lock_path.is_symlink():raise CloudError('unsafe_cloud_file')
+        with open(self.lock_path,'r+') as lock:
+            try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:raise CloudError('cloud_controller_busy') from None
+            state=mc_runner.read(self.path)
+            if not isinstance(state,dict) or not isinstance(state.get('waiting_logins'),list):
+                raise CloudError('cloud_login_context_invalid')
+            waits=state['waiting_logins']
+            if any(not isinstance(v,dict) or not isinstance(v.get('lease'),dict)
+                   or not isinstance(v.get('account_context'),dict)
+                   or not isinstance(v['lease'].get('request'),dict) for v in waits):
+                raise CloudError('cloud_login_context_invalid')
+            contexts=[v for v in state.get('waiting_logins',[]) if isinstance(v,dict)
+                      and v.get('lease',{}).get('task_id')==task_id
+                      and v.get('lease',{}).get('child_id')==child_id]
+            if len(contexts)!=1:raise CloudError('cloud_login_context_missing')
+            wait=contexts[0];lease=wait.get('lease',{});account=wait.get('account_context',{})
+            local=mc_runner.uid(wait.get('local_run_id'))
+            session=mc_runner.uid(wait.get('session_id'))
+            if (wait.get('outcome')!='login_required' or wait.get('recovery_authorized_run') not in (None,local)
+                    or account.get('session_id')!=session or lease.get('local_run_id')!=local
+                    or lease.get('request',{}).get('session_id')!=session
+                    or type(lease.get('lease_epoch')) is not int or lease['lease_epoch']<1
+                    or type(account.get('generation')) is not int or account['generation']<1
+                    or not isinstance(account.get('account_ref'),str)
+                    or not re.fullmatch(r'[0-9a-f]{64}',account['account_ref'])):
+                raise CloudError('cloud_login_context_invalid')
+            response=owner_client.call('task_status',{'task_id':task_id})
+            if not isinstance(response,dict) or not isinstance(response.get('task'),dict):
+                raise CloudError('cloud_login_context_changed')
+            task=response['task']
+            if not isinstance(task.get('children'),list) or any(not isinstance(v,dict) for v in task['children']):
+                raise CloudError('cloud_login_context_changed')
+            children=[v for v in task.get('children',[]) if v.get('child_id')==child_id]
+            if len(children)!=1:raise CloudError('cloud_login_context_changed')
+            child=children[0]
+            attempts=child.get('attempts')
+            if (not isinstance(attempts,list) or not attempts or any(not isinstance(v,dict)
+                    or type(v.get('lease_epoch')) is not int or v['lease_epoch']<1 for v in attempts)):
+                raise CloudError('cloud_login_context_changed')
+            newest=max(v['lease_epoch'] for v in attempts)
+            latest=[v for v in attempts if v['lease_epoch']==newest]
+            if len(latest)!=1:raise CloudError('cloud_login_context_changed')
+            attempt=latest[0]
+            if (task.get('task_id')!=task_id or task.get('desired_state') not in ('paused','running')
+                    or child.get('state')!='waiting' or child.get('reason_code')!='login_required'
+                    or child.get('local_run_id')!=local or child.get('worker_id')!=lease.get('worker_id')
+                    or child.get('platform')!=lease.get('platform')
+                    or type(child.get('lease_epoch')) is not int or child['lease_epoch']!=lease.get('lease_epoch')
+                    or not isinstance(child.get('runs'),list) or lease.get('run_id') not in child['runs']
+                    or any(attempt.get(k)!=v for k,v in
+                           {'run_id':lease.get('run_id'),'lease_epoch':lease.get('lease_epoch'),
+                            'local_run_id':local,'worker_id':lease.get('worker_id'),'outcome':'login_required'}.items())
+                    or child.get('active_run_id') is not None
+                    or type(child.get('requests_reserved')) is not int or child['requests_reserved']!=0
+                    or type(child.get('requests_spent')) is not int or child['requests_spent']<0
+                    or type(child.get('request_quota')) is not int or child['request_quota']<=child['requests_spent']):
+                raise CloudError('cloud_login_context_changed')
+            original=self._runner('status',{'run_id':local})
+            if (not isinstance(original,dict) or original.get('run_id')!=local or original.get('state')!='login_required'
+                    or type(original.get('exit_code')) is not int or original['exit_code']!=77
+                    or original.get('platform')!=lease['platform'] or original.get('session_id')!=session
+                    or original.get('account_generation') is not None and
+                       (type(original['account_generation']) is not int or original['account_generation']!=account['generation'])):
+                raise CloudError('cloud_login_source_not_terminal')
+            current=self._runner('account_status',{'session_id':session,'platform':lease['platform']})
+            if (not isinstance(current,dict) or type(current.get('generation')) is not int or current.get('generation')!=account['generation'] or current.get('account_ref')!=account['account_ref']
+                    or current.get('login_in_progress') is True):
+                raise CloudError('cloud_login_account_changed')
+            result=open_login(session,lease['platform'],{'run_id':local,
+                'generation':account['generation'],'account_ref':account['account_ref']})
+            return {**result,'recovery_task_id':task_id,'recovery_local_run_id':local,
+                    'source_collection_started':False,'owner_continue_required':task['desired_state']=='paused'}
+
     def retry_delivery(self, capture_ids, owner_client):
         if getattr(owner_client,'role',None)!='owner':
             raise CloudError('principal_denied')

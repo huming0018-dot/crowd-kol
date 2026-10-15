@@ -31,6 +31,7 @@ SUPPORTED = NATIVE_SUPPORTED + ('wb',)
 DB_NAME = 'pro-observations.sqlite3'
 MAX_DB_BYTES = 104857600
 MAX_ROWS = 10000
+_BRIDGE_FETCH = ContextVar('crowd_pro_bound_bridge_fetch',default=None)
 
 
 def bridge():
@@ -706,6 +707,7 @@ def install_transport_limits(httpx, request, sink, self_observer=None, debit_cal
         sink.attempts += 1
         sink.update()
     def check_response(response):
+        if _is_bound_bridge_response(response):return  # Bound loader classifies local availability, never platform logout.
         if (shared is not None or debit_callback is not None) and type(response.status_code) is int and 300<=response.status_code<=399:
             from shared_request_budget import BudgetError
             raise BudgetError('request_budget_redirect_forbidden')
@@ -747,25 +749,60 @@ def install_transport_limits(httpx, request, sink, self_observer=None, debit_cal
     return debit
 
 
-def install_bound_account(pool_class, bound, platform, httpx):
-    """Use the upstream account model, but never import its all-clients fallback."""
+def _is_bound_bridge_response(response):
+    bound=_BRIDGE_FETCH.get()
+    if bound is None:return False
+    try:
+        u=urlsplit(str(response.request.url));base=urlsplit(bound['cookiebridge_url'])
+        return (u.scheme==base.scheme and u.hostname==base.hostname and u.port==base.port
+                and not u.username and not u.password and not u.fragment
+                and u.path==base.path.rstrip('/')+'/api/cookies/'+bound['platform']
+                and list(response.request.url.params.multi_items())==[('client_id',bound['client_id'])])
+    except (TypeError,ValueError,AttributeError):return False
+
+
+def install_bound_account(pool_class, bound, platform, httpx, *, sink=None):
+    """Bridge availability is distinct from the native official login proof."""
+    def unavailable(reason, response=None, payload=None):
+        fields={'phase':'failed','failure_reason':'pro_cookiebridge_unavailable',
+                'bridge_stage':'bound_cookie_fetch','bridge_reason':reason}
+        if response is not None and type(response.status_code) is int and 100<=response.status_code<=599:
+            fields['bridge_http_status']=response.status_code
+        code=payload.get('biz_code') if isinstance(payload,dict) else None
+        if type(code) is int and code in (0,1,2,3,4,100,101,102,103):fields['bridge_business_code']=code
+        try:
+            if sink is not None:sink.update(**fields)
+        except Exception:pass  # Best-effort failure diagnostics cannot turn bridge refusal into a different ordinary error.
+        raise SystemExit(86)
     async def load(pool):
         from pkg.account_pool.pool import AccountInfoModel, AccountStatusEnum
-        if pool._platform_name != platform: raise SystemExit(78)
-        async with httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False) as client:
-            response = await client.get(bound['cookiebridge_url']+'/api/cookies/'+platform,
-                                        params={'client_id': bound['client_id']})
-            response.raise_for_status()
-            payload = response.json()
-        data = payload.get('data') if isinstance(payload, dict) else None
-        if not isinstance(data, dict) or payload.get('isok') is not True or data.get('valid') is False or not isinstance(data.get('cookies'), str) or not data['cookies']:
-            raise SystemExit(77)
-        if data.get('client_id') != bound['client_id'] or data.get('platform') != platform:
-            raise SystemExit(78)
-        # Native upstream account validation still runs. Cookie presence is not login proof.
-        pool.add_account(AccountInfoModel(id=1, account_name='bound-local-client', cookies=data['cookies'],
-                                         status=AccountStatusEnum.NORMAL.value, platform_name=platform))
-    pool_class.load_accounts_from_cookie_bridge = load
+        if pool._platform_name != platform:raise SystemExit(78)
+        token=_BRIDGE_FETCH.set({**bound,'platform':platform})
+        try:
+            try:
+                async with httpx.AsyncClient(timeout=10,follow_redirects=False,trust_env=False) as client:
+                    response=await client.get(bound['cookiebridge_url']+'/api/cookies/'+platform,
+                                              params={'client_id':bound['client_id']})
+            except httpx.RequestError:unavailable('transport_error')
+            if response.status_code!=200:unavailable('http_error',response)
+            try:payload=response.json()
+            except (ValueError,UnicodeError,RecursionError):unavailable('invalid_response',response)
+            if not isinstance(payload,dict):unavailable('invalid_response',response)
+            if payload.get('isok') is not True:
+                code=payload.get('biz_code')
+                reason={100:'extension_disconnected',101:'cookies_missing',102:'bridge_request_timeout',103:'bound_account_missing'}.get(code,'business_error') if type(code) is int else 'business_error'
+                unavailable(reason,response,payload)
+            data=payload.get('data')
+            if not isinstance(data,dict):unavailable('invalid_response',response,payload)
+            if not isinstance(data.get('client_id'),str) or not data['client_id'] or not isinstance(data.get('platform'),str) or not data['platform']:unavailable('invalid_response',response,payload)
+            if data.get('client_id')!=bound['client_id'] or data.get('platform')!=platform:raise SystemExit(78)
+            if data.get('valid') is False:unavailable('bridge_cookie_marked_invalid',response,payload)
+            if not isinstance(data.get('cookies'),str) or not data['cookies']:unavailable('cookies_missing',response,payload)
+            # Cookie presence is transport readiness only; original official self still runs.
+            pool.add_account(AccountInfoModel(id=1,account_name='bound-local-client',cookies=data['cookies'],
+                status=AccountStatusEnum.NORMAL.value,platform_name=platform))
+        finally:_BRIDGE_FETCH.reset(token)
+    pool_class.load_accounts_from_cookie_bridge=load
 
 
 async def run_upstream(upstream):
@@ -867,7 +904,7 @@ def execute(run, manifest, *, mc_root=None):
                 return response
             aiohttp.ClientSession._request = bounded_aio
             from pkg.account_pool.pool import AccountPoolManager
-            install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx)
+            install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx,sink=sink)
             if request['platform']=='wb':
                 import acquisition_protocol
                 from pro_weibo_adapter import prepare as prepare_weibo

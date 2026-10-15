@@ -536,7 +536,7 @@ class ProTest(unittest.TestCase):
             async def __aexit__(self,*a):pass
             async def get(self,url,params):
                 calls.append((url,params))
-                return SimpleNamespace(raise_for_status=lambda:None,json=lambda:payload)
+                return SimpleNamespace(status_code=200,raise_for_status=lambda:None,json=lambda:payload)
         class Pool:
             _platform_name='bili'
             def __init__(self):self.accounts=[]
@@ -553,7 +553,7 @@ class ProTest(unittest.TestCase):
             self.assertEqual(changed.exception.code,78)
             payload['data']['client_id']='chosen';payload['data']['valid']=False
             with self.assertRaises(SystemExit) as invalid:asyncio.run(Pool().load_accounts_from_cookie_bridge())
-            self.assertEqual(invalid.exception.code,77)
+            self.assertEqual(invalid.exception.code,86)
 
     def test_supervisor_pro_failure_never_launches_mc_fallback(self):
         manifest={**self.manifest,'executor':{'backend':'pro','python':'/fixture/pro/python'}}

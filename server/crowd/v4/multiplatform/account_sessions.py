@@ -147,17 +147,17 @@ def _record_bili_self_diagnostic(store, session_id, request, verification, respo
 
 
 def _preserve_bound_xhs_bridge(root, session_id, platform, browser_name, user_data_dir, options):
-    """Only keep the already-bound XHS profile's installed extensions enabled.
+    """Only keep the already-bound XHS/Bili profile's installed extensions enabled.
 
     No extension is installed/loaded here; missing registration remains a separate
     recovery condition. MC profiles without an explicit Pro binding stay unchanged.
     """
     result = dict(options)
-    if platform != 'xhs' or browser_name != 'chromium':
+    if platform not in ('xhs', 'bili') or browser_name != 'chromium':
         return result
     try:
         session = Path(root).resolve() / 'sessions' / identifier(session_id)
-        expected = session / 'browser_data' / 'xhs_bridge_profile'
+        expected = session / 'browser_data' / (platform + '_bridge_profile')
         binding = session / 'pro-binding.json'
         if (session.is_symlink() or session.parent.is_symlink() or expected.parent.is_symlink()
                 or not expected.is_dir() or expected.is_symlink() or not binding.is_file()
@@ -167,7 +167,7 @@ def _preserve_bound_xhs_bridge(root, session_id, platform, browser_name, user_da
             return result
         value = json.loads(binding.read_text())
         if (not isinstance(value, dict) or set(value) != {'platform', 'client_id', 'cookiebridge_url', 'sign_url'}
-                or value.get('platform') != 'xhs' or not isinstance(value.get('client_id'), str)
+                or value.get('platform') != platform or not isinstance(value.get('client_id'), str)
                 or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', value['client_id'])):
             return result
         for field in ('cookiebridge_url', 'sign_url'):
@@ -282,13 +282,24 @@ class AccountSessions:
             temporary.replace(folder / 'state.json')
         return {'ok': True, **value}
 
-    def observe(self, session_id, platform, event, run_id=None, account_id=None):
+    def observe(self, session_id, platform, event, run_id=None, account_id=None, *, _expected_context=None):
         if event not in ('checking', 'logged_out', 'waiting_login', 'check_failed', 'authenticated'):
             raise ValueError('invalid_account_event')
         if run_id is not None:
             identifier(run_id)
         account_ref = safe_account_ref(platform, account_id)
         def change(value):
+            if _expected_context is not None:
+                if (event != 'checking' or not run_id or type(_expected_context) is not dict
+                        or set(_expected_context) != {'generation','account_ref'}
+                        or type(_expected_context['generation']) is not int or _expected_context['generation'] < 1
+                        or not isinstance(_expected_context['account_ref'],str)
+                        or not re.fullmatch(r'[0-9a-f]{64}',_expected_context['account_ref'])
+                        or type(value.get('generation')) is not int
+                        or value.get('generation') != _expected_context['generation']
+                        or value.get('account_ref') != _expected_context['account_ref']
+                        or value.get('state') == 'account_changed'):
+                    raise ValueError('cloud_login_account_changed')
             if run_id and event in ('checking', 'logged_out', 'waiting_login', 'check_failed'):
                 value['pending_run_id'] = run_id
             if event != 'authenticated':
@@ -376,7 +387,7 @@ class AccountSessions:
                          authorized_for_run=None, pending_run_id=None)
         return self._update(session_id, status['platform'], change)
 
-    def open_login(self, session_id, platform, mc_root):
+    def open_login(self, session_id, platform, mc_root, *, _recovery=None):
         session, _ = self._session(session_id, platform)
         mc_root = Path(mc_root).resolve()
         if not (mc_root / '.venv/bin/python').is_file() or not (mc_root / 'main.py').is_file():
@@ -387,7 +398,13 @@ class AccountSessions:
         except BlockingIOError:
             lock.close(); raise ValueError('session_busy')
         try:
-            status = self.observe(session_id, platform, 'checking')
+            if _recovery is not None:
+                if type(_recovery) is not dict or set(_recovery) != {'run_id','generation','account_ref'}:
+                    raise ValueError('invalid_cloud_login_context')
+                status = self.observe(session_id, platform, 'checking', run_id=_recovery['run_id'],
+                    _expected_context={key:_recovery[key] for key in ('generation','account_ref')})
+            else:
+                status = self.observe(session_id, platform, 'checking')
             self._update(session_id, platform, lambda value: value.pop('login_error_code', None))
             folder = self.root / session_id
             (folder / 'login-stop').unlink(missing_ok=True)
