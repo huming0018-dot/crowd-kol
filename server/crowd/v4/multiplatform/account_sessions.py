@@ -738,6 +738,18 @@ def install_manual_login_fallback(crawler, store, session_id, platform, deadline
             await self.update_cookies(browser_context=crawler.browser_context, urls=crawler.cookie_urls)
             return False
         if verified is True:
+            if platform == 'bili' and not store.status(session_id).get('browser_connection'):
+                # Close while the native Playwright manager still owns its driver.
+                try:
+                    await asyncio.wait_for(crawler.browser_context.close(), timeout=10)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    store._update(session_id, platform, lambda value: value.update(
+                        login_persistence_status='context_close_failed'))
+                    raise LoginFlowError('login_browser_persistence_failed') from None
+                store._update(session_id, platform, lambda value: value.update(
+                    login_persistence_status='context_closed_before_driver_exit'))
             raise LoginVerified()
         return False
     client_class.pong = verified_pong

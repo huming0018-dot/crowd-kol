@@ -135,7 +135,8 @@ const ownerView = (() => {
         if(task.storage_scope==='cloud'&&c.state==='waiting'&&c.reason_code==='login_required'){
           const recover=button('核验原账号以恢复此任务',async()=>{recover.disabled=true;try{
             const result=await api('/api/accounts',{action:'recover_cloud_login',payload:{task_id:task.task_id,child_id:c.child_id}});
-            message(result.owner_continue_required?'已打开原账号核验；核验通过后请点继续，任务只使用剩余额度。':'已打开原账号核验；核验通过后按原运行意图自动接续，只使用剩余额度。');await reload();
+            const intro=result.browser_started===false?'正在使用已有登录进行后台官方核验，请稍后查看账号状态；':'已打开原账号核验；';
+            message(intro+(result.owner_continue_required?'核验通过后请点继续，任务只使用剩余额度。':'核验通过后按原运行意图自动接续，只使用剩余额度。'));await reload();
           }catch(error){message(error.message);}finally{recover.disabled=false;}});row.append(recover);
         }
         if(!c.light_transcript)for(const saved of c.video_text_jobs||[])row.append(button(saved.state==='completed'?'查看画面文字（非听写）':'查看画面文字处理进度',()=>guarded(()=>mediaView.openSaved(saved.run_id,saved.job_id))));
