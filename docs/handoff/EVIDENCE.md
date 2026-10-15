@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E50为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E52为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -362,3 +362,12 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN16/pro-wb-seed-sdk/independent-root/FINAL.json 1b13f081：六原SDK复用组件独审，旧5/新3分离与未知写阻断；V2仅生产依赖元数据重绑，旧测试漂移/首次中止保留。完整续采受控候选见failed-source-continuation/FREEZE-COMBINED-V1.json，不是已部署或新真实媒体云验收。
 
 - E51最终采用后现场证据：RUN16/pro-zhihu-launchfix-adoption/independent/ACTUAL-RUNTIME-FINAL.json SHA256 5e47c64b0f4b8d201de6800cc6269b472ec93e89ca237b558ccc68eada1e71ef；SOURCE-PUBLISH-RECEIPT.json=0dfbc04eef2050a48ef670cc50fa61f54a3df8ed/push0/远端同。实际90039、4+436/五库/130/6+19+9+3/Edge35均保持。最终维护原任务状态请读pro-zhihu-real/actual/STATUS-*，spent0/reserved0/ACK0。
+
+## E52｜真实内容403失败、防循环本机采用与云升级审批边界
+- RUN16/pro-zhihu-repair-real/actual/{ACTUAL-ATTEMPTS-HTTP.json,STOP-AUTO-RETRY-RESULT.PRIVATE.json}：四原attempt各3尝试200/200/403、总12/12，旧77循环真实失败；Owner parent stopped/child waiting、reserved0/ACK0。私人原始响应不外发，不倒填新成功。
+- RUN16/pro-startup-recovery-v2/independent-central/ACTUAL-FAILED-FINISH-FINAL.json SHA7c220772：原0a0dc9/034b仅一次启动前失败0请求/0ACK/reserved0；不能覆盖后续0894已耗12事实。
+- RUN16/zhihu-access-recovery/{FREEZE.json,ACTUAL-METADATA-FIXTURE.json,independent-review/FINAL.json}：07fac四生产/26额外非作者caller负例/38原调度回归/原SDK403→87空导入和官方401→77；原same-run旧self被拒、账号原件不改。
+- RUN16/access-recovery-runtime-adoption/{RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json}：freeze fc072b9068f5f17647767162f98256561b5819c3a9ae71afa85e468db7d3d5c8；非作者现场报告8423883e4a3a961a4886efb635cd0dee0d8a04e959b8650e31ac4c0edc9e9641。实际95308/5+436/fullset/5DB/166/6+19+9+3、原等待项/Edge35/三RPC均保持；e71b10c已push0/远端同。没有新来源。
+- RUN16/failed-source-continuation/{combined-v3/FREEZE.json,v3-display-fix/FREEZE.json,combined-v3/independent-review/FINAL.json}：a83e+f83b必需文案覆盖，独审9293cf8d10c23530e6b12b054d499955bf4bbb9c442a474b203c1a061197483f通过；只离线完整候选，不能套用于当前95308或当真实续采。
+- RUN16/continuation-runtime-adoption/{CLOUD-APPROVAL-REJECTION.json,CLOUD-UNCHANGED-AFTER-REJECTION.json}：apply_migration自动审批拒绝、executed=false/user_approval_pending=true；只读SELECT证实无续采表，sourceRPC MD5 78b99485a78b77612b41b9651344a61a、image134e0f96284a346550eb94e0eb2191fc、steps8f57fc444e4ce96910dd73df6006ae4d未变。未绕过执行，待明确授权。
+- RUN16/xhs-restore-readonly/{REFRESH-INDEPENDENT.json,METADATA-1792098852672556000.json}：05:14原71456/client/extension缓存刷新fresh17.5秒；原self已过180秒、participant仍缺。仅连接/缓存证据，非平台登录或OTA验收。

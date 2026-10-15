@@ -327,3 +327,11 @@
 - root修pin，central独审真正owned原JS/SDK五签/退出。central修无DB启动失败导入，root查出错误continuation键后V2修，11测试/原件只读过。root维护V1被central真实state回放指出会调用别的Bili heartbeat；V2仅实例跳过非本任务等待项、保原列表，独审后实际原production_tick/failedfinish释放reserved12，原失败/预算/身份保留。
 - root随后采用四文件90039；非作者实际4+436/五库/130/6+19+9+3/Edge35通过，源码0dfbc04eef2050a48ef670cc50fa61f54a3df8ed已push0/远端同。继续修复后的同输入真实来源，不把0ACK或离线fixture当成功。WB SDK复用组件root六进程独审通过；完整Owner/预算/媒体/fresh-only云交付V1冻结、V2正合最新修复，尚未真续采/部署。
 - 下一步：90039采用后独审与发布已完成；确认8990受控测试退出，原首败0spent/0ACK/reserved0已权威核实后，在原1正文/12总来源预算内有界验证修复，不重发未知调用；独立核正文/分页/三导出/真实中央ACK。participant本机71/原Bili登录/多平台全维度和48h仍缺。
+
+## 2026-10-16 05:26 CST｜E52 内容403循环止损，本机修复已采用，中央升级未执行
+- **分工**：central_steps实现403/新核验防循环候选与本轮交接；native_diagnostics_review独审4+38/原SDK及26恶意caller，root独审采用映射、sole正式copy/采用/发布；SDKpeer独立实际95308现场。native_diagnostics实现续采V3组合，SDKpeer非作者9293审；Pro私码未复制或外发。
+- **真实失败与保留**：0894四次来源各self200/sign200/article403，旧77及旧self恢复导致总12/12、0正文/0ACK；Owner已停止，child waiting/reserved0。原0a0dc9启动前failed0释放仍保留，不称知乎通过，不再新建/扩预算。
+- **实际改动/验证**：仅4生产+1测试本机采用95308/access-recovery-c863975c5447bb63；403内容拒绝failed87、不写登出，官方self401仍77；旧核验不能恢复。实际非作者05:24:37核5+436/fullset、五库schema/raw、166保护、6+19+9+3、Bili paused/ZH stopped、idle/pending0/Edge35均保持，无新来源。
+- **版本/发布**：自有5文件e71b10c2a3e22cbbe29c42d6a3bfc939583cb444已push0/远端同，parent99b49bd。三MD为另一次发布，状态以RUN16/HANDOFF-E52-PUBLISH-RECEIPT.json为准；缺失不认定文档已发。
+- **审批阻塞**：完整V3 a83e+f83b离线独审9293通过，但云端创建持久表并整体替核心任务RPC被自动审批拒绝，未执行；已向本人请求精确授权，待回复，无换路径。实际SELECT无续采表且三RPC MD5保持原值。Fallback不带continuation/云诊断/新Edge/SQL，不能说完整中央升级上线。
+- **下一步**：当前95308基线重新窄合V3，授权前只继续独立测试/诊断；批准后远端/迁移/Edge/采用逐项独审，再原WB剩9真实续验；不动原29ACK或重投旧数据。Bridge05:14缓存fresh17.5秒不等于新self，本机participant/71仍缺；Bili暂停、watchdog暂停、48h未启。

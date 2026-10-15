@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 04:59 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 05:26 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,13 +16,23 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：知乎文章已正式接入但真实首试启动86、0来源，故障任务已正常失败释放，修复后新来源仍待验；XHS有限来源云交付与WB原登录复用已实际独审；WB新来源29ACK但子回复不全failed74，完整分页/媒体尚未通过；本机历史68→69→70连续OTA通过，远端原节点已上报71并匹配正式摘要；本机目前仍70且原profile参与者登记待恢复，不把缓存71当采用。仍不是全部平台/全端完整产品终验或48小时实验阶段。详细状态见第3节。
+当前阶段：知乎真实文章访问403被误判登录失败，连续四次尝试已耗尽12/12、0正文/0ACK，Owner已停止；已正式采用本机403分类与新核验防循环修复95308，但未重新采集，不叫知乎验收通过。中央续采/诊断升级因自动审批拒绝尚未执行，等待用户明确授权。WB原29ACK/剩9、XHS既有有限交付、原参与流程/评分/回执/OTA保持；本机participant仍未登记/71未验，远端71既有证据保持。尚未进入全平台/全端终验或48小时实验。详细状态见第3节E52。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### E51｜知乎文章正式接入，真实首试启动故障已定位并释放
+### E52｜403防循环修复已正式接入；中央升级等待明确授权
+
+- **真实失败与止损**：修复首败后新task08940d4f发生四个local e246/68d/6d1/1a5，各官方self200、Signer200、文章403，被旧guard当77/login_required，并被失败前旧self自动恢复。实际共12/12、0正文/0ACK。root已Owner停止，原件显示parent stopped、child waiting、spent12/reserved0/ACK0；不再发知乎任务、不扩预算、不把官方self成功当内容可访问。原0a0dc9/034b仍是已正常failed释放的0spent/0reserved/0ACK，失败原件与唯一attempt保留。
+- **已修改/测试/正式运行**：仅本机4生产+1回归测试已采用access-recovery-c863975c5447bb63/PID95308，旧90039正常停。知乎内容403改failed87/pro_content_access_denied，保留已认证状态；官方self401仍77。通用自动恢复必须有失败之后的新核验，原authorized_run与旧verified_at不能自证恢复；历史等待项只读原失败run时间守门。38原调度回归、原SDK403→87及失败空导入、self401→77、26额外caller负例独审通过。未带中央诊断/continuation/新SQL或Edge变更，不冒称云端已能显示新诊断。
+- **采用后独立现场与发布**：05:24:37非作者实际核5精确+436其他/fullset、五库schema/raw等实际备份、166保护及6身份+19导出+9WB原件+3知乎元数据保持；idle/alive/stale=false/pending0，Bili paused与ZH stopped等待列表保持、Edge35全部26模块/三个RPC保持、无续采表。源码e71b10c2a3e22cbbe29c42d6a3bfc939583cb444已push0/远端同，parent99b49bd。实际修复生效不是新来源业务通过；没有再次采集或新增ACK。
+- **中央候选与审批阻塞**：WB续采combinedV3 a83e + 必需f83b文案覆盖已获非作者9293离线通过（21运行文件/Owner grant/剩额/原SDK复用/新媒体/诊断87与SQL合同）。首次apply_migration被自动审批拒绝：创建持久表并整体替换核心任务RPC的高影响范围尚缺明确授权；已向本人提问，仍待回复。实际SELECT确认source_continuations不存在，source/image/steps三RPC MD5均保持原值；未换方式执行，未部署此候选，也未真实WB续采/新媒体云回取。原WB29ACK/3of12/剩9保留。完整V3未来须基于95308重新窄合并，不能再按旧90039整文件覆盖。
+- **Bridge/设备边界**：05:14:12原Chrome71456/原profile与client连接保持；root一次固定本机刷新后source=extension，非作者元数据fresh=true/age17.5秒。未向平台self或来源请求，未输出或保存凭据；原self已过180秒，不能用新缓存推断当前登录。participant仍缺登记，本机71未验，远端71仅既有证据。原Bili仍暂停1/12，watchdog暂停、48h未启。
+
+- **其他平台在研**：`RUN16/pro-native-bili-provider/`正在补原持久登录复用与同次官方nav公开WBI参数的成熟纯函数接入；计划避免默认8989依赖和重复核验，不复制Pro受限实现。候选尚未完成独审或正式采用，原Bili暂停与1/12保持。
+
+### E51历史｜知乎文章正式接入，真实首试启动故障已定位并释放
 
 - **已正式采用和发布**：知乎原Pro文章/回答、评论分页/回复、原持久登录→私有FD、同ref自检、Signer及来源投影九文件经V3/登录组件/文章增量互为非作者审，通过14整链、7原SDK登录链、136单测、15 WB/计数回归；文章另13原SDK场景/2scope/回答回归/原JS随机loopback签名通过。86806九文件采用后非作者实际核9+429/fullset、五库schema/raw备份、129保护/6身份+19导出+9WB原件保持；Edge35仅合同0b586变化，其他25模块同34、无SQL。源码122659d1de45ed735f9f3b7ab92adb915e1b0328已push/远端同。MC默认、WB已选3/持久计数、参与者/评分/outbox/OTA保持。
 - **同输入纠偏与真实失败**：实际331a是zhuanlan文章，最初回答候选不能替代；root补文章成熟client/extractor/store入口后独审，中央V2修3host目标与前置校验不一致，19正12负/旧MC hash与行为保持，原16字段只加Pro、media=false/1正文/3评论阈值/12API/180秒、不添interval。原69c三0600路径/平台元数据已安装，无Cookie值。唯一新task0a0dc9bb/local034b4531自动领取，但启动86/pro_signer_wrapper_changed：文章wrapper改了而manager仍pin旧SHA。真实0API/0来源事件/0ACK，Signer/凭据助手/self均未启动；不是平台登出证明，不能叫新知乎来源成功。
@@ -160,7 +170,7 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/pro-zhihu-launchfix-f98fa02701cb2d78/ | E51采用后已实际独核通过的工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
+| .crowd-launch/runtime-revisions/access-recovery-c863975c5447bb63/ | E52本机4生产+1测试已采用并实际独核；中央V3未部署。工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -175,11 +185,11 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
-| crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证，本机仍70 |
-| crowd-kol | 0dfbc04eef2050a48ef670cc50fa61f54a3df8ed已发布；parent为122659d | E51正式90039/Edge35已实际独核通过；WB29ACK但分页部分失败/无新媒体。E47新XHS40来源/99步骤/40ACK/R78有限验收；历史E44为41/105/R77，两批不得混算，未涵盖全量及媒体字节；其他脏文件不并入 |
+| crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
+| crowd-kol | e71b10c2a3e22cbbe29c42d6a3bfc939583cb444已发布；parent99b49bd | E52本机95308/Edge35保持，4生产+1测试防止403误判及旧self循环；ZH真实12/12失败且0ACK、未重采；中央V3未执行。WB29ACK仍部分失败，XHS既有两批有限交付不混算；其他脏文件不并入 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E51当前增量及pro-zhihu-launchfix-adoption采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E52当前增量及access-recovery-runtime-adoption采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -211,10 +221,11 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 ## 8. 接力可做与推进顺序
 
-安全起步：读取源码/文档、uname/pwd/git status/log、SHA比对、既存脱敏证据；用已授权连接器执行明确只读查询。测试先审其副作用。不要为了核验调用claim/start/finish/arm，或启动会自动执行任务的服务。
+先核E52、access-recovery-runtime-adoption的ADOPTED/现场独审/源码发布原件，确认当前95308、Edge35与旧数据；不能按历史E51或旧continuation driver创建新知乎任务。原08940d4f已12/12、0ACK、Owner停止；原034b已failed0释放，不得借其0预算忽略后来四次实际消耗。暂停知乎新来源，先把内容访问拒绝与恢复诊断解释清楚，不猜平台封禁/验证码、不让本人重复扫码。
 
-下一步：先读E51知乎文章及启动修复、90039/Edge35及0dfbc04源码发布。原0a0dc9/034b启动86，0请求/0回执、已正常失败释放；下一来源先fresh核旧预算为0且无未知调用，再按原同输入/1正文/12总来源预算有界验证，不能把首败当完成。MC兼容选择已采用；先完成Owner原任务续采/公开seed/新媒体绑定，当前还不能恢复failed，不以requeue冒续采。优先修原task e2d子回复，原3/12已耗/剩9，不新建或盲重试；同时继续知乎整入口，不能拿首组件冒正式支持。真实新XHS自动Signer与40ACK/99步骤/R78有限验收已完成，交付耗时单样本下降不是稳定保证；不为扩大统计无条件重采。WB原登录已到实际新来源，下一步先补独立子回复，再按原任务剩额续验新字节/导出/云媒体，不重复扫码或借旧图冒成功；新字节/评论分页/导出/真实私有云回取逐项独审。默认MC及原Bili3cda暂停1/12剩11保持。先读新XHS69602e3b/ddf0753c最终非作者现场报告及COMMENT-CAP-ROOT-CAUSE/CENTRAL-CAP-INDEPENDENT：41ACK/105步骤/R77已有限通过，旧阈值未生效、本次双赋值后生效导致页范围变化已解释；不能倒填旧实际scalar，也不能以此替代94→40完整数据集等价。保留当前57/20/120/media=false配置与limit_reached/partial，不无条件重采；需要补缺时基于诊断确定最小有界下一步，不重启548或删选项。新正文/评论/导出/ACK已有限实证，媒体字节、云音轨、checkpoint及全量仍另验。原Bili43833/window32276此后已随原Chrome退出，现窗与登录状态待root核，不能继续用失效窗口或要求重复扫码；原task仍暂停剩11，恢复原资料且后台官方同主体后才继续。旧continuation V4 pin51342，必须适配当前90039/pro-zhihu-launchfix-adoption冻结并独审后才可运行。账号页已接正确Pro恢复入口，不开MC窗口；MC关闭顺序真实Cookie持久性仍单列。Pro中央全链/媒体云、本机71采用及远端native链、两设备/全端/48h均按证据分级，watchdog暂停。
+中央续采/诊断迁移已有自动审批拒绝，用户明确授权尚待回复：不得绕过、换SQL执行或宣称部署。继续可安全独立的测试、精确合并及Owner可用性检查，并完成Bili原持久登录与签名链候选的独审；批准后先以当前95308重新窄合已独审V3，重核远端基线/三migration/Edge，再独审采用并做真实剩额续采。原WB e2d/6ad29ACK、used3/12/剩9保留，不能新建任务、盲重试、删media或借旧图冒新下载；正文/根回复分页/新媒体/三导出/新权威ACK分别验收。
 
+原Bili3cda仍暂停1/12剩11；旧continuation V4 pin与当前运行版不兼容，须重新适配并独审，不能直接运行或强行放大授权。原XHS已有40ACK/99步骤/R78和历史41ACK/105/R77分别有限通过，阈值变化根因已解释，非全量与媒体字节验收；不无条件重采548或扩大统计。Bridge新缓存不等于当前self；本机participant登记/71、远端native采用链、两设备/其他平台全维度仍未全部验证。watchdog暂停、48h未启。
 
 ## 9. 维护与共享
 
@@ -227,3 +238,5 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 旧docs/HANDOFF.md保存在Git `81ab4ae:docs/HANDOFF.md`，blob `cc09e64b93a11979b18355c3d0db45b383d52e14`；旧4.2.0/4.2.5说明只作历史。
 
 交接包不含凭据值；不要添加.env、Cookie、密码、token、私钥、PRIVATE邀请或原始登录资料。路径/版本/摘要可以记录；分享前最小披露复核。不要将全部outputs或私仓源码打包外发。
+
+E52交接发布以RUN16/HANDOFF-E52-PUBLISH-RECEIPT.json为准；缺失或无法读取时不认定已发布。源码e71b10c与本次三MD发布分开记录。
