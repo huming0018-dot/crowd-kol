@@ -783,6 +783,11 @@ def install_transport_limits(httpx, request, sink, self_observer=None, debit_cal
             from shared_request_budget import BudgetError
             raise BudgetError('request_budget_redirect_forbidden')
         if self_observer is not None:self_observer(response)
+        if request.get('platform')=='zhihu' and response.status_code==403:
+            from login_recovery_freshness import zhihu_content_denied
+            if zhihu_content_denied(response):
+                sink.update(phase='failed',failure_reason='pro_content_access_denied')
+                raise SystemExit(87)
         if response.status_code in (401, 403): raise SystemExit(77)
         if response.status_code == 429: raise SystemExit(79)
         if request.get('platform') == 'xhs':

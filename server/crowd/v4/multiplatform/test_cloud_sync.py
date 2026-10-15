@@ -619,6 +619,8 @@ class Tests(unittest.TestCase):
         worker.tick()
         self.assertFalse(any(a=='resume_login' for a,_ in self.cloud.calls))
         account['login_in_progress']=False
+        worker.tick();self.assertFalse(any(a=='resume_login' for a,_ in self.cloud.calls))
+        account['verified_at']=time.time()  # An actual new post-failure identity check is required.
         worker.tick();self.assertTrue(any(a=='resume_login' for a,_ in self.cloud.calls))
         p=next(p for a,p in self.cloud.calls if a=='resume_login')
         self.assertEqual(p['local_run_id'],self.local_id)

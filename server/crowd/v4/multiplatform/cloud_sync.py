@@ -1137,6 +1137,8 @@ class CloudWorker:
             if state['outcome'] not in ('completed','stopped','failed','login_required'):
                 state['outcome'] = 'unknown'
             if state['outcome'] == 'login_required':
+                from login_recovery_freshness import failure_time
+                state['login_failed_at']=failure_time(current) or time.time()
                 account = self._runner('account_status', {'session_id': state['session_id'], 'platform': lease['platform']})
                 state['account_context'] = {'session_id': state['session_id'],
                     'generation': account.get('generation', 0), 'account_ref': account.get('account_ref')}
@@ -1269,6 +1271,11 @@ class CloudWorker:
         valid_generation = type(generation) is int and generation >= 0 and (
             generation > 0 or context.get('account_ref') is None and
             account.get('identity_status') == 'manually_confirmed_same_account')
+        from login_recovery_freshness import recovery_newer_than_failure
+        failed = None
+        if 'login_failed_at' not in state:
+            failed = self._runner('status', {'run_id':state.get('local_run_id')})
+        if not recovery_newer_than_failure(state, account, failed):return False
         verified_at = account.get('verified_at')
         fresh = type(verified_at) in (int,float) and 0 <= time.time()-verified_at <= 180
         authenticated = account.get('state') in ('authenticated','resumed') and account.get('login_verified') is True
