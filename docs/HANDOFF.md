@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 04:21 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 04:29 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -26,8 +26,8 @@
 
 - **正式运行**：已从79044更新为pro-wb-bounded-progress-9cfb601d24eec2fb/PID82744。四文件包含MC兼容评论选择和当前持久计数，组件非作者5d2a/83a9、组合编排独审通过13测试及原SDK整链。采用器实际核五库已有行、原任务/配置不变；采用后非作者现场独核4冻结/433其他/fullset、五库schema/raw等备份、129保护及6身份+19来源导出+9WB资产保持；实际原WB显示1正文28评论、仍failed74，来源报告0/0保留。默认MC/idle/alive/pending0、原Bili暂停1/12与Edge34/26模块保持。源码3ebed6b0b8f2c618f987a89c228ecafbd957b6ec已push0/远端同，父d086。先前回复分页两文件ecf8/c62b已在79044正式运行并经实际独审，d086344922f07014b45206ace5061f3611f735ad已发布，父1f66b69。
 - **功能和边界**：原MC在callback前选根，旧Pro先存20根才限；现按同输入max3选前3根及其回复，保留raw20/selected3证据，未处理游标不跨，部分页不冒完整。fixture少请求不是实际平台稳定加速证明。计数读已保存观测，显示原WB1正文28评论并保留来源报告0/0及failed；不改历史文件、正文版本、29ACK或预算。原e2d/6ad仍failed、used3/12/剩9，无新来源或新媒体云回取。
-- **原任务续采在实现**：中央failed无通用恢复，简单requeue会maxitems0；Owner CAS grant/同worker新lease/可信公开seed/finish账户context/新媒体绑定旧bodyACK仍未整链部署。seed初版发现跨数据库commit与来源journal间崩溃窗口，V2补耐久pending，未决明确unknown；不能把旧29当新来源或再次投递。grant16隔离测试不等于续采可用，不新建任务/重置预算。
-- **知乎及设备待办**：知乎whole94452独审查出账号切换竞态和声明回复数量可篡改两项P1，修复V3 aefd候选14整链+121测试，待原peer复核；未正式接入。原69c真实Pro凭据仍缺，复用原持久会话的独立候选在测，不能用合成Bridge作已登录证据。participant目录选择尚无新确认，本机71未证；远端71既有证据保持。watchdog暂停、48h未启。
+- **原任务续采在实现**：中央failed无通用恢复，简单requeue会maxitems0；Owner CAS grant/同worker新lease/可信公开seed/finish账户context/新媒体绑定旧bodyACK仍未整链部署。seed初版发现跨数据库commit与来源journal间崩溃窗口，V2 fac910补耐久pending并经root非作者8测试/重开/遗漏行负例及旧29只读断言通过（b430），原5条精确复用不增版本；组件通过不是SDK/Owner整链通过，未决明确unknown；不能把旧29当新来源或再次投递。grant16隔离测试不等于续采可用，不新建任务/重置预算。
+- **知乎及设备待办**：知乎whole94452独审查出账号切换竞态和声明回复数量可篡改两项P1，修复V3 aefd已由原peer独立复核14整链+121测试及两个原P1反例通过（0f797），未正式接入。原持久知乎凭据候选de993也经root非作者15测试+7原SDK受控整链通过（e8f479），正在窄合当前82744及中央route合同；原69c真实官方self仍未验，不能用合成Bridge作已登录证据。participant目录选择尚无新确认，本机71未证；远端71既有证据保持。watchdog暂停、48h未启。
 
 ### E49历史｜微博原登录正式接入与真实部分交付
 

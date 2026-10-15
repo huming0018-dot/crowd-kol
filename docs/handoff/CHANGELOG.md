@@ -318,3 +318,5 @@
 - 原任务29ACK/used3of12/failed及Bili暂停保持，不以fixture降请求宣称真实加速。默认MC和参与身份/评分/OTA保持。
 - 修了监控误显示0及根评论先全量存再限的问题；完整续采仍差Owner/SDKseed/云媒体绑定。seed崩溃时误标来源的问题已定位并交V2修，未决拒绝采纳；知乎两个P1交V3，尚待复核/真实凭据。
 - 无新真实采集/self/云数据写，不重投旧29、不扩预算。固定handoff按实际证据维护，本轮文档发布回执RUN16/HANDOFF-E50-PUBLISH-RECEIPT.json。
+
+- E50 04:29补充：非作者复核知乎V3两个P1修复通过；root独审native知乎15+7和公开seed V2 8+重开/遗漏行/真实旧29只读通过。central正在当前版本兼容合并和中央route合同，SDK作者正补旧来源不冒新HTTP的hook，native补Owner/runner续采；跨attempt媒体仍缺。以上只候选验证，未新采集/云写/部署，固定入口日期及下一步同步更新。
