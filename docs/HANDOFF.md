@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 06:49 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 07:20 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,13 +16,21 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：成熟Bridge本地WBI/CDP复用/本地错误日志十文件组合已有原SDK受控与非作者审查，当前10723/bili-safe-6af67806-c1c8eee2已通过非作者现场独核，源码efc4eb75已push0/远端同。Bili原生持久资料读取方式未验证，真实后台诊断未取得凭据且未发官方nav；此前5663止损的保护完整保留，Bili凭据读取的read/collect两入口在profile IO或启动浏览器前拒绝，不能称native可采。原Bili仍paused/spent1of12/ACK0，旧400与新已知失败分别保留；成熟Bridge/CDP→同nav WBI→媒体代码已接入本机，但未取得本轮真实登录/新来源证明；原9222连接请求expired/0target/未绑定。中央云升级仍待明确授权；WB29ACK/剩9、知乎12/12已停止、OTA71/全端与48h仍未完成，watchdog暂停。详见第3节E54。
+当前阶段：Owner原云任务可选择并绑定原会话浏览器、随后单独后台核验的入口已修复，媒体SHA改流式降低内存；五文件正式15194/owner-browser-perf-7ce70892-6b888cc3现场独审与源码65844dfe远端回读通过。真实工作台已看到原Bili选择入口，但只查看未绑定/核验，当前CDP请求expired/0targets/未导入/未绑定；Bili仍paused1/12/ACK0，不能叫登录或采集恢复。中央独立steps-only诊断候选已独审，但正式stepsRPC替换再次被自动审批拒绝、未执行，已向本人请求明确授权待答，不绕行。Bili native模式IO前止损、WB29/剩9、ZH停止12/12/0ACK、XHS桥在线非participant恢复、OTA/全端/48h未验、watchdog暂停保持。详见第3节E55。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### E54｜安全复用组合已正式采用并发布；真实连接与采集仍未验收
+### E55｜Owner原任务浏览器入口与媒体内存修复已正式；中央诊断被拒未部署
+
+- **产品缺口/修复与独审**：原云Pro等待任务隐藏选择入口，普通选择又新建SID/gen0丢失原pending/ref关联；仅bind不切provider仍走被禁用native。实际临时状态机复现后，root四文件V2 a173修为原task/child沿既有Worker完整守门绑定原SID/gen/ref/pending、撤旧proof、显式existing_cdp，之后另点后台核验，不自动来源或继续。非作者05c64实际100隔离检查通过；首审current generation=True误等1已修strict int，首败保留。没有删除旧身份或迁移到新会话。
+- **媒体资源优化**：单mc_runner.py d44c将已下载媒体SHA整文件读入改file_digest/低版本256KiB分块。root非作者2f4a重放Python3.11/3.9各5测试、3个真实旧MC样本/4媒体SHA及临时三导出字节一致。64MiB温缓存控制实验仅证明哈希片段减少内存，不外推整体采集耗时/P95或其他机器；没有重采或重新下载。
+- **采用/现场/发布/真实UI**：root唯一采用五文件到15194/owner-browser-perf-7ce70892-6b888cc3，旧10723停，运行冻结4738ebf0。07:13:04非作者30608ca3核5精确+440其他/fullset、五库schema/raw等实际备份、170保护与当前6身份+24产物（19导出+5Bili）+9WB+3ZH保持；默认MC/Edge35全26与三个RPC保持、无续采表。源码65844dfea2a1a37407a0f93da854c3a096721340已push0/远端同，父1f14。root在原工作台IAB3/tab1刷新并打开账号页，原Bili浏览器选择入口可见；只看连接元数据，先pending随后07:18expired/0targets/未导入/未绑定，无bind/recover/restart/source，六账号摘要仍同。UI存在不是平台登录验收。
+- **中央诊断离线通过但未执行**：独立V2 fdeea仅原steps队列/单Edge/现有stepsRPC有限终态error_code/exit_code，不含续采表/sourceRPC或claim/finish改动，修漏CDP主码后native非作者f38c通过8+38 Python/102真PGlite/10UI/59恶意检查。root尝试单stepsRPC精确迁移被自动审批再次拒绝，理由是正式事件校验的持久替换仍缺明确授权；executed=false，无间接执行。已向本人发新精确授权请求待答。07:19实际回读Edge35全26、三RPC MD5/ACL保持、无续采表，不能称中央新诊断已生效，也不把后台账号失败伪作新source事件。
+- **尚缺与下一步**：本轮只修全局账号页原会话选择/绑定入口；正式owner-ui.js:136–140任务卡片“核验原账号以恢复此任务”仍直接recover_cloud_login，不主动打开账号页选择器，不能称所有Owner入口完成。下一步把任务卡片联动到原账号选择，避免默认native未关联时重复失败。本轮没有新真实self/source/ACK。原Bili paused1/12/reserved0/ACK0，旧400UNKNOWN及已知诊断失败保持。等待本人确认CDP连接后，由root核原平台页/绑定同原任务并新官方同主体证明，再按原剩11有界验正文、评论分页、新媒体、三导出、云ACK；不重发未知调用或扩预算。云DDL批准pending、WB29/剩9、ZH stopped12/12/0ACK、XHS Bridge在线但participant未登记/旧self过期、OTA71/全端/48h未过、watchdog暂停保持。
+
+### E54历史｜安全复用组合已正式采用并发布；真实连接与采集仍未验收
 
 - **代码/测试**：existing_cdp组件9ed7068（同session绑定端口/target/fingerprint与generation/ref/pending、私FD、借用原上下文）经root非作者2b3c通过；8边界、3私FD清理及6组原SDK账户池/官方同主体恢复受控用例。Bili native_persistent双入口IO前禁用保留，WB/ZH调用同一成熟私FD函数。Bridge本地WBI候选1a4d经central非作者35a38通过，28单元与9个原SDK/真MC媒体子进程场景覆盖音轨、预算、错主体、proof与取消，原Bridge未配置显式能力时仍沿旧Signer路径。两者已窄合为组合7a39，root非作者8d4318复核全部冻结/源码差异、33单元与5UI通过；作者最终33单元/19原SDK场景，central非作者另重放关键11整链与legacy/UI并核完整来源差异，通过报告见E54M。受控原SDK/媒体/导出不等于真实账号验收。
 - **本地报错诊断已接入**：账户请求日志dac07经非作者66d审查，真实Handler7与额外恶意4通过；仅原五类账号操作、固定错误码/UTC/关联ID，拒绝把payload、Cookie、URL或异常正文写入日志。日志失败仍原400，Host/Origin/CSRF不变。旧响应清洗可能回显纯字母数字未知异常的既有边界保留，新日志将其统一invalid_request；不能以此补造旧400根因。
@@ -186,7 +194,7 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/bili-safe-6af67806-c1c8eee2/ | E54当前十文件已采用并独核99f988；继承E53三文件止损保护，Bili凭据读取的read/collect两入口拒绝未验证模式，当前不可称native可采；中央V3未部署。工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
+| .crowd-launch/runtime-revisions/owner-browser-perf-7ce70892-6b888cc3/ | E55当前五文件增量已采用并独核30608ca3；继承E54安全凭据组合，继承E53三文件止损保护，Bili凭据读取的read/collect两入口拒绝未验证模式，当前不可称native可采；中央V3未部署。工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -202,10 +210,10 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | 7b3f6212d85ec7bfe28f7345a6c5026101fe7f1d已发布；parent92353178 | E53当前5663/Edge35，三文件止损禁止未验证Bili原生读取/采集；新诊断known failed、官方nav0，原任务仍暂停1/12/ACK0；中央V3未执行，其他脏文件不并入 |
+| crowd-kol | 65844dfea2a1a37407a0f93da854c3a096721340已push0/远端同；parent1f14 | E55当前15194/Edge35，原任务浏览器绑定与流式SHA五文件增量，继承原生禁用；真实CDP仍expired/未绑定、Bili暂停1/12/ACK0；中央steps-only及V3未执行，其他脏文件不并入 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E54及bili-connection-runtime-adoption运行冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E55及owner-perf-runtime-adoption运行冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -239,15 +247,18 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 代码行、复现与状态分级见E06–E14。作者的“已解决”必须由差异、测试原件和独立证据支持。
 
-- E54当前：10723/十文件/Edge35实际独核99f988与源码efc4eb75远端回读已完成；真实CDP绑定和官方同主体仍缺，原请求expired。原Bili pause1/12/ACK0不变，账号模式安全保护不放松。
+- E54历史：10723/十文件/Edge35实际独核99f988与源码efc4eb75远端回读已完成；真实CDP绑定和官方同主体仍缺，原请求expired。原Bili pause1/12/ACK0不变，账号模式安全保护不放松。
+
+- E55当前：15194/五文件增量/65844dfe已实际独核发布；原工作台Owner选择入口可见但没有执行绑定/核验。07:18连接expired/0targets/未绑定。独立steps-only持久变更仍被审批拒绝、未执行，明确授权待答；不把UI或离线102检查当中央诊断上线。
 
 ## 8. 接力可做与推进顺序
 
-先核E54的bili-connection-runtime-adoption运行冻结e9058a37、ADOPTED、非作者现场99f988与源码efc4eb75发布回执，定位10723/Edge35；E53止损是其历史基线，保留Bili凭据读取的read/collect两入口IO前止损。不要重复V2/V3 verify、一次性diagnostic或原profile启动，不删除意图/UNKNOWN。新diagnostic已知失败且0官方nav，不能把旧400有限核销当登录恢复。
+先读E55及owner-perf-runtime-adoption的运行冻结4738ebf0、ADOPTED、非作者现场30608ca3、源码65844dfe发布回执与ACTUAL-UI-AND-CLOUD-BOUNDARY。当前15194/Edge35，Owner选择入口已实际可见。禁止重复旧V2/V3 verify、一次性diagnostic或原profile启动，不删除意图/UNKNOWN；Bili native模式read/collect入口止损必须保持。
 
-十文件组合10723的非作者现场与源码发布回读已完成。下一步等待本人确认已授权成熟Chrome9222连接；原请求06:36:24已expired/0target/未导入/未绑定，未重连。本人确认后由root核原窗口和绑定，不重扫/猜client；官方同主体之前不写来源ready。成熟Bridge/CDP与同nav WBI代码已正式接线，仍须先验证当前原账号官方self，再审原task3cda既有恢复与剩11预算、同输入正文/评论分页/新媒体/三导出/真实云ACK；不新建同输入任务、不扩大12总额度，不以旧self或缓存代新核验。
+先将任务卡片“核验原账号以恢复此任务”联动到原账号浏览器选择；当前任务卡片仍直接recover_cloud_login，原native绑定未关联时可能重复失败，不能把全局账号页修复外推为所有入口已完成。然后等待本人确认已授权原Chrome连接；07:18连接已expired/0targets/未绑定，没有执行重新连接、绑定或后台核验。确认后由root在原平台页完成原task/child绑定，再单独官方sameUID核验，保原SID/gen/ref/pending和paused意图；不能靠UI入口、旧self、缓存、文件名或已采用代码判来源ready。之后才审原3cda剩11范围正文/评论分页/新媒体/三导出/真实云ACK，不新建同输入任务或扩12总额度。
 
-中央续采/诊断迁移明确授权仍pending，禁止换SQL执行。将来批准后须基于当前10723安全组合窄合，保持Bili模式保护、403防循环与既有来源/回执/OTA。原WB29ACK/剩9保留，待正确版本和授权后受限续采；ZH0894已12/12/0ACK且停止，原034b的0预算不抵销后续实际消耗，不得另发知乎任务或扩额。XHS旧548不重启、有限交付不冒全量媒体；本机71/两设备/全端/48h未过，watchdog暂停。
+中央独立steps-only诊断迁移和原续采升级均无实际执行授权；新精确请求待本人答复，不能换SQL路径绕过拒绝。未来获准后先核原stepsRPC/Edge35实际基线，再精确单函数/单模块部署及本机采用、逐边界独审，不能以离线102或账号后台失败冒新来源事件。原WB29ACK/剩9、ZH停止12/12/0ACK、XHS旧548不重启、participant/连续OTA/全端/48h缺口保持；watchdog继续暂停。
+
 
 ## 9. 维护与共享
 
@@ -266,3 +277,5 @@ E52交接发布以RUN16/HANDOFF-E52-PUBLISH-RECEIPT.json为准；缺失或无法
 E53交接发布以RUN16/HANDOFF-E53-PUBLISH-RECEIPT.json为准；缺失或无法读取时不认定已发布。源码7b3f6212与本次三MD发布分开记录。
 
 E54三文档已按上述真实状态冻结待非作者文档复核；本三文档尚不认定已发布，正式发布应另存RUN16/HANDOFF-E54-PUBLISH-RECEIPT.json，缺失或不可读不认定已发布。
+
+E55三MD已按本轮实际结果冻结待非作者文档复核；本三MD尚不认定已发布，状态须另核RUN16/HANDOFF-E55-PUBLISH-RECEIPT.json。

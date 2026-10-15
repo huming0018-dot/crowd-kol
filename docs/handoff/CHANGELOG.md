@@ -354,3 +354,13 @@
 - **代码版本与发布**：十源码efc4eb75f927f2857c26b409741b4d53a899f52f已push0/远端同，父c9e4e06；证据bili-connection-runtime-adoption/SOURCE-PUBLISH-RECEIPT.json。E54三MD本身仍待root非作者复核及精确发布，发布状态以HANDOFF-E54-PUBLISH-RECEIPT.json为准；不以源码已推代替文档已发。
 - **重要失败与经验**：原400 UNKNOWN和本轮已知诊断失败保持。CDP首SDK fixture仅patch httpx导出而未强制底层，可能尝试公共nav（仅合成Cookie、是否发出未取证），原件保留；修正后父/私FD子/媒体子强制最低层合成HTTP并物理禁止INET/DNS，最终受控用例0尝试。不能声称整轮零网络，也不能据元数据0行断言本人登出或Cookie删除因果。Bili native模式禁用仍在，不再开原profile试参数。
 - **真实边界及下一步**：无新增真实self/source/ACK。原Bili paused/spent1of12/reserved0/ACK0；云DDL批准pending、WB29ACK/剩9、ZH stopped12/12/0ACK、watchdog暂停、48h未启。06:36:24原9222连接请求expired/0target/未导入/未绑定，未重连，等待本人确认后由root匹配原浏览器和官方同主体，再审原task剩11有界采集与正文/评论分页/媒体/三导出/真实云回执。06:35:34原XHS71456同profile/Bridge连接，但participant缺失、缓存与旧self过期，不叫参与者恢复或71已采用。
+
+## 2026-10-16 07:20 CST｜E55 Owner原任务选择与媒体内存修复正式，中央诊断未部署
+
+- root实现原任务CDP绑定四文件，native_diagnostics_review非作者100项隔离复核05c64通过；原cloud任务入口隐藏/创建新SID/仅绑定未切provider三断点补齐。首current generation bool误放已修strict int且保原件；原SID/ref/gen/pending不迁移，绑定后显式核验、不自动来源或继续。
+- 媒体单文件流式SHA由root非作者2f4a核Python3.11/3.9、旧3样本/4媒体与临时三导出完全相等；64MiB控制内存结果不作整体速度承诺。root唯一组合采用15194/owner-browser-perf-7ce70892-6b888cc3，旧10723停，冻结4738ebf0；central非作者30608ca3现场核5+440/五库schema raw/170/当前6+24+9+3保持。源码65844dfea2a1a37407a0f93da854c3a096721340 push0/远端同，父1f14。
+- root真实原工作台刷新并打开账号页，原Bili选择入口可见。仅查看元数据，pending随后07:18expired/0target/未绑定；无bind/recover/restart/source、六账号保持。原Bili paused1/12/ACK0、旧UNKNOWN与已知诊断失败不动，不能以UI可见或组件测试宣称登录恢复。
+- central独立诊断V2 fdeea修CDP缺码，native非作者f38c核8+38+102+10+59通过；root尝试精确单stepsRPC替换仍被自动审批拒绝，持久改变生产校验需明确授权、executed=false且无替代路径。新精确授权请求待本人，freshEdge35/26与三RPC MD5/ACL保持、无续采表。旧核心续采升级也未执行。
+- 下一步先等本人原Chrome确认与精确CDP绑定/官方同主体，再只按原任务剩11验正文、分页、新媒体、导出与云ACK。云审批pending、WB29/剩9、ZH停止12/12/0ACK、XHS桥在线非participant恢复、OTA/全端/48h缺口与watchdog暂停保持。E55本三MD待root非作者审查后发布，另存HANDOFF-E55-PUBLISH-RECEIPT.json，不拿源码发布替文档发布。
+
+- 终审补充：实际读正式owner-ui.js:136–140，任务卡片恢复按钮仍直接recover_cloud_login，不会主动打开账号页选择器；本轮五文件只完成全局账号页原会话绑定。下一步接通任务卡片到原账号选择，避免默认native未关联时重复失败，不能写所有Owner入口完成。未额外改代码。

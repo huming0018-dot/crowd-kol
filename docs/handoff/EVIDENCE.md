@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E54为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E55为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -386,3 +386,11 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 | E54M | RUN16/bili-safe-combined/FREEZE.json 7a39；independent-root/FINAL.json 8d4318；bili-browser-reuse-readonly/OWNER-CANDIDATES-RECHECK.json | root非作者源码/冻结及33unit/5UI通过，central关键11原SDK整链/legacy/UI亦通过；作者33/19为支持证据，不能冒全部19均由非作者新重放。06:36:24原请求expired/0target/no credentials/未绑定，不沿旧pending措辞推断当前状态 |
 
 | E54A | RUN16/bili-connection-runtime-adoption/RUNTIME-FREEZE.json e9058a37；runtime-adoption/ADOPTED.json；bili-safe-combined/independent-central/FINAL.json 1aeada93b33b | 实际10723/bili-safe-6af67806-c1c8eee2/旧5663停；非作者现场independent/ACTUAL-RUNTIME-FINAL.json 99f988通过十精确/435其他/fullset、五库/170/当前6+24+9+3、idle/pending0、Edge35/26及三个RPC保持，无续采表。SOURCE-PUBLISH-RECEIPT.json实证efc4eb75 push0/远端同/父c9e；不是新真实self/source/ACK |
+
+| E55O | RUN16/owner-capability-audit/{REPRODUCTION,FINDINGS}.json；owner-original-browser/FREEZE-V2.json a173；independent-review/FINAL-V2.json 05c64 | 实际临时状态机重现入口断点；原task绑定四文件100隔离检查通过，含真实Handler→Worker→临时状态3例；首bool当前generation错放已修。已合入E55A正式本机；实际绑定/官方同主体仍未验 |
+| E55M | RUN16/media-hash-stream/FREEZE.json d44c；independent-root/FINAL.json 2f4a；ACTUAL-READONLY.json/BENCHMARK.json | 仅导入SHA流式内存优化；3真实旧样本/4媒体与临时三导出相等，64MiB控制片段不外推整体采集；已合入E55A正式本机，无新来源 |
+| E55D | RUN16/central-diagnostics-independent-v2/{DELIVERY.md,BASELINE.json}及当前源码/测试输出 | 独立steps-only范围，不含续采/sourceRPC；V2 fdeea已冻，independent-native/FINAL.json f38c通过8+38+102+10+59；精确stepsRPC迁移仍被拒、executed=false，未云写或正式采用，不绕原审批 |
+
+| E55A | RUN16/owner-perf-runtime-adoption/{RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json} | 当前15194/旧10723停，非作者30608ca3核5+440/fullset/五库/170/当前6+24+9+3保持；源码65844dfe push0/远端同。新真实self/source/ACK未验 |
+| E55U | RUN16/owner-perf-runtime-adoption/ACTUAL-UI-AND-CLOUD-BOUNDARY.json 00db2039；OWNER-BROWSER-CONNECTION.jpg、OWNER-BROWSER-EXPIRED.jpg及AX原件 | root在原IAB3/tab1实际看见原Bili入口；只读连接pending→expired/0targets/未绑定，六账号保持，无bind/recover/restart/source。截图非新登录/采集证明 |
+| E55R | RUN16/central-diagnostics-deployment/APPROVAL-REJECTION.json；central-diagnostics-independent-v2/independent-native/FINAL.json | 精确独立steps-only持久替换仍被自动审批拒绝、executed=false，授权新请求待答；07:19回读Edge35/26及三RPC/ACL保持、无续采表。不绕审批、不外推离线通过为上线 |
