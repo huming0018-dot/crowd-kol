@@ -110,7 +110,8 @@ class ProAccountHooks:
             if result is not True or proof != 'authenticated':
                 hook.emit(hook.store.observe(hook.session_id, hook.platform,
                     'logged_out' if proof == 'logged_out' else 'check_failed', hook.run_id))
-                raise SystemExit(77)
+                # An unavailable/invalid self check is not evidence of logout.
+                raise SystemExit(77 if proof == 'logged_out' else 86)
             value = hook.store.observe(hook.session_id, hook.platform, 'authenticated', hook.run_id, uid)
             hook.emit(value)
             if value['state'] == 'account_changed':

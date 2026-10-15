@@ -729,6 +729,8 @@ def execute(run, manifest):
             import config
             # Pinned clients capture this value at import, before main parses CLI.
             config.PER_NOTE_MAX_COMMENTS_COUNT = request['max_comments']
+            import config.base_config as base_config
+            base_config.PER_NOTE_MAX_COMMENTS_COUNT = request['max_comments']
             config.SAVE_DATA_OPTION = 'db'
             config.DB_TYPE, config.SQLITE_DB_PATH = 'sqlite', str(run/DB_NAME)
             config.USE_CACHE_TYPE, config.CHECKPOINT_STORAGE_TYPE = 'memory', 'file'
@@ -770,11 +772,12 @@ def execute(run, manifest):
             from pro_account_sessions import install_pro_account_hooks
             def account_event(account_state,account):
                 unsupported=account.get('identity_status')=='pro_self_check_unsupported'
-                phase='failed' if unsupported else 'waiting_login' if account_state in ('logged_out','waiting_login','identity_unverified','account_changed','check_failed') else 'running'
+                phase='failed' if unsupported or account_state=='check_failed' else 'waiting_login' if account_state in ('logged_out','waiting_login','identity_unverified','account_changed') else 'running'
                 fields={'phase':phase,'account_state':account_state,
                         'account_generation':account.get('generation',0),
                         'account_identity_status':account.get('identity_status','unverified')}
                 if unsupported:fields['failure_reason']='pro_self_check_unsupported'
+                elif account_state=='check_failed':fields['failure_reason']='pro_login_verification_failed'
                 sink.update(**fields)
             from account_sessions import AccountSessions
             prior_account=AccountSessions(run.parent.parent).status(request['session_id'],request['platform'])

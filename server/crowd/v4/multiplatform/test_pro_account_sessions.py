@@ -84,7 +84,7 @@ class ProAccountTests(unittest.TestCase):
         self.assertEqual(state['account_ref'], safe_account_ref('bili', 123))
 
     def test_network_and_budget_not_logged_out(self):
-        for error, code in [(ValueError('PRIVATE_COOKIE'), 77), (SystemExit(73), 73)]:
+        for error, code in [(ValueError('PRIVATE_COOKIE'), 86), (SystemExit(73), 73), (SystemExit(77), 77)]:
             with self.subTest(error=type(error).__name__):
                 if self.hook:
                     self.hook.restore(); self.hook = None
@@ -93,6 +93,31 @@ class ProAccountTests(unittest.TestCase):
                 self.run_pong(client, code)
                 self.assertEqual(self.store.status(self.sid)['state'], 'check_failed')
                 self.assertNotIn('PRIVATE_COOKIE', json.dumps(self.events))
+
+    def test_false_or_missing_self_check_is_verification_failure_not_logout(self):
+        cases = [
+            ({'success': True, 'data': {'user_id': 'SELF_123'}}, False),
+            ({'success': False, 'code': 123, 'data': {'user_id': 'SELF_123'}}, False),
+            ({'success': True, 'data': {}}, True),
+            ({'success': True, 'data': {'user_id': 'SELF_123', 'guest': True}}, True),
+            (None, True),
+        ]
+        for payload, native in cases:
+            with self.subTest(payload=payload, native=native):
+                if self.hook:
+                    self.hook.restore(); self.hook = None
+                self.sid = str(uuid.uuid4())
+                client, _, _ = self.fixture('xhs', payload, native=native)
+                self.run_pong(client, 86)
+                state = self.store.status(self.sid)
+                self.assertEqual(state['state'], 'check_failed')
+                self.assertEqual(state['pending_run_id'], self.rid)
+                self.assertIsNone(state['authorized_for_run'])
+
+    def test_explicit_xhs_logout_remains_77_even_when_native_returns_false(self):
+        client, _, _ = self.fixture('xhs', {'success': False, 'code': -100}, native=False)
+        self.run_pong(client, 77)
+        self.assertEqual(self.store.status(self.sid)['state'], 'logged_out')
 
     def test_reporting_failure_never_replaces_original_budget_or_cancellation(self):
         for original in [SystemExit(73), asyncio.CancelledError()]:
@@ -147,7 +172,7 @@ class ProAccountTests(unittest.TestCase):
         self.run_pong(client)
         response.url = 'https://edith.xiaohongshu.com/api/sns/web/v1/feed'
         response.json = lambda: {'success': True, 'data': {'user_id': 'AUTHOR_456'}}
-        self.run_pong(client, 77)
+        self.run_pong(client, 86)
         self.assertEqual(self.store.status(self.sid)['account_ref'], safe_account_ref('xhs', 'SELF_123'))
 
     def test_unknown_baseline_confirmation_binds_then_is_reused(self):

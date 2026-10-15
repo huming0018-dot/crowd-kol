@@ -282,7 +282,8 @@ def configure_executor(config,p):
 def configure_platform_hooks(upstream,p):
     if p['media'] and p['platform'] in ('ks','wb','xhs','zhihu','tieba'):
         from subtitle_discovery import install_hooks as install_subtitle_discovery
-        install_subtitle_discovery(upstream.CrawlerFactory.CRAWLERS,p['platform'],Path.cwd()/'output',transcript_only=p.get('platform_options',{}).get('transcript_only') is True)
+        crawlers={} if p['platform'] in ('zhihu','tieba') else upstream.CrawlerFactory.CRAWLERS
+        install_subtitle_discovery(crawlers,p['platform'],Path.cwd()/'output',transcript_only=p.get('platform_options',{}).get('transcript_only') is True)
     if p['platform']=='zhihu' and p['comments']:
         from media_platform.zhihu.client import ZhiHuClient
         from zhihu_comments import install_hook as install_comment_hook
@@ -649,7 +650,7 @@ def worker(root, mc, run_id, lock_fd):
             and progress.get('failure_reason') == 'discovery_empty_or_unavailable'):
         reason='discovery_empty_or_unavailable'
     if reason is None and code==74 and progress.get('failure_reason')=='pro_pagination_cursor_stalled':reason='pro_pagination_cursor_stalled'
-    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed',79:'rate_limited',80:'captcha_required',81:'platform_blocked',82:'platform_signature_rejected',84:'pro_self_check_unsupported',85:'pro_pending_run_resolution_required'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
+    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed',79:'rate_limited',80:'captcha_required',81:'platform_blocked',82:'platform_signature_rejected',84:'pro_self_check_unsupported',85:'pro_pending_run_resolution_required',86:'pro_login_verification_failed'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
     write(run/'status.json',state)
     os.close(lock_fd)
 

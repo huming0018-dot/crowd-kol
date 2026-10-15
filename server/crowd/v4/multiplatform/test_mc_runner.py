@@ -406,6 +406,30 @@ async def async_cleanup(): pass
         asyncio.run(Crawler().get_creator_videos(123))
         self.assertEqual(calls,[('videos',123),('dynamics',['123'])])
 
+    def test_module_subtitle_hooks_do_not_require_native_factory(self):
+        from unittest.mock import patch
+        import subtitle_discovery,tieba_media,tieba_body,zhihu_media
+        class Native:pass
+        class Extractor:pass
+        modules={'media_platform.tieba.client':SimpleNamespace(BaiduTieBaClient=Native),
+                 'media_platform.tieba.help':SimpleNamespace(TieBaExtractor=Extractor),
+                 'media_platform.zhihu.client':SimpleNamespace(ZhiHuClient=Native)}
+        for platform in ('tieba','zhihu'):
+            p=m.validate(self.payload(platform,'detail',media=True,comments=False))
+            with patch.dict(sys.modules,modules),patch.object(subtitle_discovery,'install_hooks') as subtitle,\
+                 patch.object(tieba_media,'install_hook'),patch.object(tieba_body,'install_hook'),patch.object(zhihu_media,'install_hook'):
+                m.configure_platform_hooks(None,p)
+                subtitle.assert_called_once_with({},platform,Path.cwd()/'output',transcript_only=False)
+
+    def test_native_subtitle_hooks_still_require_native_factory(self):
+        from unittest.mock import patch
+        import subtitle_discovery
+        for platform in ('ks','wb','xhs'):
+            p=m.validate(self.payload(platform,'detail',media=True,comments=False))
+            with patch.object(subtitle_discovery,'install_hooks') as subtitle:
+                with self.assertRaises(AttributeError):m.configure_platform_hooks(None,p)
+                subtitle.assert_not_called()
+
     def test_tieba_media_uses_own_hook_without_native_flag(self):
         from unittest.mock import patch
         import tieba_media,tieba_body
