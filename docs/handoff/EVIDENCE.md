@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E47为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E48为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -322,3 +322,9 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN16/workbench-session-recovery/ROOT-NONAUTHOR-FINAL.json：原生产guard19+实际JS12及随机loopback旧nonce不派发写操作/新读token恢复通过；新UI准确只读白名单、一次重试与共享刷新，写操作不重发，首次旧HTML须显式刷新。实际跨重启浏览器验收尚缺。E46发布回执33ef2fe已实读，E47另记发布。
 
 - 证据命名纠错：本轮actual汇总最初写入independent-native/FINAL.json覆盖旧driver准备报告；actual72b48原件保持并逐字副本保存ACTUAL-FINAL.json，后续只引用此actual名。原审查者已恢复原准备报告为DRIVER-PREPARATION-FINAL.json，本轮独立重算SHA精确45b11b50f0addc8aa1c9b92e456ce431fdefc0e33071928ed0a077777eb3af79，原at03:02:10.198200+08:00；不能把actual结论冒作driver准备审查，也不重跑真实来源。最终actual报告at03:10:03，功能来源/ACK早于此，不能回填成03:09独审完成。
+
+## E48｜OTA71新鲜只读状态及本机原profile阻断
+- RUN16/ota71-readiness/{FINAL.json,READINESS.md,CLOUD-FRESH.PRIVATE.json,EVENTS-FRESH.PRIVATE.json,ORIGINAL-TASKS-FRESH.PRIVATE.json}：两原节点fresh70/71，远端71+cfe4+完成事件与新注册已证，原task19/20 complete2/2/原proof received/原approved身份仍在；不外推远端native文件直验。首次按phase过滤OTA为空是字段错误，已按真实contract step=ota另查询，原查询保留不当无事件结论。
+- 同目录{LOCAL-FRESH.PRIVATE.json,PROCESS-FRESH.PRIVATE.json,EXTENSION-REGISTRATION-FRESH.json,ORIGINAL-PROFILE-STORAGE-HASHES.PRIVATE.json,INSTALLED70-AUDIT.json,SIGNATURE70-AUDIT.json}：本机helper/缓存/计划任务与32安装文件、31releasehash、正式公钥签名、70/71权限/key/native注册核过。903d原profile无participant登记，原7存储文件855031B只取SHA不读值，当前outbox未知；日常同ID3.5.2不能覆盖。原23266后来已不在，无本轮关闭动作，root须再核当前PID。该只读快照未执行UI恢复或OTA；后续正常开窗见下条，不代表参与者加载成功。
+
+- RUN16/ota71-readiness/{ORIGINAL-REOPEN-0328,ORIGINAL-RESTORE-PENDING-0333}.json：root正常重开原903d的Chrome71456（未加load/debug参数）、窗口32478/目录面板32502，AX显示原CookieBridge1.1.0启用；参与者仍缺、目录尚未选择。Kimi后续输入被pending_editor_write守门阻断，未绕过、未加载；本人选择原目录待完成。本机71仍未证采用，参与者outbox未知。原Chrome退出原因未知；旧33775/23266/43833仅为历史。WB原生provider首轮10+5SDK测试通过但独审超时反例阻断，V2待新freeze/独审；WB图片云v2已采用是另一能力。
