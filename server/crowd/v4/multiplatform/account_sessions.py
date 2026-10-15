@@ -88,6 +88,64 @@ def _ks_response_diagnostic(response):
     return result
 
 
+def _bili_self_request(request):
+    """Only recognize the official self endpoint in memory; retain no URL fields."""
+    try:
+        parsed = urlsplit(str(request.url))
+        return (request.method == 'GET' and parsed.scheme == 'https' and
+                parsed.hostname == 'api.bilibili.com' and parsed.port in (None, 443) and
+                parsed.path == '/x/web-interface/nav' and not parsed.query and
+                not parsed.fragment and parsed.username is None and parsed.password is None)
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
+def _bili_self_diagnostic(response=None, error=None):
+    """Fixed categories from already received self response, never raw text or subject."""
+    status = getattr(response, 'status_code', None)
+    result = {'http_status': status if type(status) is int and 100 <= status <= 599 else None,
+              'api_code': None, 'json_shape': 'unavailable', 'data_shape': 'unavailable',
+              'is_login_type': 'unavailable', 'subject_present': False,
+              'transport_category': _login_failure_kind(error) if error is not None else 'none'}
+    if response is None or getattr(response, 'is_stream_consumed', True) is False:
+        return result
+    try:
+        value = response.json()
+    except Exception:
+        result['json_shape'] = 'invalid_json'
+        return result
+    def shape(value):
+        return ('object' if isinstance(value, dict) else 'array' if isinstance(value, list)
+                else 'null' if value is None else 'scalar')
+    result['json_shape'] = shape(value)
+    if not isinstance(value, dict):
+        return result
+    code = value.get('code')
+    if type(code) is int and -(2**31) <= code < 2**31:
+        result['api_code'] = code
+    data = value.get('data')
+    result['data_shape'] = shape(data) if 'data' in value else 'missing'
+    if isinstance(data, dict):
+        flag = data.get('isLogin')
+        result['is_login_type'] = ('missing' if 'isLogin' not in data else 'boolean' if type(flag) is bool
+            else 'null' if flag is None else 'number' if type(flag) in (int, float)
+            else 'string' if isinstance(flag, str) else 'other')
+        result['subject_present'] = 'mid' in data and data['mid'] is not None
+    return result
+
+
+def _record_bili_self_diagnostic(store, session_id, request, verification, response=None, error=None):
+    """Observation is best effort; it cannot replace the original result or exception."""
+    try:
+        if not _bili_self_request(request) or store.status(session_id).get('state') != 'checking':
+            return
+        diagnostic = _bili_self_diagnostic(response, error)
+        diagnostic.update(round=verification.round, attempt=verification.attempts)
+        store._update(session_id, 'bili', lambda value: value.update(login_diagnostic=diagnostic))
+    except Exception:
+        pass
+
+
 def identifier(value):
     if not isinstance(value, str) or str(uuid.UUID(value)) != value:
         raise ValueError('invalid_session_id')
@@ -735,7 +793,14 @@ async def login_worker(args):
             else:
                 attempts += 1
                 if attempts > 8: raise LoginFlowError('login_request_budget_exhausted')
-            response = await send(self, *a, **kw)
+            try:
+                response = await send(self, *a, **kw)
+            except Exception as error:
+                if args.platform == 'bili' and verification:
+                    _record_bili_self_diagnostic(store, args.session_id, a[0] if a else kw.get('request'), verification, error=error)
+                raise
+            if args.platform == 'bili' and verification:
+                _record_bili_self_diagnostic(store, args.session_id, a[0] if a else kw.get('request'), verification, response=response)
             if args.platform == 'ks' and store.status(args.session_id).get('state') == 'checking':
                 store._update(args.session_id, args.platform, lambda value: value['login_diagnostic'].update(
                     **_ks_response_diagnostic(response), round=verification.round, attempt=verification.attempts))

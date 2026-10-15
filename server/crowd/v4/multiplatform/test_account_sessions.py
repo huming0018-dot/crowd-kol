@@ -1006,4 +1006,70 @@ class BiliRecoveryTests(unittest.TestCase):
         self.assertEqual(self.store.status(self.sid)['pending_run_id'], self.run)
 
 
+
+
+class BiliDiagnosticTests(unittest.TestCase):
+    def test_fixed_loaded_response_categories_never_include_private_data(self):
+        from account_sessions import _bili_self_diagnostic
+        secret = 'CREDENTIAL_BODY_UID_NOT_ALLOWED'
+        for status, value, expected_shape, expected_code in (
+            (429, {'code':-101,'message':secret,'data':{'isLogin':False,'mid':secret}}, 'object', -101),
+            (200, [], 'array', None), (200, None, 'null', None),
+            (200, {'code':True,'data':[]}, 'object', None),
+            (200, {'code':2**40,'data':{'isLogin':'true'}}, 'object', None)):
+            response=SimpleNamespace(status_code=status,json=lambda:value)
+            result=_bili_self_diagnostic(response)
+            self.assertEqual(result['http_status'],status)
+            self.assertEqual(result['json_shape'],expected_shape)
+            self.assertEqual(result['api_code'],expected_code)
+            self.assertNotIn(secret,json.dumps(result))
+        self.assertEqual(_bili_self_diagnostic(SimpleNamespace(status_code=True,json=lambda:{}))['http_status'],None)
+        data=_bili_self_diagnostic(SimpleNamespace(status_code=200,json=lambda:{'code':0,'data':{'isLogin':True,'mid':123}}))
+        self.assertEqual((data['is_login_type'],data['subject_present']),('boolean',True))
+
+    def test_nonjson_unread_stream_and_transport_have_fixed_categories(self):
+        from account_sessions import _bili_self_diagnostic
+        def invalid(): raise ValueError('RAW_PRIVATE_HTML')
+        self.assertEqual(_bili_self_diagnostic(SimpleNamespace(status_code=502,json=invalid))['json_shape'],'invalid_json')
+        self.assertEqual(_bili_self_diagnostic(SimpleNamespace(status_code=200,is_stream_consumed=False,json=invalid))['json_shape'],'unavailable')
+        ConnectError=type('ConnectError',(Exception,),{})
+        result=_bili_self_diagnostic(error=ConnectError('RAW_PRIVATE_PROXY'))
+        self.assertEqual(result['transport_category'],'network_error')
+        self.assertNotIn('RAW_PRIVATE',json.dumps(result))
+
+    def test_only_exact_official_self_and_checking_are_observed(self):
+        from account_sessions import _record_bili_self_diagnostic
+        calls=[]
+        store=SimpleNamespace(status=lambda sid:{'state':'checking'},_update=lambda *args:calls.append(args))
+        verification=SimpleNamespace(round=1,attempts=2)
+        for url in ('https://api.bilibili.com/x/web-interface/nav?private=secret',
+                    'https://api.bilibili.com.evil/x/web-interface/nav',
+                    'http://api.bilibili.com/x/web-interface/nav',
+                    'https://api.bilibili.com:444/x/web-interface/nav',
+                    'https://user:secret@api.bilibili.com/x/web-interface/nav',
+                    'https://api.bilibili.com/x/web-interface/nav#private',
+                    'https://api.bilibili.com/x/web-interface/view'):
+            _record_bili_self_diagnostic(store,'sid',SimpleNamespace(method='GET',url=url),verification)
+        self.assertEqual(calls,[])
+        request=SimpleNamespace(method='GET',url='https://api.bilibili.com/x/web-interface/nav')
+        _record_bili_self_diagnostic(store,'sid',request,verification)
+        self.assertEqual(len(calls),1)
+        store.status=lambda sid:{'state':'waiting_login'}
+        _record_bili_self_diagnostic(store,'sid',request,verification)
+        self.assertEqual(len(calls),1)
+
+    def test_diagnostic_store_failure_never_escapes_or_changes_original_error(self):
+        from account_sessions import _record_bili_self_diagnostic
+        def fail(*args): raise OSError('PRIVATE_STORE_FAILURE')
+        store=SimpleNamespace(status=lambda sid:{'state':'checking'},_update=fail)
+        request=SimpleNamespace(method='GET',url='https://api.bilibili.com/x/web-interface/nav')
+        error=RuntimeError('ORIGINAL_PRIVATE_ERROR')
+        try:
+            try: raise error
+            except Exception as original:
+                _record_bili_self_diagnostic(store,'sid',request,SimpleNamespace(round=1,attempts=1),error=original)
+                raise
+        except RuntimeError as caught: self.assertIs(caught,error)
+
+
 if __name__ == '__main__': unittest.main()
