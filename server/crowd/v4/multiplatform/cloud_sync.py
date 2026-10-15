@@ -888,7 +888,8 @@ class CloudWorker:
                     or current.get('login_in_progress') is True):
                 raise CloudError('cloud_login_account_changed')
             result=open_login(session,lease['platform'],{'run_id':local,
-                'generation':account['generation'],'account_ref':account['account_ref']})
+                'generation':account['generation'],'account_ref':account['account_ref']},
+                lease['request'].get('source_executor','mc'))
             return {**result,'recovery_task_id':task_id,'recovery_local_run_id':local,
                     'source_collection_started':False,'owner_continue_required':task['desired_state']=='paused'}
 

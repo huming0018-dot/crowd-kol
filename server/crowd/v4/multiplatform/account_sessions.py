@@ -290,7 +290,7 @@ class AccountSessions:
         account_ref = safe_account_ref(platform, account_id)
         def change(value):
             if _expected_context is not None:
-                if (event != 'checking' or not run_id or type(_expected_context) is not dict
+                if (event not in ('checking','authenticated','check_failed','logged_out') or not run_id or type(_expected_context) is not dict
                         or set(_expected_context) != {'generation','account_ref'}
                         or type(_expected_context['generation']) is not int or _expected_context['generation'] < 1
                         or not isinstance(_expected_context['account_ref'],str)
@@ -298,7 +298,11 @@ class AccountSessions:
                         or type(value.get('generation')) is not int
                         or value.get('generation') != _expected_context['generation']
                         or value.get('account_ref') != _expected_context['account_ref']
-                        or value.get('state') == 'account_changed'):
+                        or value.get('state') == 'account_changed'
+                        or event!='checking' and value.get('pending_run_id')!=run_id
+                        or event=='authenticated' and (account_ref!=_expected_context['account_ref']
+                            or (self.root/session_id/'login-stop').exists()
+                            or (self.root/session_id/'login-stop').is_symlink())):
                     raise ValueError('cloud_login_account_changed')
             if run_id and event in ('checking', 'logged_out', 'waiting_login', 'check_failed'):
                 value['pending_run_id'] = run_id

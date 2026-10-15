@@ -23,7 +23,7 @@ class RecoveryTests(unittest.TestCase):
  def tearDown(self):self.tmp.cleanup()
  def call(self):return self.w.recover_cloud_login(self.task,self.child,self.owner,self.open)
  def test_existing_early_bridge_wait_binds_exact_original_not_old_pending(self):
-  out=self.call();self.assertTrue(out['owner_continue_required']);self.open.assert_called_once_with(self.sid,'bili',{'run_id':self.local,'generation':1,'account_ref':self.ref});self.assertEqual(self.before,self.path.read_bytes());self.assertEqual(self.owner.call.call_args.args[0],'task_status')
+  out=self.call();self.assertTrue(out['owner_continue_required']);self.open.assert_called_once_with(self.sid,'bili',{'run_id':self.local,'generation':1,'account_ref':self.ref},'mc');self.assertEqual(self.before,self.path.read_bytes());self.assertEqual(self.owner.call.call_args.args[0],'task_status')
  def test_running_task_preserves_existing_automatic_resume_intent(self):
   self.taskrow['desired_state']='running';self.assertFalse(self.call()['owner_continue_required'])
   self.assertEqual([call.args[0] for call in self.owner.call.call_args_list],['task_status'])

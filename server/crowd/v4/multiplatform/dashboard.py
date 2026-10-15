@@ -451,11 +451,16 @@ class Application:
         if action == 'recover_cloud_login' and set(payload)=={'task_id','child_id'}:
             if self.cloud_worker is None or self.cloud_client is None:
                 raise ValueError('cloud_not_connected')
-            def open_original(session_id,platform,recovery):
+            def open_original(session_id,platform,recovery,source_executor):
                 matches=[root for root in self._roots() if (root/'sessions'/session_id).is_dir()
                          and not (root/'sessions'/session_id).is_symlink()]
                 if len(matches)!=1:raise ValueError('collector_session_ambiguous')
-                return AccountSessions(matches[0]).open_login(session_id,platform,self.mc_root,_recovery=recovery)
+                store=AccountSessions(matches[0])
+                if source_executor=='pro' and platform=='bili':
+                    from pro_login_recovery import launch
+                    return launch(store,session_id,platform,recovery)
+                if source_executor not in ('mc','pro'):raise ValueError('invalid_source_executor')
+                return store.open_login(session_id,platform,self.mc_root,_recovery=recovery)
             return self.cloud_worker.recover_cloud_login(payload['task_id'],payload['child_id'],
                                                         self.cloud_client,open_original)
         if action == 'list' and not payload:
