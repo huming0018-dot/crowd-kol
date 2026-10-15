@@ -348,3 +348,17 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN16/wb-bounded-progress-adoption/TWO-ROUTES.md：官方MC语义及本机独立推演、采用/未采用理由。无新真实采集/媒体/云回取。
 
 - E50 04:26候选独审补证：RUN16/pro-zhihu-detail/whole-v3/independent-review/FINAL.json（aefd/14whole+121/原两个P1反例）；native/independent-root/FINAL.json（de993/e8f479，15+7，合成边界无真实Cookie）；failed-source-continuation/seed-v2/independent-root/{FINAL.json,ACTUAL-PUBLIC-READONLY.json}（fac910/b430，8+独立崩溃负例，真实旧29/20根/3选/1嵌入只读/五SHA不变）。上述候选没有正式来源或云回执验收，当前仍82744。
+
+## E51｜知乎文章/持久登录、真实启动失败与正常失败释放
+- RUN16/pro-zhihu-detail/combined/FREEZE.json c571、independent-root/FINAL.json：九源兼容合并保WB/counts；whole-v3/independent-review/FINAL.json原两P1修复14整链/121测试，native/independent-root/FINAL.json原登录15+7。
+- RUN16/pro-zhihu-detail/article/FREEZE.json 48a522、independent-central/FINAL.json cd4a0b9：文章原SDK13整链/原JS随机loopback/回答回归；article-contract-v2/independent-root/FINAL.json：实际原331a16字段/19正12负，修旧前置host校验冲突。
+- RUN16/pro-zhihu-adoption/independent/ACTUAL-RUNTIME-FINAL.json 002d7e2b：正式86806/9+429/五库/129/6+19+9与fresh Edge35；SOURCE-PUBLISH-RECEIPT.json：122659d已发布。EDGE35-ROOT-READBACK.json核26模块精确、仅contract改变。
+- RUN16/pro-zhihu-real/{FREEZE.json,ROOT-INDEPENDENT.json,INSTALLED.json,actual/CREATE-INTENT.json,actual/CREATED.PRIVATE.json}：原69c元数据/原16字段/唯一新0a0dc9任务；PRIVATE原件只本地读，不复制进交接。
+- RUN16/pro-zhihu-real/independent-current/INITIAL-ACTUAL.json：实际034b86/0budget/0来源事件、无Signer/凭据意图；中央importing未释放的首败原件保留。actual/STATUS-*为实际中央状态读回，不以作者自述作验收。
+- RUN16/pro-startup-empty-import-v2/independent-root/FINAL.json：严格零来源失败空导入，11正负例+原五文件不变；V1真实continuation键遗漏独审阻断已修，不泛化吞import错误。
+- RUN16/pro-startup-recovery-v2/independent-central/FINAL.json 19e9390e：3 guard+原state临时库production_tick+只读dry；ACTUAL-FAILED-FINISH.json是root实际生产原finish释放，failed0/0ACK/reserved归零/idle/原Bili等待精确保持。不是source成功。首轮worker锁忙无intent，不是未知finish重发。
+- RUN16/pro-zhihu-detail/article-owned-fix/independent-central/FINAL.json 911c510：修摘要pin、真正owned8990五签/正常stop与三导出，平台为受控；不是实际平台来源。
+- RUN16/pro-zhihu-launchfix-adoption/RUNTIME-FREEZE.json及runtime-adoption/ADOPTED.json：90039四文件修复；最终现场与源码发布见该目录后续原件，未出证据不标通过。
+- RUN16/pro-wb-seed-sdk/independent-root/FINAL.json 1b13f081：六原SDK复用组件独审，旧5/新3分离与未知写阻断；V2仅生产依赖元数据重绑，旧测试漂移/首次中止保留。完整续采受控候选见failed-source-continuation/FREEZE-COMBINED-V1.json，不是已部署或新真实媒体云验收。
+
+- E51最终采用后现场证据：RUN16/pro-zhihu-launchfix-adoption/independent/ACTUAL-RUNTIME-FINAL.json SHA256 5e47c64b0f4b8d201de6800cc6269b472ec93e89ca237b558ccc68eada1e71ef；SOURCE-PUBLISH-RECEIPT.json=0dfbc04eef2050a48ef670cc50fa61f54a3df8ed/push0/远端同。实际90039、4+436/五库/130/6+19+9+3/Edge35均保持。最终维护原任务状态请读pro-zhihu-real/actual/STATUS-*，spent0/reserved0/ACK0。

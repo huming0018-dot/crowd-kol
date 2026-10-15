@@ -320,3 +320,10 @@
 - 无新真实采集/self/云数据写，不重投旧29、不扩预算。固定handoff按实际证据维护，本轮文档发布回执RUN16/HANDOFF-E50-PUBLISH-RECEIPT.json。
 
 - E50 04:26补充：非作者复核知乎V3两个P1修复通过；root独审native知乎15+7和公开seed V2 8+重开/遗漏行/真实旧29只读通过。central正在当前版本兼容合并和中央route合同，SDK作者正补旧来源不冒新HTTP的hook，native补Owner/runner续采；跨attempt媒体仍缺。以上只候选验证，未新采集/云写/部署，固定入口日期及下一步同步更新。
+
+## E51｜知乎文章正式接入、首真实启动故障与失败释放
+- root/central/SDK peer互为非作者完成知乎V3/原登录/兼容合并/文章增量/中央合同独审；root唯一采用86806、Edge35并发布122659d。九源码/五库与原参与者/WB/评分/回执/OTA实际保持。
+- 原331a真实是文章，回答候选拒绝，补成熟文章链而非换输入。唯一0a0dc9/034b在Signer旧摘要绑定启动86，0API/0事件/0ACK，记录真实失败不预写成功。
+- root修pin，central独审真正owned原JS/SDK五签/退出。central修无DB启动失败导入，root查出错误continuation键后V2修，11测试/原件只读过。root维护V1被central真实state回放指出会调用别的Bili heartbeat；V2仅实例跳过非本任务等待项、保原列表，独审后实际原production_tick/failedfinish释放reserved12，原失败/预算/身份保留。
+- root随后采用四文件90039；非作者实际4+436/五库/130/6+19+9+3/Edge35通过，源码0dfbc04eef2050a48ef670cc50fa61f54a3df8ed已push0/远端同。继续修复后的同输入真实来源，不把0ACK或离线fixture当成功。WB SDK复用组件root六进程独审通过；完整Owner/预算/媒体/fresh-only云交付V1冻结、V2正合最新修复，尚未真续采/部署。
+- 下一步：90039采用后独审与发布已完成；确认8990受控测试退出，原首败0spent/0ACK/reserved0已权威核实后，在原1正文/12总来源预算内有界验证修复，不重发未知调用；独立核正文/分页/三导出/真实中央ACK。participant本机71/原Bili登录/多平台全维度和48h仍缺。
