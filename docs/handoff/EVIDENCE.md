@@ -347,4 +347,4 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN16/wb-bounded-progress-adoption/MAPPING-ADOPTER-REVIEW.json：13组合测试、原SDK整链partial/游标/导出；组件83a9/5d2a各非作者审。
 - RUN16/wb-bounded-progress-adoption/TWO-ROUTES.md：官方MC语义及本机独立推演、采用/未采用理由。无新真实采集/媒体/云回取。
 
-- E50 04:29候选独审补证：RUN16/pro-zhihu-detail/whole-v3/independent-review/FINAL.json（aefd/14whole+121/原两个P1反例）；native/independent-root/FINAL.json（de993/e8f479，15+7，合成边界无真实Cookie）；failed-source-continuation/seed-v2/independent-root/{FINAL.json,ACTUAL-PUBLIC-READONLY.json}（fac910/b430，8+独立崩溃负例，真实旧29/20根/3选/1嵌入只读/五SHA不变）。上述候选没有正式来源或云回执验收，当前仍82744。
+- E50 04:26候选独审补证：RUN16/pro-zhihu-detail/whole-v3/independent-review/FINAL.json（aefd/14whole+121/原两个P1反例）；native/independent-root/FINAL.json（de993/e8f479，15+7，合成边界无真实Cookie）；failed-source-continuation/seed-v2/independent-root/{FINAL.json,ACTUAL-PUBLIC-READONLY.json}（fac910/b430，8+独立崩溃负例，真实旧29/20根/3选/1嵌入只读/五SHA不变）。上述候选没有正式来源或云回执验收，当前仍82744。
