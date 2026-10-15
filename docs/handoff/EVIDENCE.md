@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E43为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E44为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -281,3 +281,20 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN15/pro-login-owner-copy/{FREEZE.json,ROOT-RECHECK.json,independent/FINAL.json}：7056dedf最小文案，4DOM/4exactAPI/4无自动resume和语法；旧MC、paused/running意图保留。该条E42“未采用”现由本次实际runtime核验推进。
 - RUN15/mc-login-close-adoption/{RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json}：01:46:58CST实际51342/mc-login-close-8ea076214923fd39，48081已停；4冻结、419其余/fullset、126资产、5库schema/raw行等actualbackup；idle/alive/pending0、原task3cda暂停/spent1/12/reserved0/ACK0、原等待/身份binding、原Bili43833与XHS23266保持，非作者0self/source/生产写。没有本批Edge/SQL变更；SOURCE-PUBLISH-RECEIPT.json记录四自有文件a1cb414b/parent4881/push0/实际远端同SHA；发布与采用分证据。
 - RUN15/pro-audio-continuation/{FREEZE-V4.json,ROOT-FINAL-V4.json}：仅两literal更新已独审新runtime/freeze pin；cb9c275d冻结、501f10aa运行冻结，root独立10测试通过，main未执行/生产写0。旧V3保留历史，不直接运行。当前Pro官方证明仍为Bridge101/self0，等待本人原窗口登录后再有界核验；本批无来源/业务验收。MC关闭顺序真实持久性、同输入正文/分页/音轨/导出/ACK、私有音轨云回取、Pro中央步骤、OTA71采用/全端/48h均不得外推。
+
+
+## E44｜Pro来源步骤、耐久页投影、账号入口及WB路由组合
+- RUN15/pro-wb-route/independent/{FINAL.json,ACTUAL-EDGE32-FINAL.json}与FORMAL-EDGE-COPY.json：Python入口仅NATIVE_SUPPORTED→SUPPORTED、中央contract仅加WB；原SDK3mode/partial/logout与同输入合同独审。实际Edge32 ACTIVE26模块仅contract变化、25原模块/鉴权/image/audio/WASM保留；fresh媒体RPC/ACL/最新migration未改，不是全数据库对象不变断言。WB媒体/热搜/全子回复尚未验。
+- RUN15/pro-transport-steps/{FREEZE.json,independent/CENTRAL-FINAL.json}：d9384130候选真实HTTPX/aio transport与原NativeSteps共journal；独立MC76/ProBridge8/额外底层transport预算与无敏感值负例过。budget拒绝不伪request_started，原73/77/取消/redirect保持，monitor失败固定phase marker；未证明新真实来源或Signer内部网络全覆盖。
+- `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/pro-source-steps/{FREEZE.json,independent-native/FINAL.json,ORIGINAL-REPLAY-FINAL.json}`：cbaa1c6a新projector+mc_runner.status，9单测/3原件最小临时回放/90并发与30transport共journal/3facts exactly-once/坏JSON负例独审。e7e95行→87读回事件，f2c107行→37；无历史HTTP伪补，原manifest/page/operation DB SHA保持，未复制whole run/profile或改旧journal。0为未关联/未观测，非历史零请求。
+- RUN15/account-pro-recovery-routing/{FREEZE.json,ROOT-NONAUTHOR-FINAL.json}：a7a6 dashboard/a0ca accounts-ui/9Python+DOM，账号页仅准确原Pro+Bili等待task/child入口，安全展示Bridge101与官方尚未请求，保留其他原登录能力，不自动resume或启动来源。
+- RUN15/pro-observability-adoption/{FREEZE.json,MERGE-PROOF.json,ADOPTER-FUNCTION-PROOF.json,independent-native/FINAL.json,independent-review/FINAL-READY.json,RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json}：11文件候选精确合并，WB仅一literal；103组合/ProBridge8/DOM作者及独立组合通过；采用脚本8函数AST等旧5锁5库/rollback，仅OLD/prior/gate变。02:07:17非作者实际ACTUAL-RUNTIME-FINAL.json核55325/pro-source-observability-a42363d843e7ee56、旧51342停，11精确/417其他/fullset、五库raw/schema actualbackup、126保护/6身份、idle/pending0与原task/原窗保持。SOURCE-PUBLISH-RECEIPT.json实际12文件fe4766/parent46006/push0/远端同SHA。independent/VERIFIER-PREPARATION.json是central只准备、native复核执行的窄派生验证器；实际结果以ACTUAL-RUNTIME-FINAL.json为证，不把脚本存在当完成。
+- RUN15/HANDOFF-E43-PUBLISH-RECEIPT.json：3MD46006dd8/parenta1cb/push0/实际远端同，E40–E43已合并上线；E44发布另记。原3cda暂停spent1/12、Pro101/self0与本人Bili登录等待仍保持；该文档发布时XHS仅计划，随后E44真实结果见下。
+
+- RUN15/account-pro-recovery-routing/ACTUAL-OWNER-HTTP.json：at2026-10-15T18:07:50.769734Z（CST02:07:50），正式Owner accounts list只读确有原cloud_pro/task3cda/child5063+BridgeHTTP200/101、Bridge1/official0、check_failed；recovery_calledfalse/platform0/browser0。只证明正确入口与诊断已在线，不证明账号恢复或新采集。
+
+- `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/xhs-source-real/{FREEZE.json,ROOT-EXACT-CHILD-REQUEST.json,INSTALL-REGISTRATION.json,ROOT-NONAUTHOR-FINAL.json,ROOT-INSPECTOR-NONAUTHOR.json,INSPECTOR-FREEZE.json,SIGNER-LIFECYCLE.jsonl}`：同e7请求18字段保持、仅Pro，57/20/120/mediafalse；原XHS安装描述缺失已O_EXCL0600登记原已购SDK元信息，身份保持仅适用安装/采用前时点，官方self后accountstate合法改变。Signer56392 started→stopped/sign14/failedfalse，非浏览器启动。
+- 同目录 `actual/{INSPECTION.PRIVATE.json,READBACK.PRIVATE.json,EXPORT-r77.json,EXPORT-r77.jsonl,EXPORT-r77.csv}`：root执行经审inspector有限PASS。实际新task69602e3b/child69edfc3b/cloud850b58bb/localddf0753c，中央completed/spent30/quota57/reserved0；41source（1body40comments）权威envelope/UUID/hash/typed回执全对应；105中央步骤与本地精确同sequence（30start30response1body22received22saved）；R77三格式各99行，42新语义（41来源+1media reference）保真。pagination limit_reached而非exhausted，mediafalse/无字节或云对象/checkpoint/full product proof。非作者最终现场有限交付通过见下，不能把有限PASS误写成全部能力通过。
+
+- /Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/xhs-source-real/independent/FINAL.json（SHA8c4af644，at02:23:37 CST）：非作者fresh云只读核41原Pro observations/41权威capture与ACK、中央163事件中105来源步骤typed精确本地、22页received/saved hash配对、R77三格式99全行及42新语义通过；无checkpoint/媒体字节/fullfidelity承诺，审查来源调用0/云写0。
+- 同目录COMMENT-CAP-ROOT-CAUSE.json及CENTRAL-CAP-INDEPENDENT.json（SHA9f665312）：原startintent/冻结0aca与新a423源码赋值合同、修复23f7ae4及原SDK两独立进程受控链复跑。旧仅config、新config+base_config导入前双设；合成同5页44根50回复旧94/新40（软阈值、整页含回复），证明有效阈值语义变更原因，不倒填历史实际scalar0、不推断当前缺项可用性或平台删除。真实共同39稳定字段同、缺55/新增1，API30<57非预算耗尽；旧94/新40完整数据集等价仍未通过。

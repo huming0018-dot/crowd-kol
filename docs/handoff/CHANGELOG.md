@@ -267,3 +267,14 @@
 - **真实边界**：仅关闭顺序代码缺陷修复，不证明实际Cookie持久性或此前丢失根因。Owner后台核验提示现已采用，非窗口打开。本人Bili新登录仍待回复，原Pro101/self0未重试，无新来源/云ACK。
 - **下一步**：原窗口不关，登录后Pro后台官方同主体；继续原task剩11。continuation V4已两literal适配新runtime/freeze pin，root精确差异与10测试通过；main未执行，使用前仍核实际版本未漂移。随后正文/分页/音轨/三导出/ACK及私有音轨云回取逐项独审。watchdog暂停/48h未启。
 - **交接**：E42保留01:44历史候选，E43更新当前与第8/9节；冻结独审后root正式复制推送，以HANDOFF-E43-PUBLISH-RECEIPT.json为凭。无Cookie、PRIVATE正文或Pro私码随文档外发。
+
+
+## 2026-10-16 02:27 CST｜E44 Pro来源监控组合及真实XHS有限云交付
+- **接力者/分工**：central实现durable projector/status、审root transport、准备组合adopter与verifier/交接；root实现transport并唯一Edge部署/采用/后续发布；native实现WB route并审projector/组合准备、执行实际五库核验；review代理实现账号路由、审WB route与实际XHS交付；root非作者审账号路由。各组件不以自身实现自审放行。
+- **已部署**：Edge32 ACTIVE，实际26module仅contract一处WB白名单/25原件字节保持，fresh媒体RPC/ACL/最新迁移162327不变。正式contract精确同步，不扩大媒体能力声明。
+- **代码/测试/采用**：11组合文件含原transport预算/异常、同journal page/body projector、正确Pro账号恢复入口与WB显式路由；103组合/Bridge8/DOM及独立组件/组合通过。正式采用55325/pro-source-observability-a42363d843e7ee56、旧51342停；02:07:17非作者实际11file/417其余/fullset/五库raw-schema/126保护/6身份/idle/pending0通过。源码12文件fe4766已push0/远端同，实际Owner只读cloud_pro原task/child与101诊断已证，不把入口在线当业务成功。
+- **事实边界**：旧e7e/f2c/2fe只在最小临时副本做本次readback，原SHA保持；不得把其投影当历史HTTP或新source/ACK。页保存逐ID/parent核，partial/空页/commit未知诚实保留。monitor IOfail不重试源，所有IO失败仍unknown。
+- **下一步**：新XHS有限云交付已独审通过；继续按有效阈值与页范围分别验证全量/媒体，不以当前有限PASS称整套完成。原Bili待本人、窗口不关/原3cda暂停1of12剩11，V4旧pin须更新；不启动548，不自动恢复watchdog/48h。
+- **交接**：E43正式文档46006dd8已push；E44先候选待本轮实际结果与非作者核后root发布，凭HANDOFF-E44-PUBLISH-RECEIPT.json。无凭据/Pro私码/PRIVATE正文外发。
+
+- **本次真实来源增量（最终非作者现场有限PASS）**：新原XHS任务69602e3b/localddf0753c以同e7的57/20/120/mediafalse运行，实际中央completed/API30/57/剩额释放；1body40comments共41新源逐条ACK、105中央source_step精确本地、R77三格式各99行含42本次语义逐字段保真。root执行已审inspector有限PASS，02:23:37非作者fresh云原件/41ACK/105来源步骤及R77三格式99全行、42新语义独核通过。旧94→新40由冻结旧wrapper仅设config、原SDK从base_config导入而本次双设20导致有效软阈值变化；23f7ae4修复已定位，原SDK同合成链两非作者独立进程复跑94/40。历史实际scalar未日志不倒填，39共同稳定同/55缺1新，非预算耗尽或平台删除推断；limit_reached/partial不冒全量，完整数据集等价未通过。mediafalse的1reference不是媒体字节或媒体云回执。原self成功后accountstate合法更新，不把采用前6hash永远同当验收标准。Signer56392正常停/sign14；Bili待本人/原task暂停不动。
