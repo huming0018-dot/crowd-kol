@@ -1027,6 +1027,9 @@ class CloudWorker:
                 state['status_read_error']='runner_status_unavailable'
                 self._save(state)
                 return {'state':'running','error':'runner_status_unavailable'}
+            for source_step in current.get('source_steps',[]):
+                try:self.machine_steps.observe(state,'source_step',**source_step)
+                except (ValueError,OSError,sqlite3.Error):self.machine_steps.error='machine_steps_store_failed'
             for page in current.get('step_pages',[]):
                 try:self.machine_steps.observe(state,'comments_page',**page)
                 except (ValueError,OSError,sqlite3.Error):self.machine_steps.error='machine_steps_store_failed'

@@ -1,5 +1,5 @@
 import {assert,uuid} from './contract.mjs';
-export const phases=['claiming','authorized','dispatching','running','importing','delivering','finishing','waiting_login','login_resumed','paused','completed','deferring_delivery','reconciling_no_dispatch','local_stop_unknown','comments_page'];
+export const phases=['claiming','authorized','dispatching','running','importing','delivering','finishing','waiting_login','login_resumed','paused','completed','deferring_delivery','reconciling_no_dispatch','local_stop_unknown','comments_page','source_step'];
 export async function machineSteps(action,payload,backend,actor,workerHash){
   assert(payload&&typeof payload==='object'&&!Array.isArray(payload),'invalid_step_events');
   if(action==='step_events'){
@@ -7,8 +7,16 @@ export async function machineSteps(action,payload,backend,actor,workerHash){
     assert(Object.keys(payload).length===1&&Array.isArray(payload.events)&&payload.events.length>=1&&payload.events.length<=50,'invalid_step_events');
     const ids=new Set();
     for(const e of payload.events){
-      assert(e&&typeof e==='object'&&!Array.isArray(e)&&Object.keys(e).every(k=>['page_sha256','scope','checkpoint_committed','page_index','outcome','sequence','observed_at_ms','event_id','run_id','lease_epoch','phase','local_run_id','saved_pages','saved_rows','acknowledged','pending'].includes(k)),'invalid_step_events');
+      assert(e&&typeof e==='object'&&!Array.isArray(e)&&Object.keys(e).every(k=>['source_sequence','source_stage','api_attempts','http_status','page_sha256','scope','checkpoint_committed','page_index','outcome','sequence','observed_at_ms','event_id','run_id','lease_epoch','phase','local_run_id','saved_pages','saved_rows','acknowledged','pending'].includes(k)),'invalid_step_events');
       assert(Number.isSafeInteger(e.sequence)&&e.sequence>=1&&Number.isSafeInteger(e.observed_at_ms)&&e.observed_at_ms>=0&&e.observed_at_ms<=Date.now()+300000&&uuid(e.event_id)&&uuid(e.run_id)&&Number.isSafeInteger(e.lease_epoch)&&e.lease_epoch>=1&&phases.includes(e.phase)&&!ids.has(e.event_id),'invalid_step_events');ids.add(e.event_id);
+      if(e.phase!=='source_step')assert(!['source_sequence','source_stage','api_attempts','http_status'].some(k=>Object.hasOwn(e,k)),'invalid_step_events');
+      if(!['source_step','comments_page'].includes(e.phase))assert(!Object.hasOwn(e,'scope'),'invalid_step_events');
+      if(e.phase==='source_step'){
+        assert(['request_started','response_received','request_failed','page_received','page_saved','content_saved','store_failed','monitor_failed'].includes(e.source_stage)&&['request','content','root','reply'].includes(e.scope),'invalid_step_events');
+        assert(Number.isSafeInteger(e.source_sequence)&&e.source_sequence>=1&&e.source_sequence<=4000&&Number.isSafeInteger(e.api_attempts)&&e.api_attempts>=0&&e.api_attempts<=500&&Number.isSafeInteger(e.http_status)&&e.http_status>=0&&e.http_status<=599&&e.checkpoint_committed===false,'invalid_step_events');
+        if(Object.hasOwn(e,'page_sha256'))assert(typeof e.page_sha256==='string'&&/^[a-f0-9]{64}$/.test(e.page_sha256),'invalid_step_events');
+        if(['page_saved','content_saved'].includes(e.source_stage))assert(Object.hasOwn(e,'page_sha256')&&Object.hasOwn(e,'saved_rows'),'invalid_step_events');
+      }
       if(e.phase==='comments_page')assert(typeof e.page_sha256==='string'&&/^[a-f0-9]{64}$/.test(e.page_sha256)&&['root','reply'].includes(e.scope)&&typeof e.checkpoint_committed==='boolean'&&Number.isSafeInteger(e.page_index)&&e.page_index>=1,'invalid_step_events');
       if(Object.hasOwn(e,'outcome'))assert(['completed','failed','stopped','unknown','login_required'].includes(e.outcome),'invalid_step_events');
       if(Object.hasOwn(e,'local_run_id'))assert(uuid(e.local_run_id),'invalid_step_events');

@@ -6,7 +6,7 @@ import time
 import threading
 import uuid
 
-PHASES = frozenset(('claiming','authorized','dispatching','running','importing','delivering','finishing','waiting_login','login_resumed','paused','completed','deferring_delivery','reconciling_no_dispatch','local_stop_unknown','comments_page'))
+PHASES = frozenset(('claiming','authorized','dispatching','running','importing','delivering','finishing','waiting_login','login_resumed','paused','completed','deferring_delivery','reconciling_no_dispatch','local_stop_unknown','comments_page','source_step'))
 
 class MachineSteps:
     def __init__(self, path, client):
@@ -50,6 +50,20 @@ class MachineSteps:
                 if type(value) is not int or not 0 <= value <= 10**9:
                     raise ValueError('invalid_machine_steps')
                 event[key] = value
+        if phase!='source_step' and any(key in counts for key in ('source_sequence','source_stage','api_attempts','http_status')):raise ValueError('invalid_machine_steps')
+        if phase not in ('source_step','comments_page') and 'scope' in counts:raise ValueError('invalid_machine_steps')
+        if phase=='source_step':
+            from mc_source_steps import STAGES,SCOPES
+            if counts.get('source_stage') not in STAGES or counts.get('scope') not in SCOPES:raise ValueError('invalid_machine_steps')
+            for key,low,high in (('source_sequence',1,4000),('api_attempts',0,500),('http_status',0,599)):
+                value=counts.get(key)
+                if type(value) is not int or not low<=value<=high:raise ValueError('invalid_machine_steps')
+                event[key]=value
+            if counts.get('checkpoint_committed') is not False:raise ValueError('invalid_machine_steps')
+            event.update(source_stage=counts['source_stage'],scope=counts['scope'],checkpoint_committed=False)
+            if 'page_sha256' in counts:
+                if not isinstance(counts['page_sha256'],str) or not re.fullmatch('[a-f0-9]{64}',counts['page_sha256']):raise ValueError('invalid_machine_steps')
+                event['page_sha256']=counts['page_sha256']
         if phase=='comments_page':
             scope=counts.get('scope')
             if scope not in ('root','reply') or type(counts.get('checkpoint_committed')) is not bool:
@@ -60,10 +74,10 @@ class MachineSteps:
         encoded = json.dumps(event, sort_keys=True, separators=(',',':'))
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            previous = db.execute("SELECT event FROM steps WHERE run=? AND epoch=? AND json_extract(event,'$.phase')<>'comments_page' ORDER BY rowid DESC LIMIT 1",(run,epoch)).fetchone()
-            if phase!='comments_page' and previous and previous[0] == encoded:
+            previous = db.execute("SELECT event FROM steps WHERE run=? AND epoch=? AND json_extract(event,'$.phase') NOT IN ('comments_page','source_step') ORDER BY rowid DESC LIMIT 1",(run,epoch)).fetchone()
+            if phase not in ('comments_page','source_step') and previous and previous[0] == encoded:
                 return
-            identity=str(uuid.uuid5(uuid.UUID(run),str(epoch)+'\n'+encoded)) if phase=='comments_page' else str(uuid.uuid4())
+            identity=str(uuid.uuid5(uuid.UUID(run),str(epoch)+'\n'+encoded)) if phase in ('comments_page','source_step') else str(uuid.uuid4())
             db.execute('INSERT OR IGNORE INTO steps(id,run,epoch,event,observed_at_ms) VALUES(?,?,?,?,?)',(identity,run,epoch,encoded,int(time.time()*1000)))
 
     def flush(self):

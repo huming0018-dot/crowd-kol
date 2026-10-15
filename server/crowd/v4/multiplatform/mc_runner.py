@@ -552,6 +552,9 @@ def status(root, payload):
                         'step_pages':[{'page_sha256':hashlib.sha256(canonical(page).encode()).hexdigest(),'page_index':index,'scope':page['scope'],'saved_rows':len(page['ids']),'checkpoint_committed':page['checkpoint_committed']} for index,page in enumerate(pages,1) if isinstance(page,dict) and page.get('saved') is True and page.get('scope') in ('root','reply') and isinstance(page.get('ids'),list) and type(page.get('checkpoint_committed')) is bool]}
         except (ValueError,TypeError,OSError):
             state={**state,'step_monitor_error':'pagination_observation_failed'}
+    from mc_source_steps import read_steps
+    try:state={**state,'source_steps':read_steps(run,run.name)}
+    except ValueError:state={**state,'source_monitor_error':'native_steps_observation_failed'}
     context=stop_context(run)
     if context:
         state={**state,'stop_context':context,'stop_origin':context['origin']}
@@ -649,7 +652,7 @@ def worker(root, mc, run_id, lock_fd):
             and progress.get('failure_stage') == 'homepage_observation'
             and progress.get('failure_reason') == 'discovery_empty_or_unavailable'):
         reason='discovery_empty_or_unavailable'
-    if reason is None and code==74 and progress.get('failure_reason')=='pro_pagination_cursor_stalled':reason='pro_pagination_cursor_stalled'
+    if reason is None and code==74 and progress.get('failure_reason') in ('pro_pagination_cursor_stalled','native_source_persistence_failed'):reason=progress['failure_reason']
     state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed',79:'rate_limited',80:'captcha_required',81:'platform_blocked',82:'platform_signature_rejected',84:'pro_self_check_unsupported',85:'pro_pending_run_resolution_required',86:'pro_login_verification_failed'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
     write(run/'status.json',state)
     os.close(lock_fd)
@@ -666,6 +669,7 @@ def execute(root, mc, run_id):
     sys.dont_write_bytecode=True
     attempts=0
     account_store=None
+    native_steps=None
     response_bytes=0
     native_media=p['platform'] in ('dy','ks','bili') and p.get('media') is True
     file_limit=67108864 if native_media or p['platform']=='bili' and p.get('platform_options',{}).get('long_audio') else 26214400
@@ -748,24 +752,38 @@ def execute(root, mc, run_id):
                         raise SystemExit(73)
                     attempts+=1
                     event()
+                    if native_steps:native_steps.transport('request_started',attempts)
+                    return attempts
             old_async=httpx.AsyncClient.send
             old_sync=httpx.Client.send
             old_requests=requests.sessions.Session.send
             async def async_send(self,*a,**kw):
-                debit()
-                response=await old_async(self,*a,**kw)
+                attempt=debit()
+                try:response=await old_async(self,*a,**kw)
+                except BaseException:
+                    if native_steps:native_steps.transport('request_failed',attempt)
+                    raise
+                if native_steps:native_steps.transport('response_received',attempt,response)
                 if account_store is not None:
                     guard_auth_response(account_store,p['session_id'],p['platform'],run_id,account_event,response)
                 return response
             def sync_send(self,*a,**kw):
-                debit()
-                response=old_sync(self,*a,**kw)
+                attempt=debit()
+                try:response=old_sync(self,*a,**kw)
+                except BaseException:
+                    if native_steps:native_steps.transport('request_failed',attempt)
+                    raise
+                if native_steps:native_steps.transport('response_received',attempt,response)
                 if account_store is not None:
                     guard_auth_response(account_store,p['session_id'],p['platform'],run_id,account_event,response)
                 return response
             def requests_send(self,*a,**kw):
-                debit()
-                response=old_requests(self,*a,**kw)
+                attempt=debit()
+                try:response=old_requests(self,*a,**kw)
+                except BaseException:
+                    if native_steps:native_steps.transport('request_failed',attempt)
+                    raise
+                if native_steps:native_steps.transport('response_received',attempt,response)
                 if account_store is not None:
                     guard_auth_response(account_store,p['session_id'],p['platform'],run_id,account_event,response)
                 return response
@@ -828,6 +846,10 @@ def execute(root, mc, run_id):
                 from tieba_browser_requests import install
                 install(BaiduTieBaClient,run,debit)
             configure_platform_hooks(upstream,p)
+            from mc_source_steps import NativeSteps
+            native_steps=NativeSteps(run,run_id,p['platform'])
+            try:native_steps.install()
+            except Exception:native_steps.error='native_steps_hook_unavailable'
             configure_wordcloud(upstream,config,p,mc,run)
             import asyncio
             sys.argv=[str(Path(mc)/'main.py'),*argv_for(p,run/'output')]
@@ -837,6 +859,7 @@ def execute(root, mc, run_id):
                 finally:
                     await asyncio.wait_for(upstream.async_cleanup(), timeout=10)
             asyncio.run(cancellation.run(crawl()) if cancellation is not None else crawl())
+            if native_steps.store_failed:raise ValueError('native_source_persistence_failed')
     except (ModuleNotFoundError,ImportError):
         raise SystemExit(72)
     except SystemExit:
@@ -844,10 +867,18 @@ def execute(root, mc, run_id):
     except BaseException as exc:
         from discovery import failure_metadata
         write(run/'phase.json',{'phase':'failed','api_attempts':attempts,
-                               'failure_type':type(exc).__name__[:80],**failure_metadata(exc)})
+                               'failure_type':type(exc).__name__[:80],**failure_metadata(exc),
+                               **({'failure_reason':'native_source_persistence_failed'} if native_steps and native_steps.store_failed else {})})
         raise SystemExit(74)
     finally:
         finished.set()
+        if native_steps is not None:
+            native_steps.restore()
+            if native_steps.error:
+                try:
+                    current=safe_phase_progress(run)
+                    write(run/'phase.json',{**current,'source_monitor_error':native_steps.error})
+                except (ValueError,OSError):pass
         if cancellation is not None:cancellation.restore()
 
 # This is a bounded output projection, not a DOM evidence adapter or a universal DLP.
