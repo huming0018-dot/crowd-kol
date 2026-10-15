@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E46为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E47为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -313,3 +313,12 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 
 - RUN16/pro-wb-session-readiness/{CURRENT-METADATA.json,READINESS.md}：02:40:43原e7c5目录存在、无state/binding/安装描述或原profile桥登记/精确运行进程；已有两连接client的WB metadata均null，不读Cookie/self/不启窗。当前主体未知，不从null判平台登出。
 - RUN16/workbench-stale-page/{DIAGNOSIS.md,OFFLINE-GUARD-RESULT.json,reproduce_guard.py}：生产guard精确AST离线6例，旧nonce足以产生同403；实际旧IAB请求nonce未保存，真实根因unknown，刷新后恢复仅支持机制一致。尚无自动旧页刷新/重启提示修复，不自动重发POST。
+
+## E47｜受控Signer及真实新XHS首投/云交付
+- RUN16/pro-signer-lifecycle/independent/INITIAL-REVIEW.json：初f338错标0bc基线却删除WBscope，以及已reaped仍kill旧PGID两发现原件保留，旧候选未放行。新pro-signer-adoption/independent/FINAL.json（80a2d9f5）核修复、9生命周期/XHS原SDK2/route11/Bili与WBwhole3导出，adopter7AST同+call仅const|let；父死在途Node未验。
+- RUN16/pro-signer-adoption/independent/{ACTUAL-RUNTIME-FINAL.json,INSTALL-EDGE-FRESH-FINAL.json,CENTRAL-ACTUAL-FINAL.json}：原verifier候选标签不改，后者独立实际汇总415c4d36引用两原件；66029/9+427/127保护/6当时身份19源导出/五库同备份/原task及浏览器保持。安装描述0600仅两原路径/hash a0dfca92无凭据；fresh34全26字节同。SOURCE-PUBLISH-RECEIPT.json记录aadbb265/parent33ef2fe/push0/远端同。
+- RUN16/managed-source-real/independent-native/{ACTUAL-FINAL.json,SOURCE-CLOUD-FINAL.json,LIFECYCLE-DELIVERY-FINAL.json,PAGE-RANGE-COMPARISON.json}：最终SHA72b48c90，非作者freshSQL40原Pro观测/capture/ACK，99中央步骤typed精确，R78三格式100全行/41新语义通过；自动66430 start0stop13/PID消失/8990空/40proof同digest消耗0/每条total1。原始SQL仅本地600，不随文档发布。第一次宿主ps沙箱EPERM保留，获准原只读检查重跑通过，不改源库。
+- 同目录actual/{INSPECTION.PRIVATE.json,PERFORMANCE-OBSERVED.json,EXPORT-r78.json,EXPORT-r78.jsonl,EXPORT-r78.csv}：root执行已审inspector有限PASS；独审另核原件。新17.8343秒来源、52.4099秒终态到lastACK，对旧17.8329/94.6743；单对照且40vs41/API28vs30，44.64%仅观测，非P95/稳定或纯因果保证。共同34评论稳定同，根页2换2与其4缺3新回复解释ID差异，不推断平台删除。媒体false、分页limit_reached、checkpoint/fullfidelity/全产品边界保持。
+- RUN16/workbench-session-recovery/ROOT-NONAUTHOR-FINAL.json：原生产guard19+实际JS12及随机loopback旧nonce不派发写操作/新读token恢复通过；新UI准确只读白名单、一次重试与共享刷新，写操作不重发，首次旧HTML须显式刷新。实际跨重启浏览器验收尚缺。E46发布回执33ef2fe已实读，E47另记发布。
+
+- 证据命名纠错：本轮actual汇总最初写入independent-native/FINAL.json覆盖旧driver准备报告；actual72b48原件保持并逐字副本保存ACTUAL-FINAL.json，后续只引用此actual名。原审查者已恢复原准备报告为DRIVER-PREPARATION-FINAL.json，本轮独立重算SHA精确45b11b50f0addc8aa1c9b92e456ce431fdefc0e33071928ed0a077777eb3af79，原at03:02:10.198200+08:00；不能把actual结论冒作driver准备审查，也不重跑真实来源。最终actual报告at03:10:03，功能来源/ACK早于此，不能回填成03:09独审完成。

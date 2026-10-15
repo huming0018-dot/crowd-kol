@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 02:52 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 03:10 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -22,7 +22,14 @@
 
 ## 3. 当前状态
 
-### 2026-10-16当前增量（E46优先；E45及以前保留历史时点）
+### 2026-10-16当前增量（E47优先，以下为历史时点）
+
+- **E47代码/采用/发布**：受控8990 Signer与工作台旧页只读会话恢复9文件已独审并采用pro-managed-signer-b5c9289fe9b65a7d/PID66029，原63675停；03:04非作者实际核9冻结/427其他源码/fullset、127保护/6当时身份+19源导出、五库schema/raw等actualbackup、idle/pending0、原Bili暂停1/12/ACK0与两原浏览器/桥保持。XHS原collector新增私有0600安装描述仅原python/source_root路径，无凭据。源码aadbb265fcb35cb8329cc23b85bf27feee2e053b已push0/远端同，parent33ef2fe；fresh Edge34全部26模块保持，没有本批SQL/Edge变更。默认MC、WB媒体范围、身份/评分/云回执/OTA保持。
+- **E47新真实有限交付**：唯一新task95bf7c2a/childb749bedc/cloud0e5e0421/local191453b6，仍原XHS/同18字段+Pro、57/20/120/media=false。自动领取完成，原SDK40观测=1正文39评论；本地completed0、共享28/57、中央completed/spent28/reserved0。非作者freshSQL逐条核40UUID/hash/权威envelope/回执，99中央来源步骤与本地typed精确（28开始28响应1正文21页收到21页保存）；R78三格式各100全行/41本次语义逐字段和版本/bodyhash保真。运行自动Signer66430 started0→stopped13/failed=false，PID退出、8990无监听，原意图保留；40新proof同digest已消耗且每条总尝试1/无重队列错误。不是手工预启Signer，也不把旧SQLite投影冒新请求。
+- **E47耗时与边界**：新来源17.8343秒、来源终态至最后云回执52.4099秒；旧ddf为17.8329秒及94.6743秒，本轮观测交付段缩短44.64%。只有一次真实对照，40vs41条/API28vs30且网络未控，不能宣称纯因果、P95或稳定提速保证。新39评论vs旧40，共同34稳定字段全同；两次均10根但只8根相同，缺2根及其4回复/新2根及其3回复解释全部ID差异，排序/删除原因未知不猜。仍limit_reached、媒体false/1reference不是字节云回取，中央checkpoint_committed false不证明游标commit，不是全量等价或全产品验收。
+- **E47遗留/下一步**：代码支持XHS/DY8990运行内受控生命周期，但安装描述本轮只登记XHS，且仅XHS真实通过；DY安装登记/whole/真实、Bili8989管理和在途Node孙进程父死清理仍未验。工作台只对白名单只读查询允许nonce刷新一次，写操作绝不重发；root已首次实际刷新后健康/1741ACK/pending0，第二次正式重启后的浏览器自动恢复尚未实机验，不把离线guard复现当原403根因。WB原绑定/登录主体未知，真实新图/云回取未验；Bili原窗口待本人、原任务暂停剩11，不能再开MC登录或猜client。continuation旧pin须适配66029并独审。OTA71真实采用/两设备全端/48h仍缺，watchdog暂停。
+
+### E46历史增量（02:52时点，已发布33ef2fe）
 
 - **E46实际采用**：WB本地原图链、附件注册/Owner入口、25MiB图片云v2与精确显式路由已组合采用wb-media-v2-0bc0ea5d3195e2a3/PID63675，原61292停。02:51:01 CST非作者实际10冻结/420其他源码/fullset、127保护/6身份19源导出、五库全部schema/raw等actualbackup、无新表，idle健康/pending0、原Bili暂停1/12/ACK0与两原浏览器/桥连接保持。默认MC及参与流程/评分/outbox首投优化/原云回执/OTA保持。
 - **E46中央**：实际SQL迁移20261015184558/crowd_weibo_image_v2，只有旧MD5守卫及精确replace图片RPC，无表/trigger/ACL重建。fresh RPC41204/body等已审候选/MD5 134e0f96284a346550eb94e0eb2191fc；原音视频34817/md53d039…、图片guard/RLS/service-only/私有50MiB五MIME保持。先Edge33仅3image变化、23原32模块逐字保持；后Edge34仅contract开精确WB媒体路由，fresh26模块4对应formal冻结、22其他逐字原32/JWTfalse保持。
@@ -126,7 +133,7 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/wb-media-v2-0bc0ea5d3195e2a3/ | E46实际独核通过的工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
+| .crowd-launch/runtime-revisions/pro-managed-signer-b5c9289fe9b65a7d/ | E47实际独核通过的工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -142,10 +149,10 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，实际采用未证 |
-| crowd-kol | f12bae0cefafb6c18b560b709c23d2ffd336bed0已发布；parent为文档34576d66 | E46正式63675/Edge34已实际独核通过。已另有新XHS41来源/105步骤/41ACK有限验收，未涵盖全量及媒体字节；其他脏文件不并入 |
+| crowd-kol | aadbb265fcb35cb8329cc23b85bf27feee2e053b已发布；parent为文档33ef2fe | E47正式66029/Edge34已实际独核通过。已另有新XHS41来源/105步骤/41ACK有限验收，未涵盖全量及媒体字节；其他脏文件不并入 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；实际终端采用未证 |
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E46当前增量及wb-media-adoption采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E47当前增量及pro-signer-adoption采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -179,14 +186,14 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 安全起步：读取源码/文档、uname/pwd/git status/log、SHA比对、既存脱敏证据；用已授权连接器执行明确只读查询。测试先审其副作用。不要为了核验调用claim/start/finish/arm，或启动会自动执行任务的服务。
 
-下一步：先读E46 WB媒体实际采用独核与源码发布回执，核对当前63675/Edge34运行未漂移；下个已授权有界新任务才验证真实投递耗时，不为测提速无条件重采。WB图片链与精确路由已采用，下一步先核原WB持久登录/绑定可用性再做最小同输入新来源，不重复扫码或借旧图冒成功；新字节/评论分页/导出/真实私有云回取逐项独审。默认MC及原Bili3cda暂停1/12剩11保持。先读新XHS69602e3b/ddf0753c最终非作者现场报告及COMMENT-CAP-ROOT-CAUSE/CENTRAL-CAP-INDEPENDENT：41ACK/105步骤/R77已有限通过，旧阈值未生效、本次双赋值后生效导致页范围变化已解释；不能倒填旧实际scalar，也不能以此替代94→40完整数据集等价。保留当前57/20/120/media=false配置与limit_reached/partial，不无条件重采；需要补缺时基于诊断确定最小有界下一步，不重启548或删选项。新正文/评论/导出/ACK已有限实证，媒体字节、云音轨、checkpoint及全量仍另验。Bili待本人在原43833/window32276完成登录，原窗不关；条件变化后后台官方同主体再Owner继续原task剩11。旧continuation V4 pin51342，必须适配当前63675冻结并独审后才可运行。账号页已接正确Pro恢复入口，不开MC窗口；MC关闭顺序真实Cookie持久性仍单列。Pro中央全链/媒体云/OTA71/两设备/全端/48h均按证据分级，watchdog暂停。
+下一步：先读E47实际采用/新任务独审与aadbb265源码发布，核对66029/Edge34未漂移。真实新XHS自动Signer与40ACK/99步骤/R78有限验收已完成，交付耗时单样本下降不是稳定保证；不为扩大统计无条件重采。WB图片链与精确路由已采用，下一步先核原WB持久登录/绑定可用性再做最小同输入新来源，不重复扫码或借旧图冒成功；新字节/评论分页/导出/真实私有云回取逐项独审。默认MC及原Bili3cda暂停1/12剩11保持。先读新XHS69602e3b/ddf0753c最终非作者现场报告及COMMENT-CAP-ROOT-CAUSE/CENTRAL-CAP-INDEPENDENT：41ACK/105步骤/R77已有限通过，旧阈值未生效、本次双赋值后生效导致页范围变化已解释；不能倒填旧实际scalar，也不能以此替代94→40完整数据集等价。保留当前57/20/120/media=false配置与limit_reached/partial，不无条件重采；需要补缺时基于诊断确定最小有界下一步，不重启548或删选项。新正文/评论/导出/ACK已有限实证，媒体字节、云音轨、checkpoint及全量仍另验。Bili待本人在原43833/window32276完成登录，原窗不关；条件变化后后台官方同主体再Owner继续原task剩11。旧continuation V4 pin51342，必须适配当前66029冻结并独审后才可运行。账号页已接正确Pro恢复入口，不开MC窗口；MC关闭顺序真实Cookie持久性仍单列。Pro中央全链/媒体云/OTA71/两设备/全端/48h均按证据分级，watchdog暂停。
 
 
 ## 9. 维护与共享
 
 唯一当前状态为本文件。WORKSPACE/HANDOFF.md和爬虫/HANDOFF.md仅指针。[证据](handoff/EVIDENCE.md)、[日志](handoff/CHANGELOG.md)、[模板](handoff/ENTRY_TEMPLATE.md)组成精简交接包。
 
-固定交接文件由本入口、证据、日志、模板及仓库AGENTS.md组成；此前WB自有源码3c164f6已推送并回读；本轮图片b39029f及来源监控c113aa6已推送授权分支；上一轮交接7a86a62已发布；E35三份交接已由本地RUN15/HANDOFF-1844-PUBLISH-RECEIPT.json记录提交4843031/推送/远端同SHA；E36三文档已由RUN15/HANDOFF-E36-PUBLISH-RECEIPT.json记录4666f84/push0/远端同SHA；E37/E38交接已发布cda2b30，回执RUN15/HANDOFF-E38-PUBLISH-RECEIPT.json；E39已发布b9bce91ef0ccf2c7678cb27468cfea7ce0b3e135并远端同SHA，回执RUN15/HANDOFF-E39-PUBLISH-RECEIPT.json；E40–E42当时仅为历史候选，未单独发布；随后E43合并E40–E43三文档已正式发布46006dd8c6203e0170f47edb6ea6d5e66404e386，push0/实际远端同SHA见RUN15/HANDOFF-E43-PUBLISH-RECEIPT.json。E44三文档已正式发布805cc5a0229a72191163447a8bbdd0402e89c128，push0/远端同SHA，见RUN15/HANDOFF-E44-PUBLISH-RECEIPT.json。E45已发布34576d66c995deab8460e02ddd5dc87999a2e288，push0/远端同SHA见RUN16/HANDOFF-E45-PUBLISH-RECEIPT.json。E46发布状态以RUN16/HANDOFF-E46-PUBLISH-RECEIPT.json为准；缺失或无法读取时不认定已发布。该记录缺失或无法读取时，不能认定本轮文档已发布。授权目标为GitHub `huming0018-dot/crowd-kol` 的 `codex/v4.0.6-handoff` 分支。[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)。本次同步状态以变更日志实际推送记录为准；尚未创建另一个在线共享页面。源码功能提交与交接文档提交分别记录。证据索引中的JSON、PRIVATE文件、运行数据与原始日志均只在本地，不随交接文档发布；在线接力者若不能取得原件，须标未核验，不把相对本地路径当作在线证据。
+固定交接文件由本入口、证据、日志、模板及仓库AGENTS.md组成；此前WB自有源码3c164f6已推送并回读；本轮图片b39029f及来源监控c113aa6已推送授权分支；上一轮交接7a86a62已发布；E35三份交接已由本地RUN15/HANDOFF-1844-PUBLISH-RECEIPT.json记录提交4843031/推送/远端同SHA；E36三文档已由RUN15/HANDOFF-E36-PUBLISH-RECEIPT.json记录4666f84/push0/远端同SHA；E37/E38交接已发布cda2b30，回执RUN15/HANDOFF-E38-PUBLISH-RECEIPT.json；E39已发布b9bce91ef0ccf2c7678cb27468cfea7ce0b3e135并远端同SHA，回执RUN15/HANDOFF-E39-PUBLISH-RECEIPT.json；E40–E42当时仅为历史候选，未单独发布；随后E43合并E40–E43三文档已正式发布46006dd8c6203e0170f47edb6ea6d5e66404e386，push0/实际远端同SHA见RUN15/HANDOFF-E43-PUBLISH-RECEIPT.json。E44三文档已正式发布805cc5a0229a72191163447a8bbdd0402e89c128，push0/远端同SHA，见RUN15/HANDOFF-E44-PUBLISH-RECEIPT.json。E45已发布34576d66c995deab8460e02ddd5dc87999a2e288，push0/远端同SHA见RUN16/HANDOFF-E45-PUBLISH-RECEIPT.json。E46已发布33ef2fe0018c756b6d7647896dd0da0a29ddada2，push0/远端同见RUN16/HANDOFF-E46-PUBLISH-RECEIPT.json。E47发布以RUN16/HANDOFF-E47-PUBLISH-RECEIPT.json为准；缺失或无法读取时不认定已发布。该记录缺失或无法读取时，不能认定本轮文档已发布。授权目标为GitHub `huming0018-dot/crowd-kol` 的 `codex/v4.0.6-handoff` 分支。[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)。本次同步状态以变更日志实际推送记录为准；尚未创建另一个在线共享页面。源码功能提交与交接文档提交分别记录。证据索引中的JSON、PRIVATE文件、运行数据与原始日志均只在本地，不随交接文档发布；在线接力者若不能取得原件，须标未核验，不把相对本地路径当作在线证据。
 
 给接力者的固定指令：先读取此入口、EVIDENCE.md和CHANGELOG.md，核对所涉源码与证据日期，再按第8节继续。每轮结束更新状态、证据和日志；无法核验就明确标未知。外部bot只收到Markdown时只能读取已记录状态；要核验原件还须按最小范围提供相应脱敏JSON/产物，不能声称已查询线上。
 
