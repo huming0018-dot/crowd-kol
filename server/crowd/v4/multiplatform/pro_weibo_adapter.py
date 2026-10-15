@@ -16,7 +16,7 @@ class WeiboAdapterStop(BaseException):
 
 def capabilities():
     return {'platform':'wb','modes':['search','detail','creator'],'hot_search':'upstream_present_not_integrated',
-            'reply_scope':'embedded_only; missing declared replies remain partial',
+            'reply_scope':'embedded_or_verified_child_cursor; unconfirmed replies remain partial',
             'media':'references_only; byte download not implemented','production_registered':False}
 
 def register_observations(protocol):
@@ -152,6 +152,54 @@ class WeiboPagination:
             try:self.persist()
             except Exception:pass
             raise
+    async def collect_replies(self,processor,note_id,model,callback):
+        """Use the installed client's guarded transport/extractor; never retry a page."""
+        root=str(model.comment_id);declared=str(model.sub_comment_count or '0')
+        if not declared.isdigit():raise WeiboAdapterStop('wb_reply_count_invalid')
+        embedded=model.sub_comments or []
+        complete=(len(embedded)==int(declared) and all(not c.sub_comments and str(c.sub_comment_count or '0')=='0' for c in embedded))
+        if complete:
+            page=self.page(note_id,'reply',embedded,None,None,False,root)
+            await self.save(page,embedded,callback)
+            return embedded
+        # Embedded previews overlap child pagination. They are not separately saved,
+        # so each child identity is saved exactly once in the authoritative chain.
+        cursor=0;result=[];known=set();expected=int(declared)
+        for _ in range(self.page_budget):
+            raw=await processor.wb_client.get('/comments/hotFlowChild',{'cid':root,'max_id':cursor,'max_id_type':0})
+            if not isinstance(raw,dict) or not isinstance(raw.get('data'),list):raise WeiboAdapterStop('wb_reply_page_shape_invalid')
+            outgoing=raw.get('max_id')
+            if type(outgoing) is not int or outgoing<0:raise WeiboAdapterStop('wb_reply_cursor_invalid')
+            rows=raw['data'];targets={};models=[]
+            for row in rows:
+                if not isinstance(row,dict):raise WeiboAdapterStop('wb_reply_page_shape_invalid')
+                identity=str(row.get('id',''));parent=str(row.get('rootid',''))
+                if not re.fullmatch(r'[1-9][0-9]{0,29}',identity) or parent!=root or identity==root:raise WeiboAdapterStop('wb_reply_parent_invalid')
+                if row.get('comments'):raise WeiboAdapterStop('wb_reply_nested_shape_unverified')
+                target=row.get('reply_id')
+                if target is not None:
+                    target=str(target)
+                    if not re.fullmatch(r'[1-9][0-9]{0,29}',target):raise WeiboAdapterStop('wb_reply_target_invalid')
+                    targets[identity]=target
+                child=processor.wb_client._extractor.extract_comment_from_dict(str(note_id),row)
+                if child is None or str(child.parent_comment_id)!=root:raise WeiboAdapterStop('wb_reply_parent_invalid')
+                models.append(child)
+            ids=[str(c.comment_id) for c in models]
+            if known.intersection(ids):raise WeiboAdapterStop('wb_comment_replayed')
+            known.update(ids)
+            page=self.page(note_id,'reply',models,[cursor,0],[outgoing,0],outgoing!=0,root)
+            page['embedded']=False;page['targets']=targets;page['declared_count']=expected
+            await self.save(page,models,callback);result.extend(models)
+            if outgoing==0:
+                if len(known)<expected or not {str(c.comment_id) for c in embedded}.issubset(known):raise WeiboAdapterStop('wb_reply_terminal_incomplete')
+                if any(t!=root and t not in known for p in self.pages if p.get('parent_id')==root for t in p.get('targets',{}).values()):raise WeiboAdapterStop('wb_reply_target_unbound')
+                return result
+            if not rows or outgoing==cursor:raise WeiboAdapterStop('wb_reply_cursor_stalled')
+            cursor=outgoing
+            import config
+            await asyncio.sleep(config.CRAWLER_TIME_SLEEP)
+        raise WeiboAdapterStop('wb_reply_page_budget')
+
     async def collect(self,processor,note_id,callback=None,checkpoint_id=''):
         if checkpoint_id!=self.manifest['run_id']:raise ValueError('wb_checkpoint_binding')
         if callback is None:
@@ -175,13 +223,7 @@ class WeiboPagination:
             complete=True
             if self.manifest['request']['replies']:
                 for model in models:
-                    children=model.sub_comments or [];declared=str(model.sub_comment_count or '0')
-                    # Original API embeds only one level; nested claims cannot be called complete.
-                    embedded_complete=(declared.isdigit() and len(children)==int(declared) and
-                        all(not child.sub_comments and str(child.sub_comment_count or '0')=='0' for child in children))
-                    child=self.page(note_id,'reply',children,None,None,False if embedded_complete else None,str(model.comment_id))
-                    await self.save(child,children,callback);result.extend(children)
-                    complete &= embedded_complete
+                    result.extend(await self.collect_replies(processor,note_id,model,callback))
             self.reason='wb_embedded_replies_incomplete' if not complete else 'wb_cursor_stalled' if outgoing and (not models or [incoming,cursor_type]==[outgoing,next_type]) else None
             if self.reason:
                 self.coverage='partial';self.persist();raise WeiboAdapterStop(self.reason)
@@ -236,7 +278,25 @@ def pagination_summary(run,manifest,executor):
             selected=[p for p in evidence.pages if p['content_id']==note]
             for page in selected:
                 if page['scope'] not in ('root','reply') or page['saved'] is not True:return {'coverage':'partial','reason':'wb_page_not_saved'}
-                if page['scope']=='reply' and (page['parent_id'] not in root_ids or page['has_more'] is not False or page['checkpoint_committed'] is not False):return {'coverage':'partial','reason':'wb_embedded_replies_incomplete'}
+                if page['scope']=='reply':
+                    if page['parent_id'] not in root_ids or page['checkpoint_committed'] is not False:return {'coverage':'partial','reason':'wb_reply_binding_invalid'}
+                    chain=[p for p in selected if p['scope']=='reply' and p['parent_id']==page['parent_id']]
+                    if page.get('embedded') is True:
+                        if len(chain)!=1 or page['has_more'] is not False:raise ValueError('embedded_chain')
+                    else:
+                        for i,part in enumerate(chain):
+                            for key in ('cursor_in','cursor_out'):
+                                pair=part[key]
+                                if not isinstance(pair,list) or len(pair)!=2 or any(type(v) is not int for v in pair) or pair[0]<0 or pair[1]!=0:raise ValueError('reply_cursor')
+                            if type(part['has_more']) is not bool or part['has_more']!=(part['cursor_out'][0]!=0):raise ValueError('reply_terminal')
+                            if part['cursor_in']!=([0,0] if i==0 else chain[i-1]['cursor_out']):raise ValueError('reply_chain')
+                            if i and chain[i-1]['has_more'] is not True:raise ValueError('reply_after_terminal')
+                        if chain[-1]['has_more'] is not False:raise ValueError('reply_incomplete')
+                        identities={v for part in chain for v in part['ids']}
+                        for part in chain:
+                            if type(part.get('declared_count')) is not int or part['declared_count']<0 or len(identities)<part['declared_count']:raise ValueError('reply_count')
+                            targets=part.get('targets')
+                            if not isinstance(targets,dict) or not set(targets).issubset(part['ids']) or any(t!=page['parent_id'] and t not in identities for t in targets.values()):raise ValueError('reply_target')
                 if len(page['ids'])!=len(set(page['ids'])):raise ValueError('duplicates')
                 for identity in page['ids']:
                     if identity in seen:raise ValueError('replayed')
@@ -256,6 +316,6 @@ def pagination_summary(run,manifest,executor):
                 all_exhausted=False
             else:raise ValueError('terminal')
         if set(saved)!=seen or any(p['content_id'] not in topics for p in evidence.pages):raise ValueError('unbound')
-        return {'coverage':'exhausted' if all_exhausted else 'limit_reached','reason':'accessible_chain_ended' if all_exhausted else 'whole_page_soft_limit','reply_scope':'embedded_only'}
+        return {'coverage':'exhausted' if all_exhausted else 'limit_reached','reason':'accessible_chain_ended' if all_exhausted else 'whole_page_soft_limit','reply_scope':'embedded_or_verified_child_cursor'}
     except (OSError,ValueError,KeyError,TypeError,AttributeError,RecursionError,executor.bridge().BridgeError):
         return {'coverage':'unknown','reason':'wb_pagination_evidence_invalid'}

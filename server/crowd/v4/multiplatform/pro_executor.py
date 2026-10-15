@@ -317,6 +317,23 @@ def import_records(run, manifest):
     cp = checkpoint(run, manifest)
     rows = observations(run, manifest)
     records, media = [], []
+    wb_targets={}
+    if p=='wb' and manifest['request']['comments']:
+        from pro_weibo_adapter import WeiboPagination
+        pages=WeiboPagination(run,manifest,m).pages
+        comments={identity:row for kind,identity,row in rows if kind=='comment'}
+        for page in pages:
+            targets=page.get('targets',{})
+            if not isinstance(targets,dict):m.fail('pro_weibo_reply_target_invalid')
+            for identity,target in targets.items():
+                row=comments.get(identity,{})
+                if (page.get('scope')!='reply' or page.get('saved') is not True or identity not in page.get('ids',[]) or
+                    type(target) is not str or not re.fullmatch(r'[1-9][0-9]{0,29}',target) or
+                    str(row.get('note_id'))!=page.get('content_id') or str(row.get('parent_comment_id'))!=page.get('parent_id') or
+                    target!=page.get('parent_id') and (target not in comments or str(comments[target].get('parent_comment_id'))!=page.get('parent_id'))):
+                    m.fail('pro_weibo_reply_target_invalid')
+                if identity in wb_targets and wb_targets[identity]!=target:m.fail('pro_weibo_reply_target_conflict')
+                wb_targets[identity]=target
     fields = ('bvid', 'duration', 'aweme_type', 'is_ai_generated', 'tag_list', 'last_update_time',
               'target_comment_id', 'reply_to_reply_id')
     url_fields = ('video_url', 'video_cover_url', 'aweme_url', 'cover_url', 'video_download_url', 'note_url')
@@ -327,6 +344,7 @@ def import_records(run, manifest):
                               'executor': 'mediacrawler_pro', 'observation_sha256': row_sha})
         # This Pro version preserves full Bili descriptions; the MC 500-char warning does not apply.
         record.pop('upstream_truncation_risk', None)
+        if p=='wb' and kind=='comment' and entity in wb_targets:record['platform_fields']['target_comment_id']=wb_targets[entity]
         record['platform_fields'].update({key: value for key in fields if (value := row.get(key)) is not None and
                                          (type(value) is int or isinstance(value, str) and m.safe_text(value, 4000) == value)})
         record['platform_fields'].update({key: url for key in url_fields if (url := public_url(row.get(key)))})
