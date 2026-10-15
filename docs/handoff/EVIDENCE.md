@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E44为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E45为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -298,3 +298,10 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 
 - /Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/xhs-source-real/independent/FINAL.json（SHA8c4af644，at02:23:37 CST）：非作者fresh云只读核41原Pro observations/41权威capture与ACK、中央163事件中105来源步骤typed精确本地、22页received/saved hash配对、R77三格式99全行及42新语义通过；无checkpoint/媒体字节/fullfidelity承诺，审查来源调用0/云写0。
 - 同目录COMMENT-CAP-ROOT-CAUSE.json及CENTRAL-CAP-INDEPENDENT.json（SHA9f665312）：原startintent/冻结0aca与新a423源码赋值合同、修复23f7ae4及原SDK两独立进程受控链复跑。旧仅config、新config+base_config导入前双设；合成同5页44根50回复旧94/新40（软阈值、整页含回复），证明有效阈值语义变更原因，不倒填历史实际scalar0、不推断当前缺项可用性或平台删除。真实共同39稳定字段同、缺55/新增1，API30<57非预算耗尽；旧94/新40完整数据集等价仍未通过。
+
+## E45｜首次回传优化正式采用，实际投递收益待验
+- RUN15/HANDOFF-E44-PUBLISH-RECEIPT.json：E44三MD805cc5a0229a72191163447a8bbdd0402e89c128，parentfe4766/push0/远端同SHA。文档发布事实不代表新增功能验收。
+- `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/outbox-first-delivery/independent/FINAL.json`：e89dee4a首投候选非作者9新/38旧/7独立负例通过；只全新capture同事务proof允许省一次receipt查询，未知/历史/复位仍receipt-first。新本地表必须显式采用与旧表保护，尚待正式采用/真实投递证据。
+- RUN15/pro-wb-image-media/independent/FINAL.json：1cde9081本地静态图片链非作者7unit/2原SDKwhole/5Bili回归/11负例通过；4.28MB旧公开JPEG仅作底层HTTP fixture，不是新平台下载。WB云v2与正式media gate仍另审，不冒用XHS2MiB合同或压缩换图。
+
+- `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/outbox-first-adoption/{FREEZE.json,independent/CENTRAL-FINAL.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json}`：采用准备非作者8portable/4schema/3坏表形态；02:39:29实际61292/旧55325停、2冻结+427其他/fullset/127保护/6身份/19源导出、五库已有schema/raw等备份，唯一outbox空新表无历史proof回填。实际源码281ac918/parent805/push0/远端同。没有新source或capture投递、无线上提速测量，既有Edge32证据为继承的历史独核，不伪称本批freshEdge。

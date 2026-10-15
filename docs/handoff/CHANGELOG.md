@@ -278,3 +278,10 @@
 - **交接**：E43正式文档46006dd8已push；E44先候选待本轮实际结果与非作者核后root发布，凭HANDOFF-E44-PUBLISH-RECEIPT.json。无凭据/Pro私码/PRIVATE正文外发。
 
 - **本次真实来源增量（最终非作者现场有限PASS）**：新原XHS任务69602e3b/localddf0753c以同e7的57/20/120/mediafalse运行，实际中央completed/API30/57/剩额释放；1body40comments共41新源逐条ACK、105中央source_step精确本地、R77三格式各99行含42本次语义逐字段保真。root执行已审inspector有限PASS，02:23:37非作者fresh云原件/41ACK/105来源步骤及R77三格式99全行、42新语义独核通过。旧94→新40由冻结旧wrapper仅设config、原SDK从base_config导入而本次双设20导致有效软阈值变化；23f7ae4修复已定位，原SDK同合成链两非作者独立进程复跑94/40。历史实际scalar未日志不倒填，39共同稳定同/55缺1新，非预算耗尽或平台删除推断；limit_reached/partial不冒全量，完整数据集等价未通过。mediafalse的1reference不是媒体字节或媒体云回执。原self成功后accountstate合法更新，不把采用前6hash永远同当验收标准。Signer56392正常停/sign14；Bili待本人/原task暂停不动。
+
+## 2026-10-16 02:42 CST｜E45 首投优化已采用，WB媒体云继续独审
+- **分工**：native实现首投proof候选；root定位真实延迟瓶颈并唯一正式复制/采用/源码发布；central非作者9+38+7及采用包/便携/数据库门禁审查；native执行实际61292五库/源文件/身份现场核验。WB本地图作者为review代理、central已独审；新云v2及Owner仍候选，不以作者自审放行。
+- **代码/部署**：两自有源码281ac9181857541d9ce421c01480901b250ed23c，parent805cc5a，push0/实际远端同；runtime61292/outbox-first-e89dee4adc555537唯一、55325停，Edge32/SQL/默认MC与原产品流程不变。新增本地空proof表明确白名单，旧捕获/回执/尝试历史不改不回填。
+- **实际验证**：02:39:29非作者2冻结/427其余/fullset、127保护/6当前身份/19源导出、五库原表SQL/raw等实际备份通过；idle/alive/pending0、原Bili暂停1/12/ACK0和原两浏览器保持。新proof只同事务全新stage可铸造，失联/进程死/坏ACK/历史/复位走原receipt-first；独立测试原件见E45索引。
+- **收益与遗留**：合成2ms同41行client+guard调用164→82，未跑新source或真实capture，线上提速未验。E44源/ACK/导出有限验收不扩大到全量/媒体。Bili最新原窗AX仍QR、无新self，继续等待不重问；WB云v2 missing-summary异常已发现并由作者修复，最终独审/部署/真实云回取尚缺，正式media gate保持关闭。continuation旧pin须适配61292。watchdog暂停、48h/全端/两设备仍未全验。
+- **交接**：805cc5a发布事实已读回执，修正§9旧候选提示；E45本轮仅准备三MD待root非作者窄审，发布须新回执，不称已上线。
