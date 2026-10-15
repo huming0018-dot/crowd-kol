@@ -23,6 +23,7 @@ from urllib.parse import urlsplit
 
 from pro_cursor_pages import CursorStalled
 from pro_weibo_adapter import WeiboAdapterStop
+from managed_pro_signer import SignerError
 
 PROTOCOL = 'vox-acquisition-v1'
 PINNED_COMMIT = 'd32dd565277116ba4880c28ccd417a7c376cb62d'
@@ -995,7 +996,9 @@ def execute(run, manifest, *, mc_root=None):
                 account_hook=install_pro_account_hooks(run.parent.parent,request['session_id'],request['platform'],
                     manifest['run_id'],account_event,httpx,client_type)
             sys.argv = [str(root/'main.py'), *argv_for(request)]
-            asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
+            from managed_pro_signer import owned_signer
+            with owned_signer(run,request,selected['binding']):
+                asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
             # Preserve committed source before media: failed media still imports/ACKs source.
@@ -1015,6 +1018,10 @@ def execute(run, manifest, *, mc_root=None):
     except CursorStalled:
         sink.update(phase='failed',failure_reason='pro_pagination_cursor_stalled')
         raise SystemExit(74)
+    except SignerError as error:
+        reason=str(error)
+        sink.update(phase='failed',failure_reason=reason if re.fullmatch(r'pro_signer_[a-z_]{1,80}',reason) else 'pro_signer_unavailable')
+        raise SystemExit(86)
     except (ModuleNotFoundError, ImportError):
         sink.update(phase='failed', failure_reason='dependency_missing')
         raise SystemExit(72)

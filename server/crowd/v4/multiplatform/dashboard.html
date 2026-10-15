@@ -21,7 +21,7 @@
 <dialog id="result_dialog" aria-labelledby="result_title"><div class="dialog-head"><div><h2 id="result_title">采集结果</h2><p id="result_subtitle" class="hint"></p></div><button type="button" data-close="result_dialog" aria-label="关闭采集结果">关闭</button></div><div class="dialog-body"><p id="result_message" class="error" role="status" aria-live="polite"></p><div id="summary"></div><div id="result_tabs" class="result-tabs" aria-label="结果分类"></div><div id="records"></div><section id="analysis_panel" class="record" hidden aria-live="polite"></section></div></dialog>
 <script nonce="__NONCE__" src="/analysis-ui.js"></script>
 <script nonce="__NONCE__">
-'use strict';const token='__NONCE__',$=id=>document.getElementById(id);let caps=[],runs=[],configured=false,refreshPromise=null,filter='all',resultData=null,resultKind='content',selectedRun=null,starting=false,loadingResult=0;let groupedRunIds=new Set(),ownerTaskCounts={all:0,attention:0};const sessionNames=new Map(),opener=new Map(),localTitles=new Map(),stopPending=new Set();
+'use strict';let token='__NONCE__',$=id=>document.getElementById(id);let caps=[],runs=[],configured=false,refreshPromise=null,filter='all',resultData=null,resultKind='content',selectedRun=null,starting=false,loadingResult=0;let groupedRunIds=new Set(),ownerTaskCounts={all:0,attention:0};const sessionNames=new Map(),opener=new Map(),localTitles=new Map(),stopPending=new Set();
 const platformNames={xhs:'小红书',dy:'抖音',ks:'快手',bili:'B站',wb:'微博',tieba:'百度贴吧',zhihu:'知乎'},modeNames={search:'搜索',detail:'内容链接',creator:'博主作品',homefeed:'首页推荐内容',trending:'热门内容'};
 const labels={queued:'等待启动',starting:'正在启动',waiting_login:'需要本人登录',login_required:'需要重新登录',running:'正在采集',collecting:'正在采集内容',comments:'正在采集评论',media:'正在下载媒体',completed:'执行已结束',failed:'需要处理',stopped:'已停止',partial:'已取得部分结果',timed_out:'已达到时限',request_limit:'已达到请求限制',interrupted:'任务已中断',interrupted_unknown:'任务中断，待核对',api_request_limit:'已达到请求限制',wall_timeout:'已达到运行时限',output_byte_limit:'已达到文件大小限制',response_byte_limit:'单份内容超过大小限制',user_stop:'本人已停止',owner_stop_requested:'Owner已请求停止，系统执行',cloud_controller_error:'系统停止：云端控制检查失败',cloud_dispatch_denied:'系统停止：云端授权不可继续',cloud_worker_shutdown:'系统停止：工作台正在关闭',worker_shutdown:'系统停止：容器正在关闭',legacy_stop_requested:'停止来源未记录，不能确认是本人停止',executor_finished:'采集器已结束',dependency_missing:'执行器缺少依赖',executor_error:'执行器运行失败',discovery_empty_or_unavailable:'首页尚未取得可采候选',supervisor_heartbeat_missing:'执行进程未再响应',supervisor_lost:'执行进程状态丢失，来源结果待核对'};
 const errorNames={configure_executor_first:'请先在设置中连接本机执行器。',external_executor_missing:'该目录缺少可运行的 MediaCrawler，请检查设置。',mediacrawler_directory_required:'请选择同时含 main.py 和 LICENSE 的 MediaCrawler 目录。',external_python_missing:'执行器缺少 Python 环境，请先完成它的依赖安装。',upstream_search_minimum_20:'搜索数量至少20；请在更多选项中明确调整，系统不会自动增加。',media_not_supported_by_upstream:'此平台暂不支持媒体下载。',session_busy:'这份登录资料有任务正在使用。请等待结束，或选择新登录。',session_platform_mismatch:'这份登录资料属于另一平台，请重新选择。',replies_require_comments:'请先启用评论，再选择二级回复。',run_not_finished:'任务还在运行。先停止并保留结果，再查看。',runner_response_timeout_check_runs_before_retry:'操作响应超时。先刷新任务列表确认，避免重复创建。',runner_unavailable:'执行器暂时无法运行，请检查设置和依赖。',headless_requires_existing_session:'新登录需要可见浏览器，请关闭后台运行。',authorization_required:'请在设置中填写适用授权依据。',cloud_outcome_unknown:'云端操作结果待核对；先核对原任务，避免重复提交。',cloud_read_unavailable:'任务刷新失败；已保存任务不变，请稍后刷新。'};
@@ -36,7 +36,52 @@ function runTitle(run){const id=idOf(run);if(localTitles.has(id))return localTit
 function node(tag,text){const n=document.createElement(tag);if(text!=null)n.textContent=String(text);return n;}
 function button(text,fn,cls=''){const b=node('button',text);b.type='button';b.className=cls;b.onclick=()=>guarded(fn,b.closest('#result_dialog')?loadingResult:null);return b;}
 function message(text,error=false){const value=errorNames[text]||String(text||'');$('message').textContent=value;$('message').className=error?'notice error':'notice';for(const id of ['create','settings']){const d=$(id+'_dialog');if(d.open)$(id+'_message').textContent=error?value:'';}}
-async function api(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify(body)});const value=await r.json();const terminalAnalysis=path==='/api/analysis'&&value.ok===true&&typeof value.job_id==='string'&&['failed','cancelled','interrupted_unknown'].includes(value.state);if(!r.ok||value.ok===false||(value.error&&!terminalAnalysis))throw Error(value.error||'请求失败');return path==='/api/action'?(value.result??value):value;}
+let workbenchRefresh=null;
+function workbenchReadOnly(path,body){
+  if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).sort().join(',')!=='action,payload')return false;
+  const p=body.payload;if(!p||typeof p!=='object'||Array.isArray(p))return false;
+  const empty=Object.keys(p).length===0;
+  if(path==='/api/health')return body.action==='status'&&empty;
+  if(path==='/api/tasks'||path==='/api/watchlists')return body.action==='list'&&empty;
+  if(path!=='/api/cloud')return false;
+  if(['status','delivery_status','participant_health','workflow_events'].includes(body.action))return empty;
+  if(body.action==='unified_status'||body.action==='node_events'){
+    const allowed=body.action==='node_events'?['limit','after_id','installation_id']:['limit'];
+    return Object.keys(p).every(k=>allowed.includes(k))&&(!Object.hasOwn(p,'limit')||(Number.isInteger(p.limit)&&p.limit>=1&&p.limit<=100))&&(!Object.hasOwn(p,'after_id')||(Number.isInteger(p.after_id)&&p.after_id>=0))&&(!Object.hasOwn(p,'installation_id')||(typeof p.installation_id==='string'&&p.installation_id.length<=100));
+  }
+  return false;
+}
+function workbenchUpdatedNotice(){
+  if($('workbench_update_notice'))return;
+  const banner=node('aside');banner.id='workbench_update_notice';banner.className='notice';banner.setAttribute('role','status');
+  banner.append(node('span','工作台已更新：监控会自动恢复。已提交任务不受影响；刷新页面前请先保存未提交的输入。'),button('刷新恢复完整界面',()=>location.reload()));
+  document.body.prepend(banner);
+}
+async function refreshWorkbenchToken(){
+  if(workbenchRefresh)return workbenchRefresh;
+  workbenchRefresh=(async()=>{
+    const r=await fetch('/',{method:'GET',cache:'no-store',redirect:'error',credentials:'same-origin'});
+    if(!r.ok||new URL(r.url).origin!==location.origin||new URL(r.url).pathname!=='/'||!(r.headers.get('Content-Type')||'').startsWith('text/html'))throw Error('workbench_page_updated');
+    const text=await r.text();if(text.length>262144)throw Error('workbench_page_updated');
+    const found=text.match(/(?:const|let) token='([A-Za-z0-9_-]{40,64})'/);if(!found||found[1]===token)throw Error('workbench_page_updated');
+    token=found[1];
+  })().finally(()=>{workbenchRefresh=null;});
+  return workbenchRefresh;
+}
+async function api(path,body){
+  const originalToken=token,encoded=JSON.stringify(body),retryBody=JSON.parse(encoded);
+  const send=()=>fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:encoded});
+  let r=await send(),value=await r.json();
+  if(r.status===403&&value.error==='workbench_page_updated'){
+    workbenchUpdatedNotice();
+    if(!workbenchReadOnly(path,retryBody))throw Error('工作台已更新，请先保存未提交输入，再刷新页面重试本次操作；本次操作未执行。');
+    if(token===originalToken)await refreshWorkbenchToken();
+    r=await send();value=await r.json(); // Exactly one retry, for the read whitelist only.
+  }
+  const terminalAnalysis=path==='/api/analysis'&&value.ok===true&&typeof value.job_id==='string'&&['failed','cancelled','interrupted_unknown'].includes(value.state);
+  if(!r.ok||value.ok===false||(value.error&&!terminalAnalysis))throw Error(value.error==='workbench_page_updated'?'工作台已更新，请刷新恢复。':value.error||'请求失败');
+  return path==='/api/action'?(value.result??value):value;
+}
 const action=(name,payload={})=>api('/api/action',{action:name,payload});
 async function guarded(fn,resultTicket=null){try{await fn();}catch(e){if(resultTicket!==null){if(resultTicket===loadingResult&&$('result_dialog').open)$('result_message').textContent=errorNames[e.message]||String(e.message||'操作失败');}else message(e.message,true);}}
 function openDialog(id){const d=$(id);if(d.open)return;opener.set(id,document.activeElement);d.showModal();if(id==='create_dialog')$('platform').focus();else if(id==='settings_dialog')$('mc_root').focus();else d.querySelector('button').focus();}

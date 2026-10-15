@@ -1037,8 +1037,10 @@ def make_server(app, port=45937):
 
         def do_POST(self):
             expected = {'http://127.0.0.1:' + str(self.server.server_port), 'http://localhost:' + str(self.server.server_port)}
-            if not self.allowed_host() or self.headers.get('Origin') not in expected or not secrets.compare_digest(self.headers.get('X-Crowd-CSRF', ''), app.token):
+            if not self.allowed_host() or self.headers.get('Origin') not in expected:
                 return self.send({'ok': False, 'error': 'local_origin_required'}, 403)
+            if not secrets.compare_digest(self.headers.get('X-Crowd-CSRF', ''), app.token):
+                return self.send({'ok': False, 'error': 'workbench_page_updated'}, 403)
             try:
                 length = int(self.headers.get('Content-Length', '0'))
                 limit = 131072 if self.path in ('/api/cloud', '/api/tasks') else 32768
