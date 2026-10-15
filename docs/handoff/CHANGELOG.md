@@ -312,3 +312,9 @@
 - 原e7c5免扫码复用已走到官方self/首次UIDbaseline；e2d/6ad actual1正文28评论29ACK/37来源步骤由native独核7e703；failed74、3/12/reserved0，父checkpoint不冒成功，media=true未删但未取得新图。原Pro和MC只有嵌入回复，子链候选继续实现，原任务不重建不扩大额度。
 - root正式R79三导出31全行/29新语义typed保真；非作者已逐全行/新来源语义复核通过。原IAB跨重启只读监控自动恢复且输入保留，截图与提示边界保留，清自有测试标记。知乎首组件候选740845并继续整入口，未扩正式支持。
 - E49本轮待非作者文档审，发布看RUN16/HANDOFF-E49-PUBLISH-RECEIPT.json；本机participant目录待本人、71未证；远端71证据保持。watchdog/48h不变。
+
+## 2026-10-16 04:21 CST｜E50 评论选择和持久计数正式采用
+- root先采用已审回复两文件到79044，实际非作者8cb0复核通过并发布d086；继而组合counts V2与selection V2四文件到82744。各组件非作者83a9/5d2a，组合13测试及原SDK整链通过；部署后非作者实际核4+433/五库/129/6+19+9通过，原WB1+28仍failed74；源码3ebed6b0b8f2c618f987a89c228ecafbd957b6ec push0/远端同。
+- 原任务29ACK/used3of12/failed及Bili暂停保持，不以fixture降请求宣称真实加速。默认MC和参与身份/评分/OTA保持。
+- 修了监控误显示0及根评论先全量存再限的问题；完整续采仍差Owner/SDKseed/云媒体绑定。seed崩溃时误标来源的问题已定位并交V2修，未决拒绝采纳；知乎两个P1交V3，尚待复核/真实凭据。
+- 无新真实采集/self/云数据写，不重投旧29、不扩预算。固定handoff按实际证据维护，本轮文档发布回执RUN16/HANDOFF-E50-PUBLISH-RECEIPT.json。

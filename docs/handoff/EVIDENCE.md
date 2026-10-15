@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E49为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E50为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -335,3 +335,14 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN16/pro-native-wb-adoption/{UI-BEFORE.json,UI-ACTUAL-RECOVERY.json,UI-INPUT-PRESERVED.png,TWO-ROUTES.md}：实际跨重启恢复/未提交输入保留，非白名单旧请求仍留提示，不外推全操作。
 - RUN16/pro-native-wb-real/{REQUEST-REVIEW.json,PREVIEW.PRIVATE.json,CREATE-INTENT.json,CREATED.PRIVATE.json,independent-native/ACTUAL-FINAL.json,EXPORT-FINAL.json,EXPORT-r79.json,EXPORT-r79.jsonl,EXPORT-r79.csv}：同16字段/唯一新源/29typed ACK/37来源步骤/3of12/failed74，R79三格式29新语义保真；导出非作者已逐31全行/29新来源语义复核通过。PRIVATE/数据/截图只本地，不发布。
 - RUN16/pro-zhihu-detail/{READINESS.md,FREEZE.json,DELIVERY.md}：740845仅候选首组件，尚未正式引擎/身份/签名全入口，不扩大SUPPORTED。WB独立子回复0ecc候选已离线独审f450通过但未采用，不写真实成功。
+
+## E50｜正式回复分页与兼容/续采缺口
+- RUN16/pro-wb-reply-pagination/{FREEZE.json,independent-native/FINAL.json}：0ecc/f450、12新原SDK/3旧模式/非作者保存失败与取消负例，实际接口schema未验。
+- RUN16/pro-wb-reply-adoption/{MAPPING-ADOPTER-REVIEW.json,RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json,COMMENT-LIMIT-SEMANTICS.json}：79044/实际129保护、五库原行/2+435/source d086发布，MC3根与Pro整页20的原始代码/旧run对照，非新来源。
+- RUN16/durable-progress-counts/FREEZE.json：81def/root候选12测试，未审采用；RUN16/pro-zhihu-detail/whole/FREEZE.json：94452作者整链/原JS测试候选，不是真实平台或已采用。续采SQL/Edge/公开seed候选尚未部署/实际全链未验；不能调用task_control后假称可继续。
+
+## E50补充｜选择/计数正式运行与发布
+- RUN16/wb-bounded-progress-adoption/independent/ACTUAL-RUNTIME-FINAL.json SHA256 50da3040c50c5c0e67d3904b8b978965599e4b4c8e45e5eb310fc8cb515209ac：非作者实际82744，4+433/五库/129保护/6+19+9，原WB1+28仍failed/原报告0，Edge34保持。
+- RUN16/wb-bounded-progress-adoption/SOURCE-PUBLISH-RECEIPT.json：自有四文件3ebed6b0b8f2c618f987a89c228ecafbd957b6ec，push0/远端同；RUNTIME-FREEZE.json/bacbfb6d1ac8775fc1afb6d7a8181e5a9adc7c50ae761c6fa88e88d5e8ccba7d给出精确运行源。
+- RUN16/wb-bounded-progress-adoption/MAPPING-ADOPTER-REVIEW.json：13组合测试、原SDK整链partial/游标/导出；组件83a9/5d2a各非作者审。
+- RUN16/wb-bounded-progress-adoption/TWO-ROUTES.md：官方MC语义及本机独立推演、采用/未采用理由。无新真实采集/媒体/云回取。
