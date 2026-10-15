@@ -520,6 +520,16 @@ class Application:
         from account_sessions import AccountSessions, identifier
         if not isinstance(payload, dict):
             raise ValueError('invalid_account_request')
+        if action=='bind_cloud_browser' and set(payload)=={'task_id','child_id','port','target_id','browser_fingerprint','expected_generation'}:
+            if self.cloud_worker is None or self.cloud_client is None:raise ValueError('cloud_not_connected')
+            def bind_original(session_id,platform,recovery,source_executor):
+                if platform!='bili' or source_executor!='pro':raise ValueError('pro_self_check_unsupported')
+                if type(payload['expected_generation']) is not int or payload['expected_generation']!=recovery['generation']:
+                    raise ValueError('account_generation_changed')
+                matches=[root for root in self._roots() if (root/'sessions'/session_id).is_dir() and not (root/'sessions'/session_id).is_symlink()]
+                if len(matches)!=1:raise ValueError('collector_session_ambiguous')
+                return AccountSessions(matches[0]).bind_pro_browser(session_id,payload['port'],payload['target_id'],payload['browser_fingerprint'],recovery)
+            return self.cloud_worker.recover_cloud_login(payload['task_id'],payload['child_id'],self.cloud_client,bind_original)
         if action == 'recover_cloud_login' and set(payload)=={'task_id','child_id'}:
             if self.cloud_worker is None or self.cloud_client is None:
                 raise ValueError('cloud_not_connected')
@@ -995,7 +1005,7 @@ class Application:
         raise ValueError('invalid_media_processing_action')
 
 
-ACCOUNT_FAILURE_ACTIONS=frozenset(('recover_cloud_login','open_login','cancel_login','resume_verification','confirm_same_account'))
+ACCOUNT_FAILURE_ACTIONS=frozenset(('recover_cloud_login','bind_cloud_browser','open_login','cancel_login','resume_verification','confirm_same_account'))
 ACCOUNT_FAILURE_CODES=frozenset(('invalid_request','invalid_account_request','invalid_account_action',
  'cloud_not_connected','principal_denied','unsafe_cloud_file','cloud_controller_busy',
  'cloud_login_context_invalid','cloud_login_context_missing','cloud_login_context_changed',
@@ -1004,7 +1014,8 @@ ACCOUNT_FAILURE_CODES=frozenset(('invalid_request','invalid_account_request','in
  'pro_account_binding_required','pro_account_binding_invalid','pro_service_must_be_explicit_loopback',
  'pro_sign_ipv6_unsupported','pro_self_check_unsupported','pro_login_outcome_unknown',
  'pro_task_installation_missing','pro_task_installation_invalid','pro_python_missing',
- 'invalid_session_id','invalid_account_event','invalid_account_change_context'))
+ 'invalid_session_id','invalid_account_event','invalid_account_change_context',
+ 'browser_platform_page_required','browser_binding_outcome_unknown','account_generation_changed'))
 _ACCOUNT_REQUEST_LOG=logging.getLogger('crowd.workbench.account_request')
 
 def log_account_request_failure(action,error):

@@ -35,7 +35,7 @@ const accountView = (() => {
   }
   let generation=0,timer=null,sequence=0;
   dialog.addEventListener('close',()=>{generation++;clearTimeout(timer);browserDialog.close();});
-  async function chooseBrowser(session,ticket,restartConnection=false,refreshTargets=false){
+  async function chooseBrowser(session,ticket,restartConnection=false,refreshTargets=false,recovery=null){
     const selection=++browserSequence;let choosing=false;
     const current=()=>ticket===generation&&selection===browserSequence&&browserDialog.open;
     browserDialog.replaceChildren(node('h2','使用已登录浏览器'),node('p','选择原账号所在的平台页面。系统随后核验账号，原浏览器和页面保留。'));
@@ -45,21 +45,28 @@ const accountView = (() => {
     if(!current())return;
     if(choices.browser_connection_state==='pending'){
       feedback.textContent='浏览器连接正在等待原 Chrome 确认。请在原提示点“允许”，再继续；无需重新登录平台。';
-      browserDialog.append(button('我已允许，继续核验',()=>guarded(()=>chooseBrowser(session,ticket))));return;
+      browserDialog.append(button('我已允许，继续核验',()=>guarded(()=>chooseBrowser(session,ticket,false,false,recovery))));return;
     }
     if(choices.browser_connection_state==='expired'){
       feedback.textContent='浏览器连接确认超时，原账号和页面仍保留。尚未核验登录，系统不会自动重连。';
-      browserDialog.append(button('重新连接原浏览器',()=>guarded(()=>chooseBrowser(session,ticket,true))));return;
+      browserDialog.append(button('重新连接原浏览器',()=>guarded(()=>chooseBrowser(session,ticket,true,false,recovery))));return;
     }
-    if(!choices.targets.length){feedback.textContent='没有识别到普通网页。请在原浏览器打开账号所在的平台页面，再刷新页面列表。';browserDialog.append(button('刷新页面列表',()=>guarded(()=>chooseBrowser(session,ticket,false,true))));return;}
-    for(const target of choices.targets){
+    const targets=recovery?choices.targets.filter(target=>target.selection_kind==='platform_page'):choices.targets;
+    if(!targets.length){feedback.textContent='没有识别到平台页面。请在原浏览器打开账号所在的平台页面，再刷新页面列表。';browserDialog.append(button('刷新页面列表',()=>guarded(()=>chooseBrowser(session,ticket,false,true,recovery))));return;}
+    for(const target of targets){
       const selected=button((target.selection_kind==='context_anchor'?'已打开的浏览器页面':(platformNames[session.platform]||session.platform)+'页面')+' '+target.page_number,()=>guarded(async()=>{
         if(!current()||choosing)return;choosing=true;
         selected.disabled=true;
         try{
-          const bound=await call('create_browser_session',{platform:session.platform,port:choices.port,target_id:target.target_id,browser_fingerprint:choices.browser_fingerprint});
+          const selection={port:choices.port,target_id:target.target_id,browser_fingerprint:choices.browser_fingerprint,expected_generation:session.generation};
+          if(recovery){
+            await call('bind_cloud_browser',{task_id:recovery.task_id,child_id:recovery.child_id,...selection});
+            if(current()){browserDialog.close();await refresh(ticket);$('accounts_error').textContent='已关联原会话；请点“复用原账号后台核验”。通过后在原任务继续，进度和剩余额度保留。';}
+            return;
+          }
+          await call('bind_browser',{session_id:session.session_id,...selection});
           if(!current())return;
-          await call('open_login',{session_id:bound.session_id,platform:session.platform});
+          await call('open_login',{session_id:session.session_id,platform:session.platform});
           if(current()){browserDialog.close();await refresh(ticket);}
         }catch(error){if(current()){feedback.textContent=error.message;selected.disabled=false;choosing=false;}}
       }));browserDialog.append(selected);
@@ -95,6 +102,7 @@ const accountView = (() => {
           }catch(error){if(ticket===generation&&dialog.open)$('accounts_error').textContent=error.message;}
           finally{recover.disabled=false;}
         }));recover.disabled=session.login_in_progress===true;actions.append(recover);
+        const reuse=button('选择原账号已登录浏览器',()=>guarded(()=>chooseBrowser(session,ticket,false,false,recovery)));reuse.disabled=session.login_in_progress===true;actions.append(reuse);
       }else if(recovery?.kind!=='blocked'){
         const openLogin=button('打开原会话登录',()=>guarded(async()=>{await operate('open_login',{session_id:session.session_id,platform:session.platform},ticket);}));
         openLogin.disabled=session.login_in_progress===true;actions.append(openLogin);

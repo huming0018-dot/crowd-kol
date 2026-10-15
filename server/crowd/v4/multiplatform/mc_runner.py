@@ -979,6 +979,18 @@ def normalize(platform, kind, row, origin):
     result['record_hash']=hashlib.sha256(canonical(result).encode()).hexdigest()
     return result
 
+def media_file_sha256(path):
+    """Hash existing media without allocating the whole file; preserve IO errors."""
+    with path.open('rb') as stream:
+        file_digest = getattr(hashlib, 'file_digest', None)
+        if file_digest is not None:
+            return file_digest(stream, 'sha256').hexdigest()
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(262144), b''):
+            digest.update(chunk)
+        return digest.hexdigest()
+
+
 def import_output(root,payload):
     run=run_dir(root,payload.get('run_id'))
     s=status(root,payload)
@@ -1055,7 +1067,7 @@ def import_output(root,payload):
                 if size>file_limit or media_bytes>104857600: fail('media_import_byte_limit')
                 parts=path.relative_to(folder).parts
                 content_id=opaque(parts[0]) if len(parts)>1 else None
-                item={'path':str(path.relative_to(run)),'bytes':size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+                item={'path':str(path.relative_to(run)),'bytes':size,'sha256':media_file_sha256(path),
                       'content_id':content_id,'platform':PLATFORMS[p],'status':'downloaded_by_external_executor',
                       'source_kind':'mediacrawler_api','reward_eligible':False,'content_identity_status':'reported_directory_id' if content_id else 'missing'}
                 if p=='bili' and content_id in bili_identities:

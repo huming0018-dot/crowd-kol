@@ -444,7 +444,15 @@ class AccountSessions:
     def bind_browser(self, session_id, port, target_id, browser_fingerprint, expected_generation):
         return self._bind_browser_candidate(session_id,port,target_id,browser_fingerprint,expected_generation)
 
-    def _bind_browser_candidate(self, session_id, port, target_id, browser_fingerprint, expected_generation, current=None):
+    def bind_pro_browser(self, session_id, port, target_id, browser_fingerprint, recovery):
+        if (type(recovery) is not dict or set(recovery)!={'run_id','generation','account_ref'}
+                or type(recovery['generation']) is not int or recovery['generation']<1
+                or type(recovery['account_ref']) is not str or not re.fullmatch('[a-f0-9]{64}',recovery['account_ref'])):
+            raise ValueError('cloud_login_account_changed')
+        identifier(recovery['run_id'])
+        return self._bind_browser_candidate(session_id,port,target_id,browser_fingerprint,recovery['generation'],recovery=recovery)
+
+    def _bind_browser_candidate(self, session_id, port, target_id, browser_fingerprint, expected_generation, current=None, *, recovery=None):
         from browser_session import BrowserSessionError
         session,platform=self._session(session_id)
         if type(expected_generation) is not int:raise ValueError('account_generation_changed')
@@ -457,14 +465,46 @@ class AccountSessions:
             if current['browser_fingerprint']!=browser_fingerprint or target_id not in {row['target_id'] for row in current['targets']}:
                 raise BrowserSessionError('browser_selection_changed')
             selected=next(row for row in current['targets'] if row['target_id']==target_id)
+            if recovery is not None:
+                if platform!='bili' or selected.get('selection_kind')!='platform_page':raise ValueError('browser_platform_page_required')
+                from managed_pro_signer import private_object,SignerError
+                from pro_executor import binding_for
+                try:
+                    previous=private_object(session/'pro-binding.json')
+                    if previous!=binding_for(self.collector_root,{'platform':platform,'session_id':session_id}):raise ValueError()
+                except (SignerError,SystemExit,ValueError):raise ValueError('pro_account_binding_required') from None
             def change(value):
-                if value.get('generation')!=expected_generation:raise ValueError('account_generation_changed')
+                if type(value.get('generation')) is not int or value.get('generation')!=expected_generation:raise ValueError('account_generation_changed')
+                if recovery is not None and (value.get('account_ref')!=recovery['account_ref']
+                        or value.get('pending_run_id')!=recovery['run_id'] or value.get('state')=='account_changed'):
+                    raise ValueError('cloud_login_account_changed')
                 value.update(browser_connection={'mode':'existing_cdp','port':port,'target_id':target_id,'browser_fingerprint':browser_fingerprint,'selection_kind':selected['selection_kind']},
                              state='checking',recovering=bool(value.get('account_ref') or value.get('pending_run_id') or value.get('recovering')),
                              login_verified=False,verified_at=0,authorized_for_run=None)
                 value.pop('browser_connection_error',None)
                 value.pop('login_error_code',None)
-            return self._update(session_id,platform,change)
+                if recovery is not None:
+                    value.update(state='unverified',login_diagnostic=None)
+            result=self._update(session_id,platform,change)
+            if recovery is None:return result
+            # Revoke the old proof durably before changing its credential provider.
+            temporary=session/('pro-binding-'+secrets.token_hex(8)+'.tmp')
+            try:
+                backup=session/('pro-binding-before-cdp-'+hashlib.sha256(json.dumps(previous,sort_keys=True).encode()).hexdigest()+'.json')
+                try:backup_fd=os.open(backup,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                except FileExistsError:
+                    if private_object(backup)!=previous:raise OSError('binding_backup_changed')
+                else:
+                    with os.fdopen(backup_fd,'w') as stream:
+                        json.dump(previous,stream);stream.flush();os.fsync(stream.fileno())
+                with os.fdopen(os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'w') as stream:
+                    json.dump({'platform':'bili','provider':'existing_cdp'},stream);stream.flush();os.fsync(stream.fileno())
+                temporary.replace(session/'pro-binding.json')
+            except (OSError,SignerError):
+                raise ValueError('browser_binding_outcome_unknown') from None
+            finally:
+                with contextlib.suppress(OSError):temporary.unlink(missing_ok=True)
+            return {**result,'browser_bound':True,'verification_required':True,'credentials_imported':False}
 
     def create_browser_session(self, platform, port, target_id, browser_fingerprint):
         from browser_session import inspect_browser
