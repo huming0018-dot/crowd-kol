@@ -201,3 +201,25 @@
 
 - **严格门禁纠正**：旧INSPECTION true保留不覆写；非作者以新配对纯函数重算原24事件，4received/3saved/根页未匹配，严格bounded验收false，正文/ACK/导出/音频各维度仍通过。证据INSPECTOR-PAGE-ACTUAL-CORRECTION.json；无新请求或导出。
 - **XHS原会话恢复进展**：root通过原API打开同903d，worker13403在waiting_login，尚未恢复；当前--disable-extensions/Bridge断线已证。“新旧profile不一致”初推测已由旧34252同nested目录记录推翻并撤回，正式修复在研，不擅换目录；后续工作按E37新增证据。
+
+
+## 2026-10-15 23:15 CST｜部分页真实回执、XHS启动wrapper正式采用
+- **接力者/分工**：root部署/采用；central_steps实现分页观测/准备；native_diagnostics_review非作者实际SDK/PGlite/中央与本机独审；native_diagnostics做XHS独立分支实现及新批次观察。
+- **实际改动/版本**：部分保存独立stage全链，SQL150035/Edge29，本机19437/90696313、旧10368停。源码6文件f97309a及随后wrapper两文件2cfa680已发布，非作者远端当前同2cfa/parentf973；4runtime/399旧源码/124保护/5库actualbackup保持。旧95ed缺事件不补造。
+- **发现/修复/复核**：初V1意外收紧旧saved0兼容，独审要求仅partial正数，V2实际Edge/PGlite30恢复旧合同；原SDK9与wholeWB3、队列/Owner标签及五库实核通过。初copy portabletest不在旧snapshot的0copy验证中止保留，正式原件改核GitHEAD。
+- **新真实任务/有界通过**：root新bd2f778e-1f16-4e5e-9b01-d1dd188500be/localc089 actualcompleted/API8，1正文17评论、18权威ACK、25来源步骤/partialroot3+reply10/3/1配对、R75三导出20行typed由非作者原件核过。95ed/c08918稳定实体相同；75da缺1reply仍未知，三者相同预算1/3/12不能用不同预算解释。部分记账不等全页/游标commit/全回复，旧缺1reply原因继续核。
+- **XHS分支边界**：wrapperV2独审通过后正式21129/原19437停，2源/402其他/125资产/5库raw备份保持；正常原Chrome17009/LevelDB原client一致但Bridgeoffline/登记缺失。非str URL类型反例修复与V1漏检保留；初profile mismatch误判已撤回，不乱换目录/清profile或重复扫码。
+- **交接/下一步**：E36正式4666f84已发布；E37仅本地候选，真实终态/云ACK/导出原件已核，候选交root非作者审发布。原19/20/548、71仅缓存、watchdog PAUSED/48h未启保持。
+
+- **最终上线边界**：MC新部分保存机制及本轮有界回归通过；root partial不等全页/游标commit，音频不等MP4或云媒体，其他平台/Pro替换/48h不外推。XHS wrapper已采用而扩展登记/Bridge仍缺失，原17009资料不动。E37当前三文档仍候选，实际发布须另记回执。
+
+- **23:20引擎归因补正**：实际源码固定f237/1f8显示全局env选择、media/options前置回退MC、请求字段无source_executor；本轮Bili只认NativeMC，不称Pro全功能已接。下一轮单任务严格route/成熟媒体候选由独立作者开发，后续E38登记，不拖延本E37发布。XHS仅异步请求此前授权原目录登记恢复，不扫码，原17009保留/登记仍未证。
+
+
+## 2026-10-15 23:36 CST｜原XHS登记恢复、官方同主体核验及Pro路由审查
+- **接力者/目标**：root执行已授权恢复后的单次核验；native_diagnostics_review独审驱动/重启元信息及实际self；native/central并行路由/媒体候选。
+- **实际动作/验证**：原Chrome17009→同profile23266，重开登记/client连接保持；一次self200/code0/同原主体，1Bridge1sign1self；原身份/绑定/旧548摘要保持。只停自有Signer23420/sign1。未改Owner账号状态或重启旧任务，不重复扫码。
+- **发现/修复边界**：首轮SIGTERM后残留锁断言停止，原失败保留，后由Chrome自身启动处理，非应用正常退出证明。凭据source=cache，官方成功不等于实时同步。实际独审ACTUAL-SELF-FINAL通过。
+- **版本/部署**：正式2cfa680、当前21129/Edge29/SQL150035不变。路由5文件候选初测试通过，独审发现描述符TOCTOU，作者修复中，未采用/部署/启动新采集。
+- **证据/发布**：E38及实际RESULT、重启元信息、签名生命周期；固定三文档精确发布后见HANDOFF-E38-PUBLISH-RECEIPT.json。Pro私码/凭据/PRIVATE原件不发布。
+- **遗留/下一步**：Pro单任务路由复核、成熟媒体隔离与共享预算、同输入正文/分页/媒体/导出/云ACK；OTA71实际采用、两设备及48h仍未全验，watchdog保持暂停。
