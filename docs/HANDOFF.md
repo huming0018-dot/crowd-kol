@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 03:32 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 03:50 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,13 +16,20 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：Pro本机新来源有界采集、自动Signer与逐条云交付已有实际独审；本机历史68→69→70连续OTA通过，远端原节点已上报71并匹配正式摘要；本机目前仍70且原profile参与者登记待恢复，不把缓存71当采用。仍不是全部平台/全端完整产品终验或48小时实验阶段。详细状态见第3节。
+当前阶段：XHS有限来源云交付与WB原登录复用已实际独审；WB新来源29ACK但子回复不全failed74，完整分页/媒体尚未通过；本机历史68→69→70连续OTA通过，远端原节点已上报71并匹配正式摘要；本机目前仍70且原profile参与者登记待恢复，不把缓存71当采用。仍不是全部平台/全端完整产品终验或48小时实验阶段。详细状态见第3节。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### E48｜03:32 OTA现态与原profile恢复边界（发布状态以回执为准）
+### E49｜微博原登录正式接入与真实部分交付
+
+- **代码/正式运行/发布**：WB原持久资料→原MC凭据转换器→私有FD→原Pro账号池两份自有码，经V2非作者冻7bea/报告bbdf独审采用pro-native-wb-ee8c83c2060ba13c/PID75108，旧66029停止。非作者现场6819实际核2冻结/435其他/fullset、128保护/6原身份+19资产、五库schema/raw等actualbackup、idle/pending0、原Bili暂停1/12与Edge34全部保持。两0600新配置仅已有SDK路径及WB/native_persistent绑定，无Cookie。源码c49446d69b09ce155c9b39b70549d1e2b017d21d已push0/远端同，parent e05775a。V1超时无界等待及修复期失败保留；V2恶意持FD后代、抗TERM、父死清理、250ms正常慢退、10provider+5原SDK整链独审通过；真实原浏览器取凭据已在本次来源中使用，不外推所有OS。
+- **新真实来源明确部分失败**：唯一task e2d613f2/child c012ccf4/local 6ad03e92，原WB e7c5会话/原89da同16字段，仅显式Pro；media=true/1条正文配置/3评论软阈值/12API/180秒、不新增interval均保真。自动领取后官方self通过，建立首次当前UID基线，历史同主体未知。实际1正文28评论=29原SDK观测/归一化/29权威UUID/hash/envelope/ACK精确；37中央来源步骤与本地sequence一致（3开始3响应1正文21页收到9页保存）。中央和本地failed74/wb_embedded_replies_incomplete，used3/12/reserved0，未提交父checkpoint、不伪完成。新媒体未下载、无WB新图云回取；不能拿29ACK当完整分页/媒体验收。
+- **导出/页面实测**：正式R79三导出各31全行，本次29语义版本、typed字段/bodyhash/新run观测一致；非作者已逐31全行和29新来源语义独立复核通过。实际跨75108重启，原IAB未reload，监控恢复1741ACK/pending0，原未提交library_tag标记保留；已清测试标记。banner正常出现，但一次非白名单旧请求提示仍在，不能说全部操作自动恢复。UI-ACTUAL-RECOVERY.json/截图留原件。
+- **下一步与不变项**：优先补WB真实暴露的独立子回复分页，再按原任务剩9总预算续验，不能新建/盲重试或改media=false凑通过。已购Pro及原MC WB都仅嵌入回复，新增自有分页适配0ecc候选已离线独审f450通过，仍未采用/未验真实schema，不冒成熟完整能力。知乎首组件740845候选已原SDK持久化/导出受控通过，整入口身份/签名/预算/投影仍在实现，正式SUPPORTED未扩。原participant目录32502仍待本人选择，本机71未证；远端71、原19/20两条回执和XHS40ACK/99步骤保持。watchdog暂停、48h未启。
+
+### E48历史｜03:32 OTA现态与原profile恢复边界
 
 - **远端71已有新证据**：03:17 fresh云查询原6a88节点71/正式release cfe4、注册03:16:48、健康71/current/queued0；昨22:39有OTA started/waiting/completed，后续自然started/skipped无新OTAerror。事件本身无版本摘要，结论联合节点登记/摘要/健康，不外推远端native文件/回滚链直验。
 - **本机阻断定位**：原3cde仍70，最新云登记昨17:38、最后事件16:51。helper8198638a、loaded70/applied、计划任务正常、签名71ZIP dceb完整缓存；原XHS903d profile无participant licije…登记、无临时load参数，原Local Extension Settings七文件855031B保留（只SHA不读值）。原23266初在，随后Kimi无窗及宿主ps不存在；root随后观察原Chrome均已退出，原因未知，不归因代码、OTA或用户行为，不能冒给旧PID窗口。日常原33775已退出，root最新定位日常69991；其同ID指向另一产品3.5.2，禁止覆盖。完整installed70逐32文件/31releasehash/正式公钥签名与缓存71权限未扩展已独核。仅诊断，未恢复/发OTA。
@@ -139,7 +146,7 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/pro-managed-signer-b5c9289fe9b65a7d/ | E47实际独核通过的工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
+| .crowd-launch/runtime-revisions/pro-native-wb-ee8c83c2060ba13c/ | E49实际独核通过的工作台源码快照；默认MC，显式Pro按已审平台/模式门禁，不外推媒体/推荐；工作树HEAD不等于运行版本 |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -155,10 +162,10 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证，本机仍70 |
-| crowd-kol | aadbb265fcb35cb8329cc23b85bf27feee2e053b已发布；parent为文档33ef2fe | E47正式66029/Edge34已实际独核通过。最新E47新XHS40来源/99步骤/40ACK/R78有限验收；历史E44为41/105/R77，两批不得混算，未涵盖全量及媒体字节；其他脏文件不并入 |
+| crowd-kol | c49446d69b09ce155c9b39b70549d1e2b017d21d已发布；parent为文档e05775a | E49正式75108/Edge34已实际独核通过；WB29ACK但分页部分失败/无新媒体。E47新XHS40来源/99步骤/40ACK/R78有限验收；历史E44为41/105/R77，两批不得混算，未涵盖全量及媒体字节；其他脏文件不并入 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E47当前增量及pro-signer-adoption采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E49当前增量及pro-native-wb-adoption采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -192,7 +199,7 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 安全起步：读取源码/文档、uname/pwd/git status/log、SHA比对、既存脱敏证据；用已授权连接器执行明确只读查询。测试先审其副作用。不要为了核验调用claim/start/finish/arm，或启动会自动执行任务的服务。
 
-下一步：先读E47实际采用/新任务独审与aadbb265源码发布，核对66029/Edge34未漂移。真实新XHS自动Signer与40ACK/99步骤/R78有限验收已完成，交付耗时单样本下降不是稳定保证；不为扩大统计无条件重采。WB图片链与精确路由已采用，下一步先核原WB持久登录/绑定可用性再做最小同输入新来源，不重复扫码或借旧图冒成功；新字节/评论分页/导出/真实私有云回取逐项独审。默认MC及原Bili3cda暂停1/12剩11保持。先读新XHS69602e3b/ddf0753c最终非作者现场报告及COMMENT-CAP-ROOT-CAUSE/CENTRAL-CAP-INDEPENDENT：41ACK/105步骤/R77已有限通过，旧阈值未生效、本次双赋值后生效导致页范围变化已解释；不能倒填旧实际scalar，也不能以此替代94→40完整数据集等价。保留当前57/20/120/media=false配置与limit_reached/partial，不无条件重采；需要补缺时基于诊断确定最小有界下一步，不重启548或删选项。新正文/评论/导出/ACK已有限实证，媒体字节、云音轨、checkpoint及全量仍另验。原Bili43833/window32276此后已随原Chrome退出，现窗与登录状态待root核，不能继续用失效窗口或要求重复扫码；原task仍暂停剩11，恢复原资料且后台官方同主体后才继续。旧continuation V4 pin51342，必须适配当前66029冻结并独审后才可运行。账号页已接正确Pro恢复入口，不开MC窗口；MC关闭顺序真实Cookie持久性仍单列。Pro中央全链/媒体云、本机71采用及远端native链、两设备/全端/48h均按证据分级，watchdog暂停。
+下一步：先读E49正式采用/新WB部分失败与c49446d源码发布，核对75108/Edge34未漂移。优先修原task e2d子回复，原3/12已耗/剩9，不新建或盲重试；同时继续知乎整入口，不能拿首组件冒正式支持。真实新XHS自动Signer与40ACK/99步骤/R78有限验收已完成，交付耗时单样本下降不是稳定保证；不为扩大统计无条件重采。WB原登录已到实际新来源，下一步先补独立子回复，再按原任务剩额续验新字节/导出/云媒体，不重复扫码或借旧图冒成功；新字节/评论分页/导出/真实私有云回取逐项独审。默认MC及原Bili3cda暂停1/12剩11保持。先读新XHS69602e3b/ddf0753c最终非作者现场报告及COMMENT-CAP-ROOT-CAUSE/CENTRAL-CAP-INDEPENDENT：41ACK/105步骤/R77已有限通过，旧阈值未生效、本次双赋值后生效导致页范围变化已解释；不能倒填旧实际scalar，也不能以此替代94→40完整数据集等价。保留当前57/20/120/media=false配置与limit_reached/partial，不无条件重采；需要补缺时基于诊断确定最小有界下一步，不重启548或删选项。新正文/评论/导出/ACK已有限实证，媒体字节、云音轨、checkpoint及全量仍另验。原Bili43833/window32276此后已随原Chrome退出，现窗与登录状态待root核，不能继续用失效窗口或要求重复扫码；原task仍暂停剩11，恢复原资料且后台官方同主体后才继续。旧continuation V4 pin51342，必须适配当前75108/pro-native-wb-adoption冻结并独审后才可运行。账号页已接正确Pro恢复入口，不开MC窗口；MC关闭顺序真实Cookie持久性仍单列。Pro中央全链/媒体云、本机71采用及远端native链、两设备/全端/48h均按证据分级，watchdog暂停。
 
 
 ## 9. 维护与共享

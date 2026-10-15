@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E48为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E49为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -328,3 +328,10 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - 同目录{LOCAL-FRESH.PRIVATE.json,PROCESS-FRESH.PRIVATE.json,EXTENSION-REGISTRATION-FRESH.json,ORIGINAL-PROFILE-STORAGE-HASHES.PRIVATE.json,INSTALLED70-AUDIT.json,SIGNATURE70-AUDIT.json}：本机helper/缓存/计划任务与32安装文件、31releasehash、正式公钥签名、70/71权限/key/native注册核过。903d原profile无participant登记，原7存储文件855031B只取SHA不读值，当前outbox未知；日常同ID3.5.2不能覆盖。原23266后来已不在，无本轮关闭动作，root须再核当前PID。该只读快照未执行UI恢复或OTA；后续正常开窗见下条，不代表参与者加载成功。
 
 - RUN16/ota71-readiness/{ORIGINAL-REOPEN-0328,ORIGINAL-RESTORE-PENDING-0333}.json：root正常重开原903d的Chrome71456（未加load/debug参数）、窗口32478/目录面板32502，AX显示原CookieBridge1.1.0启用；参与者仍缺、目录尚未选择。Kimi后续输入被pending_editor_write守门阻断，未绕过、未加载；本人选择原目录待完成。本机71仍未证采用，参与者outbox未知。原Chrome退出原因未知；旧33775/23266/43833仅为历史。WB原生provider首轮10+5SDK测试通过但独审超时反例阻断，V2待新freeze/独审；WB图片云v2已采用是另一能力。
+
+## E49｜微博原持久登录与真实部分失败
+- RUN16/pro-native-wb-provider/v2/{FREEZE.json,independent-native/FINAL.json,WAITID-EXTERNAL-EVIDENCE.md}：冻7bea/非作者bbdf；V1无界等待及UID误判初败保留，V2原SDK和进程组实测。
+- RUN16/pro-native-wb-adoption/{RUNTIME-FREEZE.json,ROOT-READY.json,ADOPTER-REVIEW.json,MAPPING-REVIEW.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json}：正式75108/f9f1两文件及五库保护/现场6819、源码c49446d发布。INSTALL-PLAN仅路径和provider，不含凭据。
+- RUN16/pro-native-wb-adoption/{UI-BEFORE.json,UI-ACTUAL-RECOVERY.json,UI-INPUT-PRESERVED.png,TWO-ROUTES.md}：实际跨重启恢复/未提交输入保留，非白名单旧请求仍留提示，不外推全操作。
+- RUN16/pro-native-wb-real/{REQUEST-REVIEW.json,PREVIEW.PRIVATE.json,CREATE-INTENT.json,CREATED.PRIVATE.json,independent-native/ACTUAL-FINAL.json,EXPORT-FINAL.json,EXPORT-r79.json,EXPORT-r79.jsonl,EXPORT-r79.csv}：同16字段/唯一新源/29typed ACK/37来源步骤/3of12/failed74，R79三格式29新语义保真；导出非作者已逐31全行/29新来源语义复核通过。PRIVATE/数据/截图只本地，不发布。
+- RUN16/pro-zhihu-detail/{READINESS.md,FREEZE.json,DELIVERY.md}：740845仅候选首组件，尚未正式引擎/身份/签名全入口，不扩大SUPPORTED。WB独立子回复0ecc候选已离线独审f450通过但未采用，不写真实成功。

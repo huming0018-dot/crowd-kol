@@ -306,3 +306,9 @@
 - root后续观察原Chrome均退出、日常新PID69991，原因未知；已正常重开同原903d的Chrome71456（窗口32478），AX确认原CookieBridge启用，参与者仍缺。原生目录面板32502尚未选择，工具pending_editor_write守门阻止后续输入，等待本人仅选原目录；未加载成功、未证本机71或参与身份/队列恢复。原Bili窗口须重新定位，不沿用失效PID。WB原生provider首轮独审超时反例阻断，V2待冻结独审/未采用，WB图片云v2已采用事实保持。
 
 - E48材料复核：native_diagnostics逐读最新OTA FINAL/70签名及安装审计、正常重开/选择目录待办原件，修正当前阶段、§5最新40来源/99步骤/R78与历史41/105/R77分离、§7远端71与本机70边界。未改正式交接或功能，未发新来源/OTA动作；候选最终SHA另记审查报告。
+
+## 2026-10-16 03:50 CST｜E49 WB原登录正式采用，真实子回复缺口定位
+- native_diagnostics_review实现providerV2，native_diagnostics非作者独审；root映射与sole采用/配置登记/原任务同输入新来源/导出/源码发布，central非作者核mapping/原输入/正式现场。75108两源/五库及原保护保持，c49446d已push远端同。初READY因审查gate被peer更新而在写前断言停止，按精确新gate执行，无重复配置或来源。
+- 原e7c5免扫码复用已走到官方self/首次UIDbaseline；e2d/6ad actual1正文28评论29ACK/37来源步骤由native独核7e703；failed74、3/12/reserved0，父checkpoint不冒成功，media=true未删但未取得新图。原Pro和MC只有嵌入回复，子链候选继续实现，原任务不重建不扩大额度。
+- root正式R79三导出31全行/29新语义typed保真；非作者已逐全行/新来源语义复核通过。原IAB跨重启只读监控自动恢复且输入保留，截图与提示边界保留，清自有测试标记。知乎首组件候选740845并继续整入口，未扩正式支持。
+- E49本轮待非作者文档审，发布看RUN16/HANDOFF-E49-PUBLISH-RECEIPT.json；本机participant目录待本人、71未证；远端71证据保持。watchdog/48h不变。
