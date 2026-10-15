@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E45为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E46为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -305,3 +305,11 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN15/pro-wb-image-media/independent/FINAL.json：1cde9081本地静态图片链非作者7unit/2原SDKwhole/5Bili回归/11负例通过；4.28MB旧公开JPEG仅作底层HTTP fixture，不是新平台下载。WB云v2与正式media gate仍另审，不冒用XHS2MiB合同或压缩换图。
 
 - `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/outbox-first-adoption/{FREEZE.json,independent/CENTRAL-FINAL.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json}`：采用准备非作者8portable/4schema/3坏表形态；02:39:29实际61292/旧55325停、2冻结+427其他/fullset/127保护/6身份/19源导出、五库已有schema/raw等备份，唯一outbox空新表无历史proof回填。实际源码281ac918/parent805/push0/远端同。没有新source或capture投递、无线上提速测量，既有Edge32证据为继承的历史独核，不伪称本批freshEdge。
+
+## E46｜WB原图本地/云v2/Owner组合正式采用（业务待验）
+- RUN16/pro-wb-image-cloud/independent/{FINAL.json,DEPLOY-RPC-FINAL.json,ACTUAL-CENTRAL-FINAL.json}：b3de修后非作者离线通过、SQL-only守卫4例及实际33中央fresh读回；原4.28MB公开图仅隔离fixture，Node/Deno像素与Pillow同，真Pythonmanifest源canonical穿透PGlite；无新上传或回执。
+- RUN16/wb-media-adoption/independent/{CENTRAL-ROUTE-FINAL.json,CENTRAL-ACTUAL-FINAL.json}：精确WB范围11+13路由检查、默认MC旧hash保持，组合原SDK/MCchild/附件独跑；02:51:01实际63675/10冻结+420其余/fullset/127保护/6身份19源导出/五库schema及raw等actualbackup，原暂停任务1/12/ACK0和原窗口保持。fresh34 ACTIVE26运行模块，4相应冻结/22原32逐字保持/JWTfalse。报告SHAae17251f…，actual get原件仅本地600。
+- RUN16/pro-wb-image-cloud/{SQL-DEPLOY-RESULT.json,EDGE-DEPLOY-RESULT.json}及wb-media-adoption/EDGE34-DEPLOY-RESULT.json：实际迁移20261015184558/crowd_weibo_image_v2，RPC41204新MD5134e0…仅function变化，原ACL/guard/音视频/bucket由fresh只读核。没有新来源或云回取，完整浏览器UI未验。自有15文件源码f12bae0cefafb6c18b560b709c23d2ffd336bed0/parent34576d66已push0/远端同，见wb-media-adoption/SOURCE-PUBLISH-RECEIPT.json。
+
+- RUN16/pro-wb-session-readiness/{CURRENT-METADATA.json,READINESS.md}：02:40:43原e7c5目录存在、无state/binding/安装描述或原profile桥登记/精确运行进程；已有两连接client的WB metadata均null，不读Cookie/self/不启窗。当前主体未知，不从null判平台登出。
+- RUN16/workbench-stale-page/{DIAGNOSIS.md,OFFLINE-GUARD-RESULT.json,reproduce_guard.py}：生产guard精确AST离线6例，旧nonce足以产生同403；实际旧IAB请求nonce未保存，真实根因unknown，刷新后恢复仅支持机制一致。尚无自动旧页刷新/重启提示修复，不自动重发POST。
