@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E28为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E32为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -145,3 +145,17 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - E31补充：RUN15/platform-priority/{MATRIX.md,RUN-METADATA.json,PRO-CAPABILITY-SOURCE.json,LOCAL-CLOUD-ORIGIN-MATCHES.json,ARTIFACT-RECEIPTS.json}只读实际SDK/历史run/保存回执盘点，不是fresh登录或新来源验收。SAMPLES.PRIVATE.json仅本地600完整输入。B站两旧run不同target；Pro知乎creator只answers的已知局限正面保留。在线最新Pro代码未核。
 
 - E31最终补充：SAVED-MEDIA-DIAGNOSTICS-FREEZE.json/READY.json及IND/SAVED-MEDIA-{DIAGNOSTICS-UNIT.log,DIAGNOSTICS-DOWNLOADER.json,JOURNAL-NEGATIVES.json}核新driver4afd2fbd、23单元/7原下载器/2wholemain journal异常负例；失败日志只固定reason/type/phase/attempt计数，日志写失败不遮unknown、重复意图在loader前拒绝。工具本地就绪，不是工作台新媒体功能，不回放旧意图、不倒填旧因。原SDK完整登录/新真实cap/媒体/远端OTA等门禁仍分别未过。
+
+### E32｜显式代理媒体、正式附件/真实导出及两节点fresh（2026-10-15 17:04）
+- RUN15/batches/BATCH-1628.md、BATCH-1643.md：两15分钟批次角色/原范围/指标，上一轮分类progress，原缺口未缩掉。模型均继承本会话，没有自行更换。
+- RUN15/OTA70-BOTH-NODES-FRESH.json与native-diagnostics/independent/OTA70-TWO-NODES-{FRESH,EVENTS,FINAL}.json：actual两原节点70/digest9e5…，task19 seq271 ready/task20 seq216 unknown；各有OTA started/waiting/completed再skipped。事件version/digest字段为空，不倒灌登记，远端helper SHA/LaunchAgent/采用及官方self未验。旧失败unexpected_error12保留。
+- RUN15/subtitle-hook-factory/{FORMAL-FIXTURE-FREEZE.json,FORMAL-FIXTURE-TEST.log,FORMAL-FIXTURE-RESULT.json}及IND/FORMAL-FIXTURE-EQUIVALENCE.json：原32test AST不变，生成SDK fixture与非作者32候选逐字节同，正式36/66.280s通过；仅test单文件db58009。不是runtime或新来源性能提升。
+- RUN15/pro-next-platform/SYSTEM-PROXY-MEDIA-FREEZE.json、XHS-SAVED-MEDIA-PROXY-{INTENT,DOWNLOADED}.json与IND/PROXY-MEDIA-ACTUAL-FINAL.json：用户原配本机proxy7890，显式单CONNECT/GET、TLS主机检查、不带Cookie、2MiB/拒redirect；源/传输URL双hash保留。实际98878B SHA64dad9b87d625510ee879a88485d1f3e12c143e2a4629fe4ad5bea5d6d420b2c=原MC逐字节，WEBP1080×1440单帧像素SHA780b47…同。旧direct intent SHA7de1a74…和源三SHA保持，旧异常根因仍unknown，未追写成功。
+- RUN15/pro-next-platform/WORKBENCH-ATTACHMENT-INTEGRATION-FREEZE.json、SAVED-MEDIA-ATTACHMENTS-FREEZE.json与IND/WORKBENCH-ATTACHMENT-FORMAL-UNIT.log、ATTACHMENTS-JSON-FIXED-NEGATIVES.json、RESULTS-UI-BLOB-FROZEN.json：模块d7444a26/测试b956，正式联合13及独立篡改、发布/ingest/注册故障、锁、坏/深JSON、旧blob下载负例通过。原79e误放行11类及初移植缺比较工具测试依赖的失败保留，修后仅依正式ResultsStore，未copy过程工具。
+- RUN15/MEDIA-ATTACHMENT-RUNTIME-FREEZE.json、pro-media-adoption/ADOPTED.json与media-adoption-review/ACTUAL-FIVE-DB-LIVE-FINAL.json：runtime d744/PID61381正式采用，旧52074停；4SHA（3变+fleet不变）/390其他源码/123保护文件与5库schema和原行=实际备份，58耐久步骤全ACK/1624ACK/pending0，Pillow正式环境12.3可导入。起初runtime路径计算错在写冻结前失败，已修显式repo；无误采用。
+- RUN15/pro-next-platform/{attach_actual_image_once.py,XHS-ATTACH-WORKBENCH-INTENT.json,XHS-ATTACH-WORKBENCH-RESULT.json,ACTUAL-UI-DOWNLOAD.json,WORKBENCH-IMAGE-DOWNLOAD.jpg}与media-adoption-review/ATTACH-DRIVER-REVIEW.json、ACTUAL-IMAGE-LIVE-FINAL.json：唯一正式单media导入73，仅3结果表各+1/旧行保持/其他4库原行同；95正文评论/版本未再ingest。实际HTTP/api/media98878B同SHA、no-store/nosniff；72/73 JSON/JSONL/CSV实际HTTP逐字节同冻结且headerSHA核过。真实IAB详情94评论/1图片，按钮实际下载到Downloads同98878B/hash。图片仍cloud_ack=false，未上传或发新来源。
+- RUN15/pro-weibo/{FREEZE.json,DELIVERY.md,INTEGRATION.md}及IND/WB-ADAPTER-FINAL.json：原模块2503668非作者10SDK/9self/6证据/重启恢复通过，无源。pro-weibo-integration/FREEZE.json后续三文件f237331c/119926dc/944842接线候选，whole原main6case/9summary负例/59unit为作者已跑；独审/正式采用/真实WB与云尚未完成。上游embedded replies不足明确partial，全回复接口/热搜/字节不伪支持。私仓不改不发。
+
+- E32补充：WB whole execute嵌套子回复负例随后复现旧119926dc候选保存12却漏6孙回复，原候选放行撤回，execute_sdk_nested.py保留反证；正在窄修未覆盖即partial/游标不前移，尚无新freeze独审。当前正式媒体runtime不含该候选，原MC不受影响。
+
+- E32后续候选：WB generation2模块8b046e62修后whole第7嵌套用例partial74/父cursor不前移，原6路径/59unit作者重跑通过；修复反证不是全回复接口完成，peer复核与正式采用仍未完成，实际新freeze为准。

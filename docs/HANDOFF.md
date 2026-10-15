@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-15 16:26 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-15 17:07 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -24,18 +24,20 @@
 
 ### 2026-10-15当前增量（优先于下列10-14历史时点）
 
-- **16:26现态优先**：自有修复8文件提交23f7ae48648b43893935dd91729448168f849873；正式工作台已采用pro-platforms-bbbda8cfbc3c878d/PID52074，原42837正常退出。8运行文件冻结，原5锁/5库实际备份及原行、配置和历史任务在采用守护内保持；非作者live独核通过：385其他源码逐字节相同、123历史配置/任务及5库逐原行等于实际备份。默认MC保持，没有全局启用Pro。云端实际1624ACK/pending0，原两参与任务与额度不变。
+- **本轮现态优先**：自有媒体功能5文件提交c425fd9d0e8c09cb6502457878db4ca50167153c；正式工作台已采用media-attachments-d7444a26e03de2ad/PID61381，原52074正常退出。4冻结运行文件（3变+fleet不变）、390其他源码、123历史配置及实际5库schema/原始行=采用备份独审；随后唯一真实附件导入使results72→73，仅imports/observations/versions各+1，原95正文评论及历史72三格式原字节保持，其他4库原行不变。云1624ACK/pending0，默认MC保持。
 - 原XHS本人登录后官方200/code0/self摘要通过；先前f4de 77/check_failed/观察0保留，未抹成成功。临时Signer整串Cookie猜账号锁由独审修正，身份仍固定Bridge client和官方self摘要；新有界e7e01fbb-5e8e-47b3-b473-5d24fc77f1cc已真实completed，1正文+94评论（44根/50回复），46 guarded HTTP尝试含loopback，34.609秒意图至终态；不是平台专属总请求或端到端/P95。43持久页/checkpoint独核、可访问页链exhausted不代表平台全量。旧548失败73不重启；当前原会话已恢复并绑定e7，不能用新任务替代旧任务恢复验收。
-- 真正发现并修复：max_comments20只写聚合config，XHS/DY从base_config读取导致本次94条超阈值。原94及全部失败保持；2行初始化补接、原SDK实际processor/SQLite/checkpoint独审正反例通过。语义为整页含回复软阈值（20可保存24再停），不是硬20；修复后尚无新真实来源cap验收。未知核验失败新86与明确登出77分开、Owner中文提示、知乎/贴吧字幕module hook不依赖factory一并独审并采用；全MC测试仍有4继承fixture失败，不能称全套绿色。
-- e7正式导入冻结rev72，JSON/JSONL/CSV三格式97项=95新正文评论+1新媒体引用+1旧媒体项；双哈希保真比较已重算来源/语义/正文合同，旧10实体无缺失或字段变化，85是新观察而非全新发布。真实新媒体字节0、URL引用与旧MC不同，媒体完整性仍未通过。正在复用既有安全下载器处理已保存引用，不重采正文评论，不把图片伪成云视频。
+- 真正发现并修复：max_comments20只写聚合config，XHS/DY从base_config读取导致本次94条超阈值。原94及全部失败保持；2行初始化补接、原SDK实际processor/SQLite/checkpoint独审正反例通过。语义为整页含回复软阈值（20可保存24再停），不是硬20；修复后尚无新真实来源cap验收。未知核验失败新86与明确登出77分开、Owner中文提示、知乎/贴吧字幕module hook不依赖factory一并独审并采用；当时全MC测试有4继承fixture失败；本轮db58009已补真实SDK测试桩，正式36通过，原失败日志保持历史。
+- e7正式导入冻结rev72，JSON/JSONL/CSV三格式97项=95新正文评论+1新媒体引用+1旧媒体项；双哈希保真比较已重算来源/语义/正文合同，旧10实体无缺失或字段变化，85是新观察而非全新发布。原规范文件保持引用不重写；E32新增旁挂媒体经显式既有代理下载，已证明与旧MC字节/像素等价并进入正式rev73/HTTP下载。URL引用变化保留，不靠删参数判等价；图片云链仍未通过。
 - 云任务2dcf771d-c73e-4e22-b4f0-0b689ba8c2aa沿唯一创建意图实际completed，95唯一received回取逐字段typed等同冻结rev72；source spent/reserved0，未再采来源。95份原始envelope/hash/UUID/receipt与outbox逐条非作者独核通过，finish/source0、52条交付阶段中央步骤seq7–58连续至completed；不是新来源执行。临时Signer47739已正常停止，22native签名/0外部nav/failed=false；浏览器和CookieBridge保留。其他平台、完整原任务重登、远端连续OTA和48h仍未全验。
 
-- XHS现存图片下载独审22测试+7原下载器负例通过后，root唯一执行实际失败；INTENT保留、资产目录空、无下载回执，原3文件SHA保持。旧driver丢失败阶段/次数，根因和实际GET次数未知；后续受限环境DNS gaierror；主机实际resolved1/non_public1，当前应被安全下载器拒绝，两者都不证明旧因。没有自动重试、没有上传图片。安全诊断journal已补固定错误码/阶段/计数，23测试+7下载负例+2失败journal负例独审，工具仅本地就绪、未重执行旧意图；已定位现有云合同仅MP4，不可伪装图片。平台只读优先矩阵优先B站同输入媒体/微博新adapter/知乎；B站旧f2c与75da输入不同不得拼证据，Pro知乎creator实际仅answers、articles/videos客户端存在不等已覆盖。见E31补充。
+- XHS媒体已经补到正式本机工作台：旧直连尝试unknown意图保留不重试；确认主机原配loopback HTTPS代理后，独审的新显式CONNECT/TLS实验1CONNECT+1GET取得98878B WEBP，SHA64dad9b…与原MC逐字节相同、1080×1440/单帧/RGBA摘要相同。保留源URL与HTTPS传输hash差异，不去参数造等价。已审附件模块/详情下载入口正式采用，实际HTTP/api/media和真实浏览器按钮下载均同字节；rev73三格式实际HTTP导出独审。仅本地保存，不是图片云保存或来源自动下载已接通；原norm/status/manifest三SHA保持。
+- 附件独审发现11类sidecar篡改误放行、暂存未注册可播放、坏JSON掉连接和blob等待后旧下载，均已修并以正式13单测/独立负例/Node时序复核；首次错误原件保留。云图片仍缺正式image_object合同及回取，不能改名MP4。MC测试桩补真实SDK接口（原32业务测试AST不变），正式36测试通过，单文件db58009已提交；原4继承失败不再是当前正式测试结论，旧日志保留。
+- 微博Pro新增适配模块已非作者独核原SDK10模式/分页+9身份+6证据负例和实际checkpoint重启恢复。全文配置双写修复后不预灌正文，search/detail/creator实际handler各自保存。后续executor三文件接线候选f237331c/119926dc/944842已有whole execute→原main→原账户池/self/handler/真SQLite/completion/三导出6例与9摘要负例、59unit作者通过；但随后whole嵌套孙回复负例复现漏6，已撤回119926dc候选放行，已补generation2模块8b046e62，whole第7嵌套反例修后partial74且父游标不前移；新冻结仍待复核。下一独审/采用/真实同输入云回执尚未完成。原SDK声明三平台与本地WB能力分层，WB显式feature flag；不得仅扩SUPPORTED假称可用。上游全子回复分页、热搜接线、媒体字节仍缺，缺额只准partial。
 
 - 中央机器步骤：SQL迁移20261015062743、错误码迁移20261015062750及crowd-machine Edge24已部署；原worker/claim/run/epoch绑定、耐久步骤/坏组隔离/Owner分页已独审。此前source0三条及6步骤通过，当前新增95条交付阶段52步骤通过；MC原引擎逐页/所有平台来源全过程仍缺，不能称全程监控完成。
-- OTA与原参与者：源码03a38fe、通道/工具b6be7cd，签名70 seq2026101570；本机原helper已采用8198638a通用binary，真实68→69→70/原身份队列历史/任务19、20各2条保持及云OTA事件已独审。另一原节点最后14:57实查69，未fresh核70或原生连续链。旧12条unexpected_error保留，新自然ota_*故障尚未现场；升级后旧Chrome消失原因未知，没重发apply。固定ZIP2992d9f/包摘要见E28。
+- OTA与原参与者：源码03a38fe、通道/工具b6be7cd，签名70 seq2026101570；本机原helper已采用8198638a通用binary，真实68→69→70/原身份队列历史/任务19、20各2条保持及云OTA事件已独审。16:30后fresh SQL两原节点均70且release摘要9e5b46…一致；task19 ready、task20 unknown为节点上报而非官方平台self。两者各有started/waiting/completed及后续skipped，事件自身未带version/digest；远端helper二进制/采用链仍未验，旧69快照保留。旧12条unexpected_error保留，新自然ota_*故障尚未现场；升级后旧Chrome消失原因未知，没重发apply。固定ZIP2992d9f/包摘要见E28。
 - 旧B站/云资产：2fe来源failed/api_request_limit保持；新f2c有界批次1正文20根86回复、40runner+1Signer受控尝试（不是平台总数）。两份纠正source0云交付236观察=131去重实体，正文/父子/origin/metrics/冻结版本/回执独审已通过，不能当236新内容或全评论耗尽。保留旧保真失败与未知状态，详E25–E30。
-- 48h实验和看门狗仍未启动/PAUSED。默认MC保持，后续Pro平台须逐维度同输入证明；手机/Windows/VM、本轮真实评论软阈值、图片云链、长视频质量及远端OTA仍有缺口。重要历史时点与首次失败保存在E25–E31及CHANGELOG，不把旧阶段候选状态当当前事实。
+- 48h实验和看门狗仍未启动/PAUSED。默认MC保持，后续Pro平台须逐维度同输入证明；手机/Windows/VM、本轮真实评论软阈值、图片云链/来源自动触发、长视频质量及远端OTA原生链仍有缺口。重要历史时点与首次失败保存在E25–E31及CHANGELOG，不把旧阶段候选状态当当前事实。
 
 ## 4. 项目地图
 
@@ -56,7 +58,7 @@
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/pro-platforms-bbbda8cfbc3c878d/ | 当前已采用工作台源码快照；工作树HEAD不是运行版本 |
+| .crowd-launch/runtime-revisions/media-attachments-d7444a26e03de2ad/ | 当前已采用工作台源码快照；工作树HEAD不是运行版本 |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -72,10 +74,10 @@
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | 03a38fe | OTA70已发布；其他未提交资产保持 |
-| crowd-kol | 功能提交23f7ae4 | 86/字幕窄修/中文UI/评论软阈值已正式采用；Git远端23f7ae4实际核同SHA，live非作者独核通过，其他未提交资产保持 |
+| crowd-kol | 媒体功能c425fd9；测试db58009 | 正式runtime见E32；微博executor/adapter/test三文件下一候选未采用，其他未提交资产保持 |
 | crowd-pages | b6be7cd | 签名OTA70；固定ZIP提交2992d9ffc5388453ead9af0d1641af9da908a4f9；helper工具已发布 |
 
-以上HEAD本轮实际读取。运行源码以第3节当前增量及E31采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+以上HEAD本轮实际读取。运行源码以第3节当前增量及E32采用冻结为准，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -94,12 +96,12 @@
 
 | ID/优先级 | 问题、证据与影响 | 解决所需证据 |
 |---|---|---|
-| R1–R4 | 本机68→69→70已过，本机70/另一原节点仍69各有准确release摘要；完整登录恢复/真实评论休眠分页及远端原生连续链未全验 | 保持原任务、同账号，以原ID继续/准确partial/ACK证明，不新建任务制造成功 |
+| R1–R4 | 本机68→69→70已过，fresh两原节点均70/同release摘要且各有完成事件；完整登录恢复/真实评论休眠分页及远端原生连续链仍未全验 | 保持原任务、同账号，以原ID继续/准确partial/ACK证明，不新建任务制造成功 |
 | D1 | 槽释放、原ID交付恢复、Owner入口已上线；当前无真实坏组可验 | 实际defer→原ID ACK→finish链；不人为破坏用户数据充当验收 |
 | D2–D3 | 机器中央phase/Pro保存页/ACK已部署并source0实证；MC原生逐页、通用参与者派单及supervisor child PID/预算标记时间仍不完整 | 任意任务两节点不重复领取、完整中央来源至ACK时间线 |
 | D4–D7 | 用户中台恢复、克隆身份围栏、跨任务去重和并发仍未全验 | 同UID不清outbox恢复、双节点epoch竞态、失败隔离与受控并发 |
-| Pro接入 | 原XHS本人self已通过，e7真实正文/94评论、三导出/95云ACK独审，软阈值/86状态已采用；临时Signer已停。图片真实下载失败、无字节/云保存；其他平台Pro合同未补齐，B站旧两样本非同输入 | 当前图片安全诊断/字节/云合同，同输入其他平台完整字段、分页回复、媒体、导出与逐条回执；不以工具测试替代真实成功 |
-| 审查容量 | 3名独审代理本轮多次返回模型容量错误 | 不改用未经要求的新模型、不把未出结论的检查算通过；接续已有审查工件 |
+| Pro接入 | 原XHS本人self已通过，e7真实正文/94评论、三导出/95云ACK独审，软阈值/86状态已采用；临时Signer已停。图片新显式代理通路已取得同字节、工作台读取/导出/浏览器下载通过；图片云合同仍缺。微博executor候选未采用，其他平台Pro合同未补齐，B站旧两样本非同输入 | 图片云合同/自动来源触发，同输入其他平台完整字段、分页回复、媒体、导出与逐条回执；不以工具测试替代真实成功 |
+| 审查容量 | 历史有模型容量错误；本轮已完成媒体/五库/导出/OTA独审，WB正式接线新批审查继续，无新外部服务凭据接入 | 后续仍须非作者实际审查，不能把未出结论算通过或自行改模型 |
 | 全端及质量 | Windows/VM/mobile、全评论媒体字幕、ASR质量和48h未全验 | 分OS/平台/维度的真实证据，不以Mac样本外推 |
 
 
@@ -109,7 +111,7 @@
 
 安全起步：读取源码/文档、uname/pwd/git status/log、SHA比对、既存脱敏证据；用已授权连接器执行明确只读查询。测试先审其副作用。不要为了核验调用claim/start/finish/arm，或启动会自动执行任务的服务。
 
-下一步：先读E31的真实XHS来源、冻结rev72导出与95云交付、评论阈值修复及正式采用；非作者live/原始ACK独核已通过，接着修现存XHS媒体诊断与字节链路，随后按优先矩阵推进其他Pro平台同输入正文/分页/媒体/导出。不得重建e7/95云任务或重发OTA；原任务恢复与MC原引擎逐页仍要单独验。不得重建未知任务、重复扫码或把批次上限称全量完成。证据及发现见E25–E27与本轮日志。
+下一步：先读E32正式附件采用、真实本机HTTP/浏览器下载与73导出及OTA fresh证据，不重做这些实验；优先补微博executor候选独审与明确flag接入，定位原浏览器/持久登录后同输入真实正文/根回复分页/媒体/导出/云回执。并行补图片正式私有云合同和自动来源附件流程；原任务恢复、MC来源逐页中央监控、其他平台/OS及远端原生OTA仍要独立验。不重建未知任务、不重复扫码、不把整页软阈值称全量或硬20。
 
 
 ## 9. 维护与共享
