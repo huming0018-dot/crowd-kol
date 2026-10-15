@@ -984,6 +984,10 @@ def import_output(root,payload):
     s=status(root,payload)
     if s['state'] not in FINAL: fail('run_not_finished')
     manifest=read(run/'manifest.json')
+    from pro_startup_import import failed_before_source
+    try: startup_failed=failed_before_source(run,manifest,s)
+    except (ValueError,OSError,sqlite3.Error): fail('startup_failure_evidence_invalid')
+    if startup_failed is not None:return startup_failed
     if s['state']=='interrupted_unknown':
         session=Path(root).resolve()/'sessions'/uid(manifest['request']['session_id'])
         with open(session/'active.lock','a+') as lock:
