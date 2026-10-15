@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E53为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E54为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -377,3 +377,12 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 
 | E53G | RUN16/bili-native-credential-diagnostics/{FREEZE.json,INDEPENDENT-FINAL.json,INDEPENDENT-COOKIE-METADATA.json,MODE-RISK-EVIDENCE.json,OFFLINE-RESULT.json}；native-account-diagnostic-ui/independent-central/FINAL.json；native-profile-guard-adoption/{runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json} | 5663三生产止损在Bili凭据读取的read/collect两入口profileIO或spawn前拒未验证模式，安全native诊断与UI分离未用Bridge。非作者86a3/d67a及实际481989ec通过，五库当前备份/166保护/6＋19＋9＋3保持，不把此前合法状态变化说成raw从未变。源码7b3f已推/远端同。CookieDB当前0/mtime1792102016.584独核，未读值；19before无可复核固化原件，mock/basic机制疑点非删除因果 |
 | E53C | RUN16/bili-browser-reuse-readonly/{FINAL.json,PROCESS-LISTENERS.json,LOCAL-CONNECTION-METADATA.json,OWNER-CANDIDATES.PRIVATE.json}；pro-bridge-bili-local-wbi/受控测试原件 | Chrome69991/9222只读定位，root一次既有browser_candidates仍pending/0targets/未导入/未绑定，未证明同原Bili账号；仅Bridge安全状态元信息，不读Cookies/新权限。Bridge→同navWBI→媒体替代尚候选，受控HTTP6/三导出不是新来源/ACK。本人Chrome连接确认待回复 |
+
+| E54C | RUN16/bili-existing-cdp/FREEZE.json 9ed7068；independent-root/FINAL.json 2b3c（全SHA见原件），最终*-NETGUARD.log、SHARED-PIPE-FINAL.log | CDP组件非作者重放8+3+6，严格同会话绑定/私FD/同主体；随后合入E54A正式组合，06:36:24原9222请求expired/0target/未导入/未绑定，未重连。首fixture可能合成nav尝试未取证，不删历史 |
+| E54B | RUN16/pro-bridge-bili-local-wbi/FREEZE.json 1a4d；independent-central/FINAL.json 35a38；原SDK场景输出与三格式导出 | 成熟Bridge+同nav WBI+原MC媒体候选28单元/9整链非作者通过；旧未配置Bridge沿旧Signer；随后合入E54A正式组合，不代表当前真实Bili登录或来源通过 |
+| E54L | RUN16/account-request-diagnostics/FREEZE.json dac07；independent-review/FINAL.json 66d；HTTP7.log/ADDITIONAL4.log | 非作者真实Handler7+恶意4通过，有限安全错误日志/失败保400/不改CSRF；随后合入E54A本机采用，不定位旧400未知原因 |
+| E54X | RUN16/xhs-restore-readonly/METADATA-1792103734319105000.json；RUN16/HANDOFF-E53-PUBLISH-RECEIPT.json | 06:35:34原71456同profile/Bridge连接，participant登记缺失；旧self与缓存超时，不读Cookie值或新self。E53文档c9e4e06实际push0/远端同；新E54候选未发布 |
+
+| E54M | RUN16/bili-safe-combined/FREEZE.json 7a39；independent-root/FINAL.json 8d4318；bili-browser-reuse-readonly/OWNER-CANDIDATES-RECHECK.json | root非作者源码/冻结及33unit/5UI通过，central关键11原SDK整链/legacy/UI亦通过；作者33/19为支持证据，不能冒全部19均由非作者新重放。06:36:24原请求expired/0target/no credentials/未绑定，不沿旧pending措辞推断当前状态 |
+
+| E54A | RUN16/bili-connection-runtime-adoption/RUNTIME-FREEZE.json e9058a37；runtime-adoption/ADOPTED.json；bili-safe-combined/independent-central/FINAL.json 1aeada93b33b | 实际10723/bili-safe-6af67806-c1c8eee2/旧5663停；非作者现场independent/ACTUAL-RUNTIME-FINAL.json 99f988通过十精确/435其他/fullset、五库/170/当前6+24+9+3、idle/pending0、Edge35/26及三个RPC保持，无续采表。SOURCE-PUBLISH-RECEIPT.json实证efc4eb75 push0/远端同/父c9e；不是新真实self/source/ACK |

@@ -345,3 +345,12 @@
 - 数据及因果：CookieDB当前0条/mtime1792102016.584已独立只读元数据核验，无Cookie值。早前19尚无可复核before固化证据，不能声称19→0或删除因果已证；实际bundled mock/basic启动参数只构成机制疑点/时间关联。停止继续开原profile试旗；先匹配原持久浏览器凭据模式，成熟Bridge/CDP优先。
 - 当前候选：Bridge→同次navWBI→原MC媒体仅受控6HTTP/三导出通过，未正式/未新sourceACK。Chrome69991/9222找到，root一次现成browser_candidates仍pending/0targets/credentials_imported=false/未绑定，已请本人确认连接；不能当已登录或同主体证明。
 - 遗留与下一步：完成成熟连接的官方同主体后才审原任务剩11，不重试旧未知/新diagnostic，不新增任务扩额。云DDL授权pending、WB29ACK/剩9、ZH停止12/12/0ACK、本机71/全端/48h未过、watchdog暂停保持。证据E53/E53R/E53G/E53C。
+
+## 2026-10-16 06:49 CST｜E54 安全复用组合正式采用，真实连接与采集未验收
+
+- **目标与改动**：在保留Bili原生资料模式IO前禁用的前提下，接入显式existing_cdp、成熟Bridge同次nav本地WBI、媒体身份上下文与有限账号请求错误日志/UI；默认MC及WB/ZH既有能力保持。没有重置身份、预算、旧任务或UNKNOWN，未修改中央SQL/Edge。
+- **分工与验证**：native_diagnostics_review实现CDP，root非作者2b3c重放8边界+3私FD清理+6原SDK恢复；native_diagnostics实现Bridge/WBI及兼容组合，central非作者35a38复核组件、关键11原SDK组合整链与legacy/UI；root非作者8d4318另核33unit/5UI与源码全差异。日志由native_diagnostics_review非作者66d重放真实Handler7+恶意4。作者最终33unit/19场景作为支持证据，不冒全部19均由非作者新重放。
+- **正式采用及现场**：root唯一采用十运行文件到10723/bili-safe-6af67806-c1c8eee2，旧5663正常停，运行冻结e9058a37。central非作者06:48:26现场99f988核10精确+435其他/fullset、五库schema/raw等实际备份、170保护、当前6身份+24产物（19导出+5Bili）+9WB+3ZH保持；idle/alive/pending0/defaultMC，Edge35全26模块/三个RPC保持，无续采表。账号当前基线包含已知诊断与native绑定变化，不倒填旧77f/8b05一直未变。
+- **代码版本与发布**：十源码efc4eb75f927f2857c26b409741b4d53a899f52f已push0/远端同，父c9e4e06；证据bili-connection-runtime-adoption/SOURCE-PUBLISH-RECEIPT.json。E54三MD本身仍待root非作者复核及精确发布，发布状态以HANDOFF-E54-PUBLISH-RECEIPT.json为准；不以源码已推代替文档已发。
+- **重要失败与经验**：原400 UNKNOWN和本轮已知诊断失败保持。CDP首SDK fixture仅patch httpx导出而未强制底层，可能尝试公共nav（仅合成Cookie、是否发出未取证），原件保留；修正后父/私FD子/媒体子强制最低层合成HTTP并物理禁止INET/DNS，最终受控用例0尝试。不能声称整轮零网络，也不能据元数据0行断言本人登出或Cookie删除因果。Bili native模式禁用仍在，不再开原profile试参数。
+- **真实边界及下一步**：无新增真实self/source/ACK。原Bili paused/spent1of12/reserved0/ACK0；云DDL批准pending、WB29ACK/剩9、ZH stopped12/12/0ACK、watchdog暂停、48h未启。06:36:24原9222连接请求expired/0target/未导入/未绑定，未重连，等待本人确认后由root匹配原浏览器和官方同主体，再审原task剩11有界采集与正文/评论分页/媒体/三导出/真实云回执。06:35:34原XHS71456同profile/Bridge连接，但participant缺失、缓存与旧self过期，不叫参与者恢复或71已采用。
