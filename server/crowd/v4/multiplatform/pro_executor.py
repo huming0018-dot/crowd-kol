@@ -170,7 +170,7 @@ def binding_for(root, request):
         m.fail('pro_account_binding_required')
     value = m.read(path)
     if isinstance(value,dict) and set(value)=={'platform','provider'} and value.get('provider')=='native_persistent':
-        if value.get('platform') not in ('wb','zhihu') or request['platform']!=value.get('platform'):m.fail('pro_native_provider_platform_unsupported')
+        if value.get('platform') not in ('wb','zhihu','bili') or request['platform']!=value.get('platform'):m.fail('pro_native_provider_platform_unsupported')
         return value
     if not isinstance(value, dict) or set(value) != {'platform', 'client_id', 'cookiebridge_url', 'sign_url'} or value.get('platform') != request['platform']:
         m.fail('pro_account_binding_invalid')
@@ -946,6 +946,7 @@ def execute(run, manifest, *, mc_root=None):
     native_steps = NativeSteps(run, manifest['run_id'], request['platform'])
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
     account_hook=None
+    bili_wbi=None
     from pro_media_integration import MediaStage
     media_stage=MediaStage(request)
     execution_deadline=time.monotonic()+request['timeout_seconds']
@@ -979,8 +980,18 @@ def execute(run, manifest, *, mc_root=None):
             if native_provider and request['platform']=='zhihu':
                 config.SIGN_SRV_HOST,config.SIGN_SRV_PORT='127.0.0.1','8990'
             import httpx
+            if native_provider and request['platform']=='bili':
+                from pro_bili_wbi import BiliWbi
+                from pkg.rpc.sign_srv_client import SignServerClient
+                try:bili_wbi=BiliWbi(run,request,sink);bili_wbi.install(SignServerClient);media_stage.bili_wbi=bili_wbi
+                except ValueError:
+                    sink.update(phase='failed',failure_reason='pro_bili_wbi_unavailable');raise SystemExit(86) from None
             def observe_response(response):
                 if account_hook:account_hook.observe_response(response)
+                if bili_wbi:
+                    try:bili_wbi.observe(response)
+                    except ValueError:
+                        sink.update(phase='failed',failure_reason='pro_bili_wbi_unavailable');raise SystemExit(86) from None
                 media_stage.observe(response)
             debit = install_transport_limits(httpx, request, sink, observe_response, native_steps=native_steps)
             # SignSrv uses aiohttp, so include those attempts in the same fixed budget.
@@ -988,9 +999,9 @@ def execute(run, manifest, *, mc_root=None):
             install_aio_transport(aiohttp, request, debit, native_steps, sink)
             from pkg.account_pool.pool import AccountPoolManager
             if native_provider:
-                if request['platform'] not in ('wb','zhihu'):raise SystemExit(78)
+                if request['platform'] not in ('wb','zhihu','bili'):raise SystemExit(78)
                 from pro_native_credentials import install_native_account
-                install_native_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,run=run,sink=sink,**({'platform':'zhihu'} if request['platform']=='zhihu' else {}))
+                install_native_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,run=run,sink=sink,**({'platform':request['platform']} if request['platform']!='wb' else {}))
             else:
                 install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx,sink=sink)
             if request['platform']=='zhihu':
@@ -1091,6 +1102,7 @@ def execute(run, manifest, *, mc_root=None):
         sink.update(phase='failed', failure_reason=str(exc) if isinstance(exc, m.BridgeError) else 'pro_executor_error')
         raise SystemExit(74)
     finally:
+        if bili_wbi is not None:bili_wbi.restore()
         if pagination_hook is not None:pagination_hook.restore()
         if account_hook is not None:account_hook.restore()
         finished.set()

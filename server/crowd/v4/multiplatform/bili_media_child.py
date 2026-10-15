@@ -5,9 +5,10 @@ from types import SimpleNamespace
 from pro_hybrid_media import bili_view
 
 class EmptyBrowserStorage:
+ def __init__(self,storage=None):self.storage={} if storage is None else storage
  async def evaluate(self,script):
   if script!='() => window.localStorage':raise ValueError('media_browser_call_forbidden')
-  return {}  # Original client then obtains WBI keys through its guarded official nav.
+  return dict(self.storage)  # Native Bili receives only this run's verified public keys.
 
 class Quiet:
  def write(self,s):return len(s)
@@ -77,7 +78,20 @@ async def execute_payload(payload,*,client_factory=None):
  if folder.exists() and any(folder.rglob('*')):raise ValueError('hybrid_media_output_not_empty')
  ledger=RunRequestBudget(run/'request-budget.json',rid,payload['request_hash'],request['max_api_requests'])
  sink=ProgressSink(run,manifest);sink.attempts=ledger.snapshot()['used']
- install_hybrid_transport_limits(httpx,requests,aiohttp,request,sink,ledger)
+ storage=None
+ native=manifest.get('executor',{}).get('binding',{}).get('provider')=='native_persistent'
+ if native:
+  from bili_wbi_context import validate
+  storage=validate(payload.get('wbi_context'),run,manifest)
+  class GuardedBudget:
+   def debit(self,stage):
+    validate(payload.get('wbi_context'),run,manifest)
+    return ledger.debit(stage)
+  budget=GuardedBudget()
+ else:
+  if 'wbi_context' in payload:raise ValueError('hybrid_media_wbi_context_invalid')
+  budget=ledger
+ install_hybrid_transport_limits(httpx,requests,aiohttp,request,sink,budget)
  config.ENABLE_GET_MEDIA=True;config.CRAWLER_MAX_SLEEP_SEC=0
  config.SAVE_DATA_PATH=str(run/'output');config.PLATFORM='bili'
  m.configure_executor(config,request)
@@ -85,7 +99,7 @@ async def execute_payload(payload,*,client_factory=None):
  m.configure_platform_hooks(upstream,request)
  headers=payload.get('headers',{})
  if not isinstance(headers,dict) or set(headers)-{'Cookie','User-Agent','Referer'} or any(not isinstance(v,str) or '\n' in v or '\r' in v for v in headers.values()):raise ValueError('hybrid_media_headers_invalid')
- crawler=BilibiliCrawler();crawler.bili_client=(client_factory or BilibiliClient)(headers=headers,playwright_page=EmptyBrowserStorage(),cookie_dict={})
+ crawler=BilibiliCrawler();crawler.bili_client=(client_factory or BilibiliClient)(headers=headers,playwright_page=EmptyBrowserStorage(storage),cookie_dict={})
  with contextlib.redirect_stdout(Quiet()),contextlib.redirect_stderr(Quiet()):
   await crawler.download_media(view,asyncio.Semaphore(1))
  assets=verify_assets(run,view,request)

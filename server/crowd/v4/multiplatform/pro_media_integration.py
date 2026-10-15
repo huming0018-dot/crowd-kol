@@ -6,7 +6,7 @@ from pro_media_parent import BiliDetailObserver,run_media_child
 class MediaStage:
  def __init__(self,request):
   self.enabled=request.get('source_executor')=='pro' and request.get('media') is True
-  self.view=BiliDetailObserver();self.headers={}
+  self.view=BiliDetailObserver();self.headers={};self.bili_wbi=None
  def observe(self,response):
   if not self.enabled:return
   self.view.observe(response)
@@ -45,7 +45,8 @@ class MediaStage:
   mc_root=Path(mc_root);python=mc_root/'.venv/bin/python'
   if not mc_root.is_absolute() or not mc_root.is_dir() or not python.is_file():raise ValueError('hybrid_media_runtime_unavailable')
   import shared_request_budget
-  result=run_media_child(run,note,view,headers,python=python,mc_root=mc_root,
+  context=self.bili_wbi.media_context() if self.bili_wbi is not None else None
+  result=run_media_child(run,note,view,headers,python=python,mc_root=mc_root,wbi_context=context,
    runtime_root=Path(__file__).parent,budget_module_root=Path(shared_request_budget.__file__).parent,timeout=remaining)
   if result.get('state')!='completed':raise ValueError('hybrid_media_partial')
   return result

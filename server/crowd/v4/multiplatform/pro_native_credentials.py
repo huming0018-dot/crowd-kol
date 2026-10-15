@@ -1,4 +1,4 @@
-"""WB/Zhihu original persistent context -> private pipe -> original Pro account pool.
+"""WB/Zhihu/Bili original persistent context -> private pipe -> original Pro account pool.
 No browser is launched on import. Never log or persist credential values.
 """
 import asyncio,contextlib,fcntl,json,os,re,signal,stat,sys,threading,hashlib,subprocess,time,ctypes,errno
@@ -8,7 +8,7 @@ LIMIT=65536
 FRAME_LIMIT=262144
 MC_CONVERTER_SHA256='edd893fa76bf44173705b69882946ed7acee0613761424518cfc455598170494'
 class CredentialError(ValueError):pass
-SCOPES={'wb':('wb_bridge_profile','https://m.weibo.cn/',frozenset(('weibo.cn','m.weibo.cn'))),'zhihu':('zhihu_bridge_profile','https://www.zhihu.com/',frozenset(('zhihu.com','www.zhihu.com')))}
+SCOPES={'bili':('bili_bridge_profile','https://www.bilibili.com/',frozenset(('bilibili.com','www.bilibili.com'))),'wb':('wb_bridge_profile','https://m.weibo.cn/',frozenset(('weibo.cn','m.weibo.cn'))),'zhihu':('zhihu_bridge_profile','https://www.zhihu.com/',frozenset(('zhihu.com','www.zhihu.com')))}
 def scope_for(platform):
  if not isinstance(platform,str) or platform not in SCOPES:raise CredentialError('native_provider_session_invalid')
  return SCOPES[platform]

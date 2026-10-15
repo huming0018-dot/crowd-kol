@@ -1,4 +1,4 @@
-"""Bili Pro login-only official proof. No browser, source task, or credential persistence."""
+"""Bili Pro login-only official proof. No interactive browser, source task, or credential persistence. Native mode uses the existing offline private-FD provider."""
 import argparse,asyncio,contextlib,fcntl,io,json,os,stat,subprocess,sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -10,11 +10,12 @@ class Quiet(io.TextIOBase):
  def write(self,value):return len(value)
  def flush(self):pass
 
-def launch(store,session_id,platform,recovery):
+def launch(store,session_id,platform,recovery,*,mc_root=None):
  if platform!='bili':raise ValueError('pro_self_check_unsupported')
  from pro_executor import task_installation,binding_for
  request={'source_executor':'pro','platform':platform,'session_id':session_id}
- installed=task_installation(store.collector_root,request);binding_for(store.collector_root,request)
+ installed=task_installation(store.collector_root,request);bound=binding_for(store.collector_root,request)
+ if bound.get('provider')=='native_persistent' and mc_root is None:raise ValueError('native_provider_mc_missing')
  session,_=store._session(session_id,platform)
  fd=os.open(session/'active.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW|os.O_NONBLOCK,0o600)
  try:
@@ -33,13 +34,13 @@ def launch(store,session_id,platform,recovery):
   env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1','ENABLE_LOG_FILE':'false'}
   child=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
                          pass_fds=(fd,),start_new_session=True,env=env)
-  try:child.stdin.write(json.dumps({'installed':installed,'recovery':recovery}).encode());child.stdin.close()
+  try:child.stdin.write(json.dumps({'installed':installed,'recovery':recovery,**({'mc_root':str(mc_root)} if mc_root is not None else {})}).encode());child.stdin.close()
   except (BrokenPipeError,OSError):raise ValueError('pro_login_outcome_unknown') from None
   result=store._update(session_id,platform,lambda v:v.update(login_worker_pid=child.pid))
   return {**result,'source_collection_started':False,'browser_started':False}
  finally:os.close(fd)
 
-async def verify(store,session_id,recovery,installed,diagnostic=None):
+async def verify(store,session_id,recovery,installed,diagnostic=None,*,mc_root=None):
  """Called only inside isolated owned child; true SDK loader/pong, two fixed requests."""
  from account_sessions import safe_account_ref
  from pro_executor import binding_for,install_bound_account,probe
@@ -56,6 +57,8 @@ async def verify(store,session_id,recovery,installed,diagnostic=None):
   return d.get('pending_run_id')==recovery['run_id'] and type(d.get('generation')) is int and d['generation']==expected['generation'] and d.get('account_ref')==expected['account_ref']
  if not baseline():raise VerificationFailure('account_context_changed')
  bound=binding_for(store.collector_root,{'platform':'bili','session_id':session_id})
+ native_provider=bound.get('provider')=='native_persistent'
+ if native_provider and mc_root is None:raise VerificationFailure('native_provider_mc_missing')
  probe(installed['root']);sys.path.insert(0,installed['root'])
  os.environ['ENABLE_LOG_FILE']='false'
  counts={'bridge':0,'official_self':0};proof=('check_failed',None)
@@ -77,9 +80,9 @@ async def verify(store,session_id,recovery,installed,diagnostic=None):
   async def send(client,request,*a,**kw):
    nonlocal proof
    cancelled()
-   u=urlsplit(str(request.url));b=urlsplit(bound['cookiebridge_url'])
+   u=urlsplit(str(request.url));b=None if native_provider else urlsplit(bound['cookiebridge_url'])
    if request.method!='GET' or u.username or u.password or u.fragment:raise VerificationFailure('endpoint_forbidden')
-   bridge=(u.scheme==b.scheme and u.hostname==b.hostname and u.port==b.port and u.path==b.path.rstrip('/')+'/api/cookies/bili'
+   bridge=(not native_provider and u.scheme==b.scheme and u.hostname==b.hostname and u.port==b.port and u.path==b.path.rstrip('/')+'/api/cookies/bili'
            and list(request.url.params.multi_items())==[('client_id',bound['client_id'])])
    official=(u.scheme=='https' and u.hostname=='api.bilibili.com' and u.port in (None,443)
              and u.path=='/x/web-interface/nav' and not u.query)
@@ -108,7 +111,10 @@ async def verify(store,session_id,recovery,installed,diagnostic=None):
    return response
   httpx.AsyncClient.__init__,httpx.AsyncClient.send=init,send
   try:
-   install_bound_account(AccountPoolManager,bound,'bili',httpx)
+   if native_provider:
+    from pro_native_credentials import install_native_account
+    install_native_account(AccountPoolManager,store.collector_root,session_id,mc_root,platform='bili')
+   else:install_bound_account(AccountPoolManager,bound,'bili',httpx)
    pool=AccountWithIpPoolManager('bili','cookie_bridge',proxy_ip_pool=None)
    await pool.load_accounts_from_cookie_bridge()
    native=BilibiliClient(account_with_ip_pool=pool)
@@ -117,7 +123,7 @@ async def verify(store,session_id,recovery,installed,diagnostic=None):
   finally:
    httpx.AsyncClient.__init__,httpx.AsyncClient.send=old_init,old_send
    AccountPoolManager.load_accounts_from_cookie_bridge=old_loader
- if counts!={'bridge':1,'official_self':1} or success is not True or proof[0]!='authenticated':
+ if counts!={'bridge':0 if native_provider else 1,'official_self':1} or success is not True or proof[0]!='authenticated':
   if proof[0]=='logged_out':store.observe(session_id,'bili','logged_out',recovery['run_id'],_expected_context=expected)
   raise VerificationFailure('official_logout' if proof[0]=='logged_out' else 'official_check_failed')
  cancelled()
@@ -141,7 +147,7 @@ def main():
  diagnostic={'method':'pro_official_self','phase':'checking','bridge_requests':0,'official_self_requests':0}
  try:
   payload=json.loads(sys.stdin.buffer.read(32769))
-  asyncio.run(asyncio.wait_for(verify(store,a.session_id,payload['recovery'],payload['installed'],diagnostic),25))
+  asyncio.run(asyncio.wait_for(verify(store,a.session_id,payload['recovery'],payload['installed'],diagnostic,**({'mc_root':payload['mc_root']} if 'mc_root' in payload else {})),25))
  except BaseException as e:
   # Never echo raw SDK errors, URLs, cookies, response text, subject or account hashes.
   code=e.reason if isinstance(e,VerificationFailure) else 'bridge_unavailable' if isinstance(e,SystemExit) and e.code==86 else 'verification_failed'

@@ -528,7 +528,7 @@ class Application:
                 store=AccountSessions(matches[0])
                 if source_executor=='pro' and platform=='bili':
                     from pro_login_recovery import launch
-                    return launch(store,session_id,platform,recovery)
+                    return launch(store,session_id,platform,recovery,mc_root=self.mc_root)
                 if source_executor not in ('mc','pro'):raise ValueError('invalid_source_executor')
                 return store.open_login(session_id,platform,self.mc_root,_recovery=recovery)
             return self.cloud_worker.recover_cloud_login(payload['task_id'],payload['child_id'],

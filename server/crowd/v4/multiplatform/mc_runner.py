@@ -677,7 +677,7 @@ def worker(root, mc, run_id, lock_fd):
             and progress.get('failure_reason') == 'discovery_empty_or_unavailable'):
         reason='discovery_empty_or_unavailable'
     if reason is None and code==74 and progress.get('failure_reason') in ('pro_pagination_cursor_stalled','native_source_persistence_failed'):reason=progress['failure_reason']
-    if reason is None and code==86 and progress.get('failure_reason')=='pro_cookiebridge_unavailable':reason='pro_cookiebridge_unavailable'
+    if reason is None and code==86 and progress.get('failure_reason') in ('pro_cookiebridge_unavailable','pro_native_credentials_unavailable','pro_bili_wbi_unavailable'):reason=progress['failure_reason']
     state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed',79:'rate_limited',80:'captcha_required',81:'platform_blocked',82:'platform_signature_rejected',84:'pro_self_check_unsupported',85:'pro_pending_run_resolution_required',86:'pro_login_verification_failed',87:'pro_content_access_denied'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
     write(run/'status.json',state)
     os.close(lock_fd)

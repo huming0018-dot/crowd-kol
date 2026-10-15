@@ -23,7 +23,7 @@ class BiliDetailObserver:
   view=self.views.get(note.get('bvid'))
   return bili_view(note,{'View':view})
 
-def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budget_module_root,timeout=600):
+def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budget_module_root,timeout=600,wbi_context=None):
  """Caller validates pinned paths and request budget before this explicit action.
  No task creation, browser startup or CookieBridge request. Credentials in pipe only.
  """
@@ -38,6 +38,11 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
   child=Path(__file__).with_name('wb_media_child.py')
  else:
   bili_view(note,response)
+  native=manifest.get('executor',{}).get('binding',{}).get('provider')=='native_persistent'
+  if native:
+   from bili_wbi_context import validate
+   validate(wbi_context,run,manifest)
+  elif wbi_context is not None:raise ValueError('hybrid_media_wbi_context_invalid')
   child=Path(__file__).with_name('bili_media_child.py')
  env=os.environ.copy()
  for k in ('PYTHONHOME','NODE_OPTIONS','NODE_PATH','CROWD_EXECUTOR','CROWD_PRO_WEIBO_ENABLED'):env.pop(k,None)
@@ -46,6 +51,7 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
  fd=os.open(run/'hybrid-media-dispatch.json',os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600)
  with os.fdopen(fd,'w') as f:json.dump({'run_id':run.name,'request_hash':request_fingerprint(request),'retry_unknown_forbidden':True},f)
  payload={'run':str(run.resolve()),'note':note,'response':response,'headers':headers,'request_hash':request_fingerprint(request)}
+ if wbi_context is not None:payload['wbi_context']=wbi_context
  if threading.current_thread() is not threading.main_thread():raise ValueError('hybrid_media_main_thread_required')
  process=None;prior_handler=signal.getsignal(signal.SIGTERM)
  def stop_group():
