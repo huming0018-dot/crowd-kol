@@ -625,4 +625,83 @@ class UpstreamLifecycleTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.closed,1)
 
 
+
+class CursorPageContracts(unittest.TestCase):
+    def setUp(self):
+        from pro_cursor_pages import CursorPagination
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.run=Path(self.temp.name)
+        self.manifest={'run_id':str(uuid.uuid4()),'request':{'platform':'xhs','replies':True,'max_comments':20}}
+        self.observer=CursorPagination(self.run,self.manifest,pro)
+    def test_xhs_hex_identity_and_uncommitted_empty_terminal(self):
+        page=self.observer.record('root','note',[],{'cursor':'end','has_more':False},'')
+        self.assertTrue(page['saved']);self.assertFalse(page['checkpoint_committed']);self.assertFalse(page['invalid'])
+        model=SimpleNamespace(comment_id='6ac45853000000000d028c01',sub_comment_count='0')
+        page=self.observer.record('root','note',[model],{'cursor':'next','has_more':False},'')
+        self.assertEqual(page['ids'],[model.comment_id]);self.assertFalse(page['invalid'])
+    def test_stalled_page_is_precise_partial_not_byte_exit(self):
+        from pro_cursor_pages import CursorStalled
+        with self.assertRaises(CursorStalled):self.observer.record('root','note',[],{'cursor':'','has_more':True},'')
+        self.assertTrue(m.read(self.run/'pro-pagination.json')['pages'][0]['stalled'])
+        self.assertFalse(m.read(self.run/'pro-pagination.json')['pages'][0]['checkpoint_committed'])
+        self.assertNotIsInstance(CursorStalled(),SystemExit)
+    def test_native_integer_cursor_does_not_accept_boolean(self):
+        from pro_cursor_pages import cursor,more
+        self.assertIsNone(cursor(True,'dy'));self.assertIsNone(cursor('1','dy'))
+        self.assertEqual(cursor(0,'dy'),0);self.assertFalse(more(0));self.assertTrue(more(1));self.assertIsNone(more('1'))
+    def test_budget_and_cancel_propagate_without_observed_page(self):
+        from pro_cursor_pages import CursorPagination
+        async def store(comments):pass
+        async def commit(*args,**kwargs):return True
+        for exception in (SystemExit(73),asyncio.CancelledError()):
+            class Client:
+                async def get_note_comments(self,note_id,cursor='',xsec_token=''):raise exception
+                async def get_note_sub_comments(self,note_id,root_comment_id,num=10,cursor='',xsec_token=''):raise exception
+            observer=CursorPagination(self.run,self.manifest,pro)
+            observer.install(Client,SimpleNamespace(batch_update_xhs_note_comments=store),type('Manager',(),{'update_note_comment_cursor':commit}))
+            with self.assertRaises(type(exception)):asyncio.run(Client().get_note_comments('note'))
+            self.assertFalse(observer.pages)
+    def test_save_failure_keeps_original_page_unsaved(self):
+        from pro_cursor_pages import CursorPagination
+        model=SimpleNamespace(comment_id='6ac45853000000000d028c01',sub_comment_count='0')
+        class Client:
+            async def get_note_comments(self,note_id,cursor='',xsec_token=''):return [model],{'comments':[],'cursor':'end','has_more':False}
+            async def get_note_sub_comments(self,*args,**kwargs):raise AssertionError('unused')
+        async def save(comments):raise RuntimeError('write_failed')
+        async def commit(*args,**kwargs):raise AssertionError('must not commit')
+        observer=CursorPagination(self.run,self.manifest,pro);store=SimpleNamespace(batch_update_xhs_note_comments=save)
+        observer.install(Client,store,type('Manager',(),{'update_note_comment_cursor':commit}))
+        async def check():
+            await Client().get_note_comments('note')
+            with self.assertRaisesRegex(RuntimeError,'write_failed'):await store.batch_update_xhs_note_comments([model])
+        asyncio.run(check());self.assertFalse(m.read(self.run/'pro-pagination.json')['pages'][0]['saved'])
+
+
+class BoundedExitContracts(unittest.IsolatedAsyncioTestCase):
+    async def test_deliberate_source_exits_preserve_original_object(self):
+        from pro_cursor_pages import CursorStalled
+        for error in (SystemExit(73),SystemExit(77),CursorStalled()):
+            async def source(*args):raise error
+            with patch.object(pro,'run_upstream',source),self.assertRaises(type(error)) as caught:
+                await pro.run_upstream_bounded(SimpleNamespace(),1)
+            self.assertIs(caught.exception,error)
+    async def test_timeout_cancels_same_source_and_closes(self):
+        closed=[]
+        async def source(*args):
+            try:await asyncio.sleep(60)
+            finally:closed.append(True)
+        with patch.object(pro,'run_upstream',source),self.assertRaises(TimeoutError):
+            await pro.run_upstream_bounded(SimpleNamespace(),.01)
+        self.assertEqual(closed,[True])
+    async def test_cancellation_is_not_relabelled_as_process_exit(self):
+        closed=[]
+        async def source(*args):
+            try:await asyncio.sleep(60)
+            finally:closed.append(True)
+        with patch.object(pro,'run_upstream',source):
+            task=asyncio.create_task(pro.run_upstream_bounded(SimpleNamespace(),10))
+            await asyncio.sleep(.01);task.cancel()
+            with self.assertRaises(asyncio.CancelledError):await task
+        self.assertEqual(closed,[True])
+
 if __name__ == '__main__': unittest.main()

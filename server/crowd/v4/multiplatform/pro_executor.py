@@ -20,6 +20,8 @@ import threading
 import time
 from urllib.parse import urlsplit
 
+from pro_cursor_pages import CursorStalled
+
 PROTOCOL = 'vox-acquisition-v1'
 PINNED_COMMIT = 'd32dd565277116ba4880c28ccd417a7c376cb62d'
 SUPPORTED = ('xhs', 'dy', 'bili')
@@ -279,7 +281,7 @@ def import_records(run, manifest):
                 'cloud_ack': False, 'raw_response_pages_available': False,
                 'pagination_evidence': 'upstream_checkpoint_only',
                 'media_evidence': 'references_only_no_download_or_transcript'}
-    if p == 'bili':
+    if p in SUPPORTED:
         evidence['pagination'] = pagination_summary(run, manifest)
     return records, media, evidence
 
@@ -347,6 +349,9 @@ def pinned_ids(value):
 
 def pagination_summary(run, manifest):
     """Coverage evidence is separate from upstream commit and cloud delivery."""
+    if manifest['request']['platform'] in ('xhs','dy'):
+        import pro_cursor_pages
+        return pro_cursor_pages.summary(run,manifest,sys.modules[__name__])
     unknown = {'coverage': 'unknown', 'reason': 'pagination_evidence_missing'}
     path = Path(run)/'pro-pagination.json'
     if not path.exists():
@@ -593,7 +598,7 @@ class ProgressSink:
     def isatty(self): return False
 
 
-def install_transport_limits(httpx, request, sink):
+def install_transport_limits(httpx, request, sink, self_observer=None):
     """Count every attempt including CookieBridge/signing; stop before overflow."""
     original_async, original_sync = httpx.AsyncClient.send, httpx.Client.send
     original_bytes = httpx.Response.aiter_bytes
@@ -605,6 +610,7 @@ def install_transport_limits(httpx, request, sink):
         sink.attempts += 1
         sink.update()
     def check_response(response):
+        if self_observer is not None:self_observer(response)
         if response.status_code in (401, 403): raise SystemExit(77)
         if response.status_code == 429: raise SystemExit(79)
         if request.get('platform') == 'xhs':
@@ -683,6 +689,16 @@ async def run_upstream(upstream):
                     raise
 
 
+async def run_upstream_bounded(upstream,timeout):
+    # Carry deliberate process exits out of wait_for's child task before raising.
+    async def attempt():
+        try:return True,await run_upstream(upstream)
+        except (SystemExit,CursorStalled) as error:return False,error
+    succeeded,value=await asyncio.wait_for(attempt(),timeout=timeout)
+    if not succeeded:raise value
+    return value
+
+
 def execute(run, manifest):
     """Runs in the runner-owned child process, never in the dashboard process."""
     m = bridge()
@@ -701,6 +717,7 @@ def execute(run, manifest):
                       SAVE_DATA_OPTION='db', ACCOUNT_POOL_SAVE_TYPE='cookie_bridge', ENABLE_LOG_FILE='false')
     sink = ProgressSink(run, manifest)
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
+    account_hook=None
     finished = threading.Event()
     def watch_parent():
         while not finished.wait(.5):
@@ -724,7 +741,7 @@ def execute(run, manifest):
             sign = urlsplit(selected['binding']['sign_url'])
             config.SIGN_SRV_HOST, config.SIGN_SRV_PORT = sign.hostname, str(sign.port)
             import httpx
-            debit = install_transport_limits(httpx, request, sink)
+            debit = install_transport_limits(httpx, request, sink, lambda response: account_hook.observe_response(response) if account_hook else None)
             # SignSrv uses aiohttp, so include those attempts in the same fixed budget.
             import aiohttp
             old_aio = aiohttp.ClientSession._request
@@ -745,25 +762,48 @@ def execute(run, manifest):
                 from repo.platform_save_data import bilibili as store
                 from repo.checkpoint.checkpoint_store import CheckpointRepoManager
                 BiliPagination(run, manifest).install(client_type, store, CheckpointRepoManager)
-            original_pong = client_type.pong
-            async def checked_pong(client, *a, **kw):
-                result = await original_pong(client, *a, **kw)
-                if not result: raise SystemExit(77)
-                sink.update(account_state='ready', account_identity_status='native_validated_bound_client')
-                return result
-            client_type.pong = checked_pong
+            elif request['platform'] in ('xhs','dy') and request['comments']:
+                from pro_cursor_pages import CursorPagination
+                store=importlib.import_module('repo.platform_save_data.'+('xhs' if request['platform']=='xhs' else 'douyin'))
+                from repo.checkpoint.checkpoint_store import CheckpointRepoManager
+                CursorPagination(run,manifest,sys.modules[__name__]).install(client_type,store,CheckpointRepoManager)
+            from pro_account_sessions import install_pro_account_hooks
+            def account_event(account_state,account):
+                unsupported=account.get('identity_status')=='pro_self_check_unsupported'
+                phase='failed' if unsupported else 'waiting_login' if account_state in ('logged_out','waiting_login','identity_unverified','account_changed','check_failed') else 'running'
+                fields={'phase':phase,'account_state':account_state,
+                        'account_generation':account.get('generation',0),
+                        'account_identity_status':account.get('identity_status','unverified')}
+                if unsupported:fields['failure_reason']='pro_self_check_unsupported'
+                sink.update(**fields)
+            from account_sessions import AccountSessions
+            prior_account=AccountSessions(run.parent.parent).status(request['session_id'],request['platform'])
+            if prior_account.get('pending_run_id') not in (None,manifest['run_id']) and not prior_account.get('account_ref'):
+                sink.update(phase='failed',account_state='identity_unverified',account_identity_status='baseline_unverified',
+                            failure_reason='pro_pending_run_resolution_required')
+                raise SystemExit(85)
+            account_hook=install_pro_account_hooks(run.parent.parent,request['session_id'],request['platform'],
+                manifest['run_id'],account_event,httpx,client_type)
             sys.argv = [str(root/'main.py'), *argv_for(request)]
-            asyncio.run(asyncio.wait_for(run_upstream(upstream), timeout=request['timeout_seconds']))
+            asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
             sink.update(**result)
+    except CursorStalled:
+        sink.update(phase='failed',failure_reason='pro_pagination_cursor_stalled')
+        raise SystemExit(74)
     except (ModuleNotFoundError, ImportError):
         sink.update(phase='failed', failure_reason='dependency_missing')
         raise SystemExit(72)
-    except SystemExit:
+    except SystemExit as error:
+        if error.code==77:
+            progress=m.safe_phase_progress(run)
+            if isinstance(progress,dict) and progress.get('account_identity_status')=='pro_self_check_unsupported':
+                raise SystemExit(84)
         raise
     except Exception as exc:
         sink.update(phase='failed', failure_reason=str(exc) if isinstance(exc, m.BridgeError) else 'pro_executor_error')
         raise SystemExit(74)
     finally:
+        if account_hook is not None:account_hook.restore()
         finished.set()

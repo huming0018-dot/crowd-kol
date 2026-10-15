@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import resource
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -580,6 +581,27 @@ def stop(root,payload):
     context=stop_context(run)
     return {**s,'stop_requested':True,'stop_context':context,'stop_origin':context['origin']}
 
+def safe_phase_progress(run):
+    """Read small diagnostics without trusting their type or suppressing child exits."""
+    path=Path(run)/'phase.json'
+    limit=1024*1024
+    try:
+        # Nonblocking avoids FIFO hangs; fstat and NOFOLLOW close symlink/type races.
+        fd=os.open(path,os.O_RDONLY|os.O_NONBLOCK|os.O_NOFOLLOW)
+        with os.fdopen(fd,'rb') as stream:
+            info=os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size>limit:
+                return {'phase_observation_error':'unsafe_phase_file'}
+            data=stream.read(limit+1)
+            if len(data)>limit:return {'phase_observation_error':'unsafe_phase_file'}
+            value=json.loads(data)
+            if isinstance(value,dict):return value
+    except FileNotFoundError:
+        return {}
+    except (OSError,ValueError,TypeError,RecursionError):
+        pass
+    return {'phase_observation_error':'phase_unreadable'}
+
 def worker(root, mc, run_id, lock_fd):
     run = run_dir(root,run_id)
     manifest = read(run/'manifest.json')
@@ -607,7 +629,7 @@ def worker(root, mc, run_id, lock_fd):
                 os.killpg(child.pid,signal.SIGKILL)
                 child.wait()
             break
-        progress = read(run/'phase.json') if (run/'phase.json').exists() else {'phase':'running','api_attempts':0}
+        progress = safe_phase_progress(run)
         active_state=progress.get('phase') if progress.get('phase') in ('running','waiting_login','login_required','collecting','comments','media') else 'running'
         state.update(progress, state=active_state, updated_at=time.time())
         write(run/'status.json',state)
@@ -617,14 +639,17 @@ def worker(root, mc, run_id, lock_fd):
         context=stop_context(run);reason=context['reason'];state.update(stop_context=context,stop_origin=context['origin'])
     elif time.monotonic()-started>p['timeout_seconds'] and reason is None: reason='wall_timeout'
     final = 'stopped' if (run/'stop.json').exists() else 'login_required' if code in (77,78) else 'completed' if code==0 and not reason else 'failed'
-    progress = read(run/'phase.json') if (run/'phase.json').exists() else {}
+    progress = safe_phase_progress(run)
     state.update(progress)
+    if reason is None and code==0 and progress.get('phase_observation_error'):
+        reason='phase_observation_failed';final='failed'
     if (reason is None and code == 74 and p.get('mode') in ('homefeed','trending')
             and progress.get('failure_type') == 'DiscoveryUnavailable'
             and progress.get('failure_stage') == 'homepage_observation'
             and progress.get('failure_reason') == 'discovery_empty_or_unavailable'):
         reason='discovery_empty_or_unavailable'
-    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed',79:'rate_limited',80:'captcha_required',81:'platform_blocked',82:'platform_signature_rejected'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
+    if reason is None and code==74 and progress.get('failure_reason')=='pro_pagination_cursor_stalled':reason='pro_pagination_cursor_stalled'
+    state.update(state=final,phase=final,reason=reason or {0:'executor_finished',72:'dependency_missing',73:'api_request_limit',74:'executor_error',76:'response_byte_limit',77:'login_required',78:'account_changed',79:'rate_limited',80:'captcha_required',81:'platform_blocked',82:'platform_signature_rejected',84:'pro_self_check_unsupported',85:'pro_pending_run_resolution_required'}.get(code,'executor_error'),exit_code=code,updated_at=time.time(),coverage='unverified')
     write(run/'status.json',state)
     os.close(lock_fd)
 

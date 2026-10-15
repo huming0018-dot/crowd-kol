@@ -193,6 +193,7 @@ class AccountSessions:
             if run_id and event in ('checking', 'logged_out', 'waiting_login', 'check_failed'):
                 value['pending_run_id'] = run_id
             if event != 'authenticated':
+                value.pop('unverified_account_ref', None)
                 value.update(login_verified=False, verified_at=0, authorized_for_run=None)
             if event == 'checking':
                 value['recovering'] = value.get('recovering') or value['state'] in ('logged_out', 'waiting_login', 'identity_unverified', 'account_changed', 'check_failed')
@@ -206,6 +207,7 @@ class AccountSessions:
                 return
             value.pop('login_error_code', None)
             value.pop('browser_connection_error', None)
+            value.pop('unverified_account_ref', None)
             previous = value.get('account_ref')
             if previous and account_ref and previous != account_ref:
                 generation = value.get('generation', 0) + (value.get('candidate_account_ref') != account_ref)
@@ -219,6 +221,10 @@ class AccountSessions:
                 value.update(state='account_changed', authorized_for_run=None)
                 return
             if value.get('recovering') and (not previous or not account_ref):
+                if account_ref:
+                    value['unverified_account_ref'] = account_ref
+                else:
+                    value.pop('unverified_account_ref', None)
                 value.update(state='identity_unverified', authorized_for_run=None,
                              identity_status='same_account_confirmation_required', login_verified=True,
                              verified_at=time.time())
@@ -237,16 +243,27 @@ class AccountSessions:
         status = self.status(session_id)
         if type(expected_generation) is not int or confirm_same_account is not True:
             raise ValueError('explicit_same_account_confirmation_required')
+        expired = False
         def change(value):
+            nonlocal expired
             if value.get('generation') != expected_generation:
                 raise ValueError('account_generation_changed')
             if value['state'] != 'identity_unverified' or not value.get('login_verified'):
                 raise ValueError('account_confirmation_not_available')
             if time.time() - value.get('verified_at', 0) > 180:
-                raise ValueError('account_login_check_stale')
+                value.pop('unverified_account_ref', None)
+                value.update(login_verified=False, verified_at=0, authorized_for_run=None)
+                expired = True
+                return
+            pending_ref = value.pop('unverified_account_ref', None)
+            if pending_ref:
+                value['account_ref'] = pending_ref
             value.update(state='resumed', identity_status='manually_confirmed_same_account',
                          recovering=False, authorized_for_run=value.get('pending_run_id'))
-        return self._update(session_id, status['platform'], change)
+        result = self._update(session_id, status['platform'], change)
+        if expired:
+            raise ValueError('account_login_check_stale')
+        return result
 
     def accept_account_switch(self, session_id, expected_generation, acknowledge_new_scope=False):
         status = self.status(session_id)

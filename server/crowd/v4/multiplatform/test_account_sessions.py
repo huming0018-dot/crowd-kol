@@ -154,7 +154,7 @@ class AccountTests(unittest.TestCase):
                 self.assertIsNone(checked['authorized_for_run'])
                 confirmed = self.store.confirm_same_account(self.sid, 0, True)
                 self.assertEqual(confirmed['generation'], 0)
-                self.assertIsNone(confirmed.get('account_ref'))
+                self.assertEqual(confirmed.get('account_ref'), __import__('account_sessions').safe_account_ref('wb', account_id))
                 self.assertEqual(confirmed['identity_status'], 'manually_confirmed_same_account')
                 self.assertEqual(confirmed['authorized_for_run'], self.rid)
 
@@ -169,6 +169,9 @@ class AccountTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'account_login_check_stale'):
                 self.store.confirm_same_account(self.sid, recovered['generation'], True)
         self.assertIsNone(self.store.status(self.sid)['authorized_for_run'])
+        self.assertFalse(self.store.status(self.sid)['login_verified'])
+        self.store.observe(self.sid, 'wb', 'checking')
+        recovered = self.store.observe(self.sid, 'wb', 'authenticated')
         confirmed = self.store.confirm_same_account(self.sid, recovered['generation'], True)
         self.assertEqual(confirmed['authorized_for_run'], self.rid)
 
