@@ -7,14 +7,14 @@ async function rpc(backend,actor,workerHash,action,payload){
  if(response.error)throw new Error(ERRORS.has(response.error.message)?response.error.message:'backend_unavailable');
  return response.data;
 }
-async function bucket(backend,create=false){
+async function bucket(backend,create=false,requireAudio=false){
  let response=await backend.storage.getBucket(MEDIA_BUCKET);
  if(response.error&&create){
   const made=await backend.storage.createBucket(MEDIA_BUCKET,{public:false,fileSizeLimit:MEDIA_LIMIT,allowedMimeTypes:['video/mp4']});
   if(made.error)throw new Error('media_storage_unavailable');
   response=await backend.storage.getBucket(MEDIA_BUCKET);
  }
- assert(!response.error&&response.data?.id===MEDIA_BUCKET&&response.data.public===false&&Number(response.data.file_size_limit)===MEDIA_LIMIT&&Array.isArray(response.data.allowed_mime_types)&&(response.data.allowed_mime_types.length===1&&response.data.allowed_mime_types[0]==='video/mp4'||response.data.allowed_mime_types.length===4&&['video/mp4','image/jpeg','image/png','image/webp'].every(m=>response.data.allowed_mime_types.includes(m))),'media_storage_unavailable');
+ assert(!response.error&&response.data?.id===MEDIA_BUCKET&&response.data.public===false&&Number(response.data.file_size_limit)===MEDIA_LIMIT&&Array.isArray(response.data.allowed_mime_types)&&(response.data.allowed_mime_types.length===1&&response.data.allowed_mime_types[0]==='video/mp4'||[4,5].includes(response.data.allowed_mime_types.length)&&['video/mp4','image/jpeg','image/png','image/webp'].every(m=>response.data.allowed_mime_types.includes(m))&&(response.data.allowed_mime_types.length===4||response.data.allowed_mime_types.includes('audio/mp4')))&&(!requireAudio||response.data.allowed_mime_types.includes('audio/mp4')),'media_storage_unavailable');
 }
 function storageURL(backend,value,path,kind){
  const base=new URL(backend.storage.url),url=new URL(value);
@@ -43,7 +43,7 @@ export async function handleMedia(action,input,backend,actor,workerHash,fetcher=
  if(action==='media_storage_init'){assert(actor==='owner'&&input&&typeof input==='object'&&!Array.isArray(input)&&Object.keys(input).length===0,'principal_denied');await bucket(backend,true);return {bucket_id:MEDIA_BUCKET,public:false,file_size_limit:MEDIA_LIMIT};}
  const payload=action==='media_prepare'?await mediaManifest(input):mediaID(input);
  const row=await rpc(backend,actor,workerHash,action==='media_prepare'?'media_prepare':'media_lookup',payload);
- await bucket(backend);
+ await bucket(backend,false,row.manifest?.manifest_version===3);
  if(action==='media_prepare'){
   if(row.state==='ready')return {artifact_id:row.artifact_id,state:'ready',manifest_hash:row.manifest_hash,receipt:row.receipt,replayed:row.replayed};
   const signed=await backend.storage.from(MEDIA_BUCKET).createSignedUploadUrl(row.object_path,{upsert:false});

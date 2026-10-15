@@ -43,12 +43,24 @@ def _identity(run_folder,content_id,asset_sha256,entity_ref,*,native_asr=False,n
     if len({canonical(r) for r in chosen})!=1:raise ValueError('media_native_source_ambiguous')
     body=chosen[0];origin=body.get('origin',{});file_sha=origin.get('file_sha256')
     if body['kind']=='dynamic' and platform!='bilibili':raise ValueError('media_native_identity_invalid')
-    if body.get('record_hash')!=hashlib.sha256(record_canonical({k:v for k,v in body.items() if k not in ('record_hash','discovery_kind')}).encode()).hexdigest():raise ValueError('media_native_identity_invalid')
-    if origin.get('run_id')!=run_id or not isinstance(file_sha,str) or not HEX.fullmatch(file_sha):raise ValueError('media_native_identity_invalid')
-    sources=[r for r in normalized.get('files',[]) if isinstance(r,dict) and r.get('sha256')==file_sha]
-    if len(sources)!=1:raise ValueError('media_native_source_ambiguous')
-    source_path=_relative(run_folder,sources[0].get('path'))
-    if source_path.suffix!='.jsonl' or hashlib.sha256(read_bytes(source_path,50*1024*1024)).hexdigest()!=file_sha:raise ValueError('media_native_asset_changed')
+    if manifest.get('executor',{}).get('backend')=='pro':
+        if platform!='bilibili' or body['kind']!='content' or origin.get('executor')!='mediacrawler_pro' or origin.get('run_id')!=run_id or origin.get('operation_id')!=run_id:
+            raise ValueError('media_native_identity_invalid')
+        observation_sha=origin.get('observation_sha256')
+        if not isinstance(observation_sha,str) or not HEX.fullmatch(observation_sha):raise ValueError('media_native_identity_invalid')
+        # Original Pro observation is authoritative; never pretend it is an MC JSONL file.
+        from pro_executor import observations,import_records
+        matches=[row for kind,entity,row in observations(run_folder,manifest) if kind=='topic' and hashlib.sha256(record_canonical(row).encode()).hexdigest()==observation_sha]
+        originals,_,_=import_records(run_folder,manifest)
+        expected=[r for r in originals if r.get('kind')=='content' and r.get('content_id')==content_id]
+        if len(matches)!=1 or len(expected)!=1 or canonical(expected[0])!=canonical(body):raise ValueError('media_native_asset_changed')
+    else:
+        if body.get('record_hash')!=hashlib.sha256(record_canonical({k:v for k,v in body.items() if k not in ('record_hash','discovery_kind')}).encode()).hexdigest():raise ValueError('media_native_identity_invalid')
+        if origin.get('run_id')!=run_id or not isinstance(file_sha,str) or not HEX.fullmatch(file_sha):raise ValueError('media_native_identity_invalid')
+        sources=[r for r in normalized.get('files',[]) if isinstance(r,dict) and r.get('sha256')==file_sha]
+        if len(sources)!=1:raise ValueError('media_native_source_ambiguous')
+        source_path=_relative(run_folder,sources[0].get('path'))
+        if source_path.suffix!='.jsonl' or hashlib.sha256(read_bytes(source_path,50*1024*1024)).hexdigest()!=file_sha:raise ValueError('media_native_asset_changed')
     media=[r for r in normalized.get('media',[]) if isinstance(r,dict) and r.get('platform')==platform and r.get('content_id')==content_id and r.get('sha256')==asset_sha256]
     if len(media)!=1:raise ValueError('media_native_source_ambiguous')
     item=media[0];ctype=body.get('content_type') if platform=='zhihu' else None

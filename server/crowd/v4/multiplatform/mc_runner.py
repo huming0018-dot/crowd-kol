@@ -668,7 +668,7 @@ def execute(root, mc, run_id):
     manifest = read(run/'manifest.json')
     if manifest.get('executor',{}).get('backend')=='pro':
         from pro_executor import execute as execute_pro
-        return execute_pro(run,manifest)
+        return execute_pro(run,manifest,mc_root=mc)
     p = manifest['request']
     os.chdir(run)
     sys.path.insert(0,str(Path(mc).resolve()))
@@ -1052,6 +1052,9 @@ def import_output(root,payload):
                 artifact_bytes+=size
                 if len(artifacts)>=1000 or size>26214400 or artifact_bytes>104857600: fail('wordcloud_artifact_limit')
                 artifacts.append({'kind':'wordcloud_image' if path.suffix=='.png' else 'word_frequency','path':str(path.relative_to(run)),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':size,'source_kind':'derived_local','status':'generated_by_external_executor'})
+    if manifest.get('executor',{}).get('backend')=='pro' and manifest['request'].get('media'):
+        from pro_media_integration import annotate_import
+        annotate_import(run,manifest,media)
     discovery = read(run/'discovery.json') if (run/'discovery.json').is_file() else None
     from discovery import SUPPORT as discovery_support
     discovery_version = manifest.get('discovery_contract_version')

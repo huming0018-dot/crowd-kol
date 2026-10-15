@@ -38,15 +38,27 @@ def bridge():
     return mc_runner
 
 
+def supports_bili_audio_request(request):
+    """Exact first fully wired media scope; activation requires cloud/adoption gates."""
+    options=request.get('platform_options')
+    return (request.get('platform')=='bili' and request.get('mode')=='detail'
+            and type(request.get('max_items')) is int and request['max_items']==1
+            and request.get('media') is True and request.get('wordcloud',False) is False
+            and isinstance(options,dict) and set(options)=={'quality','long_audio'}
+            and type(options.get('quality')) is int and options['quality']==16
+            and options.get('long_audio') is True)
+
+
 def explicit_unsupported(request):
     """Explicit task engines never silently substitute a different collector."""
     if request.get('platform') not in NATIVE_SUPPORTED:
         return 'pro_operation_platform_not_adapted'
     if request.get('mode') not in ('search','detail','creator'):
         return 'pro_mode_unsupported'
-    if request.get('media'):
+    audio_supported=supports_bili_audio_request(request)
+    if request.get('media') and not audio_supported:
         return 'pro_media_pipeline_unavailable'
-    if request.get('wordcloud') or request.get('platform_options'):
+    if request.get('wordcloud') or request.get('platform_options') and not audio_supported:
         return 'pro_options_unsupported'
     if request.get('comments') and request.get('max_comments') == 0:
         return 'pro_zero_comments_means_unlimited'
@@ -345,6 +357,11 @@ def import_records(run, manifest):
                 'cloud_ack': False, 'raw_response_pages_available': False,
                 'pagination_evidence': 'upstream_checkpoint_only',
                 'media_evidence': 'references_only_no_download_or_transcript'}
+    if manifest['request'].get('media') and manifest['request'].get('source_executor')=='pro':
+        from pro_media_integration import summary
+        result=summary(run,manifest)
+        evidence['media_evidence']='hybrid_result_verified_at_import' if result else 'hybrid_missing_or_failed_source_preserved'
+        evidence['media_state']=result['state'] if result else 'failed_or_unknown'
     if p in SUPPORTED:
         evidence['pagination'] = pagination_summary(run, manifest)
     return records, media, evidence
@@ -665,18 +682,33 @@ class ProgressSink:
     def isatty(self): return False
 
 
-def install_transport_limits(httpx, request, sink, self_observer=None):
+def install_transport_limits(httpx, request, sink, self_observer=None, debit_callback=None):
     """Count every attempt including CookieBridge/signing; stop before overflow."""
     original_async, original_sync = httpx.AsyncClient.send, httpx.Client.send
     original_bytes = httpx.Response.aiter_bytes
     total = 0
+    shared=None
+    if request.get('source_executor') == 'pro' and debit_callback is None:
+        from shared_request_budget import RunRequestBudget,request_fingerprint
+        shared=RunRequestBudget(sink.run/'request-budget.json',sink.manifest['run_id'],request_fingerprint(request),request['max_api_requests'],create=True)
+        sink.attempts=shared.snapshot()['used']
     def debit():
+        if debit_callback is not None:
+            return debit_callback()
+        if shared is not None:
+            try:sink.attempts=shared.debit('pro')
+            except SystemExit:
+                sink.update(phase='stopping',failure_reason='api_request_limit');raise
+            sink.update();return sink.attempts
         if sink.attempts >= request['max_api_requests']:
             sink.update(phase='stopping', failure_reason='api_request_limit')
             raise SystemExit(73)
         sink.attempts += 1
         sink.update()
     def check_response(response):
+        if (shared is not None or debit_callback is not None) and type(response.status_code) is int and 300<=response.status_code<=399:
+            from shared_request_budget import BudgetError
+            raise BudgetError('request_budget_redirect_forbidden')
         if self_observer is not None:self_observer(response)
         if response.status_code in (401, 403): raise SystemExit(77)
         if response.status_code == 429: raise SystemExit(79)
@@ -694,11 +726,13 @@ def install_transport_limits(httpx, request, sink, self_observer=None):
         if request.get('platform') == 'dy' and getattr(response, 'text', None) == 'blocked':
             raise SystemExit(81)
     async def send(client, *a, **kw):
+        if shared is not None or debit_callback is not None:kw['follow_redirects']=False
         debit()
         response = await original_async(client, *a, **kw)
         check_response(response)
         return response
     def sync(client, *a, **kw):
+        if shared is not None or debit_callback is not None:kw['follow_redirects']=False
         debit()
         response = original_sync(client, *a, **kw)
         check_response(response)
@@ -766,7 +800,7 @@ async def run_upstream_bounded(upstream,timeout):
     return value
 
 
-def execute(run, manifest):
+def execute(run, manifest, *, mc_root=None):
     """Runs in the runner-owned child process, never in the dashboard process."""
     m = bridge()
     run = Path(run).resolve()
@@ -785,6 +819,9 @@ def execute(run, manifest):
     sink = ProgressSink(run, manifest)
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
     account_hook=None
+    from pro_media_integration import MediaStage
+    media_stage=MediaStage(request)
+    execution_deadline=time.monotonic()+request['timeout_seconds']
     pagination_hook=None
     finished = threading.Event()
     def watch_parent():
@@ -811,13 +848,23 @@ def execute(run, manifest):
             sign = urlsplit(selected['binding']['sign_url'])
             config.SIGN_SRV_HOST, config.SIGN_SRV_PORT = sign.hostname, str(sign.port)
             import httpx
-            debit = install_transport_limits(httpx, request, sink, lambda response: account_hook.observe_response(response) if account_hook else None)
+            def observe_response(response):
+                if account_hook:account_hook.observe_response(response)
+                media_stage.observe(response)
+            debit = install_transport_limits(httpx, request, sink, observe_response)
             # SignSrv uses aiohttp, so include those attempts in the same fixed budget.
             import aiohttp
             old_aio = aiohttp.ClientSession._request
             async def bounded_aio(client, *a, **kw):
+                if request.get('source_executor') == 'pro':
+                    kw['allow_redirects']=False
+                    if hasattr(client,'_retry_connection'):client._retry_connection=False
                 debit()
-                return await old_aio(client, *a, **kw)
+                response=await old_aio(client, *a, **kw)
+                if request.get('source_executor') == 'pro' and type(response.status) is int and 300<=response.status<=399:
+                    from shared_request_budget import BudgetError
+                    raise BudgetError('request_budget_redirect_forbidden')
+                return response
             aiohttp.ClientSession._request = bounded_aio
             from pkg.account_pool.pool import AccountPoolManager
             install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx)
@@ -871,6 +918,16 @@ def execute(run, manifest):
             asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
+            # Preserve committed source before media: failed media still imports/ACKs source.
+            if media_stage.enabled:
+                sink.update(phase='running',media_stage='running',content_committed=True)
+                try:
+                    media_stage.run(run,manifest,observations(run,manifest),mc_root=mc_root,remaining=execution_deadline-time.monotonic())
+                except BaseException:
+                    try:sink.update(phase='failed',media_stage='failed_or_unknown',content_committed=True)
+                    except (OSError,ValueError):pass
+                    raise
+                sink.update(media_stage='completed',content_committed=True)
             sink.update(**result)
     except WeiboAdapterStop as error:
         sink.update(phase='failed',failure_reason=error.reason if re.fullmatch(r'wb_[a-z_]{1,80}',error.reason) else 'pro_weibo_pagination_partial',coverage='partial')

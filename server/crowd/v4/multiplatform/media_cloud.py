@@ -22,9 +22,31 @@ def _job_id(value):
     try:return uid(value)
     except Exception:raise ValueError('invalid_media_job_id') from None
 
-def _hash(value):
+def _object_contract(value):
+    if type(value.get('manifest_version')) is int and value['manifest_version']==3:
+        if (value.get('platform')!='bilibili' or value.get('content_kind')!='content'
+                or value.get('container')!='m4a' or value.get('representation')!='pro_collected_audio'
+                or value.get('audio_track_present') is not True or value.get('video_track_present') is not False
+                or value.get('idempotency_key')!='audio:'+str(value.get('local_job_id'))
+                or 'source_file_sha256' in value):raise ValueError('invalid_audio_manifest')
+        from audio_cloud import validate_audio_manifest
+        validate_audio_manifest(value)
+        return {'domain':'crowd-media-audio-v3','suffix':'.m4a','mime':'audio/mp4','artifact_kind':'audio_object'}
+    if 'audio_track_present' in value or value.get('content_mime')=='audio/mp4' or value.get('container')=='m4a':raise ValueError('invalid_audio_manifest')
     version=2 if type(value.get('manifest_version')) is int and value['manifest_version']==2 else 1
-    return hashlib.sha256((f'crowd-media-video-v{version}\n'+canonical(value)).encode()).hexdigest()
+    return {'domain':f'crowd-media-video-v{version}','suffix':'.mp4','mime':'video/mp4','artifact_kind':'video_object'}
+
+def _hash(value):
+    contract=_object_contract(value)
+    return hashlib.sha256((contract['domain']+'\n'+canonical(value)).encode()).hexdigest()
+def _read_journal(path):
+    value,digest=_read(path,1048576)
+    manifest=value.get('manifest',{}) if isinstance(value,dict) else {}
+    if type(manifest.get('manifest_version')) is int and manifest['manifest_version']==3:
+        _object_contract(manifest)
+        return value,digest
+    return _read(path,65536)  # Legacy video size/shape behavior stays unchanged.
+
 def _receipt_folder(jobs):
     folder=jobs.root.parent/'media-cloud-receipts';_safe_ancestors(folder);folder.mkdir(mode=0o700,exist_ok=True)
     if folder.stat().st_mode&0o077:raise ValueError('unsafe_media_cloud_file')
@@ -86,10 +108,10 @@ def _url(client,value,kind,receipt=None):
     return value
 
 def _receipt(response,payload):
-    r=response.get('receipt',{})
-    if r.get('artifact_kind')!='video_object' or r.get('status')!='received' or r.get('verification')!='server_storage_bytes_sha256' or r.get('reward_eligible') is not False or canonical(r.get('manifest'))!=canonical(payload) or r.get('manifest_hash')!=_hash(payload) or r.get('bucket_id')!='crowd-machine-media':raise ValueError('media_cloud_receipt_mismatch')
+    r=response.get('receipt',{});contract=_object_contract(payload)
+    if r.get('artifact_kind')!=contract['artifact_kind'] or r.get('status')!='received' or r.get('verification')!='server_storage_bytes_sha256' or r.get('reward_eligible') is not False or canonical(r.get('manifest'))!=canonical(payload) or r.get('manifest_hash')!=_hash(payload) or r.get('bucket_id')!='crowd-machine-media':raise ValueError('media_cloud_receipt_mismatch')
     aid=uid(r.get('artifact_id'))
-    if r.get('object_path')!='crowd-owner-main/'+aid+'/'+payload['asset_sha256']+'.mp4':raise ValueError('media_cloud_receipt_mismatch')
+    if r.get('object_path')!='crowd-owner-main/'+aid+'/'+payload['asset_sha256']+contract['suffix']:raise ValueError('media_cloud_receipt_mismatch')
     return r
 
 @contextmanager
@@ -112,10 +134,11 @@ def _publish_media_video(jobs,client,job_id,opener=None,binding=None):
     return _publish_prepared(jobs,client,payload,data,opener)
 
 def _publish_prepared(jobs,client,payload,data,opener=None):
+    contract=_object_contract(payload)
     job_id=_job_id(payload['local_job_id']);folder=_receipt_folder(jobs);path=folder/(job_id+'.json');_safe_ancestors(path)
     journal={'manifest':payload,'attempted':False,'endpoint_sha256':hashlib.sha256(client.endpoint.encode()).hexdigest()}
     if path.exists():
-        saved,_=_read(path,65536)
+        saved,_=_read_journal(path)
         if saved.get('endpoint_sha256')!=journal['endpoint_sha256'] or canonical(saved.get('manifest'))!=canonical(payload):raise ValueError('media_cloud_identity_mismatch')
         journal=saved
     prepared=client.call('media_prepare',payload);aid=uid(prepared.get('artifact_id'))
@@ -124,8 +147,8 @@ def _publish_prepared(jobs,client,payload,data,opener=None):
     except CloudError as error:
         if str(error)!='media_object_missing':raise
         if journal.get('attempted') is not False:raise ValueError('media_upload_outcome_unknown') from None
-        url=_url(client,prepared.get('upload_url'),'upload/sign',{'bucket_id':'crowd-machine-media','object_path':'crowd-owner-main/'+aid+'/'+payload['asset_sha256']+'.mp4'});journal={**journal,'artifact_id':aid,'attempted':True,'state':'uploading'};write(path,journal)
-        request=urllib.request.Request(url,data=data,method='PUT',headers={'Content-Type':'video/mp4','Content-Length':str(len(data)),'x-upsert':'false'})
+        url=_url(client,prepared.get('upload_url'),'upload/sign',{'bucket_id':'crowd-machine-media','object_path':'crowd-owner-main/'+aid+'/'+payload['asset_sha256']+contract['suffix']});journal={**journal,'artifact_id':aid,'attempted':True,'state':'uploading'};write(path,journal)
+        request=urllib.request.Request(url,data=data,method='PUT',headers={'Content-Type':contract['mime'],'Content-Length':str(len(data)),'x-upsert':'false'})
         opener=opener or urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
         try:
             with opener.open(request,timeout=120) as response:
@@ -140,24 +163,25 @@ def _publish_prepared(jobs,client,payload,data,opener=None):
     return {'ok':True,'receipt':receipt,'replayed':finished.get('replayed') is True,'source_requests':0,'model_calls':0}
 
 def download_media_video(jobs,client,job_id,opener=None):
-    job_id=_job_id(job_id);folder=_receipt_folder(jobs);saved,_=_read(folder/(job_id+'.json'),65536)
+    job_id=_job_id(job_id);folder=_receipt_folder(jobs);saved,_=_read_journal(folder/(job_id+'.json'))
     if saved.get('endpoint_sha256')!=hashlib.sha256(client.endpoint.encode()).hexdigest() or saved.get('manifest',{}).get('local_job_id')!=job_id:raise ValueError('media_cloud_identity_mismatch')
-    payload=saved['manifest'];receipt=_receipt({'receipt':saved.get('receipt')},payload)
+    payload=saved['manifest'];contract=_object_contract(payload);receipt=_receipt({'receipt':saved.get('receipt')},payload)
     response=client.call('media_get',{'artifact_id':receipt['artifact_id']});_receipt(response,payload);url=_url(client,response.get('download_url'),'sign',receipt)
     opener=opener or urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     try:
-        with opener.open(urllib.request.Request(url,headers={'Accept':'video/mp4'}),timeout=120) as stream:
+        with opener.open(urllib.request.Request(url,headers={'Accept':contract['mime']}),timeout=120) as stream:
             if stream.status!=200 or stream.headers.get('Content-Range'):raise ValueError('media_cloud_download_mismatch')
+            if contract['mime']=='audio/mp4' and str(stream.headers.get('Content-Type','')).split(';')[0].strip().lower()!='audio/mp4':raise ValueError('media_cloud_download_mismatch')
             data=stream.read(LIMIT+1)
     except (OSError,urllib.error.URLError):raise ValueError('media_cloud_download_failed') from None
     if len(data)!=payload['asset_bytes'] or hashlib.sha256(data).hexdigest()!=payload['asset_sha256']:raise ValueError('media_cloud_download_mismatch')
-    return {'data':data,'mime':'video/mp4','sha256':payload['asset_sha256'],'receipt':receipt}
+    return {'data':data,'mime':contract['mime'],'sha256':payload['asset_sha256'],'receipt':receipt}
 
 
 def media_video_cloud_status(jobs,client,job_id):
     job_id=_job_id(job_id);folder=_receipt_folder(jobs);path=folder/(job_id+'.json')
     if not path.exists():return {'state':'not_saved','receipt':None}
-    saved,_=_read(path,65536)
+    saved,_=_read_journal(path)
     if client is None or saved.get('endpoint_sha256')!=hashlib.sha256(client.endpoint.encode()).hexdigest() or saved.get('manifest',{}).get('local_job_id')!=job_id:raise ValueError('media_cloud_identity_mismatch')
     receipt=saved.get('receipt')
     if receipt is not None:return {'state':'received','receipt':_receipt({'receipt':receipt},saved['manifest'])}

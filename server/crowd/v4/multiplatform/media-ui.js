@@ -261,5 +261,33 @@ const mediaView = (() => {
     const ticket=nativeGeneration;if(!nativeCurrent(ticket)||nativeBusy||!nativeReceived)return;const expected={...nativeSelection};nativeBusy=true;nativeDownload.disabled=true;
     try{const response=await fetch('/api/media-processing',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({action:'native_video_cloud_file',payload:nativePayload()})});if(!response.ok)throw Error((await response.json()).error||'media_native_download_failed');const blob=await response.blob();if(!nativeCurrent(ticket))return;if(response.headers.get('X-Content-SHA256')!==expected.asset_sha256||blob.size!==expected.bytes)throw Error('media_native_download_mismatch');const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download='crowd-native-video-'+expected.content_id+'-'+expected.asset_sha256.slice(0,8)+'.mp4';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);nativeMessage.textContent='云端已采视频取回且字节校验通过；未验平台完整时长。';}catch(error){if(nativeCurrent(ticket))nativeMessage.textContent='回取未确认：'+error.message;}finally{if(nativeCurrent(ticket)){nativeBusy=false;nativeDownload.disabled=false;}}
   }
-  return {open,openSaved,openVideoOCR,retryVideoOCR,openVideo,cloudVideo};
+  const audioDialog=node('dialog'),audioTitle=node('h2','已采音轨云保存'),audioNote=node('p'),audioSave=button('保存音轨到私有云',()=>audioSaveNow()),audioGet=button('下载云端音轨',()=>audioDownloadNow());
+  audioDialog.setAttribute('aria-label','已采音轨云保存');audioDialog.append(audioTitle,node('p','保存已有 M4A 音轨，不重新采集、不伪装为视频。私有云限50MiB；字节回验不代表已听校或平台完整时长。'),audioNote,audioSave,audioGet,button('关闭音轨云保存',()=>audioDialog.close()));document.body.append(audioDialog);
+  let audioSelection=null,audioGeneration=0,audioBusy=false,audioReceived=false;
+  const audioCurrent=t=>audioDialog.open&&t===audioGeneration&&audioSelection?.run_id===idOf(selectedRun);
+  const audioPayload=()=>Object.fromEntries(['run_id','content_id','asset_sha256','entity_ref'].filter(k=>audioSelection[k]!==undefined).map(k=>[k,audioSelection[k]]));
+  audioDialog.addEventListener('close',()=>{audioGeneration++;});
+  function audioRender(value){
+    if(value.state==='received'){
+      const r=value.receipt,m=r?.manifest;
+      if(r?.artifact_kind!=='audio_object'||r.status!=='received'||r.verification!=='server_storage_bytes_sha256'||m?.manifest_version!==3||m.representation!=='pro_collected_audio'||m.container!=='m4a'||m.content_mime!=='audio/mp4'||m.audio_track_present!==true||m.video_track_present!==false||m.completeness!=='saved_asset_not_full_length_verified'||m.local_run_id!==audioSelection.run_id||m.platform!==audioSelection.platform||m.content_id!==audioSelection.content_id||m.asset_sha256!==audioSelection.asset_sha256||m.asset_bytes!==audioSelection.bytes||audioSelection.entity_ref&&m.entity_ref!==audioSelection.entity_ref)throw Error('音轨云回执与当前文件不一致');
+      audioReceived=true;audioNote.textContent='私有云已保存音轨 · 回执 '+String(r.artifact_id).slice(0,8)+'；未证明平台完整时长或转写质量。';
+    }else if(['not_saved','outcome_unknown'].includes(value.state)){audioReceived=false;audioNote.textContent=value.state==='outcome_unknown'?'上传结果待核对，只核对原对象，不重复上传。':'音轨尚未保存到私有云。';}else throw Error('音轨云状态无法识别');
+    audioSave.textContent=value.state==='outcome_unknown'?'核对原音轨上传结果':'保存音轨到私有云';audioSave.disabled=audioBusy||audioReceived;audioGet.hidden=!audioReceived;audioGet.disabled=audioBusy;
+  }
+  async function cloudAudio(file){
+    const ticket=++audioGeneration;audioBusy=false;audioReceived=false;audioSelection={run_id:idOf(selectedRun),content_id:file.content_id,platform:file.platform,asset_sha256:file.sha256,bytes:file.bytes,...(file.entity_ref?{entity_ref:file.entity_ref}:{})};audioSave.disabled=true;audioGet.hidden=true;audioDialog.showModal();
+    if(!contentRows(file).some(r=>r.origin?.executor==='mediacrawler_pro')||file.kind!=='audio'||file.platform!=='bilibili'||file.source_kind!=='mediacrawler_api'||!/\.m4a$/i.test(file.path||'')||!/^[a-f0-9]{64}$/.test(file.sha256)||!Number.isInteger(file.bytes)||file.bytes<=0||file.bytes>50*1048576){audioNote.textContent='不是可保存的 Pro B站 M4A 音轨，或超过50MiB；未上传。';return;}
+    audioNote.textContent='正在核对原任务、音轨身份和云回执…';
+    try{const result=await call('native_audio_cloud_status',audioPayload());if(audioCurrent(ticket))audioRender(result);}catch(error){if(audioCurrent(ticket))audioNote.textContent='暂不可保存：'+error.message;}
+  }
+  async function audioSaveNow(){
+    const ticket=audioGeneration;if(!audioCurrent(ticket)||audioBusy||audioReceived)return;audioBusy=true;audioSave.disabled=true;audioGet.disabled=true;audioNote.textContent='正在保存并核验原音轨…';
+    try{const value=await call('native_audio_cloud_save',audioPayload());if(audioCurrent(ticket))audioRender({state:'received',receipt:value.receipt});}catch(error){if(audioCurrent(ticket))audioNote.textContent='音轨云保存未确认：'+error.message;}finally{if(audioCurrent(ticket)){audioBusy=false;audioSave.disabled=audioReceived;audioGet.disabled=!audioReceived;}}
+  }
+  async function audioDownloadNow(){
+    const ticket=audioGeneration;if(!audioCurrent(ticket)||audioBusy||!audioReceived)return;const expected={...audioSelection};audioBusy=true;audioGet.disabled=true;
+    try{const response=await fetch('/api/media-processing',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({action:'native_audio_cloud_file',payload:audioPayload()})});if(!response.ok)throw Error((await response.json()).error||'音轨回取失败');const blob=await response.blob();if(!audioCurrent(ticket))return;if(response.headers.get('Content-Type')!=='audio/mp4'||response.headers.get('X-Content-SHA256')!==expected.asset_sha256||blob.size!==expected.bytes)throw Error('音轨回取字节不一致');const actual=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))).map(x=>x.toString(16).padStart(2,'0')).join('');if(!audioCurrent(ticket))return;if(actual!==expected.asset_sha256)throw Error('音轨回取摘要不一致');const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download='crowd-audio-'+expected.content_id+'-'+actual.slice(0,8)+'.m4a';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);audioNote.textContent='云端音轨已回取，实际文件摘要与原音轨一致。';}catch(error){if(audioCurrent(ticket))audioNote.textContent='音轨回取未完成：'+error.message;}finally{if(audioCurrent(ticket)){audioBusy=false;audioGet.disabled=!audioReceived;}}
+  }
+  return {open,openSaved,openVideoOCR,retryVideoOCR,openVideo,cloudVideo,cloudAudio};
 })();
