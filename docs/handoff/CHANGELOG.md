@@ -232,3 +232,38 @@
 - **部署/线上**：Edge30 ACTIVE实际26模块等审包，29仅两模块变；27475/task-executor-route-85e5f3863629e220唯一，旧21129停。五锁五库actualbackup及125资产守护、4源码/401其余/fullset与实际cloudidle已非作者核。原XHS连接/登记保持，未重发登录请求。
 - **业务验收限制**：只完成每任务路由，完整Pro媒体仍拒绝，未新建来源任务或上传。共享预算真实302漏扣、坏stage免扣阻断待修，不能以8测试通过替代；媒体V2仅受控SDK流程。
 - **下一步/证据**：E39实际报告、SOURCE-PUBLISH-RECEIPT、运行ADOPTED；修共享预算并组合媒体主调用，再同输入正文/分页/媒体/导出/云ACK。OTA71实际采用、全端/两设备/48h未全验，watchdog暂停。E39交接发布以HANDOFF-E39-PUBLISH-RECEIPT.json为准。
+
+
+## 2026-10-16 00:32 CST｜Pro Bili音轨组合正式采用，等待真实同输入验收
+- **接力者/分工**：central实现原MC媒体子进程；native实现预算/Pro组合并独审root Python音频/UI；root实现音频云合同/UI及部署/采用；native_diagnostics_review独审预算/child/组合/EdgeSQL/准备与实际现场，本轮三文档候选由其整理、root终审。
+- **实际改动/版本**：20自有源码+实际SQL迁移共21文件fa30b761cd38c2a0eff79518323a85171555eb98，push0及root实际ls-remote同SHA已记回执；默认MC/旧hash保持。仅显式Pro Bili/detail/单正文/media true/exact quality16+long_audio true放行；其他媒体选项不静默降级。
+- **问题/修复/复核**：真实302漏扣与坏stage免扣、进程组超时收尾、下载后校验不能冒充流限额、sourceCanonical域/投影作者字段、合法长正文整体10k误拒等已修并独审。65MiB流/101MiB输出、真实localhost、原SDK主链、三导出逐字段/hash、独立90k正文和226 PGlite/handler通过；合成音频不证明真实质量。
+- **部署/线上证据**：Edge31 ACTIVE，实际26模块/原image pins保持；SQL实际20261015162327、df30462a statement、RPCmd5 3d039b00cbf9cb4090a9dd92f1960409，serviceonly/私有50MiB五MIME。runtime34905/ff26、旧27475停；16文件/398其余/fullset/125保护/五库实际备份raw/schema、idle/alive/pending0均非作者现场核验，见E40。原XHS23266/Bridge保持，无本轮self/Cookie读取。
+- **未完成/下一步**：新Pro真实任务、正文/评论分页同输入与音轨质量、云音轨保存回取/逐条回执、Pro中央逐页仍未验。driver V1两阻断待已冻结V2非作者终审；旧8989 Bili signer只读复用审通过，root新生命周期已启动36429/nav0；未采新来源。root唯一新有界任务须新意图、不重发未知；signer额外nav1单列。原19/20/548/71缓存与watchdogPAUSED/48h未启保持。
+- **交接/发布**：E39实际已发布b9bce91并远端同SHA；本轮只准备固定3MD候选，不改正式docs、不包含Pro私码/凭据/PRIVATE。E40独审/发布状态以最终审查及HANDOFF-E40-PUBLISH-RECEIPT.json为准，未有回执不认定发布。
+
+## 2026-10-16 00:55 CST｜真实Pro新任务的断桥误报及原浏览器恢复
+- **接力者**：root实际GUI/Owner暂停/证据；native诊断分类、central启动保护及恢复入口；native_diagnostics_review非作者实机元信息与候选审查。
+- **实际状态**：driver V2独审通过后原3cda任务仅创建一次并自动领取，第一调用断于Bridge、原77记录保持，正文/评论/媒体/ACK均0。Owner暂停原task保留spent1/12，首次HTTP/业务响应未知不能回填。
+- **恢复及验证**：原资料GUI加载已授权组件，正常应用菜单退出38818后重开39840；非作者原登记/client seq1/连接持久性通过，Bili凭据及官方self尚未验证。先前cmdQ未退出不计重启成功。
+- **代码/部署**：Bili保护63项与Bridge分类8+2+47+77及6scope负例独审通过，但未采用。历史pending旧run阻断定位并在修；当前正式source fa30、runtime34905/ff26、Edge31/SQL162327保持。无重建身份/手改state/扩预算。
+- **下一步**：恢复入口独审、组合采用、同原task official同主体核验后剩11请求；正文/分页/音轨/导出/ACK逐项实证。48h/watchdog及OTA71边界保持。E40是00:32历史快照，E41覆盖其尚未创建/driver待审状态。发布以HANDOFF-E41-PUBLISH-RECEIPT.json为准。
+
+
+## 2026-10-16 01:44 CST｜E42 无浏览器Pro核验正式采用，原任务仍被Bridge101阻断
+- **接力者/分工**：central实现严格原任务恢复与Pro login-only SDK子进程；native诊断/实际协议与根因代码盘点；root GUI、唯一采用/官方核验/发布；native_diagnostics_review非作者代码/父子调用与实际五库现场审查。central仅整理本E42候选，root后续正式写入和发布。
+- **实际改动/版本**：先13文件1685f809正式采用42916，再6文件4881de95正式采用48081/pro-login-bili-2d3f94bb24f176c7，两源码push0/远端同SHA。默认MC、旧参与流程/评分/outbox/回执/OTA与Edge31/SQL162327保持；五库raw/schema实际备份、415其他源码/126配置资产和完整fileset非作者核过。
+- **发现/修复/复核**：早期断桥77没有新pending导致旧run授权，现从原中央waiting context推导exact scope，经官方同主体才授权；桥故障86不误称官方登出。独审pending竞态、坏shape、status77 scope、取消与诊断陈旧已修，原失败留存。Pro+Bili新恢复无需启动/关闭MC/Chrome；其他平台原登录恢复保持。
+- **真实结果及边界**：原API恢复原位绑定7f8，MC login-only历史一次取得官方200/code0并同主体授权，但后来原登记再次缺失；当前Pro真实只Bridge1/HTTP200/biz101、official0/check_failed，无正文评论媒体或ACK新增。原3cda仍paused/spent1/12/reserved0，新lease只能11；旧7f8/API1/77及首次HTTP未知保留，不新建任务或补写时间戳。
+- **根因/本人操作**：关闭顺序合成回放证明代码manager先退出，不能当实际Cookie丢失根因。原Chrome43833/window32276当前AX显示登录提示/QR，root已请求本人原账号登录；central仅只读复核，没有额外登录/来源/云操作。原窗口必须保持，当前待回复及官方Pro同主体证明。
+- **下一步**：条件变化后既有Pro后台恢复仅有界一次官方核验；成功后Owner继续原task，以continuation V3逐维度查新run/epoch、剩11、正文/评论分页/音轨/三导出/中央ACK，再私有音轨云保存回取独审。Owner后台提示7056已审未采用；旧cleanup5c50暂停。Pro中央来源逐页、OTA71真实采用、两设备/全端/48h尚缺；watchdog继续暂停。
+- **交接/发布**：在线正式入口此前最后E39，E40/E41是已审历史候选，本次合并更新第3/5/7/8/9节；独审后由root发布，以HANDOFF-E42-PUBLISH-RECEIPT.json为凭，未有回执不称文档已同步。证据路径见E42，PRIVATE原件只留本机。
+
+
+## 2026-10-16 01:48 CST｜E43 关闭顺序与后台提示采用，仍待Bili本人登录
+- **接力者/分工**：native修MC关闭顺序，central修Owner文案并整理交接，root唯一采用/后续源码发布；native_diagnostics_review非作者代码/全SDK/采用包审查，native_diagnostics执行实际51342五库/运行核验。
+- **实际改动/版本**：4文件冻结正式采用51342/mc-login-close-8ea076214923fd39，旧48081停；Edge31/SQL162327未变。源码四自有文件a1cb414b611bf87af2317472fa133a8641c1fe23已push/远端同SHA，parent4881；发布回执与采用证据分开。
+- **验证/线上**：8专项+43账号回归+原SDKwhole、Owner DOM4/API4/无resume4独审通过；01:46:58实际4冻结/419其他/完整fileset/126保护/五库actualbackup全等，idle/alive/pending0。原3cda暂停/spent1/12/reserved0/ACK0与原等待、绑定、原Bili43833/原XHS23266保留。
+- **真实边界**：仅关闭顺序代码缺陷修复，不证明实际Cookie持久性或此前丢失根因。Owner后台核验提示现已采用，非窗口打开。本人Bili新登录仍待回复，原Pro101/self0未重试，无新来源/云ACK。
+- **下一步**：原窗口不关，登录后Pro后台官方同主体；继续原task剩11。continuation V4已两literal适配新runtime/freeze pin，root精确差异与10测试通过；main未执行，使用前仍核实际版本未漂移。随后正文/分页/音轨/三导出/ACK及私有音轨云回取逐项独审。watchdog暂停/48h未启。
+- **交接**：E42保留01:44历史候选，E43更新当前与第8/9节；冻结独审后root正式复制推送，以HANDOFF-E43-PUBLISH-RECEIPT.json为凭。无Cookie、PRIVATE正文或Pro私码随文档外发。

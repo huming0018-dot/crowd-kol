@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-15。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E39为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节与E43为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -240,3 +240,44 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - RUN15/task-route-adoption/{FORMAL-SIX-FILE-LIST,EDGE-DEPLOY-INTENT,EDGE-DEPLOY-RESULT,SOURCE-PUBLISH-RECEIPT}.json及runtime-adoption/ADOPTED.json：源码800949f推送返回0/远端同SHA；4runtime+2Edge六文件精确；默认MC不变、完整媒体拒绝，无新任务/来源。正式portable9再跑通过。
 - RUN15/pro-shared-budget/INDEPENDENT-REDIRECT-INITIAL-FAILURE.json：非作者本机临时HTTP302实测2请求只扣1，0真实平台/凭据/云；另坏stage免扣反例保留，候选未过。媒体V2依赖旧预算不能整体放行；后续修复须新freeze/复核。
 - RUN15/batches/BATCH-2330{,-RESULT}.md：官方Python文档证据与独立推演分别记录；不能把目标或受控transport测试当真实平台验收。
+
+## E40｜2026-10-16 00:32 CST Pro音轨组合正式采用，真实来源/云音轨尚待验
+- RUN15/pro-shared-budget/INDEPENDENT-V2-FINAL.json：重定向漏扣及坏stage原失败保留，V2真实localhost四transport不跟302目标、8进程恰12次、同FD/持久预算负例通过。
+- RUN15/pro-hybrid-media/independent-v3/{FINAL.json,REPLAY.json,STREAM-BYTE-LIMIT.log,OUTPUT-WATCHDOG.log}：原SDK/parent-main/预算/owned进程组回放，独立65MiB流中限制清理及101MiB输出退出；采样非硬配额/合成媒体非真实质量。RUN15/pro-media-integration/independent/FINAL.json：原Pro main→SQLite/checkpoint→原MC媒体子进程，2正文评论记录typed保持、三导出、80+32回归和来源/音频篡改拒绝；0真实来源/云。
+- RUN15/pro-audio-cloud/independent/{INITIAL-REVIEW.json,FINAL-V2.json}：初合法12k正文被整体10k误拒，修后v3 262144整体限额、原v1/v2保持，独立226真实PGlite/handler及90k正文/真实换行/超限/derivedauthor/跨claim/ACL/bucket兼容通过。RUN15/pro-audio-cloud/independent-python/FINAL.json：exact Python/UI冻结1b300ea2、42单测/5DOM/实际FFmpeg音轨与视频负例；不是云上传证明。
+- RUN15/pro-audio-adoption/independent/{FINAL-READY.json,ACTUAL-RUNTIME-FINAL.json,ACTUAL-EDGE-SQL-FINAL.json}：非作者实际34905/ff26唯一、旧27475停；16冻结运行文件/398其他原源码/fullset、125资产和五库raw/schema与实际备份保持、idle/alive/pending0。fresh Edge31 ACTIVE26模块相同审包38payload，对30仅4模块改变，image/WASM/index/steps保持。实际RPC34817/md5 3d039b00cbf9cb4090a9dd92f1960409/serviceonly；bucket私有50MiB五MIME。ledger20261015162327 statement SHA df30462a2f3a09056879f1ccee7e18b3b5766e7efad7491156da62c6b4a251b6精确等合并候选。现场查询原件本地PRIVATE不发布。
+- 正式源码：fa30b761cd38c2a0eff79518323a85171555eb98的21文件=20自有源码+实际迁移server/crowd/v4/supabase/migrations/20261015162327_crowd_pro_audio_v3.sql，提交本地可查；root的SOURCE-PUBLISH-RECEIPT.json记录push0/实际ls-remote同fa30b761，本轮已读取核对。本次文档发布单记，不把源码push当真实采集成功。
+- RUN15/pro-audio-real-source/independent/INITIAL.json：V1 driver在idle下漏pending outbox、inspector内存修复媒体元信息两阻断，V2已冻结并交central终审，本快照尚未得PASS，不得执行真实来源。BILI-SIGNER-REUSE-READ-REVIEW.json：旧成熟8989 wrapper ef64f116/原54文件/现成依赖/原binding匹配，端口当时无监听；随后root新SIGNER-REAL-LIFECYCLE.jsonl记录started/PID36429/8989/nav0/failed=false，尚无新来源。外部nav1另列，不包含在Python共享12账本。
+- 边界：新Pro来源/音轨云回取/Pro中央逐页source_step未验；之前Bili18ACK/25来源步骤属于Native MC。原XHS23266/同client连接只读核保持；71未证采用，watchdogPAUSED/48h未启。
+
+- 准备快照补充：RUN15/pro-audio-adoption/{SOURCE-PUBLISH-RECEIPT.json,BILI-DESCRIPTOR-INSTALL-RECEIPT.json}记录fa30b761远端同SHA及原collector本机路径描述0600；RUN15/pro-audio-real-source/SIGNER-REAL-LIFECYCLE.jsonl当时仅started/nav0，V2 driver冻结待central终审。安装描述不是账号或采集成功证据。
+
+## E41｜2026-10-16 00:55 CST 新任务断桥定位、原浏览器正常重开
+- RUN15/pro-audio-real-source/independent/FINAL-V2.json：23用例与10负例的独立结果；bili/{CREATE-INTENT,CREATED.PRIVATE,PAUSE-FOR-BRIDGE-INTENT,PAUSE-FOR-BRIDGE-RESULT.PRIVATE}.json：仅一次创建、原task暂停、spent1/12保留。
+- RUN15/pro-audio-real-source/FIRST-ATTEMPT-DIAGNOSIS.json及BRIDGE-FAILURE-METADATA.json：唯一调用为Bridge，first响应code未知，后验元信息断连。旧local7f8原结果77保留；不是官方logout证据。
+- RUN15/bili-bridge-recovery/{GUI-RESTORE,NORMAL-QUIT,INDEPENDENT-POST-GUI-METADATA,INDEPENDENT-POST-NORMAL-REOPEN-METADATA}.json：原资料GUI恢复登记、38818明确菜单退出/39840新PID、原client摘要/seq/登记/连接保持。元信息无bili，未取Cookie/self。不手改Preferences、不复制profile。
+- RUN15/bili-bridge-launch/{FREEZE.json,independent/FINAL.json}：候选f6f43d、account fed419；实际63项通过，仅已有明确原绑定Bili/XHS保留扩展，不安装/不证明旧丢失根因。
+- RUN15/pro-bridge-diagnostics/{FREEZE.json,independent/FINAL.json}：cbe6d66冻结，原Pro d83692bd；8专项/2原main/47supervisor/77回归/6额外scope恶意负例通过；桥故障86与官方logout77分离，原失败不改，尚未采用。
+- RUN15/bridge-recovery-adoption/{PREPARATION-SCRIPT,ROOT-SCRIPT-REVIEW}.json：复用原采用脚本8函数AST等，仅常量/上版回执改，完整组合源冻结和实际采用未完成。
+- RUN15/bili-bridge-recovery/OPTIMIZATION_PLAN.md：Chrome/Playwright官方证据与独立推演分别记录。当前已减少本人再安装操作；长期免人工恢复与真实采集性能未证明。
+
+
+## E42｜2026-10-16 原任务恢复正式接入与实际Bridge101阻断
+- RUN15/bridge-recovery-adoption/{SOURCE-PUBLISH-RECEIPT.json,independent/ACTUAL-RUNTIME-FINAL.json}：1685f809精确13自有文件push0/远端同SHA；实际42916/13冻结、406其余/fullset、126资产及五库raw/schema实际备份保持。cloud-login-recovery/independent/FINAL.json为严格waiting context/原session/run/generation/account_ref、坏shape/终态77/Owner入口的非作者证据。
+- RUN15/bridge-recovery-adoption/real-recovery/{RECOVER-INTENT.json,RECOVER-RESULT.PRIVATE.json,ACCOUNT-FIRST-STATUS.PRIVATE.json,ACCOUNT-SECOND-STATUS.PRIVATE.json}：原API只调一次，pending7f8绑定；首次MC官方-101后第二次HTTP200/code0并同原主体授权，旧7f8源77未覆盖。RUN15/cloud-login-recovery/{ACTUAL-RECOVERY-READONLY.json,ACTUAL-RECOVERY-LOCK.json}只读元信息记录resumed/官方code0与原active.lock已释放，不取Cookie。
+- RUN15/pro-login-recovery/{FREEZE.json,independent/FINAL.json}：原SDK固定client loader/pong、实际父launch→stdin/FD→隔离child；Bridge1+official1最大两请求/no browser；pending原子竞态、同scope成功清理/失败诊断、原取消标记及非Bili原恢复路径保持。26作者及独立重跑、3父子路径和恶意负例过；合成正例不是线上官方登录证据。初pending竞态及修复记录保留。
+- RUN15/pro-login-adoption/{SOURCE-PUBLISH-RECEIPT.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json}：6自有文件4881de95已push/远端同SHA，实际48081/pro-login-bili-2d3f94bb24f176c7、旧42916停；6冻结/415其余/fullset/126保护、5库实际备份、idle/alive/pending0由非作者核验，原task暂停/spent1/12/reserved0/ACK0保持。无本批Edge/SQL新部署，原31/162327继承。
+- RUN15/pro-login-adoption/{real-recovery/PRO-RECOVER-INTENT.json,real-recovery/ACCOUNT-AFTER.PRIVATE.json,independent/ACTUAL-PROOF-BLOCKED101.json}：真实恢复仅Bridge HTTP200/business101、Bridge1/official0、check_failed/无授权；同原generation/pending7f8、原77/API1 raw SHA保持。101合同是客户端未返回非空平台Cookie且无可用缓存，不等于已证平台登出。首次来源尝试HTTP未知没有补写。
+- RUN15/pro-audio-real-source/LIVE-RESUME-CONTRACT.PRIVATE.json：已部署RPC/lease_view/public_task定义的本地只读原件，resume_login只将原child排queued，claim新epoch/run且配额=原12-spent1=11；没有调用resume_login/claim作为文档整理。RUN15/pro-audio-continuation/{FREEZE-V3.json,ROOT-FINAL-V3.json}仅采用版本常量增量非作者审通过，V2的原claim/raw/预算/分页/媒体/导出/ACK检查保留，main未执行。
+- RUN15/audio-cloud-ready/{MC-AUTH-ORIGIN-READONLY.json,MC-LOGIN-CLOSE-ORDER.json}：同原持久profile路径、无CDP binding旁路；关闭顺序为精确嵌套合成回放，不是实际SDK/浏览器复现，也未证明Cookie丢失根因。RUN15/bili-bridge-recovery/BILI-LOGIN-UI-OBSERVED.json是root从实际AX提取的安全摘要；RUN15/handoff-e42/BILI-LOGIN-UI-INDEPENDENT.json为central只读复核PID43833/window32276/snapshot11E7686C，确有登录提示和QR，树截断，未保存二维码图片或操作登录。
+- RUN15/pro-login-owner-copy/{FREEZE.json,independent/FINAL.json}：7056dedf，仅browser_started严格false改后台核验文案；MC未知字段沿原文案，暂停/运行意图及精确API不变。非作者4DOM/4payload/4无resume+syntax过，尚未采用。旧login-success-cleanup5c50影响知乎旧断言被暂停，不算通过。
+- 三MD只写路径/摘要/安全状态，不包含PRIVATE正文、Cookie、Pro私码或凭据；E40/E41未见文档发布回执。E42正式发布须HANDOFF-E42-PUBLISH-RECEIPT.json；原source0、ACK0、48h未启/看门狗暂停与OTA71采用未证继续保留。
+
+- RUN15/pro-login-adoption/TASK-READBACK-0147.json：原件at=2026-10-15T17:43:07.565050+00:00（CST01:43:07），而非文件名所示时间；实际只读task_status原task paused/revision2、child waiting/epoch1/local7f8/spent1/reserved0/quota12，0 claim/resume/source。
+
+
+## E43｜2026-10-16 01:46 MC核验关闭顺序与Owner后台文案正式采用
+- RUN15/mc-login-close-order/{FREEZE.json,independent/FINAL.json}：源码8ea07621；8专项/43正式账号回归/实际原SDK whole login_worker及固定失败退出通过。仅已核验Bili非borrowed原context在manager退出前close，10秒上限；未改其他平台/未核验/borrowed，不声称任意BaseException完全无告警或真实Cookie已持久。
+- RUN15/pro-login-owner-copy/{FREEZE.json,ROOT-RECHECK.json,independent/FINAL.json}：7056dedf最小文案，4DOM/4exactAPI/4无自动resume和语法；旧MC、paused/running意图保留。该条E42“未采用”现由本次实际runtime核验推进。
+- RUN15/mc-login-close-adoption/{RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json}：01:46:58CST实际51342/mc-login-close-8ea076214923fd39，48081已停；4冻结、419其余/fullset、126资产、5库schema/raw行等actualbackup；idle/alive/pending0、原task3cda暂停/spent1/12/reserved0/ACK0、原等待/身份binding、原Bili43833与XHS23266保持，非作者0self/source/生产写。没有本批Edge/SQL变更；SOURCE-PUBLISH-RECEIPT.json记录四自有文件a1cb414b/parent4881/push0/实际远端同SHA；发布与采用分证据。
+- RUN15/pro-audio-continuation/{FREEZE-V4.json,ROOT-FINAL-V4.json}：仅两literal更新已独审新runtime/freeze pin；cb9c275d冻结、501f10aa运行冻结，root独立10测试通过，main未执行/生产写0。旧V3保留历史，不直接运行。当前Pro官方证明仍为Bridge101/self0，等待本人原窗口登录后再有界核验；本批无来源/业务验收。MC关闭顺序真实持久性、同输入正文/分页/音轨/导出/ACK、私有音轨云回取、Pro中央步骤、OTA71采用/全端/48h均不得外推。
