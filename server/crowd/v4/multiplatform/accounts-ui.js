@@ -27,7 +27,7 @@ const accountView = (() => {
       if(Number.isInteger(code)&&Object.hasOwn(reasons,String(code)))text+='，'+reasons[code]+'（'+code+'）';
       return text;
     };
-    if(value.credential_provider==='native_persistent'){
+    if(['native_persistent','existing_cdp'].includes(value.credential_provider)){
       const reasons={native_provider_profile_mode_unverified:'原浏览器的登录资料读取方式尚未确认，已停止读取；原任务与进度保留',native_provider_credentials_unavailable:'未能取得原浏览器的可用登录资料，不能据此判断账号已登出',native_provider_profile_busy:'原浏览器正在使用，未读取登录资料；请保留原窗口',native_provider_busy:'原浏览器登录连接正在使用，请保留原窗口',native_provider_browser_unavailable:'原浏览器登录连接暂不可用，采集保持暂停'};
       return phase+'；'+(Object.hasOwn(reasons,value.credential_reason)?reasons[value.credential_reason]:'原浏览器登录连接核验失败，原任务与进度保留')+'；'+request('official_self','平台官方核验')+'。';
     }

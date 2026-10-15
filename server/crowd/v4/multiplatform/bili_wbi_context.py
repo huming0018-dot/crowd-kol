@@ -29,14 +29,37 @@ def validate(value,run,manifest,*,require_proof=True):
  from account_sessions import AccountSessions
  try:
   request=manifest['request'];run=Path(run)
-  if not isinstance(value,dict) or set(value)!=FIELDS or value['schema']!='crowd-bili-wbi-context-v1':raise ValueError()
+  from pro_bili_wbi import LOCAL_MODE,bridge_local_mode
+  from shared_request_budget import canonical
+  import hashlib
+  native=manifest.get('executor',{}).get('binding')=={'platform':'bili','provider':'native_persistent'}
+  bridge=manifest.get('executor',{}).get('bili_wbi_mode')==LOCAL_MODE
+  cdp=manifest.get('executor',{}).get('binding')=={'platform':'bili','provider':'existing_cdp'}
+  fields=FIELDS if native else FIELDS|{'binding_sha256','browser_connection_sha256'} if cdp else FIELDS|{'binding_sha256'}
+  schema='crowd-bili-wbi-context-v1' if native else 'crowd-bili-wbi-context-v3' if cdp else 'crowd-bili-wbi-context-v2'
+  if not isinstance(value,dict) or set(value)!=fields or value['schema']!=schema:raise ValueError()
+  if not native and not cdp:
+   from pro_executor import binding_for
+   actual=binding_for(run.parent.parent,request)
+   if (not bridge or not bridge_local_mode(run.parent.parent,request,actual) or 'provider' in actual
+       or canonical(actual)!=canonical(manifest['executor']['binding'])
+       or type(value['binding_sha256']) is not str
+       or value['binding_sha256']!=hashlib.sha256(canonical(actual).encode()).hexdigest()):raise ValueError()
   if (request['platform']!='bili' or request.get('source_executor')!='pro'
-      or manifest['executor']['binding']!={'platform':'bili','provider':'native_persistent'}
       or type(value['generation']) is not int or value['generation']<1
       or value['run_id']!=run.name or manifest['run_id']!=run.name
       or value['session_id']!=request['session_id'] or value['request_hash']!=request_fingerprint(request)
       or type(value['account_ref']) is not str):raise ValueError()
   account=AccountSessions(run.parent.parent).status(request['session_id'],'bili')
+  if cdp:
+   from pro_executor import binding_for
+   from browser_session import validate_binding
+   actual=binding_for(run.parent.parent,request)
+   connection=validate_binding(account.get('browser_connection'),'bili')
+   if (canonical(actual)!=canonical(manifest['executor']['binding']) or connection.get('selection_kind')!='platform_page'
+       or type(value['binding_sha256']) is not str or type(value['browser_connection_sha256']) is not str
+       or value['binding_sha256']!=hashlib.sha256(canonical(actual).encode()).hexdigest()
+       or value['browser_connection_sha256']!=hashlib.sha256(canonical(connection).encode()).hexdigest()):raise ValueError()
   if (account.get('generation')!=value['generation'] or type(account.get('generation')) is not int
       or account.get('account_ref')!=value['account_ref'] or account.get('pending_run_id')!=run.name
       or account.get('authorized_for_run')!=run.name or account.get('login_verified') is not True

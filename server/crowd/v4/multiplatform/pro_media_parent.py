@@ -38,7 +38,8 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
   child=Path(__file__).with_name('wb_media_child.py')
  else:
   bili_view(note,response)
-  native=manifest.get('executor',{}).get('binding',{}).get('provider')=='native_persistent'
+  native=(manifest.get('executor',{}).get('binding',{}).get('provider') in ('native_persistent','existing_cdp')
+          or manifest.get('executor',{}).get('bili_wbi_mode')=='verified_nav_local_wbi_v1')
   if native:
    from bili_wbi_context import validate
    validate(wbi_context,run,manifest)

@@ -52,7 +52,7 @@ class NativeDiagnosticSink:
 def failure_code(error,diagnostic):
  if isinstance(error,VerificationFailure):return error.reason
  if isinstance(error,SystemExit) and type(error.code) is int and error.code==86:
-  if diagnostic.get('credential_provider')=='native_persistent':
+  if diagnostic.get('credential_provider') in ('native_persistent','existing_cdp'):
    from pro_native_credentials import SAFE_ERRORS
    reason=diagnostic.get('credential_reason')
    return reason if type(reason) is str and reason in SAFE_ERRORS else 'native_provider_unavailable'
@@ -76,7 +76,7 @@ async def verify(store,session_id,recovery,installed,diagnostic=None,*,mc_root=N
   return d.get('pending_run_id')==recovery['run_id'] and type(d.get('generation')) is int and d['generation']==expected['generation'] and d.get('account_ref')==expected['account_ref']
  if not baseline():raise VerificationFailure('account_context_changed')
  bound=binding_for(store.collector_root,{'platform':'bili','session_id':session_id})
- native_provider=bound.get('provider')=='native_persistent'
+ native_provider=bound.get('provider') in ('native_persistent','existing_cdp')
  if native_provider and mc_root is None:raise VerificationFailure('native_provider_mc_missing')
  probe(installed['root']);sys.path.insert(0,installed['root'])
  os.environ['ENABLE_LOG_FILE']='false'
@@ -131,9 +131,16 @@ async def verify(store,session_id,recovery,installed,diagnostic=None,*,mc_root=N
   httpx.AsyncClient.__init__,httpx.AsyncClient.send=init,send
   try:
    if native_provider:
-    from pro_native_credentials import install_native_account
-    diagnostic['credential_provider']='native_persistent'
-    install_native_account(AccountPoolManager,store.collector_root,session_id,mc_root,platform='bili',sink=NativeDiagnosticSink(diagnostic))
+    if bound.get('provider')=='existing_cdp':
+     from pro_cdp_credentials import install_cdp_account,expected_from_state,DiagnosticSink
+     cdp_expected=expected_from_state(store.collector_root,session_id,recovery['run_id'])
+     if cdp_expected['generation']!=expected['generation'] or cdp_expected['account_ref']!=expected['account_ref']:raise VerificationFailure('account_context_changed')
+     diagnostic['credential_provider']='existing_cdp'
+     install_cdp_account(AccountPoolManager,store.collector_root,session_id,mc_root,cdp_expected,sink=DiagnosticSink(diagnostic))
+    else:
+     from pro_native_credentials import install_native_account
+     diagnostic['credential_provider']='native_persistent'
+     install_native_account(AccountPoolManager,store.collector_root,session_id,mc_root,platform='bili',sink=NativeDiagnosticSink(diagnostic))
    else:install_bound_account(AccountPoolManager,bound,'bili',httpx)
    pool=AccountWithIpPoolManager('bili','cookie_bridge',proxy_ip_pool=None)
    await pool.load_accounts_from_cookie_bridge()

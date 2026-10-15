@@ -145,6 +145,11 @@ async def read_credentials(root,session_id,mc_root,*,timeout=25,platform='wb'):
  if not isinstance(timeout,(int,float)) or isinstance(timeout,bool) or not 1<=timeout<=30:raise CredentialError('native_provider_timeout_invalid')
  profile_for(root,session_id,platform);mc=safe_path(mc_root);python=mc/'.venv/bin/python'
  if not python.is_file():raise CredentialError('native_provider_python_missing')
+ metadata={'root':str(root),'session_id':session_id,'mc_root':str(mc)}
+ if platform!='wb':metadata['platform']=platform
+ return await read_private_credentials(python,Path(__file__).resolve(),metadata,timeout=timeout,platform=platform)
+
+async def read_private_credentials(python,command,metadata,*,timeout,platform):
  rd,wr=os.pipe();os.set_blocking(rd,False);process=None;raw=bytearray();deadline=time.monotonic()+timeout
  async def pause():
   if time.monotonic()>=deadline:raise asyncio.TimeoutError()
@@ -168,10 +173,8 @@ async def read_credentials(root,session_id,mc_root,*,timeout=25,platform='wb'):
    with contextlib.suppress(subprocess.TimeoutExpired):process.wait(timeout=2)
 
  try:
-  process=subprocess.Popen([str(python),'-I','-B',str(Path(__file__).resolve()),'_credential_child',str(wr)],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,pass_fds=(wr,),start_new_session=True)
+  process=subprocess.Popen([str(python),'-I','-B',str(command),'_credential_child',str(wr)],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,pass_fds=(wr,),start_new_session=True)
   os.close(wr);wr=-1
-  metadata={'root':str(root),'session_id':session_id,'mc_root':str(mc)}
-  if platform!='wb':metadata['platform']=platform
   payload=json.dumps(metadata).encode()
   if len(payload)>16384:raise CredentialError('native_provider_protocol_invalid')
   os.set_blocking(process.stdin.fileno(),False);offset=0

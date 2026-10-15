@@ -79,7 +79,8 @@ async def execute_payload(payload,*,client_factory=None):
  ledger=RunRequestBudget(run/'request-budget.json',rid,payload['request_hash'],request['max_api_requests'])
  sink=ProgressSink(run,manifest);sink.attempts=ledger.snapshot()['used']
  storage=None
- native=manifest.get('executor',{}).get('binding',{}).get('provider')=='native_persistent'
+ native=(manifest.get('executor',{}).get('binding',{}).get('provider') in ('native_persistent','existing_cdp')
+          or manifest.get('executor',{}).get('bili_wbi_mode')=='verified_nav_local_wbi_v1')
  if native:
   from bili_wbi_context import validate
   storage=validate(payload.get('wbi_context'),run,manifest)

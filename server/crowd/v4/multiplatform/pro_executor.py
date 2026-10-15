@@ -169,6 +169,9 @@ def binding_for(root, request):
     if not path.is_file() or path.is_symlink():
         m.fail('pro_account_binding_required')
     value = m.read(path)
+    if isinstance(value,dict) and set(value)=={'platform','provider'} and value.get('provider')=='existing_cdp':
+        if value.get('platform')!='bili' or request['platform']!='bili':m.fail('pro_native_provider_platform_unsupported')
+        return value
     if isinstance(value,dict) and set(value)=={'platform','provider'} and value.get('provider')=='native_persistent':
         if value.get('platform') not in ('wb','zhihu','bili') or request['platform']!=value.get('platform'):m.fail('pro_native_provider_platform_unsupported')
         return value
@@ -205,7 +208,10 @@ def prepare(root, mc, request, chosen):
     python = Path(chosen.get('python') or os.environ.get('CROWD_PRO_PYTHON', str(external/'.venv/bin/python')))
     if not python.is_absolute() or not python.is_file():
         m.fail('pro_python_missing')
-    return {**chosen, 'python': str(python), 'protocol': PROTOCOL, 'binding': bound}, source, python
+    extra={}
+    from pro_bili_wbi import bridge_local_mode,LOCAL_MODE
+    if bridge_local_mode(root,request,bound):extra['bili_wbi_mode']=LOCAL_MODE
+    return {**chosen, 'python': str(python), 'protocol': PROTOCOL, 'binding': bound,**extra}, source, python
 
 
 def argv_for(request):
@@ -968,7 +974,7 @@ def execute(run, manifest, *, mc_root=None):
             config.DB_TYPE, config.SQLITE_DB_PATH = 'sqlite', str(run/DB_NAME)
             config.USE_CACHE_TYPE, config.CHECKPOINT_STORAGE_TYPE = 'memory', 'file'
             config.ACCOUNT_POOL_SAVE_TYPE = 'cookie_bridge'
-            native_provider=selected['binding'].get('provider')=='native_persistent'
+            native_provider=selected['binding'].get('provider') in ('native_persistent','existing_cdp')
             if not native_provider:config.COOKIE_BRIDGE_URL = selected['binding']['cookiebridge_url']
             config.ENABLE_IP_PROXY, config.ENABLE_LOG_FILE = False, False
             config.MAX_CONCURRENCY_NUM, config.START_PAGE = 1, request['start_page']
@@ -980,7 +986,10 @@ def execute(run, manifest, *, mc_root=None):
             if native_provider and request['platform']=='zhihu':
                 config.SIGN_SRV_HOST,config.SIGN_SRV_PORT='127.0.0.1','8990'
             import httpx
-            if native_provider and request['platform']=='bili':
+            if request['platform']=='bili' and (native_provider or selected.get('bili_wbi_mode') is not None):
+                if not native_provider:
+                    from pro_bili_wbi import bridge_local_mode,LOCAL_MODE
+                    if selected.get('bili_wbi_mode')!=LOCAL_MODE or not bridge_local_mode(run.parent.parent,request,selected['binding']):raise SystemExit(86)
                 from pro_bili_wbi import BiliWbi
                 from pkg.rpc.sign_srv_client import SignServerClient
                 try:bili_wbi=BiliWbi(run,request,sink);bili_wbi.install(SignServerClient);media_stage.bili_wbi=bili_wbi
@@ -1000,8 +1009,13 @@ def execute(run, manifest, *, mc_root=None):
             from pkg.account_pool.pool import AccountPoolManager
             if native_provider:
                 if request['platform'] not in ('wb','zhihu','bili'):raise SystemExit(78)
-                from pro_native_credentials import install_native_account
-                install_native_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,run=run,sink=sink,**({'platform':request['platform']} if request['platform']!='wb' else {}))
+                if selected['binding'].get('provider')=='existing_cdp':
+                    from pro_cdp_credentials import install_cdp_account,expected_from_state
+                    expected=expected_from_state(run.parent.parent,request['session_id'])
+                    install_cdp_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,expected,run=run,sink=sink)
+                else:
+                    from pro_native_credentials import install_native_account
+                    install_native_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,run=run,sink=sink,**({'platform':request['platform']} if request['platform']!='wb' else {}))
             else:
                 install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx,sink=sink)
             if request['platform']=='zhihu':

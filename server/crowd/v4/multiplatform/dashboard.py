@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Local-only task UI for a separately installed MediaCrawler executor."""
 import argparse
+import logging
+from datetime import datetime, timezone
 from copy import deepcopy
 import base64
 import importlib.util
@@ -993,6 +995,31 @@ class Application:
         raise ValueError('invalid_media_processing_action')
 
 
+ACCOUNT_FAILURE_ACTIONS=frozenset(('recover_cloud_login','open_login','cancel_login','resume_verification','confirm_same_account'))
+ACCOUNT_FAILURE_CODES=frozenset(('invalid_request','invalid_account_request','invalid_account_action',
+ 'cloud_not_connected','principal_denied','unsafe_cloud_file','cloud_controller_busy',
+ 'cloud_login_context_invalid','cloud_login_context_missing','cloud_login_context_changed',
+ 'cloud_login_source_not_terminal','cloud_login_account_changed','collector_session_ambiguous',
+ 'session_not_found','session_busy','account_context_changed','native_provider_mc_missing',
+ 'pro_account_binding_required','pro_account_binding_invalid','pro_service_must_be_explicit_loopback',
+ 'pro_sign_ipv6_unsupported','pro_self_check_unsupported','pro_login_outcome_unknown',
+ 'pro_task_installation_missing','pro_task_installation_invalid','pro_python_missing',
+ 'invalid_session_id','invalid_account_event','invalid_account_change_context'))
+_ACCOUNT_REQUEST_LOG=logging.getLogger('crowd.workbench.account_request')
+
+def log_account_request_failure(action,error):
+ """Existing private stderr only; never serialize request/error text or identity."""
+ if type(action) is not str or action not in ACCOUNT_FAILURE_ACTIONS:return
+ try:
+  first=error.args[0] if error.args else None
+  code=first if type(first) is str and first in ACCOUNT_FAILURE_CODES else 'invalid_request'
+  event={'schema':'crowd-account-request-failure-v1','route':'accounts','action':action,
+         'http_status':400,'error_code':code,'utc':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),
+         'correlation_id':str(uuid.uuid4())}
+  _ACCOUNT_REQUEST_LOG.warning(json.dumps(event,sort_keys=True,separators=(',',':')))
+ except Exception:
+  pass # Diagnostics must not prevent the original bounded 400 response.
+
 def make_server(app, port=45937):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -1041,6 +1068,7 @@ def make_server(app, port=45937):
                 return self.send({'ok': False, 'error': 'local_origin_required'}, 403)
             if not secrets.compare_digest(self.headers.get('X-Crowd-CSRF', ''), app.token):
                 return self.send({'ok': False, 'error': 'workbench_page_updated'}, 403)
+            account_failure_action=None
             try:
                 length = int(self.headers.get('Content-Length', '0'))
                 limit = 131072 if self.path in ('/api/cloud', '/api/tasks') else 32768
@@ -1074,6 +1102,8 @@ def make_server(app, port=45937):
                         raise ValueError('invalid_watchlist_request')
                     return self.send(app.watches(body['action'], body['payload']))
                 if self.path == '/api/accounts':
+                    if type(body.get('action')) is str and body['action'] in ACCOUNT_FAILURE_ACTIONS:
+                        account_failure_action=body['action']
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_account_request')
                     return self.send(app.accounts(body['action'], body['payload']))
@@ -1136,6 +1166,7 @@ def make_server(app, port=45937):
             except sqlite3.Error:
                 return self.send({'ok': False, 'error': 'local_storage_unavailable'}, 503)
             except (ValueError, TypeError, OSError) as error:
+                if account_failure_action is not None:log_account_request_failure(account_failure_action,error)
                 message = str(error)
                 return self.send({'ok': False, 'error': message if message.replace('_', '').isalnum() else 'invalid_request'}, 400)
 
