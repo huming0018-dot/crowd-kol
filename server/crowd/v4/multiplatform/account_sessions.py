@@ -190,8 +190,10 @@ class AccountSessions:
             identifier(run_id)
         account_ref = safe_account_ref(platform, account_id)
         def change(value):
-            if run_id and event in ('checking', 'logged_out', 'waiting_login'):
+            if run_id and event in ('checking', 'logged_out', 'waiting_login', 'check_failed'):
                 value['pending_run_id'] = run_id
+            if event != 'authenticated':
+                value.update(login_verified=False, verified_at=0, authorized_for_run=None)
             if event == 'checking':
                 value['recovering'] = value.get('recovering') or value['state'] in ('logged_out', 'waiting_login', 'identity_unverified', 'account_changed', 'check_failed')
                 value['state'] = 'checking'
@@ -479,10 +481,10 @@ def install_hooks(collector_root, session_id, platform, run_id, event, headless=
             store._update(session_id, platform, reset_diagnostic)
         try:
             result = await original_pong(self, *args, **kwargs)
-        except (ImportError, FileNotFoundError):
-            raise
-        except Exception:
-            if not interactive_login:
+        except Exception as error:
+            if not interactive_login or isinstance(error, (ImportError, FileNotFoundError)):
+                # Keep the original failure, but never leave durable auth stuck at checking.
+                emit(store.observe(session_id, platform, 'check_failed', run_id))
                 raise
             capture['error'] = True
             result = False

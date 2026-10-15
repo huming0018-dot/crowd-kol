@@ -146,7 +146,7 @@ class Tests(unittest.TestCase):
         for result,delay in cases:
             with self.subTest(result=result):
                 worker.thread=None;worker.closed=FakeEvent()
-                with patch.object(worker,'tick',return_value=result) as tick,patch('cloud_sync.threading.Thread',InlineThread):
+                with patch.object(worker,'tick',return_value=result) as tick,patch('cloud_sync.threading.Thread',InlineThread),patch.object(worker.machine_steps,'start'):
                     worker.start_scheduler();worker.start_scheduler()
                 self.assertEqual(worker.closed.waits,[delay]);tick.assert_called_once()
         self.assertEqual(self.cloud.calls,[]);self.assertEqual(self.actions,[])
@@ -414,7 +414,8 @@ class Tests(unittest.TestCase):
         worker = CloudWorker(self.root,self.cloud,self.runner)
         worker._save({'phase':'dispatching','lease':self.cloud.lease,'sequence':1,'waiting_logins':[]})
         self.assertEqual(worker.tick()['error'],'source_outcome_unknown')
-        self.assertEqual(self.cloud.calls,[])
+        self.assertTrue(all(action=='step_events' for action,_ in self.cloud.calls))
+        self.assertTrue(all(event['run_id']==self.cloud.lease['run_id'] and event['lease_epoch']==self.cloud.lease['lease_epoch'] for action,payload in self.cloud.calls for event in payload['events']))
         self.assertEqual(self.actions,[])
 
     def test_outbox_lost_ack_queries_receipt_without_retransmit(self):

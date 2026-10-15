@@ -181,7 +181,7 @@ class CloudClient:
                 if (attempt + 1 < attempts and not http_response
                         and isinstance(error, (urllib.error.URLError, TimeoutError))):
                     continue
-                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
+                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
                 raise CloudError(code) from None
 
 
@@ -491,6 +491,8 @@ class CloudWorker:
         self.outbox = CloudOutbox(root, client)
         from health_events import HealthEvents
         self.workflow_events = HealthEvents(root, max_events=2000, workflow=True)
+        from machine_steps import MachineSteps
+        self.machine_steps = MachineSteps(self.root/'machine-steps.sqlite3', client)
         self.interval = interval
         self.closed = threading.Event()
         self.thread = None
@@ -542,6 +544,8 @@ class CloudWorker:
         effective = phase or ('waiting_login' if state.get('phase') == 'idle' and count else state.get('phase'))
         if effective == 'claiming' and not lease:
             return  # Empty queue polling must not evict actual run history.
+        try:self.machine_steps.observe(state, effective)
+        except (ValueError,OSError,sqlite3.Error):self.machine_steps.error='machine_steps_store_failed'
         self.workflow_events.observe({'phase': effective, 'task_id': lease.get('task_id'),
             'run_id': lease.get('run_id'), 'local_run_id': state.get('local_run_id'),
             'platform': lease.get('platform'), 'waiting_login_count': count})
@@ -747,7 +751,7 @@ class CloudWorker:
             observation_error='runner_status_unavailable' if state.get('phase')=='running' and state.get('status_read_error')=='runner_status_unavailable' else None
             summary={'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error or observation_error,
                     'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats(),
-                    'workflow_monitor_error': self.workflow_events.error}
+                    'workflow_monitor_error': self.workflow_events.error, 'central_steps':self.machine_steps.status()}
             last=self._stop_summary(self.last_stop or state.get('last_stop'))
             if last:summary['last_stop']=last
             return {**summary, **self.scheduler_status()}
@@ -1023,6 +1027,12 @@ class CloudWorker:
                 state['status_read_error']='runner_status_unavailable'
                 self._save(state)
                 return {'state':'running','error':'runner_status_unavailable'}
+            for page in current.get('step_pages',[]):
+                try:self.machine_steps.observe(state,'comments_page',**page)
+                except (ValueError,OSError,sqlite3.Error):self.machine_steps.error='machine_steps_store_failed'
+            counts = current.get('step_counts', {})
+            try:self.machine_steps.observe(state, **{key:counts[key] for key in ('saved_pages','saved_rows') if key in counts})
+            except (ValueError,OSError,sqlite3.Error):self.machine_steps.error='machine_steps_store_failed'
             state.pop('status_read_error',None)
             self._save(state)
             if stage not in mc_runner.FINAL:
@@ -1053,6 +1063,8 @@ class CloudWorker:
             acknowledged_before = self.outbox.stats(state['lease']['run_id'])['acknowledged']
             status = self.outbox.flush(state['lease']['run_id'], limit=4,
                                        before_send=lambda: self._renew_delivery(state))
+            try:self.machine_steps.observe(state, acknowledged=status['acknowledged'], pending=status['pending'])
+            except (ValueError,OSError,sqlite3.Error):self.machine_steps.error='machine_steps_store_failed'
             if status['pending']:
                 if state.get('outcome') in ('completed','failed','stopped') and (state.get('delivery_manifest') or state['lease'].get('state')=='running') and (status['quarantined'] or status['deferred'] or status['errors']):
                     return self._park_delivery(state)
@@ -1195,6 +1207,7 @@ class CloudWorker:
                 except Exception:
                     self.scheduler_error = self.last_error = 'cloud_scheduler_failed'
             self.thread = threading.Thread(target=loop, daemon=True, name='cloud-machine-worker')
+            self.machine_steps.start()
             self.scheduler_started = True
             self.last_tick_at = time.time()
             self._last_tick_monotonic = time.monotonic()
@@ -1205,6 +1218,7 @@ class CloudWorker:
                 self.scheduler_error = self.last_error = 'cloud_scheduler_failed'
 
     def close(self):
+        self.machine_steps.close()
         with self.scheduler_lock:
             self.closed.set()
             thread = self.thread

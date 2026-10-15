@@ -58,6 +58,44 @@ class AccountTests(unittest.TestCase):
         self.assertEqual(self.store.status(self.sid)['state'],'resumed')
         self.assertNotIn('private-token',json.dumps(self.store.status(self.sid)))
 
+    def test_verification_revoked_while_checking_or_authentication_fails(self):
+        for state in ('checking', 'logged_out', 'waiting_login', 'check_failed'):
+            with self.subTest(state=state):
+                self.authenticated()
+                old=self.store.status(self.sid)
+                value=self.store.observe(self.sid, 'wb', state, self.rid)
+                self.assertIs(value.get('login_verified'), False)
+                self.assertEqual(value.get('verified_at'), 0)
+                self.assertIsNone(value.get('authorized_for_run'))
+                self.assertEqual(value.get('pending_run_id'), self.rid)
+                self.assertEqual(value.get('account_ref'), old.get('account_ref'))
+
+    def test_raised_native_pong_persists_failure_and_recovers_original_run(self):
+        self.authenticated()
+        events=[]
+        class Client:
+            fail=True
+            async def request(self): return {'uid':'old-user'}
+            async def pong(self):
+                if self.fail: raise OSError('secret-cookie-value')
+                await self.request()
+                return True
+            async def update_cookies(self): pass
+        install_hooks(self.root,self.sid,'wb',self.rid,lambda state,value:events.append(state),client_class=Client)
+        client=Client()
+        with self.assertRaisesRegex(OSError, 'secret-cookie-value'):
+            asyncio.run(client.pong())
+        reopened=AccountSessions(self.root).status(self.sid)
+        self.assertEqual(reopened['state'], 'check_failed')
+        self.assertIs(reopened['login_verified'], False)
+        self.assertNotIn('secret-cookie-value',json.dumps(reopened))
+        client.fail=False
+        asyncio.run(client.pong())
+        restored=AccountSessions(self.root).status(self.sid)
+        self.assertEqual(restored['state'], 'resumed')
+        self.assertEqual(restored['authorized_for_run'], self.rid)
+        self.assertIn('check_failed', events)
+
     def test_same_identity_resumes_exact_original_run(self):
         first = self.authenticated()
         self.store.observe(self.sid, 'wb', 'logged_out', self.rid)

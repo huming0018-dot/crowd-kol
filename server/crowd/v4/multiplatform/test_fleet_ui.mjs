@@ -19,7 +19,7 @@ assert.match(page.text(),/云端任务 1 个 · 终端 1 个 · 0 个终端需�
 assert.match(page.text(),/正文已收 2/);
 assert.match(page.text(),/本轮已结束/);
 assert.match(page.text(),/原账号核验通过，等待重新领取/);
-assert.match(page.text(),/机器的细步骤云端上报尚未接入/);
+assert.match(page.text(),/机器控制阶段与Pro已保存分页同步云端/);
 page.responses.node_events={available:true,schema:'crowd-node-events-v1',checked_at:now,cursor:2,events:[{id:2,node_seq:3,installation_id:installation,step:'comments_page',status:'failed',error_code:'Cookie SECRET'}]};
 await page.intervals[1]();await page.settle();assert.match(page.text(),/序号曾有跳跃/);assert.ok(!page.text().includes('SECRET'));assert.equal(page.calls.at(-1).payload.after_id,1);
 page.responses.node_events=new Error('Authorization SECRET');await page.intervals[1]();await page.settle();assert.match(page.text(),/已显示记录可能过期/);assert.ok(!page.text().includes('SECRET'));
@@ -51,3 +51,7 @@ for(const [error_code,label] of [['session_rest','等待下一轮'],['action_gap
   assert.ok(!timelineNodes(page).some(n=>n.textContent.includes('异常代码待核对')),error_code);
 }
 console.log('PASS fleet UI: unified tasks/nodes, waiting vs issues, durable phases, safe errors, cursor/gap/read failures, unavailable backend');
+
+page=await render({node_events:{available:true,schema:'crowd-node-events-v1',checked_at:now,cursor:0,events:[],machine_events:[{id:1,worker_id:installation,run_id:installation,task_id:installation,lease_epoch:2,received_at:now,event:{phase:'comments_page',scope:'reply',checkpoint_committed:false,page_index:3,saved_rows:8,cookie:'SECRET'}}]}});
+assert.match(page.text(),/回复页/);assert.match(page.text(),/分页记录观测数 8/);assert.match(page.text(),/epoch 2/);assert.ok(!page.text().includes('SECRET'));
+page.responses.node_events.machine_events_error='machine_steps_read_failed';await page.intervals[1]();await page.settle();assert.match(page.text(),/机器步骤查询失败/);

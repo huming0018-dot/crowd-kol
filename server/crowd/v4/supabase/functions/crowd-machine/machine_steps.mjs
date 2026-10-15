@@ -1,0 +1,27 @@
+import {assert,uuid} from './contract.mjs';
+export const phases=['claiming','authorized','dispatching','running','importing','delivering','finishing','waiting_login','login_resumed','paused','completed','deferring_delivery','reconciling_no_dispatch','local_stop_unknown','comments_page'];
+export async function machineSteps(action,payload,backend,actor,workerHash){
+  assert(payload&&typeof payload==='object'&&!Array.isArray(payload),'invalid_step_events');
+  if(action==='step_events'){
+    assert(actor==='worker','principal_denied');
+    assert(Object.keys(payload).length===1&&Array.isArray(payload.events)&&payload.events.length>=1&&payload.events.length<=50,'invalid_step_events');
+    const ids=new Set();
+    for(const e of payload.events){
+      assert(e&&typeof e==='object'&&!Array.isArray(e)&&Object.keys(e).every(k=>['page_sha256','scope','checkpoint_committed','page_index','outcome','sequence','observed_at_ms','event_id','run_id','lease_epoch','phase','local_run_id','saved_pages','saved_rows','acknowledged','pending'].includes(k)),'invalid_step_events');
+      assert(Number.isSafeInteger(e.sequence)&&e.sequence>=1&&Number.isSafeInteger(e.observed_at_ms)&&e.observed_at_ms>=0&&e.observed_at_ms<=Date.now()+300000&&uuid(e.event_id)&&uuid(e.run_id)&&Number.isSafeInteger(e.lease_epoch)&&e.lease_epoch>=1&&phases.includes(e.phase)&&!ids.has(e.event_id),'invalid_step_events');ids.add(e.event_id);
+      if(e.phase==='comments_page')assert(typeof e.page_sha256==='string'&&/^[a-f0-9]{64}$/.test(e.page_sha256)&&['root','reply'].includes(e.scope)&&typeof e.checkpoint_committed==='boolean'&&Number.isSafeInteger(e.page_index)&&e.page_index>=1,'invalid_step_events');
+      if(Object.hasOwn(e,'outcome'))assert(['completed','failed','stopped','unknown','login_required'].includes(e.outcome),'invalid_step_events');
+      if(Object.hasOwn(e,'local_run_id'))assert(uuid(e.local_run_id),'invalid_step_events');
+      for(const k of ['saved_pages','saved_rows','acknowledged','pending','page_index'])if(Object.hasOwn(e,k))assert(Number.isSafeInteger(e[k])&&e[k]>=0&&e[k]<=1e9,'invalid_step_events');
+    }
+  }else{
+    assert(actor==='owner','principal_denied');
+    assert(Object.keys(payload).every(k=>['limit','after_id','run_id'].includes(k)),'invalid_step_events');
+    if(Object.hasOwn(payload,'limit'))assert(Number.isSafeInteger(payload.limit)&&payload.limit>=1&&payload.limit<=200,'invalid_step_events');
+    if(Object.hasOwn(payload,'after_id'))assert(Number.isSafeInteger(payload.after_id)&&payload.after_id>=0,'invalid_step_events');
+    if(Object.hasOwn(payload,'run_id'))assert(uuid(payload.run_id),'invalid_step_events');
+  }
+  const result=await backend.rpc('crowd_machine_steps_rpc',{p_owner_scope:'crowd-owner-main',p_actor_kind:actor,p_worker_hash:workerHash,p_action:action,p_payload:payload});
+  if(result.error)throw new Error(['principal_denied','worker_revoked','lease_binding_denied','step_event_conflict','invalid_step_events'].includes(result.error.message)?result.error.message:'backend_unavailable');
+  return result.data;
+}

@@ -17,7 +17,7 @@
   const short=value=>typeof value==='string'&&/^[a-zA-Z0-9:_-]{1,100}$/.test(value)?value.slice(-8):'未登记';
   const when=value=>{const date=new Date(typeof value==='number'?value*1000:value);return value&&Number.isFinite(date.getTime())?date.toLocaleString():'尚无记录';};
   const call=(action,payload={})=>api('/api/cloud',{action,payload});
-  let pending=false,eventPending=false,localPending=false,cursor=0,rows=[],checkedAt=null,allowedInstallations=null,lastHasMore=false;
+  let pending=false,eventPending=false,localPending=false,cursor=0,rows=[],machineRows=[],machineError=null,checkedAt=null,allowedInstallations=null,lastHasMore=false;
   const sequences=new Map(),gaps=new Set();
   const problem=value=>['failed','waiting','unknown','interrupted_unknown','login_required','partial'].includes(value);
   function unavailable(value){return value.reason==='not_connected'?'尚未连接云端':value.reason==='upgrade_or_access_required'?'云端版本或访问权限待核对，尚未接通':'云端接口待升级，任务与步骤状态尚未接通';}
@@ -60,12 +60,12 @@
         body.append(item);
       }
       if(!nodes.length)body.append(node('p','还没有终端登记，不能视为两设备验收通过。'));
-      body.append(node('p','参与者步骤只覆盖已升级且开启诊断的终端；机器的细步骤云端上报尚未接入。本机执行阶段另行显示。'));
+      body.append(node('p','参与者步骤只覆盖已升级且开启诊断的终端；机器控制阶段与Pro已保存分页同步云端；其他引擎逐页覆盖仍待核验。本机记录另行显示。'));
     }catch(_error){heading.textContent='云端任务与终端 · 查询失败，状态待核对';body.replaceChildren(node('p','无法读取最新状态；不会据此判定终端正常或重新发送任务。'));}
     finally{pending=false;}
   }
   function renderEvents(more){
-    timelineBody.replaceChildren(node('p','云端更新时间：'+when(checkedAt)+' · 保存最近 7 天，面板显示最近 60 条。'+(more?'正在继续读取后续记录；当前尚未追平。':'')));
+    timelineBody.replaceChildren(node('p','云端更新时间：'+when(checkedAt)+' · 参与者保留最近7天；机器面板显示最近60条，云端保留范围另行核验。'+(more?'正在继续读取后续记录；当前尚未追平。':'')));
     if(gaps.size)timelineBody.append(node('p','有 '+gaps.size+' 个终端的步骤序号曾有跳跃或更早记录未保留，需核对补传完整性。'));
     for(const row of rows.slice(-60).reverse()){
       const item=node('p');item.textContent=when(row.occurred_at||row.received_at)+' · 终端 '+short(row.installation_id)+' · 任务 '+short(row.logical_task_id)+' · '+(steps[row.step]||'未识别步骤')+'：'+(statuses[row.status]||'状态待核对');
@@ -73,7 +73,14 @@
       if(Number.isFinite(row.duration_ms)&&row.duration_ms>=0)item.textContent+=' · '+(row.duration_ms/1000).toFixed(2)+' 秒';
       timelineBody.append(item);
     }
-    if(!rows.length)timelineBody.append(node('p','尚未收到步骤记录；只有健康心跳不代表完成采集。'));
+    for(const row of machineRows.slice(-60).reverse()){
+      const event=row.event||{},item=node('p');item.textContent=when(row.received_at)+' · 机器 '+short(row.worker_id)+' · 任务 '+short(row.task_id)+' · run '+short(row.run_id)+' / epoch '+count(row.lease_epoch)+' · '+(steps[event.phase]||'状态待核对')+(event.outcome?' · '+(states[event.outcome]||'结果待核对'):'');
+      for(const [key,label] of [['page_index','分页序号'],['saved_pages','已保存分页'],['saved_rows','分页记录观测数'],['acknowledged','云回执'],['pending','待回传']])if(Number.isSafeInteger(event[key]))item.append(node('small',' · '+label+' '+count(event[key])));
+      if(event.scope)item.append(node('small',' · '+(event.scope==='reply'?'回复页':'根评论页')+' · 检查点'+(event.checkpoint_committed===true?'已提交':'未确认提交')));
+      timelineBody.append(item);
+    }
+    if(machineError)timelineBody.append(node('p','机器步骤查询失败；显示记录可能过期，不据此重发任务。'));
+    if(!rows.length&&!machineRows.length)timelineBody.append(node('p','尚未收到步骤记录；只有健康心跳不代表完成采集。'));
   }
   async function refreshEvents(){
     if(eventPending||document.hidden)return;eventPending=true;
@@ -81,6 +88,8 @@
       const value=await call('node_events',{after_id:cursor,limit:200});
       if(!value.available){timelineHeading.textContent='采集步骤 · '+unavailable(value);timelineBody.replaceChildren();return;}
       if(value.schema!=='crowd-node-events-v1'||!Array.isArray(value.events)||!Number.isSafeInteger(value.cursor)||value.cursor<cursor)throw Error('invalid_events');
+      if(Array.isArray(value.machine_events))machineRows=value.machine_events.filter(row=>Number.isSafeInteger(row.id)&&typeof row.run_id==='string'&&row.event&&typeof row.event==='object').slice(-200);
+      machineError=value.machine_events_error||null;
       let latest=cursor;
       for(const row of value.events){
         if(!Number.isSafeInteger(row.id)||row.id<=latest||!Number.isSafeInteger(row.node_seq)||row.node_seq<1||typeof row.installation_id!=='string')throw Error('invalid_events');

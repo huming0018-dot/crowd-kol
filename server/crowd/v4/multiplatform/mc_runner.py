@@ -538,6 +538,18 @@ def stop_context(run):
 def status(root, payload):
     run = run_dir(root,payload.get('run_id'))
     state = read(run/'status.json')
+    pagination = run/'pro-pagination.json'
+    if pagination.exists() and not pagination.is_symlink() and pagination.stat().st_size <= 3_000_000:
+        try:
+            document=read(pagination); digest=document.pop('sha256',None)
+            if document.get('operation_id')==state.get('run_id') and hashlib.sha256(canonical(document).encode()).hexdigest()==digest:
+                pages=document.get('pages',[])
+                if isinstance(pages,list) and len(pages)<=1000:
+                    saved=[page for page in pages if isinstance(page,dict) and page.get('saved') is True and isinstance(page.get('ids'),list)]
+                    state={**state,'step_counts':{'saved_pages':len(saved),'saved_rows':sum(len(page.get('ids',[])) for page in saved)},
+                        'step_pages':[{'page_sha256':hashlib.sha256(canonical(page).encode()).hexdigest(),'page_index':index,'scope':page['scope'],'saved_rows':len(page['ids']),'checkpoint_committed':page['checkpoint_committed']} for index,page in enumerate(pages,1) if isinstance(page,dict) and page.get('saved') is True and page.get('scope') in ('root','reply') and isinstance(page.get('ids'),list) and type(page.get('checkpoint_committed')) is bool]}
+        except (ValueError,TypeError,OSError):
+            state={**state,'step_monitor_error':'pagination_observation_failed'}
     context=stop_context(run)
     if context:
         state={**state,'stop_context':context,'stop_origin':context['origin']}
