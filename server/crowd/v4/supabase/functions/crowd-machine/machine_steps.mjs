@@ -12,10 +12,12 @@ export async function machineSteps(action,payload,backend,actor,workerHash){
       if(e.phase!=='source_step')assert(!['source_sequence','source_stage','api_attempts','http_status'].some(k=>Object.hasOwn(e,k)),'invalid_step_events');
       if(!['source_step','comments_page'].includes(e.phase))assert(!Object.hasOwn(e,'scope'),'invalid_step_events');
       if(e.phase==='source_step'){
-        assert(['request_started','response_received','request_failed','page_received','page_saved','content_saved','store_failed','monitor_failed'].includes(e.source_stage)&&['request','content','root','reply'].includes(e.scope),'invalid_step_events');
+        assert(['request_started','response_received','request_failed','page_received','page_saved','page_partially_saved','content_saved','store_failed','monitor_failed'].includes(e.source_stage)&&['request','content','root','reply'].includes(e.scope),'invalid_step_events');
         assert(Number.isSafeInteger(e.source_sequence)&&e.source_sequence>=1&&e.source_sequence<=4000&&Number.isSafeInteger(e.api_attempts)&&e.api_attempts>=0&&e.api_attempts<=500&&Number.isSafeInteger(e.http_status)&&e.http_status>=0&&e.http_status<=599&&e.checkpoint_committed===false,'invalid_step_events');
         if(Object.hasOwn(e,'page_sha256'))assert(typeof e.page_sha256==='string'&&/^[a-f0-9]{64}$/.test(e.page_sha256),'invalid_step_events');
-        if(['page_saved','content_saved'].includes(e.source_stage))assert(Object.hasOwn(e,'page_sha256')&&Object.hasOwn(e,'saved_rows'),'invalid_step_events');
+        if(e.source_stage==='page_partially_saved')assert(['root','reply'].includes(e.scope),'invalid_step_events');
+        if(['page_saved','page_partially_saved','content_saved'].includes(e.source_stage))assert(Object.hasOwn(e,'page_sha256')&&Object.hasOwn(e,'saved_rows'),'invalid_step_events');
+        if(e.source_stage==='page_partially_saved')assert(e.saved_rows>=1,'invalid_step_events');
       }
       if(e.phase==='comments_page')assert(typeof e.page_sha256==='string'&&/^[a-f0-9]{64}$/.test(e.page_sha256)&&['root','reply'].includes(e.scope)&&typeof e.checkpoint_committed==='boolean'&&Number.isSafeInteger(e.page_index)&&e.page_index>=1,'invalid_step_events');
       if(Object.hasOwn(e,'outcome'))assert(['completed','failed','stopped','unknown','login_required'].includes(e.outcome),'invalid_step_events');

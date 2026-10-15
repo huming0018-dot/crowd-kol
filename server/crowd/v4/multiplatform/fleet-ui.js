@@ -75,7 +75,7 @@
     }
     for(const row of machineRows.slice(-60).reverse()){
       const event=row.event||{},item=node('p');item.textContent=when(row.received_at)+' · 机器 '+short(row.worker_id)+' · 任务 '+short(row.task_id)+' · run '+short(row.run_id)+' / epoch '+count(row.lease_epoch)+' · '+(steps[event.phase]||'状态待核对')+(event.outcome?' · '+(states[event.outcome]||'结果待核对'):'');
-      if(event.source_stage){const stages={request_started:'请求已开始',response_received:'收到来源响应',request_failed:'来源请求失败',page_received:'收到评论页，尚未确认保存',content_saved:'正文已保存并回读核对',page_saved:'评论页已保存并回读核对',store_failed:'本地保存失败',monitor_failed:'监控记录失败'};if(stages[event.source_stage])item.append(node('small',' · '+stages[event.source_stage]));}
+      if(event.source_stage){const stages={request_started:'请求已开始',response_received:'收到来源响应',request_failed:'来源请求失败',page_received:'收到评论页，尚未确认保存',content_saved:'正文已保存并回读核对',page_partially_saved:'本页已保存选中部分',page_saved:'评论页已保存并回读核对',store_failed:'本地保存失败',monitor_failed:'监控记录失败'};if(stages[event.source_stage])item.append(node('small',' · '+stages[event.source_stage]));}
       for(const [key,label] of [['source_sequence','来源步骤序号'],['api_attempts','HTTP尝试'],['http_status','HTTP状态'],['page_index','分页序号'],['saved_pages','已保存分页'],['saved_rows','分页记录观测数'],['acknowledged','云回执'],['pending','待回传']])if(Number.isSafeInteger(event[key]))item.append(node('small',' · '+label+' '+count(event[key])));
       if(event.scope)item.append(node('small',' · '+(event.scope==='reply'?'回复页':'根评论页')+' · 检查点'+(event.checkpoint_committed===true?'已提交':'未确认提交')));
       timelineBody.append(item);

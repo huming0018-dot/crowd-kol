@@ -25,4 +25,14 @@ class NativeStepsTest(unittest.TestCase):
     with self.assertRaisesRegex(ValueError,'native_steps_observation_failed'):read_steps(run,rid)
     runner.write(run/'status.json',{'run_id':rid,'state':'completed','updated_at':time.time()})
     self.assertEqual(runner.status(root,{'run_id':rid})['source_monitor_error'],'native_steps_observation_failed')
+ def test_selected_subset_is_partial_not_full_raw_page(self):
+  from mc_source_steps import identity,digest
+  with tempfile.TemporaryDirectory() as t:
+   run=Path(t).resolve();rid=str(uuid.uuid4());monitor=NativeSteps(run,rid,'wb');monitor.page('root',{'data':[{'id':str(i)} for i in (1,2,3)]},'data','id',{})
+   path=run/'output/comments.jsonl';path.parent.mkdir();rows=[{'comment_id':str(i)} for i in (1,2)];path.write_text('\n'.join(json.dumps(row) for row in rows)+'\n')
+   for n,row in enumerate(rows,1):monitor.saved[identity(row['comment_id'])]=(path,digest(row),n)
+   monitor.select_callback_page(monitor.pending[-1],[{'id':'1'},{'id':'2'}],'id');events=read_steps(run,rid);self.assertEqual([e['saved_rows'] for e in events if e['source_stage']=='page_partially_saved'],[2]);self.assertFalse(any(e['source_stage']=='page_saved' for e in events))
+ def test_partial_stage_rejects_zero_and_nonpage_scope(self):
+  with tempfile.TemporaryDirectory() as t:
+   run=Path(t).resolve();rid=str(uuid.uuid4());monitor=NativeSteps(run,rid,'wb');monitor.emit('page_partially_saved',scope='root',saved_rows=0,page_sha256='a'*64);monitor.emit('page_partially_saved',scope='content',saved_rows=1,page_sha256='a'*64);self.assertEqual(read_steps(run,rid),[])
 if __name__=='__main__':unittest.main()

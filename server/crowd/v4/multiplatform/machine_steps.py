@@ -55,6 +55,7 @@ class MachineSteps:
         if phase=='source_step':
             from mc_source_steps import STAGES,SCOPES
             if counts.get('source_stage') not in STAGES or counts.get('scope') not in SCOPES:raise ValueError('invalid_machine_steps')
+            if counts['source_stage']=='page_partially_saved' and (counts['scope'] not in ('root','reply') or type(counts.get('saved_rows')) is not int or counts['saved_rows']<1):raise ValueError('invalid_machine_steps')
             for key,low,high in (('source_sequence',1,4000),('api_attempts',0,500),('http_status',0,599)):
                 value=counts.get(key)
                 if type(value) is not int or not low<=value<=high:raise ValueError('invalid_machine_steps')
