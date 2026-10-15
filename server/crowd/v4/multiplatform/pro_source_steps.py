@@ -29,10 +29,20 @@ def safe_json(path):
 
 def relation(platform,scope,entity,row,page,rows):
  from pro_executor import is_root_comment,reply_belongs_to
- key={'bili':'video_id','xhs':'note_id','dy':'aweme_id','wb':'note_id'}[platform]
+ key={'bili':'video_id','xhs':'note_id','dy':'aweme_id','wb':'note_id','zhihu':'content_id'}[platform]
  if str(row.get(key))!=page['content_id']:return False
  if platform=='bili':
   return is_root_comment(row) if scope=='root' else reply_belongs_to(entity,page['parent_id'],rows,page['content_id'])
+ if platform=='zhihu':
+  if scope=='root':return row.get('parent_comment_id') in ('','0',0,None)
+  seen=set();current=entity
+  while current in rows and current not in seen:
+   seen.add(current);value=rows[current]
+   if str(value.get('content_id'))!=page['content_id']:return False
+   parent=str(value.get('parent_comment_id') or '')
+   if parent==page['parent_id']:return True
+   current=parent
+  return False
  parent=str(row.get('parent_comment_id') or '')
  return parent in (('','0',entity) if platform=='wb' else ('','0')) if scope=='root' else parent==page['parent_id']
 
@@ -46,7 +56,7 @@ def project(run,manifest=None):
  request=manifest.get('request')
  if manifest.get('run_id')!=rid or not isinstance(request,dict):raise ValueError('pro_steps_manifest_binding')
  platform=request.get('platform')
- if platform not in ('bili','xhs','dy','wb'):raise ValueError('pro_steps_platform_unsupported')
+ if platform not in ('bili','xhs','dy','wb','zhihu'):raise ValueError('pro_steps_platform_unsupported')
  from pro_executor import DB_NAME,observations
  source=run/DB_NAME
  if not source.exists():return {'facts_added':0,'readback_only':True}

@@ -27,8 +27,10 @@ from managed_pro_signer import SignerError
 
 PROTOCOL = 'vox-acquisition-v1'
 PINNED_COMMIT = 'd32dd565277116ba4880c28ccd417a7c376cb62d'
+from pro_zhihu_adapter import ZhihuStop
+
 NATIVE_SUPPORTED = ('xhs', 'dy', 'bili')
-SUPPORTED = NATIVE_SUPPORTED + ('wb',)
+SUPPORTED = NATIVE_SUPPORTED + ('wb','zhihu')
 DB_NAME = 'pro-observations.sqlite3'
 MAX_DB_BYTES = 104857600
 MAX_ROWS = 10000
@@ -53,6 +55,8 @@ def supports_bili_audio_request(request):
 
 def explicit_unsupported(request):
     """Explicit task engines never silently substitute a different collector."""
+    if request.get('platform')=='zhihu' and (request.get('mode')!='detail' or request.get('max_items')!=1 or request.get('media') is not False or request.get('platform_options')!={}):
+        return 'pro_zhihu_candidate_scope_unsupported'
     if request.get('platform') not in SUPPORTED:
         return 'pro_operation_platform_not_adapted'
     if request.get('mode') not in ('search','detail','creator'):
@@ -116,7 +120,9 @@ def selection(request, environ=None, installation=None):
         if not installation:bridge().fail('pro_task_installation_missing')
         return {'backend':'pro','requested_backend':'pro','root':str(Path(installation['root']).resolve()),'python':installation['python']}
     reason = None
-    if request['platform'] == 'wb' and env.get('CROWD_PRO_WEIBO_ENABLED') != '1':
+    if request['platform']=='zhihu':
+        reason='pro_zhihu_adapter_explicit_only'
+    elif request['platform'] == 'wb' and env.get('CROWD_PRO_WEIBO_ENABLED') != '1':
         reason = 'pro_weibo_adapter_not_enabled'
     elif request['platform'] not in SUPPORTED:
         reason = 'pro_operation_platform_not_adapted'
@@ -164,7 +170,7 @@ def binding_for(root, request):
         m.fail('pro_account_binding_required')
     value = m.read(path)
     if isinstance(value,dict) and set(value)=={'platform','provider'} and value.get('provider')=='native_persistent':
-        if value.get('platform')!='wb' or request['platform']!='wb':m.fail('pro_native_provider_platform_unsupported')
+        if value.get('platform') not in ('wb','zhihu') or request['platform']!=value.get('platform'):m.fail('pro_native_provider_platform_unsupported')
         return value
     if not isinstance(value, dict) or set(value) != {'platform', 'client_id', 'cookiebridge_url', 'sign_url'} or value.get('platform') != request['platform']:
         m.fail('pro_account_binding_invalid')
@@ -289,10 +295,10 @@ def completion(run, manifest, summary):
         checkpoint_topics = set(mapping)
     if len(notes) != len(checkpoint_topics) or {str(n.get('note_id')) for n in notes} != checkpoint_topics:
         m.fail('pro_checkpoint_observation_mismatch')
-    if p['platform']=='wb' and p['comments']:
+    if p['platform'] in ('wb','zhihu') and p['comments']:
         coverage=pagination_summary(run,manifest)
         if coverage.get('coverage') not in ('exhausted','limit_reached'):
-            m.fail('pro_weibo_pagination_partial')
+            m.fail('pro_zhihu_pagination_partial' if p['platform']=='zhihu' else 'pro_weibo_pagination_partial')
     return {'operation_id': manifest['run_id'], 'local_committed': True, 'cloud_ack': False,
             'content_count': len(topics), 'comment_count': sum(k == 'comment' for k, _, _ in rows),
             'checkpoint_id': manifest['run_id'], 'coverage': 'unverified'}
@@ -455,6 +461,9 @@ def pinned_ids(value):
 
 def pagination_summary(run, manifest):
     """Coverage evidence is separate from upstream commit and cloud delivery."""
+    if manifest['request']['platform']=='zhihu':
+        from pro_zhihu_adapter import pagination_summary as zhihu_summary
+        return zhihu_summary(run,manifest,sys.modules[__name__])
     if manifest['request']['platform']=='wb':
         import pro_weibo_adapter
         return pro_weibo_adapter.pagination_summary(run,manifest,sys.modules[__name__])
@@ -962,6 +971,8 @@ def execute(run, manifest, *, mc_root=None):
             if not native_provider:
                 sign = urlsplit(selected['binding']['sign_url'])
                 config.SIGN_SRV_HOST, config.SIGN_SRV_PORT = sign.hostname, str(sign.port)
+            if native_provider and request['platform']=='zhihu':
+                config.SIGN_SRV_HOST,config.SIGN_SRV_PORT='127.0.0.1','8990'
             import httpx
             def observe_response(response):
                 if account_hook:account_hook.observe_response(response)
@@ -972,11 +983,15 @@ def execute(run, manifest, *, mc_root=None):
             install_aio_transport(aiohttp, request, debit, native_steps, sink)
             from pkg.account_pool.pool import AccountPoolManager
             if native_provider:
-                if request['platform']!='wb':raise SystemExit(78)
+                if request['platform'] not in ('wb','zhihu'):raise SystemExit(78)
                 from pro_native_credentials import install_native_account
-                install_native_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,run=run,sink=sink)
+                install_native_account(AccountPoolManager,run.parent.parent,request['session_id'],mc_root,run=run,sink=sink,**({'platform':'zhihu'} if request['platform']=='zhihu' else {}))
             else:
                 install_bound_account(AccountPoolManager, selected['binding'], request['platform'], httpx,sink=sink)
+            if request['platform']=='zhihu':
+                import acquisition_protocol
+                from pro_zhihu_adapter import register_observations
+                register_observations(acquisition_protocol)
             if request['platform']=='wb':
                 import acquisition_protocol
                 from pro_weibo_adapter import prepare as prepare_weibo
@@ -985,7 +1000,8 @@ def execute(run, manifest, *, mc_root=None):
             clients = {'xhs': ('media_platform.xhs.client', 'XiaoHongShuClient'),
                        'bili': ('media_platform.bilibili.client', 'BilibiliClient'),
                        'dy': ('media_platform.douyin.client', 'DouYinApiClient'),
-                       'wb': ('media_platform.weibo.client','WeiboClient')}
+                       'wb': ('media_platform.weibo.client','WeiboClient'),
+                       'zhihu':('media_platform.zhihu.client','ZhiHuClient')}
             import importlib
             module, name = clients[request['platform']]
             client_type = getattr(importlib.import_module(module), name)
@@ -998,6 +1014,10 @@ def execute(run, manifest, *, mc_root=None):
                 store=importlib.import_module('repo.platform_save_data.'+('xhs' if request['platform']=='xhs' else 'douyin'))
                 from repo.checkpoint.checkpoint_store import CheckpointRepoManager
                 CursorPagination(run,manifest,sys.modules[__name__]).install(client_type,store,CheckpointRepoManager)
+            if request['platform']=='zhihu':
+                from pro_zhihu_adapter import install_detail
+                from media_platform.zhihu.handlers.detail_handler import DetailHandler
+                pagination_hook=install_detail(run,manifest,sys.modules[__name__],DetailHandler)
             from pro_account_sessions import install_pro_account_hooks
             def account_event(account_state,account):
                 unsupported=account.get('identity_status')=='pro_self_check_unsupported'
@@ -1025,7 +1045,7 @@ def execute(run, manifest, *, mc_root=None):
                     manifest['run_id'],account_event,httpx,client_type)
             sys.argv = [str(root/'main.py'), *argv_for(request)]
             from managed_pro_signer import owned_signer
-            with owned_signer(run,request,selected['binding']):
+            with owned_signer(run,request,{'platform':'zhihu','sign_url':'http://127.0.0.1:8990'} if native_provider and request['platform']=='zhihu' else selected['binding']):
                 asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
@@ -1040,6 +1060,9 @@ def execute(run, manifest, *, mc_root=None):
                     raise
                 sink.update(media_stage='completed',content_committed=True)
             sink.update(**result)
+    except ZhihuStop as error:
+        sink.update(phase='failed',failure_reason=error.reason if re.fullmatch(r'zhihu_[a-z_]{1,80}',error.reason) else 'pro_zhihu_pagination_partial',coverage='partial')
+        raise SystemExit(74)
     except WeiboAdapterStop as error:
         sink.update(phase='failed',failure_reason=error.reason if re.fullmatch(r'wb_[a-z_]{1,80}',error.reason) else 'pro_weibo_pagination_partial',coverage='partial')
         raise SystemExit(74)

@@ -41,13 +41,13 @@ class SignGate:
         async with self.lock:
             if self.failed:self.reject('signer_failed_no_retry')
             if self.signs>=100:self.reject('sign_budget_exhausted')
-            prefix=r'/api/sns/web/v[12]/' if platform=='xhs' else r'/aweme/v[12]/web/'
-            if platform not in ('xhs','dy') or not isinstance(request.uri,str) or not re.match(prefix,request.uri) or len(request.uri)>16000 or not isinstance(request.cookies,str) or not request.cookies:
+            prefix=r'/api/sns/web/v[12]/' if platform=='xhs' else r'/(?:p/[1-9][0-9]*|question/[1-9][0-9]*/answer/[1-9][0-9]*|api/v4/comment_v5/(?:(?:answers|articles)/[1-9][0-9]*/root_comment|comment/[1-9][0-9]*/child_comment))(?:[?]|$)' if platform=='zhihu' else r'/aweme/v[12]/web/'
+            if platform not in ('xhs','dy','zhihu') or not isinstance(request.uri,str) or not re.match(prefix,request.uri) or len(request.uri)>16000 or not isinstance(request.cookies,str) or not request.cookies:
                 self.reject('invalid_local_sign_request')
             # Cookie order/non-auth fields change; only the collector's official self
             # check and bound client can authorize account identity, never a signer.
             self.signs+=1
-            try:return await native(signer,request,force_init=False)
+            try:return await native(signer,request) if platform=='zhihu' else await native(signer,request,force_init=False)
             except BaseException:
                 self.failed=True
                 self.native_failure_reason='native_signer_failed'
@@ -118,7 +118,7 @@ async def build_application(root):
     if not node_path.is_file() or hashlib.sha256(node_path.read_bytes()).hexdigest()!=node['sha256']:raise ValueError('sign_node_changed')
     os.environ['PATH']=str(node_path.parent)+os.pathsep+os.environ.get('PATH','')
     root=verify_source(root)
-    for name in ('config','apis.xiaohongshu','apis.douyin'):
+    for name in ('config','apis.xiaohongshu','apis.douyin','apis.zhihu'):
         module=sys.modules.get(name)
         if module and not Path(module.__file__).resolve().is_relative_to(root):raise ValueError('sign_module_collision')
     deny_external_socket();sys.path.insert(0,str(root));os.chdir(root);logging.disable(logging.CRITICAL)
@@ -129,12 +129,15 @@ async def build_application(root):
     from apis.base_handler import PongHandler
     import apis.xiaohongshu as xhs
     import apis.douyin as dy
+    import apis.zhihu as zh
     from logic.xhs.xhs_logic import XhsJavascriptSign
     from logic.douyin.douyin_logic import DouyinJavascriptSign
-    gate=SignGate();xsign=XhsJavascriptSign();dsign=DouyinJavascriptSign()
+    from logic.zhihu.zhihu_logic import ZhihuJavascriptSign
+    gate=SignGate();xsign=XhsJavascriptSign();dsign=DouyinJavascriptSign();zsign=ZhihuJavascriptSign()
     async def xs(req):return await gate.sign('xhs',XhsJavascriptSign.sign.__wrapped__,xsign,req)
     async def ds(req):return await gate.sign('dy',DouyinJavascriptSign.sign.__wrapped__,dsign,req)
-    xhs.xhs_sign_logic.sign=xs;dy.dy_sign_logic.sign=ds
+    async def zs(req):return await gate.sign('zhihu',ZhihuJavascriptSign.sign.__wrapped__,zsign,req)
+    xhs.xhs_sign_logic.sign=xs;dy.dy_sign_logic.sign=ds;zh.zhihu_sign_logic.sign=zs
     class Local:
         def prepare(self):
             if not allowed(self.request):
@@ -153,7 +156,7 @@ async def build_application(root):
         def prepare(self):
             gate.note_rejection('unsupported_sign_endpoint')
             raise tornado.web.HTTPError(404 if allowed(self.request) else 403)
-    app=tornado.web.Application([(r'/signsrv/pong',type('LocalPong',(Local,PongHandler),{})),(r'/signsrv/v1/xhs/sign',type('LocalXhs',(Local,xhs.XhsSignHandler),{})),(r'/signsrv/v1/douyin/sign',type('LocalDy',(Local,dy.DouyinSignHandler),{}))],debug=False,autoreload=False,default_handler_class=type('LocalMissing',(Local,Missing),{}),log_function=lambda _:None)
+    app=tornado.web.Application([(r'/signsrv/pong',type('LocalPong',(Local,PongHandler),{})),(r'/signsrv/v1/zhihu/sign',type('LocalZhihu',(Local,zh.ZhihuSignHandler),{})),(r'/signsrv/v1/xhs/sign',type('LocalXhs',(Local,xhs.XhsSignHandler),{})),(r'/signsrv/v1/douyin/sign',type('LocalDy',(Local,dy.DouyinSignHandler),{}))],debug=False,autoreload=False,default_handler_class=type('LocalMissing',(Local,Missing),{}),log_function=lambda _:None)
     app.sign_gate=gate
     return app
 
@@ -163,7 +166,7 @@ def lifecycle_file(path):
     return os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
 
 def event(fd,name,app=None):
-    row={'schema':'crowd-signsrv-local-v1','event':name,'pid':os.getpid(),'host':HOST,'port':PORT,'platforms':['xhs','dy'],'source_commit':SOURCE_COMMIT,'source_requests':0,'browser_started':False,'sign_count':app.sign_gate.signs if app else 0,'failed':app.sign_gate.failed if app else True}
+    row={'schema':'crowd-signsrv-local-v1','event':name,'pid':os.getpid(),'host':HOST,'port':PORT,'platforms':['xhs','dy','zhihu'],'source_commit':SOURCE_COMMIT,'source_requests':0,'browser_started':False,'sign_count':app.sign_gate.signs if app else 0,'failed':app.sign_gate.failed if app else True}
     if app:
         row.update(first_error_reason=app.sign_gate.first_error_reason,
                    native_failure_reason=app.sign_gate.native_failure_reason,rejected_calls=app.sign_gate.rejected_calls)
@@ -205,7 +208,7 @@ def main():
                 app=await build_application(a.source_root)
                 if a.serve:await serve(app,fd)
             asyncio.run(run())
-        if not a.serve:print(json.dumps({'ok':True,'validate_only':True,'listening':False,'source_requests':0,'browser_started':False,'platforms':['xhs','dy']}))
+        if not a.serve:print(json.dumps({'ok':True,'validate_only':True,'listening':False,'source_requests':0,'browser_started':False,'platforms':['xhs','dy','zhihu']}))
         return 0
     except Exception:
         if fd is not None:event(fd,'runtime_failed',app)

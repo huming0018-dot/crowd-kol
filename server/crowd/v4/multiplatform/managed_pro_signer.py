@@ -2,8 +2,8 @@
 import contextlib,errno,fcntl,hashlib,json,os,signal,socket,stat,subprocess,time,uuid,sys
 from pathlib import Path
 SERVER=Path(__file__).with_name('pro_signer_server.py')
-SERVER_SHA='2ce331bbe3ae6c38ba612cbcab56e0dc586bbaa9b77057210d47ac3d3b020da5'
-SOURCE_MANIFEST_SHA='0eedd49f37dba471cf93777f3e3406d3f3ddbe409e3428db6c07703f1696bed6'
+SERVER_SHA='be1792c87d2ac97a19ae5ecff30c1adba7c4557532763ca5f9b55ceb1636d36a'
+SOURCE_MANIFEST_SHA='65f74774ed37b21fa49688929a17270c1f7777ef82fecc075239d24c8ed26b6d'
 SOURCE_COMMIT='26c53d8f3221d95e0d4961b0593debd179d3cf10'
 class SignerError(RuntimeError):pass
 
@@ -39,7 +39,7 @@ def stop_owned(process):
 
 @contextlib.contextmanager
 def owned_signer(run,request,binding):
- if request.get('platform') not in ('xhs','dy'):
+ if request.get('platform') not in ('xhs','dy','zhihu'):
   yield {'state':'not_required'};return
  run=Path(run)
  try:valid_run=run.is_absolute() and not any(p.is_symlink() for p in (run,*run.parents)) and str(uuid.UUID(run.name))==run.name

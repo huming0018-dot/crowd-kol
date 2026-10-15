@@ -6,7 +6,7 @@ try:
 except ImportError:
     from account_sessions import AccountSessions, own_account_id, safe_account_ref
 
-SELF_ENDPOINTS = {'bili': ('api.bilibili.com', '/x/web-interface/nav'),
+SELF_ENDPOINTS = {'zhihu':('www.zhihu.com','/api/v4/me'),'bili': ('api.bilibili.com', '/x/web-interface/nav'),
                   'xhs': ('edith.xiaohongshu.com', '/api/sns/web/v2/user/me')}
 
 
@@ -16,6 +16,10 @@ def self_proof(platform, response):
         u = urlsplit(str(response.url))
         if u.scheme != 'https' or (u.hostname, u.path) != SELF_ENDPOINTS.get(platform) or u.username or u.password or u.port not in (None, 443):
             return 'check_failed', None
+        if platform=='zhihu':
+            from pro_zhihu_adapter import self_proof as zhihu_self
+            proof=zhihu_self(response)
+            return proof if proof is not None else ('check_failed',None)
         if type(response.status_code) is not int or response.status_code != 200:
             return 'check_failed', None
         data = response.json()
@@ -41,6 +45,10 @@ def self_proof(platform, response):
             if not isinstance(body, dict) or body.get('guest') is True or body.get('is_login') is False:
                 return 'check_failed', None
             uid = own_account_id('xhs', data)
+        elif platform == 'zhihu':
+            from pro_zhihu_adapter import self_proof as zhihu_self
+            proof=zhihu_self(response)
+            return proof if proof is not None else ('check_failed',None)
         else:
             return 'check_failed', None
         return ('authenticated', uid) if safe_account_ref(platform, uid) else ('check_failed', None)
@@ -81,10 +89,14 @@ class ProAccountHooks:
             return response
         async def pong(client, *args, **kwargs):
             previous = hook.store.status(hook.session_id, hook.platform)
+            expected_context=None
+            if hook.platform=='zhihu':
+                if type(previous.get('generation')) is not int or not previous.get('account_ref'):raise SystemExit(85)
+                expected_context={k:previous[k] for k in ('generation','account_ref')}
             if previous.get('pending_run_id') and not previous.get('account_ref'):
                 hook.store._update(hook.session_id, hook.platform, lambda v: v.update(
                     recovering=True, identity_status='baseline_unverified'))
-            hook.emit(hook.store.observe(hook.session_id, hook.platform, 'checking', hook.run_id))
+            hook.emit(hook.store.observe(hook.session_id, hook.platform, 'checking', hook.run_id,_expected_context=expected_context))
             if hook.platform not in SELF_ENDPOINTS:
                 hook.store.observe(hook.session_id, hook.platform, 'check_failed', hook.run_id)
                 value = hook.store._update(hook.session_id, hook.platform, lambda v: v.update(
@@ -100,7 +112,7 @@ class ProAccountHooks:
                 try:
                     proof, _ = capture['proof']
                     hook.emit(hook.store.observe(hook.session_id, hook.platform,
-                        'logged_out' if proof == 'logged_out' else 'check_failed', hook.run_id))
+                        'logged_out' if proof == 'logged_out' else 'check_failed', hook.run_id,_expected_context=expected_context))
                 except BaseException:
                     pass  # Preserve the source/budget/cancellation failure over diagnostic storage.
                 raise
@@ -108,11 +120,22 @@ class ProAccountHooks:
                 hook.capture.reset(token)
             proof, uid = capture['proof']
             if result is not True or proof != 'authenticated':
-                hook.emit(hook.store.observe(hook.session_id, hook.platform,
-                    'logged_out' if proof == 'logged_out' else 'check_failed', hook.run_id))
+                try:
+                    value=hook.store.observe(hook.session_id, hook.platform,
+                        'logged_out' if proof == 'logged_out' else 'check_failed', hook.run_id,_expected_context=expected_context)
+                except ValueError:
+                    if expected_context is None:raise
+                    value=None
+                if value is not None:hook.emit(value)
                 # An unavailable/invalid self check is not evidence of logout.
                 raise SystemExit(77 if proof == 'logged_out' else 86)
-            value = hook.store.observe(hook.session_id, hook.platform, 'authenticated', hook.run_id, uid)
+            different=expected_context is not None and safe_account_ref(hook.platform,uid)!=expected_context['account_ref']
+            try:
+                value=hook.store.observe(hook.session_id,hook.platform,'authenticated',hook.run_id,uid,
+                    _expected_context=expected_context,**({'_allow_account_change':True} if different else {}))
+            except ValueError:
+                if different:raise SystemExit(78) from None
+                raise
             hook.emit(value)
             if value['state'] == 'account_changed':
                 raise SystemExit(78)

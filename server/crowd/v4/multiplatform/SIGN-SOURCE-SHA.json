@@ -53,5 +53,6 @@
   "test/__init__.py": "9926387e31d03491c9f86c83d56f5cd1079bb7019da2ea188b4ff9351443fbd1",
   "test/test_custom_getenv.py": "918f1e0b842cd58343a7348581b143ec47ee1a47f4e5bd42599317804b82fb52",
   "urls.py": "691d2a2ef31b79a1761795d9873acbff4beca742d6c9620aa93a26ed414724ed",
-  "pkg/js/douyin.js": "0e4546f2df0f12cc7a0ed61e2fbbc8f29f4445fd07c0dfaebae84ae48983c09c"
+  "pkg/js/douyin.js": "0e4546f2df0f12cc7a0ed61e2fbbc8f29f4445fd07c0dfaebae84ae48983c09c",
+  "pkg/js/zhihu.js": "c7c3d8074c052adad0f2d98afa2a85da2c3a7bd6aedbcdaf5faaff457dd0c7cb"
 }

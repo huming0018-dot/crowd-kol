@@ -282,12 +282,14 @@ class AccountSessions:
             temporary.replace(folder / 'state.json')
         return {'ok': True, **value}
 
-    def observe(self, session_id, platform, event, run_id=None, account_id=None, *, _expected_context=None):
+    def observe(self, session_id, platform, event, run_id=None, account_id=None, *, _expected_context=None, _allow_account_change=False):
         if event not in ('checking', 'logged_out', 'waiting_login', 'check_failed', 'authenticated'):
             raise ValueError('invalid_account_event')
         if run_id is not None:
             identifier(run_id)
         account_ref = safe_account_ref(platform, account_id)
+        if type(_allow_account_change) is not bool or (_allow_account_change and (platform!='zhihu' or event!='authenticated' or _expected_context is None)):
+            raise ValueError('invalid_account_change_context')
         def change(value):
             if _expected_context is not None:
                 if (event not in ('checking','authenticated','check_failed','logged_out') or not run_id or type(_expected_context) is not dict
@@ -300,7 +302,7 @@ class AccountSessions:
                         or value.get('account_ref') != _expected_context['account_ref']
                         or value.get('state') == 'account_changed'
                         or event!='checking' and value.get('pending_run_id')!=run_id
-                        or event=='authenticated' and (account_ref!=_expected_context['account_ref']
+                        or event=='authenticated' and (account_ref!=_expected_context['account_ref'] and not _allow_account_change
                             or (self.root/session_id/'login-stop').exists()
                             or (self.root/session_id/'login-stop').is_symlink())):
                     raise ValueError('cloud_login_account_changed')
