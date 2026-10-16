@@ -508,3 +508,11 @@ E65补：f2-knowledge-events/FREEZE.json60e70471；independent-knowledge/FINAL.j
 - e66/SOURCE-COMMIT.json记录本轮5自有源/测试。远端发布以e66/SOURCE-PUBLISH-RECEIPT.json为准；不公开原bundle/DB/PRIVATE配置/Pro代码/凭据。
 
 E66补：f2-owner-knowledge-preview/independent-knowledge/FINAL.json82f7ed63核10冻件/原DB保持、实际CLI提案与diff读取/4测试/任何IO前approve-reject拒；不等Owner权限映射或正式审核入口通过。
+
+
+## E67｜产品计划1.1与可执行融合合同（2026-10-16）
+
+- 正式文档：`docs/product/PRODUCT-PLAN.md`第11/12节；ARCHITECTURE/ASSETS/RESEARCH/EXECUTION-CONTRACT更新历史与当前边界；IMPLEMENTATION-INDEX提供固定文件/函数/输入输出/完整SHA，不含私码。
+- 本轮证据目录：`/Users/hubowen/Desktop/爬虫/outputs/product-plan-refresh-20261016/`：BASELINE、AUTHOR-VALIDATION、INDEPENDENT-REVIEW、REVIEW-ROUND2、FINAL及源函数pin元数据；计划初/复审原样归入docs/product/PLAN-REFRESH-*.md。
+- 输入：用户原v2.2 SHAaee488f21b14637a805f38ba4686b31bc5ce4be459acac950f8b2603863a6c5b；主仓核HEADbc8227a；已读E66原独审/发布回执，不当成本轮fresh云查询。联网官方4页核选型与模式，不证明本机收益。
+- 结论：计划可作为下一轮范围/接线合同；未改产品代码/数据/运行，没有新source、ACK、云部署或实验。独审7发现按FINAL逐项关闭或明确实施前置；真实权限/新ACK自动化/跨端与完整业务仍未完成。

@@ -1,3 +1,5 @@
+> 历史盘点基线：下文E63/12:07时点事实。2026-10-16 13:00增量见末节；最新运行事实看固定HANDOFF，不将旧“未接入”当当前状态。
+
 # 现有资产实证盘点（规划输入，不是产品验收）
 
 2026-10-16，Asia/Shanghai；盘点者 `/root/central_steps`。只读源码、版本与既有验收报告；未运行产品/测试、未查询平台或云、未读取凭据、未改正式项目或业务数据。
@@ -25,7 +27,7 @@
 | RUN16 | `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16`；本轮实际来源及独审证据 |
 | PRD | 本目录`REFERENCE-v2.2-TEXT.txt`：311行全文已读；是2026-10-11评审稿，不把选型/开源热度当已实现或当前外部事实 |
 
-## 当前可验证运行锚点
+## 12:07前历史可验证运行锚点
 
 - 原子采用回执：RUN16/`e63-progress-runtime-adoption/runtime-adoption/ADOPTED.json`，revision `wb-progress-45b8e4f7-a1346798`，newPID **65679**。本轮实际只读监听核到唯一`127.0.0.1:45937` PID65679；未重新重启或核全库。中央 **Edge40** 依已读固定handoff/已有部署证据，**本轮没有fresh云查询**。
 - 最新真实WB报告：RUN16/`actual-wb-progress/independent/FINAL.json`，SHA **32a772772d47b1a9f9609d6e5d3cd2f64fce865b545dcf13f1a7b7e93a87f6e3**，有限实证PASS；累计31条云回执（旧30+新评论1），本段3次/总10of12剩2，finished failed74/`wb_reply_terminal_incomplete`。4,284,573B JPEG原字节/像素→Owner attachment→私有云v3保存/回取已核；R88三导出各33行。**不代表全部回复/平台全量完整。**
@@ -111,3 +113,15 @@
 
 - **v2.1未找到可读取原件**：本轮在CTFS、本cwd以及Desktop、Documents六层内按CTFS/PRD/v2.1命名只读查找，仅定位到既有v2.2文本；不证明整台机器不存在v2.1。v2.2明确自称配套v2.1主PRD，其完整架构边界与Phase0–3主定义仍是材料缺口，不能从模块详设倒推成已核主PRD。
 - **第二消费者分级**：源码级确有`packs/cuisines`与`packs/software-releases`两域纯包，051版本表85项source逐SHA一致。版本表validation及`M7-PG-READONLY-0.5.1.md`记载6食物候选+2官方软件发布、同SDK/CLI、工程PG3RAW/32versions/4HTTP以及独立SCOPED_PASS；这是“已读历史工程运行与独审摘要记录”，不是本轮亲跑或已核原始运行回执。未找到对应原日志/完整独审原件，也未核当前活跃第二项目服务。因此可确认双域实现存在，第二消费者工程验证有文档证据，独立可复核运行原件及生产双消费者验收尚缺。不能用两个包或测试fixture宣称PRD复用门已完全通过。
+
+
+## 2026-10-16 13:00资产增量与接线用途
+
+- **F1A已正式**：`MULTI/material_bridge.py`及`material-packs/social-observations/0.1.0/`、`workbench_material_call.py`，原31 ACK派生资料与三导出已接工作台；只新增ACK自动触发仍缺。保capture/receipt为权威，不再造另一份解析或奖励。
+- **F1B已正式**：`MULTI/publication_reader.py`、固定`domain-runtime.json`配置、隔离publication，六店Consumer只读页面/导出已实核。复用051 pin而非整装065。现六店没有核实坐标/当期事实，仍是发现候选。
+- **前端可复用边界**：`CTFS/app`的Next/React筛选/卡片/Leaflet可借布局，但旧数值restaurant ID不兼容Consumer字符串ID；非高德来源即食客的旧逻辑必须淘汰；无核实坐标不造地图点。依据RUN16/e66-domain-consumer/FRONTEND-REUSE-PROBE.md。
+- **自动ACK候选**：`RUN16/auto-material-processing/ack_snapshot.py`和冻结16项。真实字段是record.origin.run_id，不能假设provenance；仅离线5组测试，未独审/启用。复用现postprocessing_runs与toolbox snapshot-file Jobs，别另建任务队列。
+- **M4候选**：`RUN16/f1b-cuisines-unknowns`同输入0.3.4、`f2-owner-knowledge-preview`真实提案预览有限独审；未审核/发布/pin，需已有中央Owner身份到项目审核权限的真实映射。测试工程角色不是本人批准。
+- **保护边界保持**：E66独审原件核五库schema/行、原31 ACK和220保护资产保持。Pro私码、本机资料配置、原媒体/语料/运行数据库不进入公开文档提交；仅发布自有文档和代码白名单。
+
+正式证据、commit、原件路径以HANDOFF E65/E66为索引；本轮读原独审和发布回执，没有新中央/来源调用，不能称fresh云验收。
