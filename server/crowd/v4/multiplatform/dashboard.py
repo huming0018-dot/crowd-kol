@@ -287,10 +287,12 @@ class Application:
             return {**value, 'ok': True, 'storage_scope': 'cloud', 'available': True}
         raise ValueError('invalid_cloud_action')
 
-    def material_delivery(self, fmt='html'):
+    def material_delivery(self, fmt='html', *, domain=False):
         """Read the existing toolbox publication; this endpoint never builds or collects."""
         from workbench_material_call import command
-        path = self.root / 'data-products' / 'material-runtime.json'
+        if type(domain) is not bool:
+            raise ValueError('material_delivery_unavailable')
+        path = self.root / 'data-products' / ('domain-runtime.json' if domain else 'material-runtime.json')
         if path.is_symlink() or any(parent.is_symlink() for parent in path.parents):
             raise ValueError('material_delivery_unavailable')
         try:
@@ -312,7 +314,7 @@ class Application:
                 return output.read(16 * 1024 * 1024 + 1)
         except (OSError, ValueError, TypeError, RecursionError, subprocess.TimeoutExpired) as error:
             code = 'material_delivery_timeout' if isinstance(error, subprocess.TimeoutExpired) else 'material_delivery_unavailable'
-            logging.getLogger('crowd.workbench.material_request').warning(json.dumps({'schema':'crowd-material-request-failure-v1','route':'materials','format':fmt,'error_code':code,'error_type':type(error).__name__},sort_keys=True))
+            logging.getLogger('crowd.workbench.material_request').warning(json.dumps({'schema':'crowd-material-request-failure-v1','route':'data-product' if domain else 'materials','format':fmt,'error_code':code,'error_type':type(error).__name__},sort_keys=True))
             raise ValueError('material_delivery_unavailable') from None
 
     def configure(self, body):
@@ -1135,13 +1137,18 @@ def make_server(app, port=45937):
                                '/materials/report.json': ('json', 'application/json; charset=utf-8'),
                                '/materials/materials.jsonl': ('jsonl', 'application/x-ndjson; charset=utf-8'),
                                '/materials/materials.csv': ('csv', 'text/csv; charset=utf-8')}
+            material_routes.update({'/data-product': ('html', 'text/html; charset=utf-8'),
+                                    '/data-product/report.json': ('json', 'application/json; charset=utf-8'),
+                                    '/data-product/items.jsonl': ('jsonl', 'application/x-ndjson; charset=utf-8'),
+                                    '/data-product/items.csv': ('csv', 'text/csv; charset=utf-8')})
             if path in material_routes:
+                domain = path.startswith('/data-product')
                 fmt, mime = material_routes[path]
                 try:
-                    data = app.material_delivery(fmt)
+                    data = app.material_delivery(fmt, domain=domain)
                 except ValueError:
                     return self.send({'ok': False, 'error': 'material_delivery_unavailable',
-                                      'message': '素材处理尚未就绪或核验未通过；原资料与任务保留。'}, 409)
+                                      'message': '领域发现尚未就绪或核验未通过；原资料与任务保留。' if domain else '素材处理尚未就绪或核验未通过；原资料与任务保留。'}, 409)
                 self.send_response(200)
                 self.send_header('Content-Type', mime)
                 self.send_header('Content-Length', str(len(data)))
@@ -1150,7 +1157,7 @@ def make_server(app, port=45937):
                 self.send_header('Referrer-Policy', 'no-referrer')
                 self.send_header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'")
                 if fmt in ('json', 'jsonl', 'csv'):
-                    self.send_header('Content-Disposition', 'attachment; filename="materials.' + fmt + '"')
+                    self.send_header('Content-Disposition', 'attachment; filename="' + ('data-product' if domain else 'materials') + '.' + fmt + '"')
                 self.end_headers()
                 self.wfile.write(data)
                 return

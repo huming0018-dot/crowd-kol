@@ -29,8 +29,10 @@ def parse_json(raw):
 def read_json(path,limit=MAX_SNAPSHOT):
  return parse_json(read_bytes(path,limit))
 
-def pin_source(root,pins):
- root=Path(root).absolute();doc=read_json(pins)
+def pin_source(root,pins,expected_sha256=None):
+ root=Path(root).absolute();blob=read_bytes(pins,MAX_SNAPSHOT)
+ if expected_sha256 is not None and hashlib.sha256(blob).hexdigest()!=expected_sha256:raise MaterialError('toolbox_pin_changed')
+ doc=parse_json(blob)
  if doc.get('source_version')!='0.5.1'or type(doc.get('files'))is not dict or not doc['files']:raise MaterialError('toolbox_pin_invalid')
  for name,sha in doc['files'].items():
   rel=Path(name)
