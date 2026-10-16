@@ -491,3 +491,5 @@ E62后续更正：root直接读取原DY `5afdd0e1-960d-4381-b6b7-1e3dcfa258cb/ma
 - formal-adoption/BROWSER-INITIAL-EXPORT.json：CSV先实际成功/JSON超时保留；BROWSER-FINAL-EXPORT.json、ACTUAL-MATERIAL-PAGE.jpg：原iab实际打开并三下载，下载字节hash精确正式publication，31typed一致；只素材，不是餐厅推荐或新云回执。
 - f2-knowledge-fidelity/FREEZE.json ea96f1ca、independent-knowledge/FINAL.json9b06bb70：原214UTF8span/18239全文/91seed/strategy parent/coverage四项隔离候选独审；完整知识发布/pin/Consumer联动未全验。
 - e64-integration/SOURCE-COMMIT.json记录14公开自有源/测试/纯包及精确SHA；外部发布另以SOURCE-PUBLISH-RECEIPT.json为准。Pro私码、corpus、PRIVATE快照/配置/凭据不入仓。
+
+E65补：f2-knowledge-events/FREEZE.json60e70471；independent-knowledge/FINAL.json2b04ab3d（原actor新进程逐payload/event/receipt/evidence SHA、4事件、pin三版本历史及7测试；工程slice）。SOURCE-PUBLISH-RECEIPT.json核a036e19源码/14a86bc文档远端同，后续交接刷新另回执，旧回执不可覆盖。

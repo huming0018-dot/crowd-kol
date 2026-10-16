@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 12:27 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 12:32 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,7 +16,7 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：F1A素材纵切已接正式工作台，当前83631/materials-download-9b9e9241；已ACK原WB31素材经固定051源clean/score/audit/Consumer可查询，实际浏览器三导出逐字节等；非作者现场ea9dd205核五库/原资产/原回执保持。正式源码a036e19be0ec85f7895731d5f4f721ad08ad3951已本机提交，外部发布另看回执。中央仍Edge40（本轮无fresh云查询），原WB partial74/10of12剩2不变，无新采集/新ACK。F1B领域事实/评分和F2完整知识反馈、其他Pro平台/原重登/连续OTA/跨端/48h未全验。
+当前阶段：F1A素材纵切已接正式工作台，当前83631/materials-download-9b9e9241；已ACK原WB31素材经固定051源clean/score/audit/Consumer可查询，实际浏览器三导出逐字节等；非作者现场ea9dd205核五库/原资产/原回执保持。正式源码a036e19be0ec85f7895731d5f4f721ad08ad3951已提交且push0/远端同，文档14a86bc同步；回执SOURCE-PUBLISH-RECEIPT.json。中央仍Edge40（本轮无fresh云查询），原WB partial74/10of12剩2不变，无新采集/新ACK。F1B领域事实/评分和F2完整知识反馈、其他Pro平台/原重登/连续OTA/跨端/48h未全验。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
@@ -29,6 +29,7 @@
 - **输入/原账本**：原WB已ACK31项，本地mode=ro核原canonical/回执；本轮0新来源/0新ACK，原failed74/partial/累计10of12剩2保留。固定051的85源码pin（直接源码运行，不冒生产wheel），六文件纯材料包，0toolbox core重写；原RAW是耐久capture快照，不是原HTTP字节。
 - **实现/独审/采用**：V2三问题已修成V3c8e75/b127，组件dd056840、六源c2241ee7、准备86dcd87f通过；正式六源采用82280并d1ace184现场核。实际浏览器又发现JSON漏附件头，单行修9b9e经c9f60f9d/451168a2独审再采用83631；最终现场ea9dd205核1exact+458其他/fullset/五库实际backup原行/194保护及fresh66、idle/outbox0/原wait/31原ACK/四GET，均保持。
 - **并行F2**：复用065原runner四项保真修复冻结ea96f1ca、独审9b06bb70通过：214语料段UTF8 byte exact、18,239字符全文、原话与派生parent/hash分离、真实覆盖缺口。仅隔离候选，未执行KnowledgeStore本人审核/发布/pin，065整体NOT_PASS未升级；持久事件cand1/初始pin及Consumer联动仍未全验。
+- **F2事件/pin工程补充**：新冻结60e70471、非作者2b04ab3d核真实SDK持久反馈/gap/getters读回→候选、三域初始pin、新版与回滚历史及7组回归；仅engineering_test角色，原main/CLI/051 Consumer及本人采用仍未验。不覆盖四保真冻件，不升级065全生命周期；F1B真实领域输入正只读定位。
 - **下一结果/依赖**：F1B从既有授权领域证据形成实体/主张/评分与候选差异；F2先修原runner真实事件读回及初始pin，再同数据新旧包重算→审计发布→Consumer切pin/回滚。每版独立pack root，避免051旧版重审受active变化破坏。主控PM/集成，central作者，knowledge_reuse_probe与native_diagnostics_review非作者分工；F3成熟平台/F4参与端OTA并行支持，不以单平台调试抢主线。
 - **仍未完成**：自动新ACK触发处理尚未接现postprocessing回调（当前为固定真实批次发布）；领域事实/推荐、知识完整生命周期、双领域消费者、原两节点重登/连续OTA、全平台/跨端/48h。每个15–30分钟探索盒输出证据，连续两盒无证据换成熟替代。看门狗仍暂停。
 
@@ -94,7 +95,7 @@
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | 18d14b35a7354d945beb01fd5bb7ab7e03b50863源码push0/远端同；云69781d1/partial7a586fa/E60旧源保留 | 当前65679/wb-progress-45b8e4f7-a1346798/云40；原WB31ACK/10of12剩2；文档发布另回执 |
+| crowd-kol | a036e19be0ec85f7895731d5f4f721ad08ad3951自有14源码/测试/包；14a86bc文档；push0/远端同，后续文档另回执 | 当前83631/materials-download-9b9e9241/云40；31素材正式Consumer/四HTTP/浏览器三下载/原ACK同；原WB partial74/10of12剩2 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
 crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E63及e63-progress-runtime-adoption批准冻结/现场独审为准，并保留continuation-current-runtime-adoption的17文件继承链，不能以HEAD替代；不要reset/clean或覆盖其他改动。
