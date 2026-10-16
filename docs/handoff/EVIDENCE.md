@@ -568,3 +568,26 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - 实际非作者independent-runtime/FINAL SHAe01aad112c69f3551e46d1a557006f200c157ab7d88eec3e0d1dffbe558a555f、CLOUD-FRESH-REVIEW SHAa00dacbfd3cd5c341cc1ef79219bb5a22b8f9ad0955c8a413edb500a94637483；根CUA ACTUAL-UNIFIED-ENTRY.jpg/txt。无新来源/ACK。
 - RUN16/e76-unified-pro-entry：FRESH-RPC、FRESH-EDGE、CLOUD-DEPLOY-RECEIPT、INDEPENDENT-FRESH-EDGE/RPC；MCP实际迁移/Edge41与后续只读原件，仅本地不公开整包。
 - RUN16/e76-original-node/LOCAL-FRESH.json：15:36只读原登记缺失，未改资料/凭据；G04原快照与候选不当云交付。源码/文档push以E76-PUBLISH-RECEIPT.json实际远端核对为准。
+
+
+## E77｜快照私有存储与配置登记
+
+- RUN16/g04-remote-publication-v2/FREEZE SHA00e9825a，g04-remote-review-central/FINAL SHA6b262951…；g04-storage-protocol-v3/FREEZE SHA2f768585，g04-storage-compat-review/FINAL SHA49c32fcd…，ACTUAL-INIT-FINAL SHA54207afb…。完整SHA见HANDOFF及原文件。
+- RUN16/g04-remote-adoption：FORMAL-INSTALLED、EDGE/V3-CLOUD-RECEIPT、EDGE42/43-ACTUAL.PRIVATE（0600完整实际源码）、INIT-INITIAL/V3日志、INIT-RECEIPT、PRIVATE-BUCKET-ACTUAL、UPLOAD-APPROVAL-PENDING、SOURCE-COMMIT；没有PUBLISH/READ成功回执，不补造。
+- RUN16/g02-dy-owner-adoption：EXECUTOR-PATH-INSTALLED、independent-runtime/EXECUTOR-PATH-CONFIG-REVIEW与EXECUTOR-PATH-ACTUAL-FINAL；只限登记/下一binding门，非真实来源。
+- RUN16/g04-next-consumer-discovery/READONLY-REUSE-REVIEW.md：原Next认证/BFF及缓存缺口；候选实现与G11证据进行中，不作已采用。E77代码/文档push以g04-remote-adoption/E77-PUBLISH-RECEIPT.json为准。
+
+
+## E78｜真实六店私有云保存与回取、Next与G11独审
+
+本地根：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16/`。
+- `g04-remote-adoption/UPLOAD-AUTHORIZED.json`、`PUBLISH-RECEIPT.json`、`READ-RECEIPT.json`、`CLOUD-RETURN.{json,html,jsonl,csv}`：人类精确授权后唯一上传及四格式exact回取。
+- `g04-remote-adoption/PRIVATE-BUCKET-AFTER-PUBLISH.json`：MCP实际private配置及5对象。
+- `g04-next-consumer-candidate/FREEZE.json`：302447b4185ffa701551e187203af130714aa105a2b7ebde93b475e1f3d0e1e1，仍候选/未部署，非作者审查待结。
+- `g11-six-evidence/independent-review/FINAL.json`：3d54dc1b29e56fecd8337f1ae0437cdd6def051dee7d8a847e53d59e35f925f0，限定证据包通过，业务G11未通过。
+- 本轮源码/文档推送回执：`g04-remote-adoption/E78-PUBLISH-RECEIPT.json`，生成前不能当已推送。
+
+- `g04-actual-review-central/FINAL.json`：9ef6c0259bcbd90662af16d35e31a6f4615a307201f4d6ce738dc5f2a2a4dd94，真实已保存回取/正式源/Edge43/私桶5对象限定独审PASS；不含额外live读或持续性保证。
+- `g04-next-consumer-v2/FREEZE.json`：cc64d967596d46a1204dcb03b66f2f3211a5298be9d2163ccd5af4580381ae17，首render与旧下载回调P1作者修复/非作者复核待结，V1阻断证据保留。
+
+- `g04-next-consumer-v2/independent-central/FINAL.json`：1e188baaa43e5b2b2a434a477a491d03812d79c389fc6318f732d4517adf01bc；P1原独立反例在修后exit0，类型/UI/旧回调0下载/登出首render复测通过，未真实Auth/部署。

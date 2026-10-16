@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 15:49 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
+更新：2026-10-16 17:46 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
 
 ## 1. 接力规则
 
@@ -16,11 +16,31 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：计划1.3继续实施。G02统一Pro入口已正式接入中央Edge41/RPC迁移20261016074224，本机28754/dy-unified-0a30b7f4-530bc01f；非作者现场e01aad及云核a00dac通过。新DYscope仍在安装元数据门拒绝，未建新任务/来源/ACK，不是业务采集通过。G04真实六店快照远端init/put/get候选已实现，正在组合G02基线并独审，未云保存；G01原扩展登记缺失仍确认。原知识四写表0、真实决定未发生；全平台/连续OTA/远端消费/双域/跨端/48h未全验。原T0/预算保持，看门狗暂停。
+当前阶段：G02已正式采用并push d3440dc，本机28754保持，Pro路径登记后原主体binding仍缺；G04 Edge43/29源与私桶已采用，用户已明确授权六店四格式及清单保存回取，本轮唯一publish成功、四格式回取exact，非作者实际云结果限定审查通过。Next消费页V2候选修复首render泄露并获限定非作者PASS，未配置真实UID/未部署；G11证据包独审通过但六店业务不通过，合格食客0/至少缺12，不能推荐。原知识四写表0/原两终端恢复连续OTA/完整平台双域跨端48h仍未全验。原T0/身份预算不重置，看门狗暂停。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
+
+### E78｜获明确授权后真实六店快照保存与四格式回取
+
+- 用户直接答复“允许保存并回取核验”，精确覆盖项目bdwrhshgdeghgyzwpxnl私桶crowd-publication-snapshots、原六店候选JSON/HTML/JSONL/CSV合计211899B及清单。此前自动审批拒绝记录保留；获授权后才执行，不是绕过。
+- 根fresh读取中央仍Edge43/29文件，ezbr806d02b58ded9107dc9913762e81c82f4d77bcb8eb6bf698834bd7f531e48b0c；原runner唯一publish exit0，再read四格式exit0。reportHash cec2019d3f3c7724d2ff6712d31cbf44a1a4731ee1b255f94cd4fe4cbfb6b5a8；JSON47764/HTML67133/JSONL46950/CSV50052B全部与原件逐字节同；manifest f916282580864c7fd4e0f902e72b2628e4eaf5e7940e75d9d4971431694742ed。
+- MCP真实只读查询确认固定桶publicfalse/1000000B/四MIME，恰5对象（四导出+859B清单）。无新来源/平台请求/采集ACK/媒体上传/知识决定；不是异机认证消费者验收。knowledge原作者实际回取复核；central非作者实际9ef6c0259bcbd90662af16d35e31a6f4615a307201f4d6ce738dc5f2a2a4dd94限定PASS，依真实保存工具原件重核，0新云读写，不宣持续可用。
+- Next候选冻302447b4185ffa701551e187203af130714aa105a2b7ebde93b475e1f3d0e1e1，5产品源；复用原Next14/AuthProvider/服务端getUser，UID精确授权/四格式下载/no-store/PWA隔离。作者隔离Handler29/UI/TS通过，central非作者已发现切账号首帧残留前账号资料P1，V1禁止采用；原作者native V2冻cc64d967596d46a1204dcb03b66f2f3211a5298be9d2163ccd5af4580381ae17，state绑定UID/首render过滤/旧下载回调保护，作者原测试与反例过；central非作者1e188baaa43e5b2b2a434a477a491d03812d79c389fc6318f732d4517adf01bc限定PASS，原独立P1反例修后exit0/类型UI通过，其余4源exact继承V1已审。真实人UID/项目授权和部署配置未知，缺映射拒绝，未正式复制/部署，不用profiles.role或造UID放行。
+- G11冻48303cb36ce65cff99634943e95916c91aa98995206f85c9db5f9848694a0017；native非作者3d54dc1b29e56fecd8337f1ae0437cdd6def051dee7d8a847e53d59e35f925f0在网络硬拒下独立重开Consumer/复算，六实体25引用7span/3源，合格食客0/推荐0of6，至少缺12有效声音；当前分店/地址/营业/坐标均0of6，Akanee长宁/静安地点冲突不合并。typed published_at为null不代表原引文没有日期文字。旧评分空作者/坏日期/未来日期/重复膨胀及Python72对SQL文本82问题未修，不能把工程gold当六店业务验收。
+- 补充失败边界：原作者额外一次只读GET返回cloud_read_unavailable，实际require_escalated已执行；底层原因未记录，根因未知，不据此归因为云故障。原四成功回取与此后失败分别保留，不重试publish，也不宣称连续读取稳定性已验。见g04-real-cloud-review/READ-ENVIRONMENT.md及原失败日志。
+- 本轮源码19d30b7已提交，推送与文档另看E78-PUBLISH-RECEIPT；保持原dirty，未外发原始快照/私码/凭据到Git。下一步补合法UID配置/正式消费；G01原扩展恢复与G02原主体/新ACK仍保缺口，不能重建原身份/扩预算制造通过。
+
+### E77历史｜远端快照通道与私桶初始化（上传审批已在E78获答并执行）
+
+- 实际采用：G04 V2非作者6b2629514155f06749f358a7821281aba1079ecb8f4949ba3b4ab32b6eb5b7fb；保G02 core反向4插入exact，原47组合+3客户端+18独立负例。根精确Edge41→42，29源实际get全字节同（新增2/改core1/保26）；formal四源已copy，local工作台未重启。
+- 真实失败：Owner唯一init返回publication_storage_unavailable；MCP查固定bucket=[]，未创建/上传；原INIT-INITIAL.log保留。原请求真实SDK status/message未保存，不能补写已观测HTTP400。固定官方SDK2.5.5真实fakefetch复现旧helper的400/body404映射缺口；V3仅操作对应精确缺桶/缺对象识别，不泛放400/权限错误。
+- 修复独审49c32fcd38b9aab14cb0cb080d7101589eb3721252f8b5350abefb920330b69a；实际SDK27+原组合47+非作者14坏形状。根Edge42→43仅helper变、其余28同，完整29源实际get保存0600。formal4源码已提交19d30b7fd4842fbc1d698afc3583ed8cb5214f72，推送另取本轮回执，不夹带数据/私码。
+- 实际结果：修复后仅一次init成功，MCP固定桶crowd-publication-snapshots为publicfalse/1,000,000B限制/四MIME/object_count0；非作者实际阶段报告54207afb61900b5c5f2557322de28e628e664faf249f9cd3b1cec763eaa933db逐核formal4/G02contract、实际42/43字节、私桶、28754/知识与四pointer及原六店四格式。只证明接口采用与桶初始化，不证明快照保存或异机消费。
+- 审批阻断：publish命令被自动审批在shell执行前拒绝，理由为此前明确文件授权覆盖视频、不覆盖这批六店快照及新桶。已async请求允许四格式211,899B+manifest保存至项目bdwrhshgdeghgyzwpxnl私桶并回取；未获得答复前不上传、重试或换路径绕过。UPLOAD-APPROVAL-PENDING.json记executedfalse。项目其余独立工作继续，不因此重建任务或扩大预算。
+- G02路径登记：原Pro现有root/python create-only0600，SHA3dda03c6cf5fcd61d8162b5c8d7ef265da71d4315d91bfe256f516fbe9d58a4c；非作者限定准备65c4及实际b4a41da0cc498ba0e77764acecfa08029d8233b523e95d869f1be23439c0b0a9。六账号/pending/binding不改/defaultMC不变；实际预览下一门HTTP400/pro_account_binding_required，无create/来源。loguru0.7.3对原0.7.2差异保留，不宣完整原环境；原SDK协议探针与同路径历史受控已核。
+- 下一步：获该批上传授权后原run_cloud.py publish一次→read四格式→非作者actual核；Next现AuthProvider/Pages API薄BFF/UID授权映射/私有无缓存消费页候选独审→配置/正式采用；G11复用既有事实/食客证据，不造推荐分。原工作台预览仍会裸显pro_account_binding_required，中文恢复提示与真正账号接线仍未完，不冒Owner体验已完整。
 
 ### E76｜G02统一入口正式云/本机接入及现场独审
 
