@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E61为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E62为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -442,3 +442,12 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 | E61A | RUN16/e61-partial-runtime-adoption/{ADOPTER-REVIEW.json 9de6,RUNTIME-FREEZE-APPROVED.json eadb,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json 51d235,SOURCE-PUBLISH-RECEIPT.json} | 53987/2exact+454其他/五库backup/189保护/6+24+28+3保持，源码7a586fa已发布；本轮源0/ACK0 |
 | E61R | RUN16/wb-public-progress/ACTUAL-RECONSTRUCTION-SECOND.log | 作者真实只读重建3段[29,0,1]ACK30、已7剩5/22原件SHA同；非最终SDK/中央整链独审 |
 | E61H | docs/handoff/archive/HANDOFF-through-E60-20261016.md | 截至E60入口全文归档，当前状态只读docs/HANDOFF.md；非删工程/经验证据 |
+
+## E62｜中央通用已ACK断点及已知partial图片（2026-10-16）
+
+本地证据根RUN16=`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16`，JSON默认不在线公开。
+
+- `wb-public-progress-cloud/v2/FREEZE.json` SHA56795d57；`root-independent/FINAL.json` SHA712f71ac：非作者独跑源72/五轮预算、三种图片合同、JS23及精确基线guard/重放拒。PGlite与解码fixture不代表真实新采集或上传。
+- 同目录`actual-independent/FINAL.json` SHAa530da3985f9c06a79b2e023ed0673d0f82e1534eb782d7832c0ace93e37c1bc：独立MCP原查询/响应核Edge40、两合同原文、三RPC定义/ACL、原30ACK/7of12及两既有grant；SOURCE-PUBLISH-RECEIPT.json核69781d1/push0/远端同与四源精确SHA。其余25模块39→40由root逐字核，不冒充第三代理独立比较。
+- `wb-public-progress/FREEZE.json` SHAfdda9453及DELIVERY/AUTHOR-FINAL-RESULTS：13本地候选、7组作者通过；非作者本地审未出最终结论，不是实际采用。`e62-progress-runtime-adoption/PREPARATION-FREEZE.json` SHAba074b0f为8生命周期保持/fresh索引候选，不是运行回执。
+- `dy-pro-complete/MATURE-GOLDEN87-BUDGET12.log`、`GOLDEN87-EXACT-MEDIA-EXPORT-FINAL.log`：仅受控同输入，HTTP签名12预算43评论，本地纯签可87评论+原54237B图/三导出89行，但视频预算前73、作者UID不可还原，full_same_input_acceptance=false。未冻结/未独审/未实际来源，不认完整Pro替换。

@@ -432,3 +432,18 @@
 - 通用断点作者只读重建[29,0,1]30ACK/7spent/22原件SHA同；多origin SDK/SQL/JS尚未最终冻审，不把该重建当恢复成功。DY/KS真实样本与现会话机制有受控证据，新Pro来源/云未验，不冒JPEG为MP4或session为official UID。
 - 固定入口去重：E60及之前逐轮全文完整归档（原文件SHA 5e380a1e9fac2db1979071974c2e25421ef9ba8be32c586d8def9a65e953fb4e），保留日志/证据/决定/当前能力表；没有删除源码、任务、回执或原始工件。四文档发布另核HANDOFF-E61-PUBLISH-RECEIPT。
 - 下一步整链与独审后原剩5内有效新grant验证；其他平台/登录/OTA/全端/48h未全验。目标active/watchdog暂停。
+
+### 2026-10-16 10:10 CST｜Codex /root｜产品价值校准
+
+- 目标：回答自研资产对已购Pro的实际补充，避免把重复建设/工程过程包装成优势。
+- 实际：重读交接及Pro盘点、WB实际回执/导出独审和E61正式采用独审；核Git HEAD ef6aeb4。更新HANDOFF当前日期、本轮结论/下一步及本日志，无产品代码改动。
+- 验证边界：本轮仅文件/证据复核，没有重查线上、重新实测采集性能或云回执；既有30ACK等均标历史有限证据，持续OTA/全端/48h未验。未部署、未新增采集或外发。
+- 下一步：通用断点云候选非作者审、DY完整Pro入口、整链采用与真实回执；保留参与者/评分/outbox/OTA，不再宣称自研采集核心优于Pro。
+
+### 2026-10-16 10:34 CST｜E62｜Codex /root，云作者native_diagnostics_review，独审root及progress_cloud_actual_review
+
+- 目标/改动：通用已ACK断点续采与已知partial媒体云合同，现有两RPC/两Edge合同，无新表/权限/步骤协议。V1独审发现completed-only挡合法媒体及最新回执绑定缺口，V2修复后重审。
+- 代码/验证：冻结56795d57；root六组独跑含72源检查及真实4.28MB解码/图片合同，FINAL712f71ac。两迁移20261016022044/022059已上线，Edge40；另一代理实际MCP FINALa530da核定义/ACL/合同/原任务。四源69781d1已push/远端同。其余25模块比较由root，不扩大他人审查范围。
+- 业务：原WB30ACK/7of12剩5/epoch3 failed保持，本轮新source/grant/上传/回执均0。本机53987不变；本地13候选fdda待独审采用，DY87评论/原图对照仍视频缺口，未认全量保真或真实速度收益。
+- 下一步：本地13组件和采用器非作者审→原身份/五库保护下正式采用→原剩5有效grant及云图片回取；继续Pro成熟能力保真、登录恢复/连续OTA/其他平台，完整目标active/watchdog暂停。
+- 状态位置：HANDOFF第3节E62及EVIDENCE E62；本轮handoff三文档发布另核HANDOFF-E62-PUBLISH-RECEIPT.json，不据文字自称已发布。

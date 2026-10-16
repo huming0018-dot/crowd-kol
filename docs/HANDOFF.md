@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 09:54 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 10:34 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,11 +16,26 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：两文件partial-gap已正式运行53987并独立现场核验，源码7a586fa已推送；中央仍Edge39。原WB30回执/已7of12剩5保持，本轮新来源0/新增ACK0。可复用多origin断点和DY/KS接入在独立候选推进，尚未最终审/上线。其他Pro/登录/OTA/跨端/48h未全验。详见E61。
+当前阶段：中央通用已确认断点及已知partial图片合同已正式上线Edge40，两RPC/步骤68/权限及原30ACK/已7of12由非作者实际回读通过；源码69781d1已推送。本机仍E61的53987，13文件本地断点候选已冻待独审/采用，未发新grant或来源。DY优先复用Pro原循环和本地纯签，受控同输入87评论取得，原视频bytes仍受12预算阻断，不能放行完整替换。登录/OTA/跨端/48h未全验。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
+
+### E62｜中央通用断点及部分结果图片合同已正式上线；本地待独审采用
+
+- **已修改/隔离验证**：云作者native_diagnostics_review，冻结v2 SHA56795d57；root非作者审712f71ac独跑六组PGlite/成熟图片decoder：源72检查到5轮原12封顶、JS23、completed/旧chain图片及knownpartial图片。独审实际发现并修正V1只允许全任务completed导致合法partial媒体无法保存，以及最新capture回执四字段绑定缺口。knownpartial仅允许已知finished failed、同主体/原正文ACK、当前run/epoch和最后paused/failed/精确74诊断；缺诊断/unknown/73拒，不假完整。
+- **已部署/线上回读/源码发布**：Supabase两迁移20261016022044/20261016022059，Edge40 ACTIVE27模块。root逐字核其余25模块39→40不变；另非作者progress_cloud_actual_review真实MCP核两合同、两RPC定义、步骤68和三ACL，锁定actual-independent/FINAL.json SHAa530da3985f9c06a79b2e023ed0673d0f82e1534eb782d7832c0ace93e37c1bc。source MD5 531b60fd5aa4193844b0b170a4c7ea05/image9920f5b4209edc0d02ee4cb576f5026b/steps65dfd220ea17878edb63fa28f3ffd2e5；custom auth保留。四源提交69781d1b4a960e5e5bc1f65e4b6103c756dcc46a push0/远端同。
+- **真实业务边界**：10:25:55 CST独立SQL原WB仍failed/epoch3/30ACK、已7of12剩5/reserved0，两个既有grant保持；本轮没有新来源、新grant、图片上传或新业务回执。中央已上线不等于本地恢复/图片业务已验。
+- **本地候选/下一步**：central13文件冻结fdda945391c29391a8c7285cf3f4e80b16761f0a284890e6c7a289956ca68c81，复用原SDK/多origin journal，修媒体共享账本父状态少记及原图片anchor绑定；作者7组通过，非作者独审正在实际重跑，尚未正式采用。本机仍53987/1f87-e30a；采用器8生命周期函数AST保持E61、fresh原资产索引及五库保护候选ba074b0f待独审。通过后才原剩5内有效grant验新评论/媒体/导出/真实云回取，不重放已确认终页缺口。
+- **Pro整合/用户问题校准**：已读已购Pro微博processor，仅保存内嵌回复；本地额外回复请求曾实际新增1ACK，但全量未验。平台请求/解析/账号获取没有自研整体优于Pro的证据。DY候选已移除自写两层评论循环，复用原processor；受控HTTP签名87目标/12预算只43评论，复用现成本地纯签后可得87评论及原封面，但视频为第13次而被预算73挡住，作者UID因旧匿名样本不能完整还原，完整同输入仍不放行。当前是受控对照，不是真实平台性能/新增云回执，优先保真复用而非重写。
+
+### 2026-10-16 10:10｜产品价值校准（只读证据复核）
+
+本轮重读固定入口、项目规则、Pro核心静态盘点、actual-wb-chain/INDEPENDENT-FINAL.json及E61现场独审，实际Git HEAD为ef6aeb4bce010abb5e2a3727a424d3ea29519e47；未重新查询云端或启动采集/部署。可保留的补充是参与者安装/邀请/评分/OTA、中心派发与逐条耐久回执、Owner诊断，以及媒体/文字稿后处理；这些不证明自研平台采集强于Pro。历史真实WB30条ACK、6来源步骤匹配和三格式导出仅为有限范围证据，完整回复/新媒体仍未验。参与端连续OTA、跨端、长期登录和48h仍未全验，不能把已写代码当完整产品。重复的平台解析、分页、登录与下载属于应优先让成熟Pro承担的重叠工作；未测出收益的抽象和检查数量不算用户价值。
+
+下一步仍是完成通用已ACK断点与Pro成熟入口整链/非作者审，再正式采用并验真实回执；当前云progress候选已交审、DY整入口未冻结，均不计上线。此条不改变E61运行基线、原任务预算、来源或权限。
+
 
 ### E61｜回复差距修复已正式运行；可复用断点及DY/KS仍在接入
 
@@ -34,7 +49,7 @@
 | 能力 | 当前可核状态 | 未完成 |
 |---|---|---|
 | 参与者/评分/安装与OTA | 有正式实现及历史远端71升级证据 | 本机连续升级/两节点原生恢复和48h未全验 |
-| 中央任务/步骤/回执 | Edge39正式，WB新1回执/6来源步骤及有限错误真实投递 | 所有平台同输入及两设备完整链未验 |
+| 中央任务/步骤/回执 | Edge40/通用断点与knownpartial图片合同已上线独核；WB新1回执/6来源步骤是E60历史真实证据 | 所有平台同输入及两设备完整链未验 |
 | Pro平台采集 | XHS/Bili/WB有各自有限真实证据；贴吧窄合已采用 | 各平台完整评论/媒体/导出保真逐项仍见风险表 |
 | 当前WB恢复 | 30回执/已7of12剩5保持，partial-gap已采用 | 多origin断点、其余回复/新媒体真实回执未验 |
 
@@ -60,7 +75,7 @@
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/wb-partial-1f87d525-e30a2366/ | E61当前53987；继承16源并正式采用2文件partial-gap、Ownerfb563/XHS/Bili/CDP/流式媒体SHA保持。中央Edge39/68码已独核。真实WB新1评论已ACK，现30/父7of12剩5、reply_terminal_incomplete/74；新媒体与完整回复未过。默认MC，显式Pro原守门保持；snapshot不等于Git HEAD |
+| .crowd-launch/runtime-revisions/wb-partial-1f87d525-e30a2366/ | E61当前53987；继承16源并正式采用2文件partial-gap、Ownerfb563/XHS/Bili/CDP/流式媒体SHA保持。采用时云39；中央现40/68码已独核。真实WB新1评论已ACK，现30/父7of12剩5、reply_terminal_incomplete/74；新媒体与完整回复未过。默认MC，显式Pro原守门保持；snapshot不等于Git HEAD |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -76,7 +91,7 @@
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | 7a586fa1821e8c5fa92fdffdcc1c690f16340ba1已push0/远端同；E60客户端0a0fcde/云chain9a9d354保留 | 当前53987/wb-partial-1f87d525-e30a2366/云39；原WB30回执/已7of12剩5，未完成项见E61 |
+| crowd-kol | 69781d1b4a960e5e5bc1f65e4b6103c756dcc46a已push0/远端同；partial7a586fa/E60客户端0a0fcde/云chain9a9d354保留 | 当前53987/wb-partial-1f87d525-e30a2366/云40；原WB30回执/已7of12剩5，未完成项见E61 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
 crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E61及e61-partial-runtime-adoption批准冻结/现场独审为准，并保留continuation-current-runtime-adoption的17文件继承链，不能以HEAD替代；不要reset/clean或覆盖其他改动。
@@ -119,7 +134,7 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 ## 8. 接力可做与推进顺序
 
-先读E61及e61-partial-runtime-adoption现场51d235，再读原真实a061独审70868和多origin候选。partial-gap已正式采用，不重复部署；当前WB仍是有1fresh的已知失败，不能套旧零fresh链。
+先读E62中央actual-independent/a530da与本地fdda候选，再读E61现场51d235及原真实a061独审70868。partial-gap已正式采用，不重复部署；当前WB仍是有1fresh的已知失败，不能套旧零fresh链。
 
 1. 完成wb-public-progress真实ACK重建→多origin复用→Pro SDK→媒体/导出→通用中央grant的整链和非作者审。原总12/已7/剩5、旧30/各origin保持，未知/pending/noACK/冲突拒；不用固定epoch特判，不自行重新派任务或扩额度。
 2. DY/KS优先复用成熟Pro及既有session绑定，不要求上游没有的官方自身UID接口，不伪造官方主体或越权读新profile；实际来源/云未验前不称接入完成。
@@ -133,7 +148,7 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 唯一当前入口为本文件；WORKSPACE/HANDOFF.md和爬虫/HANDOFF.md只作指针。[证据](handoff/EVIDENCE.md)、[日志](handoff/CHANGELOG.md)、[接力模板](handoff/ENTRY_TEMPLATE.md)及仓库AGENTS.md共同维护。
 
-[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。本轮四文档发布以RUN16/HANDOFF-E61-PUBLISH-RECEIPT.json的commit/push/remote为准，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
+[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。E61四文档发布见RUN16/HANDOFF-E61-PUBLISH-RECEIPT.json；E62三文档发布以RUN16/HANDOFF-E62-PUBLISH-RECEIPT.json的commit/push/remote为准，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
 
 接力者先读本入口、证据、日志并核日期/所涉源码与原件，再按第8节推进；主要改动按模板回写，每轮结束更新日期、结论、下一步。读不到原件时明确标未知/未核验，不把Markdown中的记录当自己查询线上所得。
 
