@@ -375,3 +375,22 @@
 - XHS：本人确认加载后root仅一次原d261本机刷新，extension/hascookies，值不输出/落盘；07:28:47缓存age1.7秒只属该快照。独审f226核原登记/账号元数据保持，participant仍未登记、官方self未新验。正式helper仅Bili，XHS现入口走MC且可触发desired_running自动resume，故没有安全纯Pro check-only；本轮只读定位，不创建新driver或请求平台。903d原gen/ref保留，pending191453不是旧548。
 - 风险/下一步：本人确认CDP后只在原任务选择绑定、单独官方sameUID，再剩11核正文/评论分页/新音轨/三导出/逐条ACK；产品级纯XHScheck-only应复用已购Pro query_self待正式实现/独审，不要求本人重复加载或扫码。云诊断/续采授权pending，不绕审批；WB29/剩9、ZH stopped12/12/0ACK、OTA/全端/48h未验、watchdog暂停。
 - 证据：E56C/A/U/X及上述本地原件；PRIVATE/JSON/截图未随Markdown公开，在线接力无法取得原件时须标未核验。
+
+
+## 2026-10-16 08:14 CST｜E57 XHS原账号纯后台自检真实通过；MC交错提示收口
+
+- 接力/独审：native实现，native_diagnostics_review独核2045400d/14a7/f9fca；root唯一采用与原账号按钮，root另非作者审Tieba core6重放和两缺陷；最终UI审查与实际以对应FINAL为准，不把作者自述当证据。
+- 实际改动：主5文件增加check_pro_login/独立last_self_check/原SDK query_self/已有owned_signer/有限日志与UI/CLI，原认证核心8不变；2文件修checking旧MC提示及新MC接旧self死态显示，仅诊断历史化、不清旧operation。43账号子进程测试依赖首败保留，未改源或跳测造绿。
+- 正式/版本：23049初5文件实际self后，尾项当前27263/xhs-check-ui-a0f565cb-98559c68，源码0c7449855d75ae30ad4370f3ea6a4acfd27871ef/push0/remote同；此三MD本身发布另核HANDOFF-E57-PUBLISH-RECEIPT.json。保原身份/评分/outbox/云回执/OTA，Pro vendor不上传。
+- 真实验证：root仅一次op8abf，三请求均200、同原账号、2.285688秒；非作者f9fca读意图/result/Signer lifecycle与进程/listener退出、核心8/五库raw/预算/旧任务保持。不是正文/评论/媒体/导出/新ACK验收，不由self自动恢复无wait的旧pending。
+- 并行/未完成：Tieba成熟SDK/core离线原3根17回复/2图/三导出过，缺/冲突业务码可误认证的两负例要求V2修；V2耐久checkpoint/journal/账号/owned媒体/正式入口与云未最终通过。Bili原Chrome确认及同主体缺，原1/12 ACK0不变；中央持久变更已获本人最新明确批准，root处理中；本候选尚未核对实际迁移/Edge新回执，云版本仅沿07:19原件不称fresh；WB29/剩9、ZH stop12、参与端/连续OTA/全端/48h未过，watchdog暂停。
+- 下一步：完成Tieba整入口并独审/同输入真实逐项核；明确区分task_scope_committed与exhausted，不能删回复/媒体或扩预算凑成功；云变更按本人最新明确授权的精确范围推进，并读取实际迁移/Edge/RPC回执后再记已部署。每轮handoff更新不暂停主线。completed代理用followup_task并核实际running，协调消息不算运行。
+- 证据：E57C/A/X/U/T/P、本地原operation与上述FINAL/发布回执；本地JSON/截图/PRIVATE不公开，在线接力取不到原件时必须标未核验。
+
+- 本轮授权补证：08:14:06 HUMAN-AUTHORIZATION.json记录本人明确允许步骤诊断及原续采迁移，已核，不再pending。root正准备原combined-v3 15码诊断/原续采与媒体服务；独立36码含native/CDP子因版本尚未云采用。本候选尚无实际部署/迁移回执，不预写成功；后续按新回执另更新。
+
+- 08:18补云端实际回执：DEPLOYMENT-RECEIPT.json于08:16:34 CST记录source/image/steps三SQL success和crowd-machine Edge36 ACTIVE；source RPC MD5 d18030f…/ACL原service_role/RLStrue/新表0行，sourceCalls0/原任务变更0/businessAcceptance=false。仅已审V3 15码，不含后续独立36码native/CDP子因。独立fresh回读正在进行，本机27263旧V3 caller仍待窄合，不宣称独审或真实续采通过。
+
+- 08:20独立补证：POST-DEPLOY-FINAL.json d387820c已fresh核Edge36/27文件、三SQL实际body及ledger、RLS/ACL/表0行与三原任务保持，无source或业务验收。云7源b20611c85177dd6e4e21bebde07fb318f4c1af6b push0/remote同，不含私有index/vendor；本机仍27263、六源0c744985，旧V3 caller不能整包覆盖，须当前基线窄合后独审。独立36码尚未云采用。
+
+- 迁移源码命名收口：当前96996e95e0fe1dc10e21399d8652b52bbab667c8/push0/remote同，仅将三正式SQL文件名对齐实际ledger 20261016001508/001523/001534，SQL字节/SHA不变，0云操作；原计划名冻结仍在outputs。云部署依据仍b20611c及d387独审，不能重发已执行迁移。

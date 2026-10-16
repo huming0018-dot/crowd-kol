@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E56为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E57为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -400,3 +400,19 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 | E56A | RUN16/owner-cards-runtime-adoption/{RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json,SOURCE-PUBLISH-RECEIPT.json} | 19052/旧15194停，非作者0c9117核2+443/fullset、五库/170/6+24+9+3保持；160c351c push0远端同；Edge/RPC沿07:19原件，非本轮fresh |
 | E56U | RUN16/owner-cards-runtime-adoption/ACTUAL-TASK-CARD-UI.json 07196；OWNER-TASK-ACCOUNT.jpg及.txt、ACCOUNT-AFTER-UI.json | root原IAB3/tab1实际卡片打开唯一Bili账号页；仅路由通过，无bind/official_self/source，DOM原1/12/ACK0 |
 | E56X | RUN16/xhs-restore-readonly/ORIGINAL-BRIDGE-REFRESH-0729.json、METADATA-1792106927134342000.json、REFRESH-0729-INDEPENDENT-CENTRAL.json f226；XHS-FORMAL-SELF-ENTRY-READONLY.json 5001 | 原d261刷新extension/hascookies，仅本机、值未落盘；缓存age1.7秒仅快照时，非官方身份/participant。正式XHS无纯Pro check-only，MC入口可能开窗/自动resume；不得直接调用；原903d pending191453非548 |
+
+
+| E57C | RUN16/xhs-pro-selfcheck/FREEZE.json 6db4、UI-PRIORITY-V2-FREEZE.json 82c6、independent-review/FINAL.json 2045400d | 真实已购SDK受控链与端点/生命周期/状态隔离独审通过；当前XHS无cloudwait，自检不授来源 |
+| E57A | RUN16/xhs-selfcheck-runtime-adoption/{RUNTIME-FREEZE.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json} | 初5文件23049/215c96；before14a7核5+441/fullset/五库/170/6+24+9+3，默认MC和旧任务保持 |
+| E57X | RUN16/xhs-selfcheck-runtime-adoption/{ACTUAL-SELF-CHECK-ROOT.json,ACTUAL-XHS-SELF-CHECK.jpg,independent/ACTUAL-CHECK-FINAL.json} f9fca | 原8abf实际Bridge/sign/官方各1均200、同账号，2.285688秒；核心8/五库/预算/回执同，owned子进程退出，不是来源或新ACK |
+| E57U | RUN16/xhs-pro-selfcheck/check-only-active-ui/v2/FREEZE.json 83da及independent-review/FINAL.json；xhs-selfcheck-ui-adoption的运行/现场/源码回执 | 两文件收口旧self死后新MC活锁提示；首单UI020拒绝保留，最终运行以ADOPTED为准，不重复真实self |
+| E57T | RUN16/pro-next-platform-plan/PLAN.md；pro-tieba-adapter/FREEZE.json ebf及independent-root/{REPLAY-RESULTS.json,FINAL.json} | core6重放过，缺/冲突业务码两新反例CHANGES_REQUESTED；21源/2旧图/三导出仅受控fixture，V2完整入口仍在推进，不是正式新来源 |
+| E57P | RUN16/xhs-pro-selfcheck/{PLAN-15MIN.json,FIRST-15MIN-OUTCOME.json,SECOND-15MIN-PLAN.json,OPTIMIZATION_PLAN.md} | 首周期未把采用当真实验收；官方Python3.11/HTTPX证据与独推分列，阶段计划及实际时间保留，不声称15分钟全部完成 |
+
+| E57D | RUN16/central-authorized-deployment/HUMAN-AUTHORIZATION.json | 08:14:06授权时点历史：本人明确允许步骤诊断及原续采迁移；当时未执行，后续部署及独核见E57CD/E57CF。计划先已审V3的15码/原续采与媒体合同，独立36码native/CDP版本另审另采用；不能混称已部署 |
+
+| E57CD | RUN16/central-authorized-deployment/DEPLOYMENT-RECEIPT.json | 08:16:34 CST记录三SQLsuccess与Edge36 ACTIVE；source读回MD5 d18030f…/原service_role ACL/RLStrue/表0行；source0/原任务变更0/业务false。仍15码非独立36码；独立fresh回读待另证，本机caller尚未采用 |
+
+| E57CF | RUN16/central-authorized-deployment/POST-DEPLOY-FINAL.json d387820c；SOURCE-PUBLISH-RECEIPT.json | Edge36/27文件字节精确、三RPC实际body/ledger精确、RLS/ACL及表0行、三原任务只读状态保持，非作者无源/写；云7源b20611c push0远端同，不含privateindex/vendor。15码非36码；本机caller待合、续采业务未验 |
+
+| E57R | RUN16/central-authorized-deployment/MIGRATION-FILENAME-ALIGNMENT-RECEIPT.json | 96996e95 push0远端同；正式三SQL改名为20261016001508/001523/001534匹配实际ledger，原SQL SHA完全保持，0云调用，旧计划文件留outputs；不是再部署 |
