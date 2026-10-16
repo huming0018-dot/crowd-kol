@@ -577,3 +577,13 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 基线提交：b36d88a60af1b55616676c46a26f75909a61baa9；本轮文档未推送/未部署。
 - 验证：22需求/8工作包/本地链接通过，初审三问题逐项修正；候选与独审原件在/Users/hubowen/Desktop/爬虫/outputs/product-plan-refresh-20261016。
 - 未验/下一步：按HANDOFF新卡及E71继续，真实源/回执/人工知识决定/OTA/48h不能由文档测试代替。
+
+
+## 2026-10-16 14:47 CST｜E73正式知识发布入口与Pro保真修复
+
+- 接力者root；Host组件非作者native_diagnostics，采用准备/现场非作者native_diagnostics_review；Tieba字段非作者central_steps。
+- 改动4源：knowledge-ui.js、knowledge_review_call.py、新owner_knowledge_publication.py/service.py；提交5293ea5已推送。
+- 原采用器/两阶段配置正式执行，新PID14880；四源与其余文件、原五库/31ACK/六店/身份预算实际独审保持；知识入口706e→f56ce是授权delta，过期nonce单列。
+- 原真实提案未决定/未发布/pin，Consumer/cloud未切、0新源；真实Owner预览和发布预检可用。独审原件8aaa2582；UI截图E73/ACTUAL-UI.jpg。
+- Tieba回复、实体ID门和字段恢复有限通过，完整平台替换仍缺UID/原URL/真实ACK；DY薄合并由原代理继续，不丢搜索/作者旧功能。
+- 未验/下一步详HANDOFF E73；本轮不开始48h/不恢复watchdog。

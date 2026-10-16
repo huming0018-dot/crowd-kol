@@ -544,3 +544,11 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 
 - `/Users/hubowen/Desktop/爬虫/outputs/product-plan-refresh-20261016`：候选三文档、CHANGES前置摘要、非作者REVIEW及安装脚本；正式对照product/PLAN-1.2-REVIEW.md。
 - 修改仅规划/研究/交接；不改变运行版、原任务、账号、预算、评分、ACK或OTA。
+
+
+### E73｜Owner知识发布正式入口与现场复核（2026-10-16）
+
+- RUN16/e73-owner-publication-adoption：FREEZE0fa25dff；准备独审independent-review/FINAL.json0ccb43fa；runtime-adoption/ADOPTED.json、configuration-installation/INSTALLED.json、旧config0600备份。
+- 现场independent-runtime/FINAL.json SHA8aaa25828ea20a00d81717af942df1517bac66c19fb33f6260d40be6683ced32；PROTECTION-SCOPE-CLARIFICATION及初失败日志必须一起读；2临时nonce的TTL变化不冒耐久丢失/全清单完全同。ACTUAL-UI.jpg是真实IAB审核区；旧ACTUAL-UI.txt为无变更diff，不作完整文字证据。后补ACTUAL-UI-FULL.txt全AX与ACTUAL-PUBLICATION-SECTION.jpg发布区，未作决定。
+- RUN16/f3-next-platform/independent-native/FINAL.json b27e4b62；identity-overlay-v2 efb63f；field-recovery-v162388ad7与independent-central/FINAL.json f4678b1c。有限离线原SDK保真，不是正式路由/原URL或真实云ACK。
+- RUN16/e73-local-node/LOCAL-FRESH.json：14:31进程/扩展登记/已安装版本只读，无Cookie；原70安装/71缓存、原资料参与扩展缺失与日常同ID产品分别记。

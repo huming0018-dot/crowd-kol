@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 14:30 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 14:47 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,11 +16,22 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：正式本机工作台PID6620/owner-knowledge-412a2e2f-3d33539b，Owner“知识更新”已实际显示真实提案、差异和12unknown；独立现场7c1324f9核6exact+461其他/fullset、五库与原31ACK素材/六店发布保持。原自动ACK处理继续启用，尚无采用后新ACK自动发布验收。知识实际grant/decision/release/pin仍0；发布/回滚及Consumer联动正在接，不能将真实预览称完整知识闭环。Pro DY热搜原SDK/评论图片/导出受控候选已独审8cf81111，仍未正式/真实源，原视频与UID缺口保持。完整平台、两原节点恢复/连续OTA、双域/跨端/48h仍未全验。原T0 13:06:48 CST沿用；源码自动ACK f4885cec已发布，Owner六源55431f5d已发布且远端同，详见OWNER-SOURCE-PUBLISH回执。
+当前阶段：正式本机工作台PID14880/owner-publication-b0881396-8edd79f7。Owner知识审核与独立发布/版本入口已正式采用，真实提案未批准，release/pin/rollback预检均正确禁用；知识四写表仍0。现场独审8aaa2582核4exact+465其他/fullset2新增、五库及31ACK素材/六店四格式保持，三原材料/领域/自动指针不变，knowledge-runtime为唯一授权配置变化；2过期预览nonce按TTL单列。源码5293ea5已push/ls-remote同。自动ACK处理仍待采用后合法新ACK实际发布；Pro Tieba原SDK回复/身份门/字段恢复有限独审通过，但原UID/媒体URL缺失、路由/云ACK未验，未正式替换。DY薄合并候选已冻结19e4610e（5改5新），作者报告保search/creator/零评论detail原路径，非作者central_steps正在复核；默认off，尚未正式采用或开放新能力。原本机节点14:31实核原Chrome在但参与扩展未登记/安装70/缓存71，不能改日常同ID的3.5.2扩展。原两节点恢复/连续OTA、全平台、双域/远端消费/跨端/48h未全验，原T0 13:06:48沿用。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
+
+### E73｜知识发布入口已正式采用、现场独审与源码发布；完整闭环未验
+
+- **实际改动与版本**：四份自有源（2改2新）复用原Host/Owner认证及065 SDK、V2 publication，不新增服务/队列。4源组件冻结4067189a/非作者ea3d2157；源码5293ea5e2d9feff3163982b67b17f281fbbfc95d已push/ls-remote同。计划1.2七文档已发布849188de，不以文档通过替代产品验收。
+- **准备/发现/复核**：e73-owner-publication-adoption冻结0fa25dff；非作者0ccb43fa核原8采用函数AST/全文仅两常量、4映射和原3安装+追加3恢复反例通过。准备审的“旧rollback target须null”是审查假设错误，原白名单存在而COMMITTED缺失，已保初记录说明，不改产品造通过。仅复用已审E71机制，不复制全run/profile。
+- **正式采用**：root唯一执行4源精确复制/旧2备份→批准冻结→预检96原source终态与5锁→adopter --apply：旧6620停、新14880；随后独立installer --apply，0600备份旧knowledge-runtime并原子切为f56ce8601fa5638e0618a44ffa437e9cd92fb764570f5257671c4d36770a5a76。新2配置仅指原binding/service/DB；仅单DB只读备份证据，不迁移、不种旧release、不调用grant/review/release/pin。材料/领域/auto三指针保持。
+- **实际现场独审**：independent-runtime/FINAL.json 8aaa25828ea20a00d81717af942df1517bac66c19fb33f6260d40be6683ced32。14880唯一/旧6620停；4exact+465其他/fullset2新增；五库两次actualbackup/schema/raw同；原身份/预算及31ACK和六店四格式保持。230旧保护清单=227exact耐久+1授权知识入口配置变化+2已过期300秒preview nonce，后两项不是耐久数据；初FileNotFound保留，绝不写230全同。知识原DB22967c45088bb938c692443514e2c60c54136d039be8e21c689efbdf2daa685a与全表/rows同，四写表0，调度自然idle/pending0/scheduler alive。
+- **真实页面/认证**：独审通过原CloudClient只读Owner认证执行publication_preview一次、原preview一次：原prop034/ad30、12unknown、人类UID None；acceptedfalse，candidate/current/rollback均None，三个发布动作false。root IAB真实预览另一次，首张ACTUAL-UI.jpg只展示审核区域、早先ACTUAL-UI.txt为无变更diff，不作为完整页面证据；后补ACTUAL-UI-FULL.txt与ACTUAL-PUBLICATION-SECTION.jpg实际可见发布区，独立API预检也证无原COMMITTED不可回滚；页面显示5分钟有效、发布/知识版本独立，未点任何审核/发布动作。原051 Consumer与云APP指针均未切；这不是本人批准后的完整发布消费验收。
+- **Pro并行结果**：Tieba原freeze4ebcc+身份overlayefb63f，非作者b27e4b62独跑错ID拒绝与正常1body/3根17reply/2原JPEG/23三导出、11of12；缺reply而上游CP仍完成的反例由完成门拒媒体，不能称上游CP已修。field-recovery-v1冻62388ad7/非作者f4678b1c恢复21条日期/吧信息/计数，原gold未改、旧存档经model可保原语义；原UID不可逆、page/CDN URL仍合成，媒体source关联有原manifest但不冒原HTTP。仍未路由/新源/云ACK，不能正式替换。下一DY薄合并冻19e4610e：针对当前正式5改5新，不覆盖Owner/cloud；作者报告原105回归+WB多origin/新gate及热搜9of12通过，Pro环境缺requests首败保留并改用现MC环境，不装依赖。非作者central_steps正在复核，默认flag off且未采用，不以此候选称功能已交付。保正式search/creator/零评论detail，不能旧候选整包覆盖。
+- **原节点具体缺口**：e73-local-node/LOCAL-FRESH.json于14:31只读核原903d资料Chrome71456在、扩展未登记、安装4.2.70/缓存71；日常Chrome69991是另一同ID产品，未触碰。CUA只能绑定日常窗口，Dock入口超时无可控原窗口，未清资料/重建身份或强更。e72设备云读回14:21另一71节点心跳正常/test_completed但loginunknown，70心跳昨日；均不代新采集、重登或连续OTA验收。
+- **下一步**：优先合法未访问输入/原预算的新ACK自动处理真实门；Pro DY薄合并同输入/旧功能回归后独审采用并补真实ACK；Owner真实决定后显式release/pin，再接同数据Consumer与云发布；两原节点扩展登记/登录恢复/连续OTA保持未验。真实审核不代本人点；不重放旧ACK/重抓WB终页，不扩预算、arm48h或恢复暂停watchdog。完整U01–U22目标active。
 
 ### 计划1.2｜完整产品、资产权威与结果倒排校准（本轮仅文档）
 

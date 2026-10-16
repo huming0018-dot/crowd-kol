@@ -1,5 +1,7 @@
 # 可执行实现索引｜保留现成内核与真实权限边界
 
+> 第0–6节为初次盘点的历史快照，后续按文末E71/E73增量阅读；当前版本与运行事实只以固定HANDOFF为准，旧“未接正式”不能当当前状态。
+
 日期：2026-10-16。只读核本地API/源码/采用与审查原件，未修改正式文件，未运行代码/平台/云/模型。完整SHA与绝对路径原件位于`/Users/hubowen/Desktop/爬虫/outputs/product-plan-refresh-20261016/`下的LOCAL-IMPLEMENTATION-PINS.json、PRO-PYTHON-REFERENCE-PINS.json、CANDIDATE-REVIEW-PINS.json。JSON原件仅本地；近期源文件完整SHA附在本文第6节，可供外部接力核同版本。短号只用于阅读，执行前用完整值。
 
 ## 0. 当前基线与状态词
@@ -126,3 +128,17 @@ RUN=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16。以下“正式�
 | knowledge-ui.js knowledgeView.show | 实际工作台“知识更新”入口，展示真实提案差异和12unknown；不自动采用 |
 
 六源精确SHA由RUN16/e71-owner-knowledge-adoption/independent-runtime/FINAL.json（7c1324f9）固定；源码提交55431f5d71bdb09e677ac112dac99344a032a7da/远端同。不要把发布链未采用候选加入正式入口；原051 Consumer与065知识pin仍是两个不同指针。
+
+
+## E73新增正式发布入口（2026-10-16，当前状态看HANDOFF）
+
+自有源码5293ea5已发布；现运行owner-publication-b0881396-8edd79f7/PID14880，实际现场独审8aaa2582。真实知识提案仍未决定；只读预检不等真实发布/消费闭环。
+
+| 正式文件（F下） | SHA256 | 用途 |
+|---|---|---|
+| knowledge-ui.js | `b08813964a143c96d37a88dc031d1f8f931ee598d95262a59d84bc60820de4ba` | 独立审核、显式发布/知识版本选择；未知原intent核对、过期理由保留 |
+| knowledge_review_call.py | `1be511fcdb4ca190a99951c1134646376b14c314b3ea9a857baae9206fe7492c` | 原Host有限动作、隔离SDK；有限写前错误明确未提交 |
+| owner_knowledge_publication.py | `c7471e4e42b0745fd5d8a5b81a827586ed0f87d925fd27177c3cb093efbf80aa` | 复用原SDK release/pin；跨动作/新intent不得绕过未知；无旧COMMITTED不回滚 |
+| owner_knowledge_publication_service.py | `8edd79f7454ec073bc93002e6c4df7c385d98065ebd9e6b7d84c798ada559b6e` | 组合原Owner审核与发布服务，固定同一binding，不修改Consumer/云指针 |
+
+复核原件：RUN/e73-owner-publication-adoption的component依赖、两阶段ADOPTED/INSTALLED与independent-runtime/FINAL；2临时nonce TTL变化单列，原知识库/材料/领域/自动指针保持。平台候选与本次正式Owner入口分别验收。
