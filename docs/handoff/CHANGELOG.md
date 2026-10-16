@@ -473,3 +473,23 @@
 - 版本/部署：本轮开始源码18d14b35/runtime65679/Edge40保持；文档提交另看PUBLISH-RECEIPT。没有产品源码/业务数据变更、来源请求、部署、升级、模型调用或恢复watchdog。不能把计划PASS当产品/生产验收。
 - 未验：v2.1原件、toolbox实际生产wheel/PWA/PG、完整双域消费、M4生命周期、Pro每平台完整性、原两节点恢复/连续OTA、Windows/VM/手机与48h。
 - 下一步：按既有授权F0→F1，已ACK材料接既有toolbox确定性链；F2/F3/F4并行独审，不再重写M0–M7/平台核心。旧Owner/DY候选停止并保快照，原预算/队列/身份不改。
+
+
+## 2026-10-16 12:07 CST｜E64计划执行约束补充
+
+- 接力/root；非作者plan_outcome_review。目标：按用户要求校准完整产品，避免长任务偏离。
+- 实际文档变更：原计划不重写，新增EXECUTION-CONTRACT和两份独审；主PRD入口与固定HANDOFF当前结果卡更新。明示D1/D2/D3逐U范围、F1A/B、知识新版对同数据集的重算及消费pin。
+- 验证：完整读取v2.2提取/核原HTML SHA aee488f2；读现计划/架构/资产/研究/交接/技能；刷新Pro、Scrapy、JSON Schema、yt-dlp官方页面。核HEAD85e989d、实际监听65679；V2桥BLOCKED原件和采用器metadata-only报告实读。非作者复核以EXECUTION-REVIEW为准。
+- 版本/上线：本轮只改文档，不采集、部署、重启或发布OTA；没有新云查询、生产质量或业务验收。F1等已有候选证据仅更新状态，不冒正式采用。
+- 风险/下一步：按当前结果卡修V2桥→独审→正式入口采用和消费；F1B/F2及各平台、双设备/连续OTA/跨端/48h未验继续保留。原未提交ASR/诊断资产不动。
+
+
+## 2026-10-16 12:27 CST｜E65｜F1A正式采用、实际导出与F2保真修复
+
+- 接力root；桥/F2作者central_steps，组件独审knowledge_reuse_probe，工作台/采用器/现场独审native_diagnostics_review。
+- 实际：V3修快照同bytes、helper FD/FIFO、installedpack6pin；原workbench六源/便携tests/材料包共14文件，原85source051处理31真实已ACK项。六源采用82280后，浏览器JSON下载实失败而CSV成功；单行附件头修复独审后再采用83631/materials-download-9b9e9241，旧两PID停。源码a036e19be0ec85f7895731d5f4f721ad08ad3951已commit，push另回执。
+- 验证：dd056840组件、c2241ee7六源、86dcd87f采用准备、d1ace184初次现场；c9f60f9d单行/451168a2采用准备/ea9dd205最终现场。实际五库backup schema/raw原行同、194资产+fresh66保护同、四GET31typed/原ACK exact，idle/outbox0。原浏览器实际页/三下载精确正式4SHA；BROWSER-FINAL-EXPORT和截图留本地。
+- 初失败保留：V2竞态/错pin阻断、安装staged symlink复现、root错误cwd读旧helper退出1、长文fixture未超过5000首assert、JSON两次20s下载超时。各按原问题修复后另名复核，不覆盖旧冻件；安装首败执行旧SHA未锁，已更正不冒当前fixedSHA有漏洞。
+- F2：原runner四保真修复ea96f1ca/独审9b06bb70；214字节span/18239全文/91seed/派生父hash/真实coverage通过。隔离候选，未审核发布/改正式toolbox；余事件、pin和消费联动未全验。
+- 未完成：新ACK自动后处理、领域实体/评分/完整知识反馈、双域消费、其他平台/原重登/连续OTA/跨端/48h；原task/partial74/10of12剩2保持，0新来源/ACK；中央未新查询/部署、看门狗仍暂停。
+- 下一步：同数据知识新旧包重算和领域消费，复用原内核/runner；主线不缩成素材报告即完成。

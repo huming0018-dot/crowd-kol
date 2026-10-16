@@ -470,3 +470,24 @@ E62后续更正：root直接读取原DY `5afdd0e1-960d-4381-b6b7-1e3dcfa258cb/ma
 - docs/product/REFERENCE-v2.2-MANIFEST.json及TEXT：用户原HTML未改，SHAaee488f21b14637a805f38ba4686b31bc5ce4be459acac950f8b2603863a6c5b；未取得v2.1不伪读。
 - docs/product/PLAN-REVIEW.md：非作者完整范围/接线/工期审，发现与修复复核；ASSET-CONSISTENCY-REVIEW.md：另一非作者复核主计划/架构/研究的资产映射（不自审其ASSETS）。结论只对文稿范围。
 - 本地爬虫/outputs/product-integration-plan-2026-10-16/：原始读取/源SHA/审查初始和复核JSON、发布回执；JSON默认本地。当前运行/云/新来源没有因规划变化；E63真实有限业务仍按上节原件。
+
+
+## E64｜整产品交付合同与防偏离约束（文档校准）
+
+- docs/product/EXECUTION-CONTRACT.md：分层U范围、F0–F7结果与依赖、F1A/B、知识重算、角色及时间盒；其引用的运行状态是原件读取或明确历史，不是新云验收。
+- docs/product/EXECUTION-INITIAL-REVIEW.md、EXECUTION-REVIEW.md：非作者对v2.2/现计划及本次补充的独立发现/修复复核；仅规划审查，不是产品PASS。
+- 本地 outputs/plan-alignment-2026-10-16/：原件/本轮文档与安装记录。正式仓HEAD85e989d与本机45937唯一PID65679已核；原未提交产品文件未改，无新采集/部署/OTA。
+- 本地runtime-2026-10-16/e64-integration/CHECKPOINT-01.json、f1-confirmed-material-v2/independent-native/INITIAL-REVIEW.md、e64-integration/formal-adoption/SCRIPT-METADATA-REVIEW.json本轮实读：F1候选与桥阻断/采用器窄审分开，不能以局部通过称正式产品。
+
+
+## E65｜正式已审素材入口及真实浏览器导出（2026-10-16）
+
+根目录RUN16为爬虫/outputs/runtime-2026-10-16，仅本地原件，不外发PRIVATE数据。
+
+- f1-confirmed-material-v3/FREEZE.json813b5731；independent-knowledge/FINAL.json dd056840：53冻件/原反例/实际SDK6800全文/31四格式。500000只bundle边界，没有冒全SDK通过。
+- e64-integration/material-workbench/FINAL-SIX-FREEZE.json8bc78130、independent-review/FINAL-SIX-REVIEW.json c2241ee7；formal-adoption/MAPPING-ADOPTER-REVIEW.json86dcd87f、RUNTIME-FREEZE-APPROVED.json1d155c47。原四保护索引/8fn采用器/安装白名单审均保留。
+- formal-adoption/FORMAL-MATERIAL-BUILD.json：正式data-products85source/31ACK、0来源/0新ACK，build+4read22.381s，单读2.721–2.865s；是一次样本，不宣p95/性能目标已过。runtime-adoption/ADOPTED.json记录82280，independent-review/ACTUAL-RUNTIME-FINAL.json d1ace184现场逐行核。
+- material-download-fix/independent-review/FINAL.json c9f60f9d，download-adoption/ADOPTER-REVIEW.json451168a2及runtime-adoption/ADOPTED.json记录83631；最终independent-review/ACTUAL-RUNTIME-FINAL.json ea9dd205：1exact+458others、五库实际backup/194资产/fresh66保护、idle/pending0、4GET/31原ACK。
+- formal-adoption/BROWSER-INITIAL-EXPORT.json：CSV先实际成功/JSON超时保留；BROWSER-FINAL-EXPORT.json、ACTUAL-MATERIAL-PAGE.jpg：原iab实际打开并三下载，下载字节hash精确正式publication，31typed一致；只素材，不是餐厅推荐或新云回执。
+- f2-knowledge-fidelity/FREEZE.json ea96f1ca、independent-knowledge/FINAL.json9b06bb70：原214UTF8span/18239全文/91seed/strategy parent/coverage四项隔离候选独审；完整知识发布/pin/Consumer联动未全验。
+- e64-integration/SOURCE-COMMIT.json记录14公开自有源/测试/纯包及精确SHA；外部发布另以SOURCE-PUBLISH-RECEIPT.json为准。Pro私码、corpus、PRIVATE快照/配置/凭据不入仓。
