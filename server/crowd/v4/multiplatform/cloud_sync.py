@@ -192,6 +192,9 @@ class CloudOwnerAdapter:
         self.existing_validator = existing_validator
 
     def _validate_existing(self, payload):
+        if payload.get('source_executor')=='pro' and payload.get('mode')=='trending':
+            if self.existing_validator is None:raise CloudError('pro_dy_scope_unsupported')
+            self.existing_validator(payload)
         if (payload.get('delivery_basis') == 'existing_saved' and payload.get('mode') == 'detail'
                 and 'bili' in (payload.get('platforms') or [])):
             if self.existing_validator is None:
@@ -300,7 +303,7 @@ class CloudOutbox:
                     raise CloudError('invalid_capture_record')
                 if 'discovery_kind' in record:
                     entry = record['discovery_kind']
-                    if not isinstance(entry, str) or entry not in mc_runner.DISCOVERY_KINDS or entry == 'trending' and platform != 'bilibili':
+                    if not isinstance(entry, str) or entry not in mc_runner.DISCOVERY_KINDS or entry == 'trending' and platform != 'bilibili' and not (platform=='douyin' and __import__('dy_task_scope').supports(lease.get('request',{}))):
                         raise CloudError('invalid_capture_record')
                 from results_store import _safe
                 _safe(record)
@@ -497,7 +500,8 @@ class CloudOutbox:
 
 class CloudWorker:
     """One durable dispatch controller, backed by cloud leases and the existing runner."""
-    def __init__(self, root, client, runner_callback, session_selector=None, existing_reader=None, interval=5, postprocessing_callback=None):
+    def __init__(self, root, client, runner_callback, session_selector=None, existing_reader=None, interval=5, postprocessing_callback=None, capability_provider=None):
+        self.capability_provider = capability_provider
         self.root = _private_root(root, 'cloud-worker')
         self.path = self.root / 'state.json'
         self.lock_path = self.root / 'worker.lock'
@@ -1014,7 +1018,8 @@ class CloudWorker:
             self._save(state)
         if state['phase'] == 'claiming':
             response = self.client.call('claim', {'claim_id': state['claim_id'],
-                                                'unavailable_platforms': state.get('unavailable_platforms', [])})
+                                                'unavailable_platforms': state.get('unavailable_platforms', []),
+                                                'source_capabilities': self.capability_provider() if self.capability_provider else []})
             lease = response.get('lease')
             if lease is None:
                 self._save({'phase': 'idle', 'waiting_logins': waiting})

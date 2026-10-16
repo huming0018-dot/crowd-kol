@@ -25,7 +25,7 @@ const ownerView = (() => {
   const dialog = node('dialog'); dialog.id = 'owner_dialog'; dialog.setAttribute('aria-labelledby','owner_title');
   dialog.innerHTML = `<div class="dialog-head"><h2 id="owner_title">新建多平台任务</h2><button type="button" id="owner_close">关闭</button></div>
   <form id="owner_form" class="dialog-body"><p class="hint">1. 采什么　2. 在哪采　3. 采多少</p><p id="owner_error" class="error" role="status"></p><button type="button" id="owner_reconcile" hidden>核对上次派发结果</button>
-  <fieldset id="owner_request" style="border:0;padding:0"><label>采集方式<select id="owner_mode"><option value="search">搜索关键词</option><option value="detail">指定内容</option><option value="creator">指定博主作品</option><option value="homefeed">首页推荐内容</option><option value="trending">热门内容</option></select></label>
+  <fieldset id="owner_request" style="border:0;padding:0"><label>采集方式<select id="owner_mode"><option value="search">搜索关键词</option><option value="detail">指定内容</option><option value="creator">指定博主作品</option><option value="homefeed">首页推荐内容</option><option value="trending">热门内容</option><option value="dy_pro_trending">抖音热门 · Pro单条（正文、3条根评论及回复、媒体，最多12次）</option></select></label>
   <label>关键词、链接或博主名单<textarea id="owner_targets" required rows="4" placeholder="搜索关键词，每行一个"></textarea><small id="owner_target_help">搜索词共享给所选平台；链接会按所属平台分配。</small></label>
   <label>导入 CSV / 文本文件<input id="owner_file" type="file" accept=".csv,.txt,text/csv,text/plain"><small>CSV 格式为 platform,target。导入后先预览，不启动采集。</small></label>
   <fieldset style="border:0;padding:0"><legend>采集平台（可多选）</legend><div id="owner_platforms" class="choices"></div></fieldset>
@@ -66,13 +66,14 @@ const ownerView = (() => {
   $('owner_transcript_only').onchange=()=>{if($('owner_transcript_only').checked){$('owner_media').checked=true;}invalidate();};
   $('owner_media').onchange=()=>{if(!$('owner_media').checked){$('owner_long_audio').checked=false;$('owner_transcript_only').checked=false;}invalidate();};
   $('owner_mode').onchange = () => {
-    const mode=$('owner_mode').value, discovery=['homefeed','trending'].includes(mode);
+    const chosen=$('owner_mode').value;const mode=chosen==='dy_pro_trending'?'trending':chosen, discovery=['homefeed','trending'].includes(mode);
     $('owner_watch_options').hidden=mode!=='creator'; if(mode!=='creator')$('owner_continuous').checked=false;
     $('owner_targets').required=!discovery; $('owner_targets').parentElement.hidden=discovery; $('owner_file').parentElement.hidden=discovery;
     $('owner_target_help').textContent=mode==='search'?'搜索词共享给所选平台；链接会按所属平台分配。':'链接按所属平台分配；裸ID请写平台代码,ID。';
     $('owner_targets').placeholder=mode==='search'?'搜索关键词，每行一个':'内容/博主链接，每行一个；裸ID请写成平台代码,ID';
-    for(const input of $('owner_platforms').querySelectorAll('input')) { input.disabled=mode==='trending'&&input.value!=='bili'; if(input.disabled)input.checked=false; }
+    for(const input of $('owner_platforms').querySelectorAll('input')) { input.disabled=chosen==='dy_pro_trending'?input.value!=='dy':mode==='trending'&&input.value!=='bili';if(chosen==='dy_pro_trending')input.checked=input.value==='dy'; if(input.disabled)input.checked=false; }
     if(![...$('owner_platforms').querySelectorAll('input:checked')].length) $('owner_platforms').querySelector('input:not(:disabled)').checked=true;
+    if(chosen==='dy_pro_trending'){for(const id of ['owner_comments','owner_replies','owner_media'])$(id).checked=true;$('owner_total').value=1;$('owner_comment_limit').value=3;$('owner_requests').value=12;}
     if(discovery&&Number($('owner_total').value)>10)$('owner_total').value=2;
     invalidate();
   };
@@ -82,6 +83,7 @@ const ownerView = (() => {
   });
   async function payload() {
     const p={idempotency_key:crypto.randomUUID(),platforms:[...$('owner_platforms').querySelectorAll('input:checked')].map(x=>x.value),mode:$('owner_mode').value,desired_items:Number($('owner_total').value),max_api_requests:Number($('owner_requests').value),max_comments:Number($('owner_comment_limit').value),comments:$('owner_comments').checked,replies:$('owner_replies').checked,media:$('owner_media').checked,purpose:$('purpose').value};
+    if(p.mode==='dy_pro_trending'){p.mode='trending';p.source_executor='pro';p.timeout_seconds=120;}
     if($('owner_long_audio').checked){if(!p.platforms.includes('bili'))throw Error('音轨采集需要选择B站。');p.media=true;p.platform_options_by_platform={bili:{long_audio:true}};}
     if($('owner_transcript_only').checked){if(!p.platforms.length||p.platforms.some(platform=>!['bili','dy','ks','wb','xhs','zhihu','tieba'].includes(platform)))throw Error('请选择支持的平台。');p.media=true;p.platform_options_by_platform=p.platform_options_by_platform||{};for(const platform of p.platforms)p.platform_options_by_platform[platform]={...(p.platform_options_by_platform[platform]||{}),transcript_only:true,...(platform==='bili'?{long_audio:true}:{})};}
     if($('authorization_ref').value.trim())p.authorization_ref=$('authorization_ref').value.trim();

@@ -223,7 +223,8 @@ def dy_scope_enabled(request, environ=None):
     # New audited scope is opt-in. Preserve existing search/detail/creator path.
     from pro_douyin_entry import supports
     env=os.environ if environ is None else environ
-    return (env.get('CROWD_PRO_DY_DISCOVERY_ENABLED')=='1' and supports(request)
+    from dy_task_scope import supports as owner_supported
+    return ((owner_supported(request) or env.get('CROWD_PRO_DY_DISCOVERY_ENABLED')=='1') and supports(request)
             and request.get('comments') is True and request.get('replies') is True and request.get('media') is True)
 
 

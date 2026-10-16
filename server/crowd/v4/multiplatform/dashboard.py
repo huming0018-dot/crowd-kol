@@ -89,7 +89,7 @@ class Application:
             worker_client = CloudClient(cloud_config, 'worker')
             self.cloud_worker = CloudWorker(self.root, worker_client, self.task_run,
                                            self._cloud_session, self._cloud_existing,
-                                           postprocessing_callback=self._light_postprocessing)
+                                           postprocessing_callback=self._light_postprocessing, capability_provider=self._source_capabilities)
             self.cloud_worker.start_scheduler()
         else:
             from owner_tasks import OwnerTasks
@@ -102,6 +102,12 @@ class Application:
         self.health_events = HealthEvents(self.root)
         if self.cloud_worker is not None:
             self.health_events.start(self.cloud_worker.status)
+
+    def _source_capabilities(self):
+        from dy_task_scope import ready
+        request={'platforms':['dy'],'source_executor':'pro','mode':'trending','desired_items':1,'max_api_requests':12,'timeout_seconds':120,'max_comments':3,'comments':True,'replies':True,'media':True}
+        try:return ready(self,request)
+        except (ValueError,OSError,SystemExit):return []
 
     def health(self):
         value = self.health_events.status()
@@ -160,6 +166,9 @@ class Application:
         return records
 
     def _validate_cloud_existing(self, payload):
+        if payload.get('source_executor')=='pro' and payload.get('mode')=='trending':
+            from dy_task_scope import ready
+            ready(self,payload)
         if (payload.get('delivery_basis') != 'existing_saved' or payload.get('mode') != 'detail'
                 or not isinstance(payload.get('platforms'), list) or 'bili' not in payload['platforms']):
             return

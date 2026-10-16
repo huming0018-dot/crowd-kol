@@ -107,7 +107,7 @@ def plan(payload):
     discovery_mode = mode in ('homefeed', 'trending')
     if discovery_mode:
         from discovery import SUPPORT
-        if any(p not in SUPPORT[mode] for p in platforms):
+        if any(p not in SUPPORT[mode] for p in platforms) and not __import__('dy_task_scope').owner_scope(payload):
             raise ValueError('discovery_not_supported_for_platform')
         if payload.get('targets') or payload.get('targets_by_platform'):
             raise ValueError('discovery_does_not_accept_targets')
