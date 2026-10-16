@@ -538,3 +538,9 @@ E66补：f2-owner-knowledge-preview/independent-knowledge/FINAL.json82f7ed63核1
 E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记录55431f5d远端同；ACTUAL-UI-RECEIPT.json固定真实IAB预览/diff截图与AX的SHA；HANDOFF-FACT-REVIEW.json SHA7cc6b26578f91fb4baad23e93ea8e52d77f3251331e3c305e46160b676691e79核14:10事实卡。F2候选独立反例f2-owner-publication/independent-root/UNKNOWN-NEW-INTENT.json及UNKNOWN-INITIAL.log，原unknown后新intent重复pin，未采用；修复另版本不覆盖原冻。
 
 发布V2候选证据：RUN16/f2-owner-publication-v2/FREEZE.json dfd34b7c；independent-root/FINAL.json127122bb72a9ff7206146dbc1d942d6992ca77c96d7d54c8e767cfb04e01d7c9，TESTS14.log/UNKNOWN-FIXED.log/UNKNOWN-NEW-INTENT.json核实际history2→2；仍未接正式Host/UI/Consumer，不能称完整闭环。e71-runtime-continuation/KNOWLEDGE-FINAL-COUNTS.json只读核14:16正式四表0。
+
+
+### 计划1.2证据（2026-10-16 14:30 CST）
+
+- `/Users/hubowen/Desktop/爬虫/outputs/product-plan-refresh-20261016`：候选三文档、CHANGES前置摘要、非作者REVIEW及安装脚本；正式对照product/PLAN-1.2-REVIEW.md。
+- 修改仅规划/研究/交接；不改变运行版、原任务、账号、预算、评分、ACK或OTA。

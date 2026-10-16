@@ -57,3 +57,18 @@
 | 知识升级不能变成模型自动改事实 | JSON Schema/Confluent兼容矩阵见R04/R06 | 包版本兼容与真人采用权限是两项问题；当前提案预览不具备批准权 | 原Store/审核/pin复用，先接真实项目Owner权限；新旧同输入回算/旧发布回读，绝不伪造admin |
 
 联网文档证明上游设计和选项，不证明本机收益；独立推演提供待检验机制，也不是既成结果。本轮没有安装新依赖、启用自动Jobs或改线上状态。可复用研究流程：固定问题与输入→查官方实现→匹配已有资产→最窄适配→坏输入与同输入→非作者审→正式回读→保留否决理由。精确工具版本只在被选为运行依赖时锁定，不为调研装全套工具。
+
+
+## 五、1.2复核：按v2.2吸收机制，不批量引入框架
+
+2026-10-16再次实际打开官方Pro组织、Scrapy架构、yt-dlp、Prefect tasks、datacontract-cli与Crawl4AI深爬文档。公开文档只证明上游声明，不代表本机固定版本已具备或已接入。
+
+| 方向 | 一手材料与可复用点 | 在本项目的决定与最小验证 |
+|---|---|---|
+| 成熟平台 | [Pro官方](https://github.com/MediaCrawlerPro)：断点、账号池、签名分离、推荐/热搜及各平台差异 | 复用已购固定版原入口；先同输入根/回复/媒体/导出，不按公开最新版替换固定本地版。公开许可限制仍须核预期分发方式，购买不自动等于可再分发 |
+| 调度与处理分层 | [Scrapy架构](https://docs.scrapy.org/en/latest/topics/architecture.html)；[Prefect任务](https://docs.prefect.io/v3/concepts/tasks) | 借职责与状态机制，保现中央租约和toolbox Jobs；v2.2的Prefect2选型不是必须迁移。只有现编排达不到已测目标时才隔离试验 |
+| 低成本文字稿 | [yt-dlp](https://github.com/yt-dlp/yt-dlp)：字幕、跳过视频下载、格式与音轨选项 | 字幕优先于MP4；同输入记录请求数/下载量/耗时/RSS/全文质量。无字幕是正常分支，不用OCR补作字幕 |
+| 契约 | [datacontract-cli](https://github.com/datacontract/datacontract-cli)：ODCS、lint及schema/质量测试 | 先核现JSON Schema合同与版本，缺兼容检查才最窄引入；不照README安装all extras或重写原契约 |
+| 权威来源发现 | [Crawl4AI深爬](https://docs.crawl4ai.com/core/deep-crawling/) | 先用标准HTTP/XML解析既有robots/sitemap，深爬只补缺口；发现URL不等覆盖完整或事实已核。以已知名单召回率/重复率/请求预算作最小实验 |
+
+独立推演：当前重复候选与多指针最易增加集成耗时。应减少在制切片，以已知合法输入打通源ACK→处理→发布的最短完整路径；只有功能/质量保持且总耗时、字节或操作数实测改善才合入。反例包括：缺回复但上游completed、知识pin成功但Consumer未切、终端心跳在线但登录unknown。三者均不能报告整链完成。

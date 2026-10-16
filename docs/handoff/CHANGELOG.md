@@ -568,3 +568,12 @@ E70复核补充：central_steps发现主计划技术栈表把PG候选误列首�
 E71 14:16补记：Owner源码55431f5d71bdb09e677ac112dac99344a032a7da已push并ls-remote同；实际浏览器截图/AX及回执已存e71-runtime-continuation。知识发布候选V1独审发现换intent绕unknown重复pin（临时history2→3），未采用；central新V2正在修，未知不抹账。正式E71六源/四知识写表0结论保持。
 
 E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf0349544ab33ed6f5285df8a9661486fc3c8bf4e61e6b8，非作者root FINAL127122bb72a9ff7206146dbc1d942d6992ca77c96d7d54c8e767cfb04e01d7c9；14实际SDK测试及独立原反例history2→2。正式知识四写表只读仍0。central继续Host/UI接线，knowledge继续Tieba原SDK分页复现；这些活跃子代理不代表功能完成。
+
+
+## 2026-10-16 14:30 CST｜计划1.2校准，主线不重置
+
+- 标识：Codex /root；非作者central_steps。
+- 改动：PRODUCT-PLAN、DELIVERY-BRIEF、RESEARCH、PLAN-1.2-REVIEW与HANDOFF/EVIDENCE；范围和交付依赖更明确，无产品代码改动。
+- 基线提交：b36d88a60af1b55616676c46a26f75909a61baa9；本轮文档未推送/未部署。
+- 验证：22需求/8工作包/本地链接通过，初审三问题逐项修正；候选与独审原件在/Users/hubowen/Desktop/爬虫/outputs/product-plan-refresh-20261016。
+- 未验/下一步：按HANDOFF新卡及E71继续，真实源/回执/人工知识决定/OTA/48h不能由文档测试代替。
