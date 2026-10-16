@@ -288,6 +288,11 @@ class Application:
             return {**value, 'ok': True, 'storage_scope': 'cloud', 'available': True}
         raise ValueError('invalid_cloud_action')
 
+    def knowledge_request(self, body):
+        from knowledge_review_call import call
+        return call(self.root / 'data-products/knowledge-runtime.json',
+                    self.root / 'cloud-config.json', body)
+
     def material_delivery(self, fmt='html', *, domain=False):
         """Read the existing toolbox publication; this endpoint never builds or collects."""
         from workbench_material_call import command
@@ -1141,7 +1146,7 @@ def make_server(app, port=45937):
             if path == '/':
                 document = (HERE / 'dashboard.html').read_text()
                 return self.send(document.replace('__NONCE__', app.token), html=True)
-            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js', '/accounts-ui.js', '/cloud-ui.js', '/fleet-ui.js'):
+            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js', '/accounts-ui.js', '/cloud-ui.js', '/fleet-ui.js', '/knowledge-ui.js'):
                 data = (HERE / path[1:]).read_bytes()
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/javascript; charset=utf-8')
@@ -1228,6 +1233,8 @@ def make_server(app, port=45937):
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_account_request')
                     return self.send(app.accounts(body['action'], body['payload']))
+                if self.path == '/api/knowledge':
+                    return self.send(app.knowledge_request(body))
                 if self.path == '/api/results':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_results_request')
