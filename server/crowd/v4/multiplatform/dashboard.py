@@ -16,6 +16,7 @@ import sqlite3
 import subprocess
 import sys
 import threading
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, quote
 import uuid
@@ -285,6 +286,34 @@ class Application:
                 return {'ok': True, 'storage_scope': 'cloud', 'available': False, 'reason': 'upgrade_required'}
             return {**value, 'ok': True, 'storage_scope': 'cloud', 'available': True}
         raise ValueError('invalid_cloud_action')
+
+    def material_delivery(self, fmt='html'):
+        """Read the existing toolbox publication; this endpoint never builds or collects."""
+        from workbench_material_call import command
+        path = self.root / 'data-products' / 'material-runtime.json'
+        if path.is_symlink() or any(parent.is_symlink() for parent in path.parents):
+            raise ValueError('material_delivery_unavailable')
+        try:
+            import stat
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, 'rb') as stream:
+                meta = os.fstat(stream.fileno())
+                if not stat.S_ISREG(meta.st_mode) or meta.st_uid != os.getuid() or meta.st_mode & 0o077 or not 0 < meta.st_size <= 1048576:
+                    raise ValueError('material_delivery_unavailable')
+                config = json.loads(stream.read(1048577))
+            # Spool the existing CLI output; oversized batches do not fill parent RAM.
+            with tempfile.TemporaryFile() as output:
+                result = subprocess.run(command(config, 'read', fmt), stdout=output,
+                                        stderr=subprocess.DEVNULL, timeout=15, check=False)
+                size = output.tell()
+                if result.returncode or size > 16 * 1024 * 1024:
+                    raise ValueError('material_delivery_unavailable')
+                output.seek(0)
+                return output.read(16 * 1024 * 1024 + 1)
+        except (OSError, ValueError, TypeError, RecursionError, subprocess.TimeoutExpired) as error:
+            code = 'material_delivery_timeout' if isinstance(error, subprocess.TimeoutExpired) else 'material_delivery_unavailable'
+            logging.getLogger('crowd.workbench.material_request').warning(json.dumps({'schema':'crowd-material-request-failure-v1','route':'materials','format':fmt,'error_code':code,'error_type':type(error).__name__},sort_keys=True))
+            raise ValueError('material_delivery_unavailable') from None
 
     def configure(self, body):
         if set(body) != {'mc_root'} or not isinstance(body['mc_root'], str):
@@ -697,10 +726,15 @@ class Application:
             local_root=self._registered_run_root(authoritative['local_run_id'])
             account=AccountSessions(local_root).status(authoritative['request']['session_id'],'wb')
             runtime_sha=hashlib.sha256((HERE/'mc_runner.py').read_bytes()).hexdigest()
-            prepared=owner_payload(local_root,authoritative,account,runtime_sha,payload['idempotency_key'],outbox_path=self.root/'cloud-outbox/outbox.sqlite3')
+            from public_source_progress import NoUnvisitedWork,continuation_preview_counts
+            try:
+                prepared=owner_payload(local_root,authoritative,account,runtime_sha,payload['idempotency_key'],outbox_path=self.root/'cloud-outbox/outbox.sqlite3')
+            except NoUnvisitedWork as stopped:
+                return {'ok':True,'task_id':payload['task_id'],'child_id':payload['child_id'],'idempotency_key':payload['idempotency_key'],'continuation_available':False,'reason':'continuation_no_unvisited_work','requests_remaining':authoritative['requests_remaining'],**stopped.counts}
+            counts=continuation_preview_counts(local_root,prepared,authoritative['capture_count'])
             prepared_sha=seed_digest(prepared)
             if action=='continue_failed_source_preview':
-                return {'ok':True,'preview_sha256':prepared_sha,'task_id':payload['task_id'],'child_id':payload['child_id'],'idempotency_key':payload['idempotency_key'],'requests_spent':authoritative['api_attempts'],'requests_remaining':authoritative['requests_remaining'],'old_captures_preserved':authoritative['capture_count'],'new_content_quota':False,'historical_subject_continuity_proven':False}
+                return {'ok':True,'preview_sha256':prepared_sha,'task_id':payload['task_id'],'child_id':payload['child_id'],'idempotency_key':payload['idempotency_key'],'requests_spent':authoritative['api_attempts'],'requests_remaining':authoritative['requests_remaining'],'old_captures_preserved':authoritative['capture_count'],**counts,'new_content_quota':False,'historical_subject_continuity_proven':False}
             if payload['preview_sha256']!=prepared_sha:raise ValueError('continuation_preview_changed')
             # Explicit Owner approval targets this exact fresh CAS proof; no automatic retry.
             return self.owner_tasks.continue_failed_source(prepared)
@@ -1094,6 +1128,29 @@ def make_server(app, port=45937):
                 self.send_header('Content-Length', str(len(data)))
                 self.send_header('X-Content-Type-Options', 'nosniff')
                 self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                self.wfile.write(data)
+                return
+            material_routes = {'/materials': ('html', 'text/html; charset=utf-8'),
+                               '/materials/report.json': ('json', 'application/json; charset=utf-8'),
+                               '/materials/materials.jsonl': ('jsonl', 'application/x-ndjson; charset=utf-8'),
+                               '/materials/materials.csv': ('csv', 'text/csv; charset=utf-8')}
+            if path in material_routes:
+                fmt, mime = material_routes[path]
+                try:
+                    data = app.material_delivery(fmt)
+                except ValueError:
+                    return self.send({'ok': False, 'error': 'material_delivery_unavailable',
+                                      'message': '素材处理尚未就绪或核验未通过；原资料与任务保留。'}, 409)
+                self.send_response(200)
+                self.send_header('Content-Type', mime)
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Referrer-Policy', 'no-referrer')
+                self.send_header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'")
+                if fmt in ('json', 'jsonl', 'csv'):
+                    self.send_header('Content-Disposition', 'attachment; filename="materials.' + fmt + '"')
                 self.end_headers()
                 self.wfile.write(data)
                 return

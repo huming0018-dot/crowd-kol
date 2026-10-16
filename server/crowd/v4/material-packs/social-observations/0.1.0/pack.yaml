@@ -1,0 +1,19 @@
+pack:
+  schemaVersion: 0.1.0
+  pack_id: social-observations
+  version: 0.1.0
+  domain: public-source-material
+  note: Confirmed social source material only, not restaurant facts or diner/taste
+    ranking. Snapshot original HTTP bytes unavailable.
+  contract:
+    fields:
+      file: fields.yaml
+      minEntries: 1
+    pointers:
+      file: pointers.json
+    validation:
+      file: validation.yaml
+    rubric:
+      file: rubric.yaml
+    expectations:
+      file: expectations.yaml

@@ -227,6 +227,7 @@ def prepare_progress(root,payload,account):
  expected=copy.deepcopy(source['manifest']['request']);expected['max_api_requests']=p['remaining']
  if canonical(request)!=canonical(expected):raise SeedError('progress_input_changed')
  if fresh_account(root,subject,latest,account)!=proof.get('account_state_sha256'):raise SeedError('progress_account_changed')
+ reject_no_unvisited_work(root,p,segments)
  return {'seed':seed,'context':copy.deepcopy(ctx),'request':copy.deepcopy(request)}
 
 def owner_progress_payload(root,preview,account,runtime_sha256,idempotency_key,outbox):
@@ -248,6 +249,7 @@ def owner_progress_payload(root,preview,account,runtime_sha256,idempotency_key,o
   audit=hashlib.sha256(('crowd-machine-capture-audit-v1\n'+'\n'.join(sorted(r['capture_id']+':'+r['envelope_hash']for r in last['acknowledged_rows']))).encode()).hexdigest()
   if type(preview['capture_count'])is not int or preview['capture_count']!=len(last['acknowledged_rows'])or preview['capture_digest']!=audit or type(preview['api_attempts'])is not int or preview['api_attempts']!=last['used']or type(preview['requests_remaining'])is not int or preview['requests_remaining']!=progress['remaining']or canonical(preview['account_context'])!=canonical(subject)or canonical(preview['request'])!=canonical(segments[0]['manifest']['request']):raise SeedError('progress_preview_changed')
   if fresh_account(root,subject,latest,account)!=statehash:raise SeedError('progress_account_changed')
+  reject_no_unvisited_work(root,progress,segments)
   persist_snapshot(root,progress)
  finally:os.close(fd)
  proof={'continuation_kind':'wb-replies-v1','failure_reason':last['status']['failure_reason'],'executor_inactive':True,'local_state':'failed','exit_code':74,'api_attempts':last['used'],'status_sha256':last['pins']['status_sha256'],'manifest_sha256':last['pins']['manifest_sha256'],'account_state_sha256':statehash,'seed_sha256':seed['seed_sha256'],'runtime_sha256':runtime_sha256,'identity_binding':'same_verified_subject','progress':proof_progress(seed,segments)}
@@ -269,3 +271,31 @@ def known_partial_media(run,manifest,status,normalized):
  media=summary(run,manifest)
  if not isinstance(media,dict)or media.get('state')!='completed'or not isinstance(media.get('assets'),list)or not media['assets']or media.get('api_attempts')!=budget['used']:raise SeedError('progress_partial_media_incomplete')
  return True
+
+
+class NoUnvisitedWork(SeedError):
+ """Verified accessible task scope has no unvisited roots or missing media work."""
+ def __init__(self,total,latest):
+  super().__init__('continuation_no_unvisited_work')
+  self.counts={'total_captures_preserved':total,'latest_captures_preserved':latest}
+
+def reject_no_unvisited_work(root,progress,segments):
+ # Read back the real journal/checkpoint, same-run media bytes and ledger. A
+ # terminal gap remains partial; it is never a reason to fetch that gap again.
+ last=segments[-1];run=Path(root)/'runs'/last['run_id']
+ try:
+  normalized,_=read_object(run/'normalized.json')
+  verified=known_partial_media(run,last['manifest'],last['status'],normalized)
+ except (SeedError,ValueError,OSError,KeyError,TypeError):
+  return  # Missing/unknown proof retains the existing continuation gates.
+ if verified is True:
+  raise NoUnvisitedWork(len(progress['rows']),len(last['acknowledged_rows']))
+
+def continuation_preview_counts(root,prepared,latest_count):
+ # The cloud CAS count is for the latest attempt. The local snapshot has
+ # independently verified every historical ACK and its original identity.
+ marker=prepared.get('proof',{}).get('progress')
+ if not isinstance(marker,dict):return {'latest_captures_preserved':latest_count}
+ progress,_=read_object(snapshot_path(root,marker.get('progress_sha256')))
+ validate_progress(progress)
+ return {'total_captures_preserved':len(progress['rows']),'latest_captures_preserved':latest_count}

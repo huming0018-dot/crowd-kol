@@ -166,25 +166,35 @@ const ownerView = (() => {
         if(task.storage_scope==='cloud')row.append(node('small',' · 云端已收 '+(c.received_captures||0)+' 份（正文 '+(c.contents||0)+' / 评论 '+(c.comments||0)+'）'));for(const runId of (task.storage_scope==='cloud'?[c.local_run_id].filter(Boolean):c.runs||[c.active_run_id].filter(Boolean))){const run=runs.find(r=>idOf(r)===runId)||{run_id:runId,platform:c.platform,state:'interrupted_unknown'};const b=button('查看结果',()=>show(run));if(mediaNotice(run))row.append(node('small',' · '+mediaNotice(run)));b.disabled=!terminal.has(run.state);row.append(b);}if(continuationEligible(task,c)){
           const cacheKey=continuationKey(task,c),proof=continuationProof(task,c),key='continue-'+task.task_id+'-'+c.child_id+'-'+task.revision;
           const cached=continuationPreviews.get(cacheKey);
-          const text=p=>p?.unknown?'继续结果待核对，请查看任务状态':p?.prepared?'确认继续（仅剩 '+p.prepared.requests_remaining+' 次请求）':p?'正在核对原任务…':'继续原任务（保留已收数据）';
+          const text=p=>p?.blocked?'没有尚未访问的工作（保留未完整结果）':p?.unknown?'继续结果待核对，请查看任务状态':p?.prepared?'确认继续（仅剩 '+p.prepared.requests_remaining+' 次请求）':p?'正在核对原任务…':'继续原任务（保留已收数据）';
           const next=button(text(cached),async()=>{
             if(continuationRender!==accountEntrySequence||!currentContinuation(cacheKey,proof))return;
-            const prior=continuationPreviews.get(cacheKey);if(prior?.busy||prior?.unknown)return;
+            const prior=continuationPreviews.get(cacheKey);if(prior?.busy||prior?.unknown||prior?.blocked)return;
             const pending=prior||{proof};pending.busy=true;continuationPreviews.set(cacheKey,pending);next.disabled=true;
             try{
               if(!pending.prepared){
                 const prepared=await call('continue_failed_source_preview',{task_id:task.task_id,child_id:c.child_id,idempotency_key:key});
                 if(continuationPreviews.get(cacheKey)!==pending||!currentContinuation(cacheKey,proof))return;
+                if(prepared?.continuation_available===false){
+                  if(prepared.task_id!==task.task_id||prepared.child_id!==c.child_id||prepared.idempotency_key!==key||prepared.reason!=='continuation_no_unvisited_work'||!Number.isSafeInteger(prepared.total_captures_preserved)||prepared.total_captures_preserved<0||!Number.isSafeInteger(prepared.latest_captures_preserved)||prepared.latest_captures_preserved<0||prepared.latest_captures_preserved>prepared.total_captures_preserved)throw Error('原任务预览无效，请重新核对。');
+                  pending.blocked=true;message('历史累计 '+prepared.total_captures_preserved+' 份回执保留（最近一段新增 '+prepared.latest_captures_preserved+' 份）。已访问全部选定根评论，媒体已校验；剩余回复差距仍未知，没有尚未访问的工作，不再消耗剩余额度。');return;
+                }
                 if(prepared?.task_id!==task.task_id||prepared?.child_id!==c.child_id||prepared?.idempotency_key!==key||typeof prepared.preview_sha256!=='string'||!/^[0-9a-f]{64}$/.test(prepared.preview_sha256)||!Number.isSafeInteger(prepared.requests_remaining)||prepared.requests_remaining<=0||!Number.isSafeInteger(prepared.old_captures_preserved)||prepared.old_captures_preserved<0)throw Error('原任务预览无效，请重新核对。');
+                if(prepared.total_captures_preserved!==undefined&&(!Number.isSafeInteger(prepared.total_captures_preserved)||prepared.total_captures_preserved<prepared.old_captures_preserved))throw Error('原任务预览无效，请重新核对。');
+                if(prepared.latest_captures_preserved!==undefined&&(!Number.isSafeInteger(prepared.latest_captures_preserved)||prepared.latest_captures_preserved!==prepared.old_captures_preserved))throw Error('原任务预览无效，请重新核对。');
                 pending.prepared=prepared;
-                message('原 '+prepared.old_captures_preserved+' 份回执保留；仅继续原内容评论与媒体，不增加正文额度。再次点击确认。');
+                message((prepared.total_captures_preserved===undefined?'最近一段新增 '+prepared.old_captures_preserved+' 份回执保留；':'历史累计 '+prepared.total_captures_preserved+' 份回执保留（最近一段新增 '+prepared.old_captures_preserved+' 份）；')+'仅继续原内容评论与媒体，不增加正文额度。再次点击确认。');
               }else{
-                await call('continue_failed_source',{task_id:task.task_id,child_id:c.child_id,idempotency_key:key,preview_sha256:pending.prepared.preview_sha256});
+                const confirmed=await call('continue_failed_source',{task_id:task.task_id,child_id:c.child_id,idempotency_key:key,preview_sha256:pending.prepared.preview_sha256});
+                if(confirmed?.continuation_available===false){
+                  if(confirmed.task_id!==task.task_id||confirmed.child_id!==c.child_id||confirmed.idempotency_key!==key||confirmed.reason!=='continuation_no_unvisited_work'||!Number.isSafeInteger(confirmed.total_captures_preserved)||confirmed.total_captures_preserved<0||!Number.isSafeInteger(confirmed.latest_captures_preserved)||confirmed.latest_captures_preserved<0||confirmed.latest_captures_preserved>confirmed.total_captures_preserved)throw Error('原任务预览无效，请重新核对。');
+                  pending.prepared=null;pending.blocked=true;message('历史累计 '+confirmed.total_captures_preserved+' 份回执保留（最近一段新增 '+confirmed.latest_captures_preserved+' 份）。已没有尚未访问的工作；未完整结果保留，没有授权新的采集。');return;
+                }
                 continuationPreviews.delete(cacheKey);message('原任务已授权继续；终端将自动使用剩余额度。');await reload();
               }
             }catch(error){if(continuationPreviews.get(cacheKey)===pending){if(pending.prepared&&error.message!=='continuation_preview_changed')pending.unknown=true;else continuationPreviews.delete(cacheKey);}message(error.message);}
             finally{pending.busy=false;render();}
-          });next.disabled=!!(cached?.busy||cached?.unknown);row.append(next);
+          });next.disabled=!!(cached?.busy||cached?.unknown||cached?.blocked);row.append(next);
         }if(task.storage_scope==='cloud'&&c.platform==='bili'&&c.supplemental_available===true&&c.state==='failed'&&task.mode==='detail'&&c.request_quota>c.requests_spent&&c.local_run_id){const retry=button('补采评论与长音轨（仅剩余额度）',async()=>{retry.disabled=true;const dimensions=['comments','media'];try{await call('retry_supplemental',{task_id:task.task_id,child_id:c.child_id,expected_revision:task.revision,idempotency_key:'supplement-'+task.task_id+'-'+c.child_id+'-'+task.revision,dimensions,long_audio:true});message('补采已保存；只使用原目标与剩余额度，需要登录时会提示。');await reload();}catch(error){message(error.message);}finally{retry.disabled=false;}});row.append(retry);}card.append(row);}
       const actions=node('div');actions.className='actions';for(const [name,text]of [['stop','停止任务'],['resume','继续未启动平台']]){const b=button(text,async()=>{b.disabled=true;try{await call(name,{task_id:task.task_id});await reload();}finally{b.disabled=false;}});b.dataset.taskKey=task.task_id+':'+name;b.disabled=name==='stop'?['stopped','completed'].includes(task.state):!['waiting','paused','stopped','partial','failed'].includes(task.state);actions.append(b);}card.append(actions);if(task.storage_scope==='cloud')actions.append(button('查看云端结果与回执',()=>guarded(()=>receipts(task))));const diagnostic=node('details');diagnostic.append(node('summary','分配与预算详情'),node('pre',JSON.stringify(task,null,2)));card.append(diagnostic);section.append(card);
     }

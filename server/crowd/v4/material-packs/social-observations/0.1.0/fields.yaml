@@ -1,0 +1,70 @@
+identity:
+  candidate_id_pointer: /id
+  candidate_revision_path: /revision
+  title_field: title
+source_contract:
+  source_versions_path: /source_versions
+  source_id_field: source_id
+  version_id_field: version_id
+  body_field: canonical_body
+  hash_field: canonical_body_sha256
+  retrieved_at_field: retrieved_at
+  evidence_source_key: source_version_id
+  candidates_path: /candidates
+  candidate_draft_path: /draft
+  candidate_evidence_path: /evidence
+  candidate_revision_path: /revision
+  publisher_id_field: source_id
+  source_url_field:
+  - url
+  - source_url
+  candidate_metadata:
+    capture:
+      pointer: /capture
+    coverage:
+      pointer: /coverage
+    unscoreable_reason:
+      pointer: /unscoreable_reason
+mapping:
+  draft_title:
+    field: title
+    pointer: /title
+    schema_ref: /draft/title
+  draft_text:
+    field: text
+    pointer: /text
+    schema_ref: /draft/text
+  draft_type:
+    field: entity_type
+    pointer: /entity_type
+    schema_ref: /draft/entity_type
+  unknown_restaurant_taste:
+    field: restaurant_taste
+    pointer: /restaurant_taste
+    optional: true
+    default: unknown
+  unknown_restaurant_identity:
+    field: restaurant_identity
+    pointer: /restaurant_identity
+    optional: true
+    default: unknown
+  unknown_independent_diners:
+    field: independent_diners
+    pointer: /independent_diners
+    optional: true
+    default: unknown
+source_plan:
+- source_kind: ugc
+  notes: Public text is a statement, not verified real-world fact.
+presentation:
+  report_title: 已确认公开素材 · 原文与缺口
+  description: 有耐久回执的原始平台素材，供研究者复核，不是餐厅推荐榜。
+  notice: 回复仍有未知缺口。素材追溯准入分不代表餐厅品质、真实食客口味或参与者奖励。缺少已核餐厅身份与独立堂食证据，餐厅口味分不予计算。
+  title_field: title
+  field_labels:
+    text: 原文
+  unknown_labels:
+    restaurant_taste: 餐厅口味
+    restaurant_identity: 餐厅实体
+    independent_diners: 独立堂食证据
+  unknown_value_label: 未核实，不能评分
