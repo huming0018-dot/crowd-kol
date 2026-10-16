@@ -114,3 +114,15 @@ RUN=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-16。以下“正式�
 | `SDK/media_platform/weibo/processors/comment_processor.py` | `4f5e4ec2ed6181bfec6dbfa5df1fb391677fa8b70731d13abd3a66d0f2c80e57` |
 | `SDK/repo/platform_save_data/weibo/weibo_store_impl.py` | `eea6e282d756431a75edaca033d30c739b2fa42a40da5fe32a58eafef30a8ab9` |
 | `SDK/repo/checkpoint/checkpoint_store.py` | `99f3c40c01939c6efda5f836a7735ec7c37f9f469ab60445cb2b869ff7cfbb1d` |
+
+## E71新增正式入口（2026-10-16，运行事实看HANDOFF）
+
+| 正式文件 / 实际接口 | 用途 / 已验边界 |
+|---|---|
+| server/crowd/v4/multiplatform/dashboard.py Application.knowledge_request、POST /api/knowledge | 原Host/Origin/CSRF后调用固定服务；真实预览已核，未代本人决定 |
+| knowledge_review_call.py call | 固定0600配置与原CloudClient配置路径；隔离065进程/stdin请求/25秒超时；没有浏览器role/path |
+| owner_knowledge_binding.py OwnerKnowledgeBinding.authenticate/validate_decision/decide | 原中央Owner认证到固定scope；原SDK精确grant/review与耐久intent，不发release/pin |
+| owner_knowledge_service.py OwnerKnowledgeService.preview/decide/status | 同数据diff/私有preview token/明确决定/只读原intent查账；真实四审核发布表仍0 |
+| knowledge-ui.js knowledgeView.show | 实际工作台“知识更新”入口，展示真实提案差异和12unknown；不自动采用 |
+
+六源精确SHA由RUN16/e71-owner-knowledge-adoption/independent-runtime/FINAL.json（7c1324f9）固定；源码提交55431f5d71bdb09e677ac112dac99344a032a7da/远端同。不要把发布链未采用候选加入正式入口；原051 Consumer与065知识pin仍是两个不同指针。

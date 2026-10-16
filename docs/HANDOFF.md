@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 13:06 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 14:16 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,11 +16,33 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：F1A31素材与F1B真实六店发现候选均已接原工作台，当前87942/domain-79e4de53-0fad9455；非作者919e83e6核四源/五库/原回执/两发布保持，原iab六店页及三导出已实际核字节。源码f7e475053c4e639ee0f6c4bb1f68993fb12a7d83本机提交，发布另核本轮回执。六店来自原64,902B/3canonical正文/25引文，仍非已核口味/当期地址营业。0.3.4新增12unknown及真实待审model提案只候选，不冒本人批准；完整知识Owner权限映射、自动新ACK处理、双域/PWA/原登录恢复/连续OTA/全平台跨端48h未全验。原WB31ACK/partial74/10of12剩2与中央Edge40保持（本轮无新云查询/来源/ACK）。
+当前阶段：正式本机工作台PID6620/owner-knowledge-412a2e2f-3d33539b，Owner“知识更新”已实际显示真实提案、差异和12unknown；独立现场7c1324f9核6exact+461其他/fullset、五库与原31ACK素材/六店发布保持。原自动ACK处理继续启用，尚无采用后新ACK自动发布验收。知识实际grant/decision/release/pin仍0；发布/回滚及Consumer联动正在接，不能将真实预览称完整知识闭环。Pro DY热搜原SDK/评论图片/导出受控候选已独审8cf81111，仍未正式/真实源，原视频与UID缺口保持。完整平台、两原节点恢复/连续OTA、双域/跨端/48h仍未全验。原T0 13:06:48 CST沿用；源码自动ACK f4885cec已发布，Owner六源55431f5d已发布且远端同，详见OWNER-SOURCE-PUBLISH回执。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
+
+### E71｜Owner真实知识预览已正式；自动ACK与旧结果保持（14:10）
+
+- **产品代码**：E69六源复用原065 SDK，新增同一工作台“知识更新”、固定Owner权限映射和显式审核意图；原自动ACK、参与者/评分/回执/OTA路径保持。源码55431f5d71bdb09e677ac112dac99344a032a7da；自动ACK前一提交f4885cec5dbd31823ebd0fbb9b339af7fc172d49已push/ls-remote同。
+- **发现/修复/组件独审**：HTTP-INITIAL的fixture跳过初始化缺关闭依赖，修测试替身后HTTP1PASS；原code未为造通过而改。六源冻结7b4f65/native a5ae553c核真实Handler/CLI五测、三错误边界、UI14检查、真实SDK clone中唯一grant+decision和unknown不重试；真实原知识无写。不是生产审核证据。
+- **采用**：E71 prepare冻7035ea49；非作者68fe0b40核8函数AST与原采用器同、单DB RO backup/三旧指针保持、7独立用例/10次SDK执行（含重复继承，不冒10unique）；原解释器18MB超16MB误限已分64MiB校验，首败保留。批准冻5ee29415。预检五锁/96原source终态/无活动租约；唯一root分开执行adopter与installer。实际旧180停止、新6620；配置706e9077、17新资产、source知识DB不改，0自动决定。
+- **现场独审**：7c1324f9879f6ad8b10b3df3f497409a93cce7e0d75f3ccec1dbaf0d2b54942b，实际6+461/fullset4新增、221保护/fresh6+51+33+3、五库actualbackup/schema/raw前后同。原31素材4格式/逐ACK canonical、六店4格式/原报告hash及6pack同；material/domain/auto三指针SHA保持。调度自然claiming、无lease/localrun、pending0/scheduler_alive，不写假idle。
+- **真实Owner/页面**：root原CloudClient task_list只读认证通过；独审真实/api/knowledge preview恰1次、root原IAB另一次，原prop034/hashad30e269、address6+current_status6/humanUIDNone/central_owner_service。实际UI显示文件diff和明确采用/退回/不采用，截图/AX存e71-runtime-continuation；未点采用。knowledge单DB与原全部表/rows相同，四写表仍0。私token不进证据/交接。
+- **Pro并行结果**：f3-pro-discovery-v2冻af36a324/native8cf81111：原Pro main/handler/SQLite热搜1榜项1关系、正文+3根1reply+JPEG/6导出/9of12、预算8止73、homefeed87/封面/89导出有限同输入均受控通过。仍缺原视频/UID、排行关系消费投影/Owner云能力矩阵，未采用；不能旧候选整文件覆盖当前。其他平台薄适配继续，不新增来源。
+- **发布链后补（14:16）**：V1独审实证未知结果被新intent绕过，临时pin history2→3，未采用；V2冻dfd34b7c/root非作者127122bb实际14测与原反例通过，history2→2，重启/换操作均拒。仅后端工程候选；Host/UI接线由central继续，真实旧COMMITTED基线/Consumer联动仍缺。14:16只读核正式四写表仍0，见KNOWLEDGE-FINAL-COUNTS。
+- **下一步与边界**：P0-A合法未访问输入/原预算的新ACK→自动结果实际验收；P0-B原SDK显式accepted→release/pin/rollback→Consumer新旧对比/反馈继续（原065四表0，不能伪种旧committed）；P0-C原两节点恢复和连续OTA；随后其余平台/字幕全文质量、动态交付/双域和48h。当前发布链WIP由central接续，native停止编辑该目录；下一平台由knowledge独立候选。看门狗暂停、无新采集/中央变更/真实知识审核。
+
+
+### E70历史规划校准｜实际状态已由E71更新（13:47）
+
+- **用户结果和计划**：新增[交付总览与主线控制表](product/DELIVERY-BRIEF.md)，作为唯一PRODUCT-PLAN1.1的阅读入口；明确Owner/参与者/消费者、七类产品交付、三资产职责、M0–M7接线、技术栈、双路线研究、P0/P1/P2结果门。原U01–U22/F0–F7保留，不以六店纵切替代全产品。完整研究/架构/资产沿用原三文档。
+- **实际材料**：本轮完整读取v2.2并核SHAaee488f21b14637a805f38ba4686b31bc5ce4be459acac950f8b2603863a6c5b、固定交接/正式规则/两技能、计划与资产/研究、实际E68现场独审与E69失败日志、Pro模式探针；重开Pro/Scrapy/yt-dlp官方页。v2.1原件、跨端/生产双消费者等未知不补事实。本次校准不新增平台请求、部署、依赖或真人知识决定。
+- **补记实际采用（不能丢）**：13:38 E68 auto-material-adoption非作者实际FINAL47403f70确认PID180、旧87942停止，六源精确/457其他/fullset、五库实际backup/raw、220保护资产/fresh92、原31ACK及六店四格式保持。自动配置600/11keys已安装，旧两指针保持。V3独审d80cb3b2修pending误报、owned进程收尾和离线import多余context；没有采用后新ACK/真实自动发布，仍欠业务链验收。E68为该执行证据目录名，下面同编号团队研究是其他历史记录，不互为证据。
+- **Owner知识未完成**：binding/service V3实际SDK隔离测试与组件独审通过；E69 Host候选调用器独审通过，但HTTP-INITIAL.log报fixture缺health_events的收尾ERROR，不能将其中断言推为整体通过。候选未正式采用；真实Owner决定/release/pin/新版消费均未验。
+- **Pro融合未完成**：f3-pro-discovery固定候选参数2测通过、whole在0来源请求时报signer入口不可用，NOT_PASS，未采用。热搜模式需同时映射预算、checkpoint/summary、discovery gate/导出；不是改字符串即通。旧DY媒体第13次超12与匿名UID不可比保持阻断。证据PROBE c394404f/FREEZE cacefa73。
+- **唯一下一步**：先补P0-A采用后真实新ACK自动处理证据；并行收束P0-B Host实际测试/正式入口及原知识发布回滚、P0-C两原节点恢复/连续OTA。随后原成熟Pro能力矩阵、字幕/同音频质量、远端消费/动态反馈/双域，再组合冻结与48h。原任务身份/预算/评分/ACK/OTA保持，看门狗仍暂停。不得把旧31条重放冒作新采集验收。
+
 
 ### E67｜总计划1.1校准（文档，运行未变）
 
@@ -31,7 +53,14 @@
 - 自动ACK提取器1588257a为本地离线候选，5组作者测试、未独审/接hook/启用；现31原origin分布29+1+1。Owner preview/0.3.4未正式采用。跨端/第二原节点/全部平台/生产wheel/现PWA与48h仍未全验。新计划不删除原预算、身份、队列、评分、ACK或OTA。
 
 
-### 当前主结果卡｜六店领域消费已正式，接知识审核与新ACK自动处理
+### 历史旁支研究｜外行可用的虚拟产品团队（非采集当前结果）
+
+- 用户澄清希望从想法开始，由协调者调度产品引导、架构、前后端/数据库、测试、安全、发布和迭代角色，最终服务真实用户。分工与调度门见[研究记录](../../outputs/code-agent-tools-research-20261016.md)。
+- 当前工具目录已有 Supabase/Postgres、Vercel 前后端/部署/验证、GitHub 与代码审查入口；工具可见不代表账号连接和权限已验证。建议先用 Codex 做单一协调者，按阶段委派，不堆互相聊天的机器人。
+- 自动化测试、独立安全审查、真人试用和上线监控各自给不同证据；AI 不能独自证明公众喜欢或产品可商用。PostHog 需要产品埋点后才能分析真实行为，Sentry 用于上线错误跟踪。
+- 本轮只更新研究和交接；没有安装、运行候选或触碰代码、数据库、权限、部署和用户数据。下一步收到具体产品想法后先产出简报/MVP范围，再让用户审阅架构和成本。
+
+### 历史E66结果卡｜六店领域消费；当前状态看E70
 
 - **正式版本/入口**：87942/domain-79e4de53-0fad9455；源码f7e475053c4e639ee0f6c4bb1f68993fb12a7d83，外部发布见E66回执。工作台45937→资料库→“查看领域发现/导出领域发现”，固定`/data-product`、`/data-product/report.json`、`/data-product/items.jsonl`、`/data-product/items.csv`。原`/materials`31ACK素材页/导出/config保留。
 - **真实用户结果**：六店原64902B bundle/3完整canonical正文/25exact引文，经原05185pin+cuisines0.3.3 clean/score/audit/Consumer，原生候选报告。原iab实际页/三下载精确正式快照；报告hash cec2019d3f3c7724d2ff6712d31cbf44a1a4731ee1b255f94cd4fe4cbfb6b5a8。不是伪造餐厅推荐或新云ACK；raw是canonical bundle bytes，未保原HTTP bytes。
@@ -88,7 +117,9 @@
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/wb-progress-45b8e4f7-a1346798/ | E63当前65679；13映射/12变更/1新模块，实际独审23750a+idle803731+固定Python9ead；云40/步骤68。原WB31ACK/累计10of12剩2，真实原图云v3/回取/R88三导出独审32a77277，完整回复仍partial74；默认MC/原身份/OTA及其他源码保持，snapshot不等于Git HEAD |
+| .crowd-launch/runtime-revisions/wb-progress-45b8e4f7-a1346798/ | 历史E63的65679；13映射/12变更/1新模块，实际独审23750a+idle803731+固定Python9ead；云40/步骤68。原WB31ACK/累计10of12剩2，真实原图云v3/回取/R88三导出独审32a77277，完整回复仍partial74；默认MC/原身份/OTA及其他源码保持，snapshot不等于Git HEAD |
+| .crowd-launch/runtime-revisions/owner-knowledge-412a2e2f-3d33539b/ | 当前E71不可变运行源码/PID6620；六源入口，原自动ACK worker仍固定旧immutable路径，不能按Git HEAD替代运行SHA |
+| .crowd-launch/unified-workbench/knowledge/、data-products/knowledge-runtime.json | 原提案单库迁移/固定审核配置与私有intent；配置0600、非凭据公开库，原四审核发布表0；不得复制私token |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |

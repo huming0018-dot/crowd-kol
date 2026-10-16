@@ -531,3 +531,40 @@ E66后补：Owner待审preview非作者82f7ed63有限通过，原DB与10冻结�
 - **部署/业务**：未部署、未新采集、未新云ACK/查询、未启用自动Jobs、未开实验/恢复watchdog。下方E66实机成绩保持，不能冒称本轮重验。
 - **风险/下一步**：按PRODUCT-PLAN11节P0-A/B/C，开工记录绝对T0。Owner知识授权、自动新ACK、两原设备连续OTA、跨端/全平台/双域与48h各自取证。未知不伪通过。
 - **证据**：cwd outputs/product-plan-refresh-20261016，正式docs/product/PLAN-REFRESH-REVIEW.md及EVIDENCE E67。
+
+## 2026-10-16 13:07 CST｜E68｜完整虚拟产品团队研究
+
+- **交接者**：Codex /root；承接用户对 E66 工具初筛的澄清；无代码改动，无需代码独审。
+- **目标与范围**：为非专业用户构造从点子、MVP、架构、前后端/数据库、QA、安全、发布到公众反馈和迭代的团队分工与能力映射。
+- **联网证据**：Superpowers brainstorming；Supabase 官方 MCP/Skills 与 Postgres 技能；Vercel agent-skills；PostHog MCP/分析；Sentry MCP；Codex review-agent；Playwright。PostHog 独立 MCP 仓库已归档，当前实现迁入主仓。链接与限制见 `outputs/code-agent-tools-research-20261016.md`。
+- **独立推演**：以 Codex 为单一总协调者，按阶段委派专业角色，产品简报/架构/验收/迭代记录使用同一事实源；分开自动回归、独立安全审查、真人试用和生产监控。真实大众反应必须来自真人和已埋点数据，不能由代码审查代替。
+- **当前能力**：会话技能目录列有 Supabase/Postgres、Vercel 前后端/部署/验证、Figma 等；工具目录列有 GitHub、Supabase、Vercel、Sites 和审查入口。连接状态和权限未验证，不新增集成。
+- **实际改动**：扩充只读研究记录；更新 HANDOFF、EVIDENCE、CHANGELOG。未安装或运行候选，未触碰代码、数据库、权限、用户数据、浏览器会话、部署或采集。
+- **下一步**：收到具体想法后先形成可读简报与 MVP 边界，再给出架构/成本/风险供用户审阅，按阶段门推进。
+
+## 2026-10-16 13:47 CST｜E70 完整产品计划与交接当前状态校准
+
+- **接力者/审查**：Codex /root；central_steps只读计划复核；knowledge_reuse_probe非作者交付总览审查，具体报告见product/DELIVERY-BRIEF-REVIEW.md。
+- **目标/实际改动**：新增产品总览，链接原唯一1.1计划；按M0–M7、Kimi/Pro/中央用途与结果倒排梳理，不改需求范围。HANDOFF顶部补记已发生的E68运行采用，旧E66卡降历史、旁支研究与主线分开；不删旧日志。
+- **代码版本**：HEAD9d0dabf3ba3c5c57a9621aa69fee3d9d5e8720b0；实际材料自动处理六源已在正式工作树但未提交/推送，不将文档HEAD冒运行源码。
+- **验证**：核v2.2原件SHA、原计划/资产/研究、真实E68非作者证据47403f70、配置安装95b93e、E69 HTTP失败日志与Pro NOT_PASS。原计划1.1独审继续有效；本总览独审报告另链。没有新来源、中央查询或云ACK。
+- **部署/验收**：本轮仅文档，没有新部署；补记前段PID180实际采用及保留五库/31ACK/六店证据，不声称新ACK闭环。知识Host HTTP仍ERROR、真实决定/release/pin未验。Pro热搜whole未过、不采用。
+- **风险/下一步**：P0-A真实新ACK处理、P0-B完整Owner知识链、P0-C原两节点恢复/连续OTA；后续平台模式/字幕全文质量、远端交付反馈/双域和48h。不重置13:06:48 T0，不重启watchdog。
+- **证据**：本地outputs/product-plan-refresh-20261016/current-calibration；outputs/runtime-2026-10-16/e68-auto-material-adoption/independent-review/ACTUAL-RUNTIME-FINAL.json；e69-owner-knowledge-host/HTTP-INITIAL.log；f3-pro-discovery/PROBE.md和FREEZE.json。固定HANDOFF为唯一实时状态。
+
+E70复核补充：central_steps发现主计划技术栈表把PG候选误列首次交付前置，现改与§12.1一致：已审静态快照+现认证API先行，PG为可选后续。P0-A真实样本仍须固定合法输入/预算/停止条件，不重试WB已访问工作或ZH耗尽任务。
+
+## 2026-10-16 14:10 CST｜E71 Owner知识入口正式采用与真实预览
+
+- **接力者/独审**：root集成；central采用编排；knowledge编排非作者；native组件及现场非作者。发布WIP由native移交central，避免并发同文件。
+- **实际改动**：六自有源，原工作台新知识入口、受保护服务主体到原scope映射、原SDK显式审核/意图对账；固定新配置/单知识DB只读迁移。自动ACK六源先commit/push f4885cec；Owner六源commit55431f5d，发布另回执。
+- **测试与发现**：原HTTP fixture missingclose修后1PASS，native5实际Handler/CLI+3负例+14UI；编排3作者/7独立用例（10次执行含继承重复）通过。解释器18MB误限在任何正式写前拦住，窄修仅解释器64MiB，配置DB仍16MiB；初失败保留。原8生命周期函数AST同，未重造部署器。
+- **正式采用**：批准5ee29415，root先预检，再唯一apply切6620/停180，成功后单独installer；原5库/221资产/三个发布指针保持。新knowledge600配置/17资产；四审核发布表0。
+- **真实验证**：非作者7c1324f9实际核6exact+461其他/fullset，五库actualbackupschema/raw、31ACK素材与六店四格式；真实中央Owner-backed preview原prop/hash/12unknown。root IAB实际知识更新/fieldsdiff，ACTUAL-OWNER-PREVIEW/DIFF.jpg+txt。未批准/发布，未新增来源/云ACK/中央部署。
+- **Pro候选**：DY热搜原SDK/预算/评论图片/导出受控native8cf81111通过；不是完整DY或真实来源。原视频/UID/排行消费/Owner矩阵仍缺，未正式。原NOT_PASS和全部初败保留。
+- **风险/下一步**：真实新ACK自动处理、Owner发布/回滚/反馈Consumer链、两原节点恢复/连续OTA、其余平台/字幕全文质量/双域跨端48h。065原四表0不能把051旧Consumer当COMMITTED知识版。T0不重置，watchdog保持暂停。
+- **证据**：RUN16/e69-owner-knowledge-host、e71-owner-knowledge-adoption/independent-runtime/FINAL.json SHA7c1324f9、e71-runtime-continuation、f3-pro-discovery-v2/independent-native/FINAL.json SHA8cf81111。当前状态只在固定HANDOFF，不复写计划快照。
+
+E71 14:16补记：Owner源码55431f5d71bdb09e677ac112dac99344a032a7da已push并ls-remote同；实际浏览器截图/AX及回执已存e71-runtime-continuation。知识发布候选V1独审发现换intent绕unknown重复pin（临时history2→3），未采用；central新V2正在修，未知不抹账。正式E71六源/四知识写表0结论保持。
+
+E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf0349544ab33ed6f5285df8a9661486fc3c8bf4e61e6b8，非作者root FINAL127122bb72a9ff7206146dbc1d942d6992ca77c96d7d54c8e767cfb04e01d7c9；14实际SDK测试及独立原反例history2→2。正式知识四写表只读仍0。central继续Host/UI接线，knowledge继续Tieba原SDK分页复现；这些活跃子代理不代表功能完成。

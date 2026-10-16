@@ -6,6 +6,7 @@
 |---|---|---|
 | E01 | EXEC/SESSION65-FREEZE.json、CHANNEL65-INDEPENDENT-VERIFY.json、participant-65/FREEZE.json；AUDIT/rea-shipped65-evidence.json、shipped65/manifest.json | 正式65源912b080；实际包解开检查（REA），非仅看版本声明。内包143663B/SHA256 0ee83b8deb48748bf9bfab95cd552026d877be5b2dae039af2326ef2fbf13df8；外包372007B/f18a477ea1f49304c6f65c045c601761c79299363b6b812488156b195e50ad30。10-14本轮重算本地包摘要。不能代表每台终端已应用 |
 | E66 | `outputs/code-agent-tools-research-20261016.md`；GitHub 官方仓库/官方产品文档链接见研究记录 | 10-16 只读浏览官方 OpenAI Codex、GitHub、Microsoft Playwright、Semgrep 仓库/文档及社区 Skills 仓库；比较能力和边界。未安装、未运行、未验证权限或本项目效果；Stars 仅为当时页面的关注度信号，非质量证明。 |
+| E68 | 扩展版 `outputs/code-agent-tools-research-20261016.md`；Supabase、Vercel、PostHog、Sentry 官方仓库/文档链接见研究记录 | 10-16 按用户澄清重构为从创意到上线迭代的虚拟产品团队；对照当前会话可用 Skills/工具入口及官方集成资料。工具目录存在不等于账户连接/权限验证；未安装、运行、真人测试或上线验收。 |
 | E02 | EXEC/ACCESS65-DEPLOY-READY/{CLOUD-REVIEWER-V12-READBACK.json,CLOUD-REVIEWER-PUBLIC-MANIFEST.json}；crowd-pages/v4/releases/；公开元数据入口见主文档 | 10:58 CST非作者生产三文件精确SHA回读与固定公网包核验，crowd-access v12。后续接力须复查线上是否仍同版本；本轮交接不重发包 |
 | E03 | EXEC/SECOND65-ADOPTION-INDEPENDENT.json、LOCAL65-IDENTITY-INDEPENDENT.json、LOCAL65-NATIVE-INDEPENDENT.json、LOCAL65-PARKING-INDEPENDENT-VERIFY.json；REVIEW-LOCAL65-PHYSICAL.md；local-physical-acceptance/REVIEW64-BODY-AND-RECEIPTS.md | 实机/云响应和独审原件：两实体65、4正文精确ACK、原身份保持、本机自然停车。远端助手完整ACK不可直接访问；全评论、媒体及完整重登恢复不在这4正文验收里 |
 | E04 | 本地 `2026-10-14-cloud-readback.json`（未在线共享）；EXEC/FINISH65-INDEPENDENT-RESULT.json、FINISH65-INDEPENDENT-PRODUCTION.json、FINISH66-PRODUCTION-AFTER.json；server/crowd/v4/supabase/migrations/20261014031206_crowd_v4_received_task_finish.sql | 11:34:42 CST实际SELECT：task19/20仍leased、2/2、过期；proof31–34 MD5固定。已部署finish函数MD5 98517d09b9759c5d316d7981b9a3b64f。作者17/独立18用例与定义差异/ACL回读为历史本轮执行证据；交接整理没有调用finish |
@@ -516,3 +517,24 @@ E66补：f2-owner-knowledge-preview/independent-knowledge/FINAL.json82f7ed63核1
 - 本轮证据目录：`/Users/hubowen/Desktop/爬虫/outputs/product-plan-refresh-20261016/`：BASELINE、AUTHOR-VALIDATION、INDEPENDENT-REVIEW、REVIEW-ROUND2、FINAL及源函数pin元数据；计划初/复审原样归入docs/product/PLAN-REFRESH-*.md。
 - 输入：用户原v2.2 SHAaee488f21b14637a805f38ba4686b31bc5ce4be459acac950f8b2603863a6c5b；主仓核HEADbc8227a；已读E66原独审/发布回执，不当成本轮fresh云查询。联网官方4页核选型与模式，不证明本机收益。
 - 结论：计划可作为下一轮范围/接线合同；未改产品代码/数据/运行，没有新source、ACK、云部署或实验。独审7发现按FINAL逐项关闭或明确实施前置；真实权限/新ACK自动化/跨端与完整业务仍未完成。
+
+## E70｜2026-10-16 13:47 产品计划及实际状态校准
+
+- 用户v2.2原件：SHA256 aee488f21b14637a805f38ba4686b31bc5ce4be459acac950f8b2603863a6c5b。
+- 交付总览：docs/product/DELIVERY-BRIEF.md；完整计划仍PRODUCT-PLAN1.1，独审见DELIVERY-BRIEF-REVIEW.md。
+- 补记正式运行：cwd outputs/runtime-2026-10-16/e68-auto-material-adoption/independent-review/ACTUAL-RUNTIME-FINAL.json，SHA47403f702da8efd58242c650f56a3bc2f47290dcd3037d659b4bfb754c378310；PID180/materials-auto-65205a40-2f33734b；配置安装记录AUTO-CONFIG-INSTALLED.json，原配置摘要95b93eb15d9bb57912d67e1e0c5f01a3c0b51a550b2cdeaded8f56d278ecea3c。运行保真通过，不是新ACK自动发布验收。
+- 未验原件：e69-owner-knowledge-host/HTTP-INITIAL.log为ERROR；f3-pro-discovery/PROBE.md SHA c394404fd96a3f8ac44a2f9a65b2d790f9bc18b0e90ce5e861b0575061e198f1，FREEZE SHA cacefa736b458f08ac9cbf5fb85cb84366ec613e00be86736503608d7e0bb546，NOT_PASS。
+- 本轮无新来源/部署/云ACK/真人知识决定；源码六源未提交差异保留。记录审查发现、修复及未验，不以文档存在代产品验收。
+
+## E71｜2026-10-16 14:10 Owner知识入口正式与原数据保持
+
+- E69组件FREEZE 7b4f65bd30011e594156fa547d4df50593fb6275a17958a3bf5d3166443eb488，native FINAL a5ae553cb68a6295b119b21621577086a75cc0bb25cf05b91241afa947c6c44e。
+- E71编排FREEZE7035ea49dc38dabf73a5bd99c88dd83f00117e30ed729e6cb0ff09350520cbfc；非作者FINAL68fe0b4091fe517632b71b43e65ca5c662a815c16e6ad94d958bef5380edf608；批准5ee2941565061410a00369496f58eb14685208894005f5e492e686fd37ca8b76。
+- 实际采用 runtime-adoption/ADOPTED.json SHA5d75c01350bc8b08e4db9a92e43beacb53fc76b830785f738e030f5b4ee9e12c；独立现场FINAL SHA7c1324f9879f6ad8b10b3df3f497409a93cce7e0d75f3ccec1dbaf0d2b54942b。PID6620；6exact+461others/fullset/五库actualbackup/221assets/旧31ACK与六店同。
+- configuration-installation/INSTALLED.json及independent-runtime/PREVIEW-READBACK：实际配置SHA706e9077e59ab85f7dfdace20dc8aa127302cac2c847b9d80007cd2430150c79；真实原提案12unknown，知识审核/发布/pin0；原知识source SHA5d27d8024368f1a91409b91d458de8017947849d49dfe175911accce526cd7bf保持。无需复制私token/配置内容。
+- root实际原IAB：e71-runtime-continuation/ACTUAL-OWNER-PREVIEW.jpg、ACTUAL-OWNER-DIFF.jpg、ACTUAL-OWNER-PREVIEW.txt。只点预览/展开diff，没有知识决定。AUTO-SOURCE-PUBLISH.json记录f4885cec远端同，Owner源码55431f5d后续发布另回执。
+- F3 V2冻af36a324bcb36c92b7bf8324a46b3d48a9da5e8369e69af7a439510877797b77；native8cf81111f0faebc1a9b78a4495d35b4035b212095f8710463847746512135157。受控原SDK热搜/预算/homefeed有限合同，不是完整平台/真实云ACK。
+
+E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记录55431f5d远端同；ACTUAL-UI-RECEIPT.json固定真实IAB预览/diff截图与AX的SHA；HANDOFF-FACT-REVIEW.json SHA7cc6b26578f91fb4baad23e93ea8e52d77f3251331e3c305e46160b676691e79核14:10事实卡。F2候选独立反例f2-owner-publication/independent-root/UNKNOWN-NEW-INTENT.json及UNKNOWN-INITIAL.log，原unknown后新intent重复pin，未采用；修复另版本不覆盖原冻。
+
+发布V2候选证据：RUN16/f2-owner-publication-v2/FREEZE.json dfd34b7c；independent-root/FINAL.json127122bb72a9ff7206146dbc1d942d6992ca77c96d7d54c8e767cfb04e01d7c9，TESTS14.log/UNKNOWN-FIXED.log/UNKNOWN-NEW-INTENT.json核实际history2→2；仍未接正式Host/UI/Consumer，不能称完整闭环。e71-runtime-continuation/KNOWLEDGE-FINAL-COUNTS.json只读核14:16正式四表0。
