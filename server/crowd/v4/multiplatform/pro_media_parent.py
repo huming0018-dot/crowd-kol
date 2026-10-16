@@ -30,7 +30,10 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
  from shared_request_budget import request_fingerprint
  run=Path(run);manifest=json.loads((run/'manifest.json').read_text());request=manifest['request']
  if str(uuid.UUID(run.name))!=run.name or manifest['run_id']!=run.name:raise ValueError('hybrid_media_run_invalid')
- if request['platform']=='tieba':
+ if request['platform']=='dy':
+  if headers!={}:raise ValueError('hybrid_douyin_credentials_forbidden')
+  child=Path(__file__).with_name('dy_media_child.py')
+ elif request['platform']=='tieba':
   from pro_tieba_entry import read_json
   from pro_tieba_adapter import digest
   source=read_json(run/'tieba-media-source.json')

@@ -23,6 +23,8 @@ import time
 from urllib.parse import urlsplit
 
 from pro_cursor_pages import CursorStalled
+from pro_douyin_entry import DouyinStop
+from pro_session_identity import SessionScopeError
 from pro_weibo_adapter import WeiboAdapterStop
 from managed_pro_signer import SignerError
 
@@ -54,18 +56,20 @@ def supports_bili_audio_request(request):
             and options.get('long_audio') is True)
 
 
-def explicit_unsupported(request):
+def explicit_unsupported(request, environ=None):
     """Explicit task engines never silently substitute a different collector."""
+    if request.get('platform')=='dy' and request.get('mode') in ('homefeed','trending'):
+        if not dy_scope_enabled(request,environ):return 'pro_dy_discovery_disabled'
     if request.get('platform')=='zhihu' and (request.get('mode')!='detail' or request.get('max_items')!=1 or request.get('media') is not False or request.get('platform_options')!={}):
         return 'pro_zhihu_candidate_scope_unsupported'
     if request.get('platform') not in SUPPORTED:
         return 'pro_operation_platform_not_adapted'
-    if request.get('mode') not in ('search','detail','creator'):
+    if request.get('mode') not in ('search','detail','creator') and not (request.get('platform')=='dy' and request.get('mode') in ('homefeed','trending')):
         return 'pro_mode_unsupported'
     audio_supported=supports_bili_audio_request(request)
     from pro_hybrid_media import supports_weibo_images
     wb_images_supported=supports_weibo_images(request)
-    if request.get('media') and not (audio_supported or wb_images_supported):
+    if request.get('media') and not (audio_supported or wb_images_supported or dy_scope_enabled(request,environ)):
         return 'pro_media_pipeline_unavailable'
     if request.get('wordcloud') or request.get('platform_options') and not audio_supported:
         return 'pro_options_unsupported'
@@ -116,10 +120,10 @@ def selection(request, environ=None, installation=None):
     if requested == 'mc':
         return {'backend': 'mc', 'requested_backend': 'mc'}
     if explicit:
-        reason=explicit_unsupported(request)
+        reason=explicit_unsupported(request,env)
         if reason:bridge().fail(reason)
         if not installation:bridge().fail('pro_task_installation_missing')
-        return {'backend':'pro','requested_backend':'pro','root':str(Path(installation['root']).resolve()),'python':installation['python']}
+        return {'backend':'pro','requested_backend':'pro','root':str(Path(installation['root']).resolve()),'python':installation['python'],**({'session_identity_mode':'fixed_original_session_v1','dy_sign_mode':'installed_pure_js_v1'} if dy_scope_enabled(request,env) else {})}
     reason = None
     if request['platform']=='zhihu':
         reason='pro_zhihu_adapter_explicit_only'
@@ -215,12 +219,37 @@ def prepare(root, mc, request, chosen):
     return {**chosen, 'python': str(python), 'protocol': PROTOCOL, 'binding': bound,**extra}, source, python
 
 
+def dy_scope_enabled(request, environ=None):
+    # New audited scope is opt-in. Preserve existing search/detail/creator path.
+    from pro_douyin_entry import supports
+    env=os.environ if environ is None else environ
+    return (env.get('CROWD_PRO_DY_DISCOVERY_ENABLED')=='1' and supports(request)
+            and request.get('comments') is True and request.get('replies') is True and request.get('media') is True)
+
+
+def dy_scope_bound(manifest):
+    # Readback follows the durable selected engine, independent of later flag changes.
+    from pro_douyin_entry import supports
+    selected=manifest.get('executor',{});request=manifest['request']
+    return (selected.get('session_identity_mode')=='fixed_original_session_v1'
+            and selected.get('dy_sign_mode')=='installed_pure_js_v1' and supports(request)
+            and request.get('comments') is True and request.get('replies') is True and request.get('media') is True)
+
+
+def upstream_mode(request):
+    # Keep the canonical task mode; only the upstream protocol uses hot_search.
+    return 'hot_search' if request['mode']=='trending' else request['mode']
+
+
 def argv_for(request):
     m = bridge()
-    args = ['--platform', request['platform'], '--type', request['mode'], '--enable_checkpoint',
+    args = ['--platform', request['platform'], '--type', upstream_mode(request), '--enable_checkpoint',
             '--max_notes_count', str(request['max_items']), '--max_comments_count', str(request['max_comments']),
             '--enable_comments' if request['comments'] else '--no-enable_comments',
             '--enable_sub_comments' if request['replies'] else '--no-enable_sub_comments']
+    if request['mode']=='trending':
+        # Native hot-search ignores max_notes_count; constrain both native axes.
+        args += ['--hot_search_max_items', '1', '--hot_search_per_item_count', str(request['max_items'])]
     targets = [m.execution_target(request['platform'], request['mode'], target) for target in request['targets']]
     return args + ['--keywords' if request['mode'] == 'search' else '--urls', ','.join(targets)]
 
@@ -245,7 +274,7 @@ def checkpoint(run, manifest):
         m.fail('pro_checkpoint_path_conflict')
     value = values[0]
     p = manifest['request']
-    if not isinstance(value, dict) or value.get('id') != manifest['run_id'] or value.get('platform') != p['platform'] or value.get('mode') != p['mode']:
+    if not isinstance(value, dict) or value.get('id') != manifest['run_id'] or value.get('platform') != p['platform'] or value.get('mode') != upstream_mode(p):
         m.fail('pro_checkpoint_identity_mismatch')
     if not isinstance(value.get('crawled_note_list'), list) or len(value['crawled_note_list']) > MAX_ROWS:
         m.fail('pro_checkpoint_invalid')
@@ -285,7 +314,7 @@ def completion(run, manifest, summary):
     rows = observations(run, manifest)
     p = manifest['request']
     topics = {entity for kind, entity, _ in rows if kind == 'topic'}
-    if not isinstance(summary, dict) or summary.get('status') != 'completed' or summary.get('operation_id') != manifest['run_id'] or summary.get('platform') != p['platform'] or summary.get('crawler_type') != p['mode']:
+    if not isinstance(summary, dict) or summary.get('status') != 'completed' or summary.get('operation_id') != manifest['run_id'] or summary.get('platform') != p['platform'] or summary.get('crawler_type') != upstream_mode(p):
         m.fail('pro_final_summary_unconfirmed')
     if not cp or cp.get('acquisition_committed') is not True or cp.get('is_completed') is not True or cp.get('failed_search_pages'):
         m.fail('pro_checkpoint_not_committed')
@@ -306,10 +335,10 @@ def completion(run, manifest, summary):
         checkpoint_topics = set(mapping)
     if len(notes) != len(checkpoint_topics) or {str(n.get('note_id')) for n in notes} != checkpoint_topics:
         m.fail('pro_checkpoint_observation_mismatch')
-    if p['platform'] in ('wb','zhihu') and p['comments']:
+    if (p['platform'] in ('wb','zhihu') or dy_scope_bound(manifest)) and p['comments']:
         coverage=pagination_summary(run,manifest)
         if coverage.get('coverage') not in ('exhausted','limit_reached'):
-            m.fail('pro_zhihu_pagination_partial' if p['platform']=='zhihu' else 'pro_weibo_pagination_partial')
+            m.fail('pro_zhihu_pagination_partial' if p['platform']=='zhihu' else 'pro_weibo_pagination_partial' if p['platform']=='wb' else 'run_failure_unclassified')
     return {'operation_id': manifest['run_id'], 'local_committed': True, 'cloud_ack': False,
             'content_count': len(topics), 'comment_count': sum(k == 'comment' for k, _, _ in rows),
             'checkpoint_id': manifest['run_id'], 'coverage': 'unverified'}
@@ -486,6 +515,9 @@ def pagination_summary(run, manifest):
     if manifest['request']['platform']=='wb':
         import pro_weibo_adapter
         return pro_weibo_adapter.pagination_summary(run,manifest,sys.modules[__name__])
+    if dy_scope_bound(manifest):
+        from pro_douyin_entry import summary as dy_summary
+        return dy_summary(run,manifest,sys.modules[__name__])
     if manifest['request']['platform'] in ('xhs','dy'):
         import pro_cursor_pages
         return pro_cursor_pages.summary(run,manifest,sys.modules[__name__])
@@ -962,7 +994,7 @@ async def run_upstream_bounded(upstream,timeout):
     # Carry deliberate process exits out of wait_for's child task before raising.
     async def attempt():
         try:return True,await run_upstream(upstream)
-        except (SystemExit,CursorStalled,WeiboAdapterStop,TiebaStop) as error:return False,error
+        except (SystemExit,CursorStalled,WeiboAdapterStop,TiebaStop,DouyinStop,SessionScopeError) as error:return False,error
     succeeded,value=await asyncio.wait_for(attempt(),timeout=timeout)
     if not succeeded:raise value
     return value
@@ -993,6 +1025,7 @@ def execute(run, manifest, *, mc_root=None):
     tieba_curl=None
     bili_wbi=None
     seed_hook=None
+    dy_sign=None
     from pro_media_integration import MediaStage
     media_stage=MediaStage(request)
     execution_deadline=time.monotonic()+request['timeout_seconds']
@@ -1084,7 +1117,7 @@ def execute(run, manifest, *, mc_root=None):
                 from repo.platform_save_data import bilibili as store
                 from repo.checkpoint.checkpoint_store import CheckpointRepoManager
                 BiliPagination(run, manifest).install(client_type, store, CheckpointRepoManager)
-            elif request['platform'] in ('xhs','dy') and request['comments']:
+            elif request['platform'] in ('xhs','dy') and not dy_scope_bound(manifest) and request['comments']:
                 from pro_cursor_pages import CursorPagination
                 store=importlib.import_module('repo.platform_save_data.'+('xhs' if request['platform']=='xhs' else 'douyin'))
                 from repo.checkpoint.checkpoint_store import CheckpointRepoManager
@@ -1109,7 +1142,18 @@ def execute(run, manifest, *, mc_root=None):
                 sink.update(phase='failed',account_state='identity_unverified',account_identity_status='baseline_unverified',
                             failure_reason='pro_pending_run_resolution_required')
                 raise SystemExit(85)
-            if request['platform']=='tieba':
+            if dy_scope_bound(manifest):
+                from pro_douyin_entry import install_scope,DouyinPagination
+                account_hook=install_scope(run.parent.parent,run,manifest,sink,client_type,httpx)
+                if selected.get('dy_sign_mode')=='installed_pure_js_v1':
+                    from pro_douyin_sign import LocalDouyinSign
+                    from pkg.rpc.sign_srv_client import SignServerClient
+                    dy_sign=LocalDouyinSign(run,account_hook).install(SignServerClient)
+                if request['comments']:
+                    from media_platform.douyin.processors.comment_processor import CommentProcessor
+                    from repo.platform_save_data import douyin as dy_store
+                    pagination_hook=DouyinPagination(run,manifest,sys.modules[__name__],account_hook).install(CommentProcessor,dy_store)
+            elif request['platform']=='tieba':
                 from pro_tieba_entry import Identity,install_detail
                 from pro_tieba_adapter import CurlBudget
                 from shared_request_budget import RunRequestBudget,request_fingerprint
@@ -1134,8 +1178,11 @@ def execute(run, manifest, *, mc_root=None):
                 seed_hook=install_seed(run,manifest,sys.modules[__name__],client_type,seed_store)
             sys.argv = [str(root/'main.py'), *argv_for(request)]
             from managed_pro_signer import owned_signer
-            with owned_signer(run,request,{'platform':'zhihu','sign_url':'http://127.0.0.1:8990'} if native_provider and request['platform']=='zhihu' else selected['binding']):
+            # Installed pure DY signing already owns its worker lifecycle; no listener is used.
+            signer = contextlib.nullcontext() if dy_sign is not None else owned_signer(run,request,{'platform':'zhihu','sign_url':'http://127.0.0.1:8990'} if native_provider and request['platform']=='zhihu' else selected['binding'])
+            with signer:
                 asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
+            if dy_scope_bound(manifest) and pagination_hook is not None:pagination_hook.rethrow()
             if request['platform']=='tieba':
                 from pro_tieba_entry import summary as tieba_summary,finalize_scope
                 known=tieba_summary(run,manifest,sys.modules[__name__])
@@ -1169,6 +1216,10 @@ def execute(run, manifest, *, mc_root=None):
                     raise
                 sink.update(media_stage='completed',content_committed=True)
             sink.update(**result)
+    except SessionScopeError:
+        sink.update(phase='failed',failure_reason='pro_account_changed');raise SystemExit(85)
+    except DouyinStop as error:
+        sink.update(phase='failed',failure_reason=error.reason,coverage='partial');raise SystemExit(74)
     except TiebaStop as error:
         denied=error.reason=='tieba_content_access_denied'
         sink.update(phase='failed',failure_reason='pro_content_access_denied' if denied else error.reason if re.fullmatch(r'tieba_[a-z_]{1,80}',error.reason) else 'tieba_task_scope_partial',coverage='partial');raise SystemExit(87 if denied else 74)
@@ -1199,6 +1250,7 @@ def execute(run, manifest, *, mc_root=None):
         raise SystemExit(74)
     finally:
         sync_request_budget(run,manifest,sink)
+        if dy_sign is not None:dy_sign.restore()
         if tieba_curl is not None:tieba_curl.restore()
         if bili_wbi is not None:bili_wbi.restore()
         if seed_hook is not None:seed_hook.restore()

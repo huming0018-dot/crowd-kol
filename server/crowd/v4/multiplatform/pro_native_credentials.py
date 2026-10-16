@@ -149,7 +149,7 @@ async def read_credentials(root,session_id,mc_root,*,timeout=25,platform='wb'):
  if platform!='wb':metadata['platform']=platform
  return await read_private_credentials(python,Path(__file__).resolve(),metadata,timeout=timeout,platform=platform)
 
-async def read_private_credentials(python,command,metadata,*,timeout,platform):
+async def read_private_credentials(python,command,metadata,*,timeout,platform,output_validator=None,env=None):
  rd,wr=os.pipe();os.set_blocking(rd,False);process=None;raw=bytearray();deadline=time.monotonic()+timeout
  async def pause():
   if time.monotonic()>=deadline:raise asyncio.TimeoutError()
@@ -173,7 +173,7 @@ async def read_private_credentials(python,command,metadata,*,timeout,platform):
    with contextlib.suppress(subprocess.TimeoutExpired):process.wait(timeout=2)
 
  try:
-  process=subprocess.Popen([str(python),'-I','-B',str(command),'_credential_child',str(wr)],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,pass_fds=(wr,),start_new_session=True)
+  process=subprocess.Popen([str(python),'-I','-B',str(command),'_credential_child',str(wr)],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,pass_fds=(wr,),start_new_session=True,env=env)
   os.close(wr);wr=-1
   payload=json.dumps(metadata).encode()
   if len(payload)>16384:raise CredentialError('native_provider_protocol_invalid')
@@ -202,7 +202,7 @@ async def read_private_credentials(python,command,metadata,*,timeout,platform):
  if process.returncode!=0:
   reason=value.get('reason') if isinstance(value,dict) else None
   raise CredentialError(reason if isinstance(reason,str) and reason in SAFE_ERRORS else 'native_provider_unavailable')
- return validate_credentials(value,platform)
+ return output_validator(value) if output_validator is not None else validate_credentials(value,platform)
 
 def install_native_account(pool_class,root,session_id,mc_root,*,run=None,sink=None,platform='wb'):
  scope_for(platform)
