@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E58为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E59为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -428,3 +428,8 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 | E58TV3 | RUN16/pro-tieba-adapter/v3-full-entry/independent-review/FINAL.json e489；current-36106/FREEZE.json 4d2c | V3受控修四组阻断，当前窄合未采用；原publicraw投影与API源保真分开，主体/原URL/真实云缺 |
 
 | E58WC | RUN16/pro-wb-child-wire/FREEZE.json 91ae23/DELIVERY.md | 单adapter原SDK rawresponse与unwrap原传输20组作者受控测试，尚待非作者审/正式采用；实际9b payload形状仍未知，不追加来源请求 |
+
+| E59D | RUN16/wb-diagnostic-registry/{FREEZE.json,independent-native/FINAL.json,DEPLOYMENT-RECEIPT.json,independent-native/POST-DEPLOY-FINAL.json,SOURCE-PUBLISH-RECEIPT.json} | 68有限码/32增量，134+重复guard136及耐久68独审；Edge38/实际ledger20261016011137；caller尚未采用，无本轮新来源 |
+| E59W | RUN16/pro-wb-child-wire/independent-review/FINAL.json f8b782 | 单adapter原SDK rawresponse和单次传输受控独审；非实际响应body归因、未采用 |
+| E59T | RUN16/pro-tieba-adapter/current-36106/independent-review/FINAL.json 80c304 | 7源窄合/实际SDK受控/旧21publicraw投影与三导出独核；原账号/URL/新来源云未验 |
+| E59C | RUN16/wb-continuation-chain/independent-review/PRE-REVIEW.json c3ad | 非最终审：最新epoch2与原anchor分离，Owner锁内身份并发风险待修复复核；候选未冻结/部署 |
