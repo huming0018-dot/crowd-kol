@@ -3,8 +3,9 @@ import {createHash} from 'node:crypto';
 import {assert,canonical,hex,sha,uuid,strictJSON} from './contract.mjs';
 export const IMAGE_BUCKET='crowd-machine-media',IMAGE_LIMIT=2*1024*1024;
 export const WB_IMAGE_LIMIT=25*1024*1024;
-export function imageLimit(v){return v?.schema==='crowd-image-object-v2'&&v?.platform==='weibo'?WB_IMAGE_LIMIT:IMAGE_LIMIT;}
+export function imageLimit(v){return ['crowd-image-object-v2','crowd-image-object-v3'].includes(v?.schema)&&v?.platform==='weibo'?WB_IMAGE_LIMIT:IMAGE_LIMIT;}
 export const IMAGE_FIELDS=['schema','manifest_version','idempotency_key','task_id','child_id','run_id','lease_epoch','local_run_id','local_job_id','capture_id','envelope_hash','platform','content_kind','content_id','comment_id','entity_ref','media_id','attachment_id','asset_sha256','asset_bytes','content_mime','width','height','frames','pixel_sha256','source_record_hash','source_observation_sha256','source_reference_sha256','source_url_sha256','transport_url_sha256','normalized_sha256','canonical_reference','source_record_canonical'];
+export const CONTINUATION_FIELDS=['continuation_id','continuation_run_id','continuation_lease_epoch','source_local_run_id'];
 const hashes=['envelope_hash','media_id','attachment_id','asset_sha256','pixel_sha256','source_record_hash','source_observation_sha256','source_reference_sha256','source_url_sha256','transport_url_sha256','normalized_sha256'];
 // Original normalized records use Python json.dumps(sort_keys=True,
 // ensure_ascii=False,separators=(',',':')). Keep that hash domain distinct
@@ -16,8 +17,10 @@ export function sourceCanonical(value){
  return encode(value);
 }
 export async function imageManifest(value){
- assert(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===IMAGE_FIELDS.length&&IMAGE_FIELDS.every(k=>Object.hasOwn(value,k)),'invalid_image_manifest');
- const wb=value.schema==='crowd-image-object-v2'&&value.platform==='weibo',version=wb?2:1;
+ const continuation=value?.schema==='crowd-image-object-v3',fields=continuation?[...IMAGE_FIELDS,...CONTINUATION_FIELDS]:IMAGE_FIELDS;
+ assert(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===fields.length&&fields.every(k=>Object.hasOwn(value,k)),'invalid_image_manifest');
+ if(continuation)assert(['continuation_id','continuation_run_id','source_local_run_id'].every(k=>uuid(value[k]))&&Number.isSafeInteger(value.continuation_lease_epoch)&&value.continuation_lease_epoch===value.lease_epoch+1&&value.continuation_run_id!==value.run_id&&value.source_local_run_id!==value.local_run_id,'invalid_image_manifest');
+ const wb=['crowd-image-object-v2','crowd-image-object-v3'].includes(value.schema)&&value.platform==='weibo',version=continuation?3:wb?2:1;
  assert(value.schema==='crowd-image-object-v'+version&&value.manifest_version===version&&['task_id','child_id','run_id','local_run_id','local_job_id','capture_id'].every(k=>uuid(value[k]))&&hashes.every(k=>hex(value[k])),'invalid_image_manifest');
  assert(value.idempotency_key==='image:'+value.local_job_id&&value.platform===(wb?'weibo':'xiaohongshu')&&(wb?['content']:['content','comment']).includes(value.content_kind)&&typeof value.content_id==='string'&&/^[A-Za-z0-9_.:-]{1,200}$/.test(value.content_id),'invalid_image_manifest');
  assert(value.content_kind==='comment'?typeof value.comment_id==='string'&&/^[A-Za-z0-9_.:-]{1,200}$/.test(value.comment_id):value.comment_id===null,'invalid_image_manifest');

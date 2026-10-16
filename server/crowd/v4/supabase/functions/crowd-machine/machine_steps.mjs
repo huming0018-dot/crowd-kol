@@ -1,5 +1,7 @@
 import {assert,uuid} from './contract.mjs';
 export const phases=['claiming','authorized','dispatching','running','importing','delivering','finishing','waiting_login','login_resumed','paused','completed','deferring_delivery','reconciling_no_dispatch','local_stop_unknown','comments_page','source_step'];
+export const diagnosticCodes=["pro_signer_wrapper_changed","pro_signer_source_changed","pro_cookiebridge_unavailable","pro_login_verification_failed","pro_self_check_unsupported","pro_account_changed","pro_weibo_reply_target_invalid","wb_embedded_replies_incomplete","pro_content_access_denied","phase_observation_failed","run_completed","run_stopped","run_failure_unclassified","run_outcome_unknown","login_required"];
+const diagnosticPhases=['importing','delivering','finishing','completed','waiting_login','paused'];
 export async function machineSteps(action,payload,backend,actor,workerHash){
   assert(payload&&typeof payload==='object'&&!Array.isArray(payload),'invalid_step_events');
   if(action==='step_events'){
@@ -7,8 +9,9 @@ export async function machineSteps(action,payload,backend,actor,workerHash){
     assert(Object.keys(payload).length===1&&Array.isArray(payload.events)&&payload.events.length>=1&&payload.events.length<=50,'invalid_step_events');
     const ids=new Set();
     for(const e of payload.events){
-      assert(e&&typeof e==='object'&&!Array.isArray(e)&&Object.keys(e).every(k=>['source_sequence','source_stage','api_attempts','http_status','page_sha256','scope','checkpoint_committed','page_index','outcome','sequence','observed_at_ms','event_id','run_id','lease_epoch','phase','local_run_id','saved_pages','saved_rows','acknowledged','pending'].includes(k)),'invalid_step_events');
+      assert(e&&typeof e==='object'&&!Array.isArray(e)&&Object.keys(e).every(k=>['error_code','exit_code','source_sequence','source_stage','api_attempts','http_status','page_sha256','scope','checkpoint_committed','page_index','outcome','sequence','observed_at_ms','event_id','run_id','lease_epoch','phase','local_run_id','saved_pages','saved_rows','acknowledged','pending'].includes(k)),'invalid_step_events');
       assert(Number.isSafeInteger(e.sequence)&&e.sequence>=1&&Number.isSafeInteger(e.observed_at_ms)&&e.observed_at_ms>=0&&e.observed_at_ms<=Date.now()+300000&&uuid(e.event_id)&&uuid(e.run_id)&&Number.isSafeInteger(e.lease_epoch)&&e.lease_epoch>=1&&phases.includes(e.phase)&&!ids.has(e.event_id),'invalid_step_events');ids.add(e.event_id);
+      if(Object.hasOwn(e,'error_code')||Object.hasOwn(e,'exit_code'))assert(diagnosticPhases.includes(e.phase)&&typeof e.error_code==='string'&&diagnosticCodes.includes(e.error_code)&&(!Object.hasOwn(e,'exit_code')||Number.isSafeInteger(e.exit_code)&&e.exit_code>=-128&&e.exit_code<=255),'invalid_step_events');
       if(e.phase!=='source_step')assert(!['source_sequence','source_stage','api_attempts','http_status'].some(k=>Object.hasOwn(e,k)),'invalid_step_events');
       if(!['source_step','comments_page'].includes(e.phase))assert(!Object.hasOwn(e,'scope'),'invalid_step_events');
       if(e.phase==='source_step'){
