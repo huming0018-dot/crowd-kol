@@ -72,3 +72,12 @@
 | 权威来源发现 | [Crawl4AI深爬](https://docs.crawl4ai.com/core/deep-crawling/) | 先用标准HTTP/XML解析既有robots/sitemap，深爬只补缺口；发现URL不等覆盖完整或事实已核。以已知名单召回率/重复率/请求预算作最小实验 |
 
 独立推演：当前重复候选与多指针最易增加集成耗时。应减少在制切片，以已知合法输入打通源ACK→处理→发布的最短完整路径；只有功能/质量保持且总耗时、字节或操作数实测改善才合入。反例包括：缺回复但上游completed、知识pin成功但Consumer未切、终端心跳在线但登录unknown。三者均不能报告整链完成。
+
+
+## 六、1.3本轮复查与外部复用输出
+
+2026-10-16重新访问官方Pro、Scrapy架构、Prefect tasks、yt-dlp、JSON Schema dialect、Pydantic JSON Schema、Pandera Polars与Crawl4AI深爬；链接及具体裁决见主计划第8节。仅证明上游机制，不证明当前固定版运行收益；原R01–R15保留，本轮不安装依赖。
+
+复用输出是职责和合同：Pro原链不重写；来源/处理分离；字幕先于MP4；Schema显式dialect；批量/DAG按瓶颈实测引入。独立推演补G10权威覆盖、G11实体事实/独立食客gold、跨Owner/Edge/claim/安装/ACK的同scope能力，以及首次合法知识基线。
+
+外部可复用研究模板：问题与输入→已有资产→官方链接/日期→直接用/薄适配/借机制/拒绝→最小实验→收益/反证→许可/成本→采用或否决。主计划给七例及G00–G11融合去向；不附私仓源码或凭据。

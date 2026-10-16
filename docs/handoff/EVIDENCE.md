@@ -552,3 +552,11 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - 现场independent-runtime/FINAL.json SHA8aaa25828ea20a00d81717af942df1517bac66c19fb33f6260d40be6683ced32；PROTECTION-SCOPE-CLARIFICATION及初失败日志必须一起读；2临时nonce的TTL变化不冒耐久丢失/全清单完全同。ACTUAL-UI.jpg是真实IAB审核区；旧ACTUAL-UI.txt为无变更diff，不作完整文字证据。后补ACTUAL-UI-FULL.txt全AX与ACTUAL-PUBLICATION-SECTION.jpg发布区，未作决定。
 - RUN16/f3-next-platform/independent-native/FINAL.json b27e4b62；identity-overlay-v2 efb63f；field-recovery-v162388ad7与independent-central/FINAL.json f4678b1c。有限离线原SDK保真，不是正式路由/原URL或真实云ACK。
 - RUN16/e73-local-node/LOCAL-FRESH.json：14:31进程/扩展登记/已安装版本只读，无Cookie；原70安装/71缓存、原资料参与扩展缺失与日常同ID产品分别记。
+
+
+## E74/E75｜实际原件与规划1.3
+
+- RUN16/e74-dy-pro-adoption/{runtime-adoption/ADOPTED.json,independent-root-runtime/FINAL.json}，后者SHA a00fc4079a21f5051a7985a1b578d69e8855a0a9ce433f7727376a8222f28c5f；默认关闭代码采用不是平台业务通过。
+- RUN16/dy-owner-entry-v2/independent-review/FINAL.json SHA326865b4edf87c2013c2b19d72ec2f909925cb7bfb1e4bc41b37ac73c96da9e5，有限组件未采用。
+- RUN16/f6-software-current/independent-review/FINAL.json SHAee72adc2a62be14969ef5e255c630fdfacb9e299d3e06e4f7cd817cefb19c0e5，仅确认预HTTP失败。
+- 爬虫/outputs/product-plan-1.3-20261016：原1.2、主计划、总览、ROOT-CHECK、非作者PLAN-INDEPENDENT-REVIEW；正式product/PLAN-1.3-REVIEW.md与archive/PRODUCT-PLAN-1.2.md。保22需求/8工作包/12结果工单；本轮仅文档。发布需该目录PUBLISH-RECEIPT.json，缺文件不补写推送。
