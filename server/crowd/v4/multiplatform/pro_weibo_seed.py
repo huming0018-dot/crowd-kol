@@ -22,7 +22,8 @@ class SeedHook:
   old=self.run.parent/self.seed['source_run_id'];old_manifest,old_sha=read_object(old/'manifest.json')
   if old_sha!=self.seed['source_pins']['manifest_sha256']:raise SeedError('seed_source_changed')
   rebuilt=build_seed(old,self.seed['account_context'],self.seed['source_pins'])
-  if canonical(rebuilt)!=canonical(self.seed):raise SeedError('seed_source_changed')
+  if canonical(rebuilt)!=canonical(__import__('public_source_progress').base_seed(self.seed)):raise SeedError('seed_source_changed')
+  if 'public_progress'in self.seed and (context['proof'].get('progress',{}).get('progress_sha256')!=self.seed['public_progress']['progress_sha256'] or context.get('source_local_run_id')!=self.seed['public_progress']['latest_local_run_id']):raise SeedError('progress_grant_changed')
   old_request=old_manifest['request'];mutable={'max_api_requests','timeout_seconds'}
   if canonical({k:v for k,v in request.items() if k not in mutable})!=canonical({k:v for k,v in old_request.items() if k not in mutable}):raise SeedError('seed_request_changed')
   for key in mutable:
@@ -53,6 +54,8 @@ class SeedHook:
   owner=self;cls=self.client_type;store=self.store
   original_topic=cls.get_note_info_by_id;original_root=cls.get_note_comments
   original_save_topic=store.update_weibo_note;original_save_comment=store.update_weibo_note_comment
+  from pro_weibo_adapter import WeiboPagination
+  original_replies=WeiboPagination.collect_replies
   async def topic(client,note_id,*args,**kwargs):
    owner.authorize()
    if str(note_id)!=owner.seed['content_id'] or args or kwargs or owner.topic_used:raise WeiboAdapterStop('wb_seed_topic_replayed')
@@ -69,8 +72,8 @@ class SeedHook:
     models=[]
     for row in owner.seed['raw_root_rows']:
      children=[]
-     for child in owner.seed['embedded_rows']:
-      if str(child['payload']['parent_comment_id'])==row['entity_id']:
+     for child in __import__('public_source_progress').candidates(owner.seed):
+      if child['kind']=='comment' and child['entity_id']!=row['entity_id'] and str(child['payload']['parent_comment_id'])==row['entity_id']:
        child_model=owner.model(WeiboComment,child['payload'])
        children.append(owner.remember(child_model,'comment',child['entity_id']))
      model=owner.model(WeiboComment,row['payload'],sub_comments=children)
@@ -78,6 +81,16 @@ class SeedHook:
     page=owner.seed['root_page']
     return models,{'max_id':page['cursor_out'][0],'max_id_type':page['cursor_out'][1]}
    return await original_root(client,note_id,max_id,max_id_type)
+  async def replies(pagination,processor,note_id,model,callback):
+   owner.authorize();parent=str(model.comment_id);cached=owner.seed.get('progress_reply_pages',{}).get(parent)
+   if cached is None:return await original_replies(pagination,processor,note_id,model,callback)
+   from model.m_weibo import WeiboComment
+   rows={r['entity_id']:r for r in __import__('public_source_progress').candidates(owner.seed)if r['kind']=='comment'}
+   children=[owner.remember(owner.model(WeiboComment,rows[v]['payload']),'comment',v)for v in cached['ids']]
+   page=pagination.page(note_id,'reply',children,cached['cursor_in'],cached['cursor_out'],False,parent)
+   page.update(embedded=False,targets=cached['targets'],declared_count=cached['declared_count'])
+   if cached['reply_coverage']=='missing_unknown':page.update(reply_coverage='missing_unknown',observed_count=cached['observed_count'],missing_count=cached['missing_count'])
+   await pagination.save(page,children,callback);return children
   async def save(model,kind,identity,original):
    owner.authorize();cached=owner.cached(model,kind,identity)
    token=(owner.journal.begin_cached if cached else owner.journal.begin_fresh)(kind,str(identity))
@@ -98,10 +111,12 @@ class SeedHook:
    return invoke
   cls.get_note_info_by_id=guarded(topic);cls.get_note_comments=guarded(roots)
   store.update_weibo_note=guarded(save_topic);store.update_weibo_note_comment=guarded(save_comment)
-  self.originals=(original_topic,original_root,original_save_topic,original_save_comment);return self
+  WeiboPagination.collect_replies=replies
+  self.originals=(original_topic,original_root,original_save_topic,original_save_comment,original_replies);return self
  def restore(self):
   if self.originals:
-   topic,root,st,sc=self.originals;self.client_type.get_note_info_by_id=topic;self.client_type.get_note_comments=root
+   topic,root,st,sc,replies=self.originals;
+   __import__('pro_weibo_adapter').WeiboPagination.collect_replies=replies;self.client_type.get_note_info_by_id=topic;self.client_type.get_note_comments=root
    self.store.update_weibo_note=st;self.store.update_weibo_note_comment=sc;self.originals=None
 
 def install_seed(run,manifest,adapter,client_type,store):

@@ -697,7 +697,7 @@ class Application:
             local_root=self._registered_run_root(authoritative['local_run_id'])
             account=AccountSessions(local_root).status(authoritative['request']['session_id'],'wb')
             runtime_sha=hashlib.sha256((HERE/'mc_runner.py').read_bytes()).hexdigest()
-            prepared=owner_payload(local_root,authoritative,account,runtime_sha,payload['idempotency_key'])
+            prepared=owner_payload(local_root,authoritative,account,runtime_sha,payload['idempotency_key'],outbox_path=self.root/'cloud-outbox/outbox.sqlite3')
             prepared_sha=seed_digest(prepared)
             if action=='continue_failed_source_preview':
                 return {'ok':True,'preview_sha256':prepared_sha,'task_id':payload['task_id'],'child_id':payload['child_id'],'idempotency_key':payload['idempotency_key'],'requests_spent':authoritative['api_attempts'],'requests_remaining':authoritative['requests_remaining'],'old_captures_preserved':authoritative['capture_count'],'new_content_quota':False,'historical_subject_continuity_proven':False}

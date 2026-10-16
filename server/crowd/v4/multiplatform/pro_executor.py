@@ -696,11 +696,33 @@ class BiliPagination:
             return value
 
 
+def sync_request_budget(run,manifest,sink):
+    # Media owns the same durable ledger in another process. Its debits do not
+    # update this parent's in-memory sink; publish the ledger at every exit.
+    request=manifest['request']
+    if request.get('source_executor')!='pro':return
+    current=bridge().safe_phase_progress(run);fields={'phase':current.get('phase','failed')}
+    try:
+        if (not (run/'request-budget.json').exists() and getattr(sink,'request_budget_setup_started',None)is False and type(sink.attempts)is int and sink.attempts==0 and type(current.get('api_attempts'))is int and current['api_attempts']==0):
+            # The pinned executor installs this guard before any source/bridge/signer HTTP.
+            # A pre-install import/config failure has made no transport attempt.
+            fields['api_attempts_unverified']=False
+            sink.update(**fields)
+            return
+        from shared_request_budget import RunRequestBudget,request_fingerprint
+        sink.attempts=RunRequestBudget(run/'request-budget.json',manifest['run_id'],request_fingerprint(request),request['max_api_requests']).snapshot()['used']
+        fields['api_attempts_unverified']=False
+    except (OSError,ValueError,KeyError,TypeError):
+        fields.update(api_attempts=None,api_attempts_unverified=True)
+    try:sink.update(**fields)
+    except (OSError,ValueError):pass  # Preserve original control exit/cancellation.
+
 class ProgressSink:
     """Discard upstream logs; persist only allowlisted protocol progress."""
     def __init__(self, run, manifest):
         self.run, self.manifest, self.buffer, self.summary = Path(run), manifest, '', None
         self.attempts = 0
+        self.request_budget_setup_started = None
         self.lock = threading.RLock()
 
     def update(self, **fields):
@@ -781,6 +803,7 @@ def install_transport_limits(httpx, request, sink, self_observer=None, debit_cal
     shared=None
     if request.get('source_executor') == 'pro' and debit_callback is None:
         from shared_request_budget import RunRequestBudget,request_fingerprint
+        sink.request_budget_setup_started=True
         shared=RunRequestBudget(sink.run/'request-budget.json',sink.manifest['run_id'],request_fingerprint(request),request['max_api_requests'],create=True)
         sink.attempts=shared.snapshot()['used']
     def debit():
@@ -962,6 +985,7 @@ def execute(run, manifest, *, mc_root=None):
                       VOX_ACQUISITION_RESUME='0', DB_TYPE='sqlite', SQLITE_DB_PATH=str(run/DB_NAME),
                       SAVE_DATA_OPTION='db', ACCOUNT_POOL_SAVE_TYPE='cookie_bridge', ENABLE_LOG_FILE='false')
     sink = ProgressSink(run, manifest)
+    sink.request_budget_setup_started = False  # Only this execute invocation may prove pre-install zero.
     from mc_source_steps import NativeSteps
     native_steps = NativeSteps(run, manifest['run_id'], request['platform'])
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
@@ -1174,6 +1198,7 @@ def execute(run, manifest, *, mc_root=None):
         sink.update(phase='failed', failure_reason=str(exc) if isinstance(exc, m.BridgeError) else 'pro_executor_error')
         raise SystemExit(74)
     finally:
+        sync_request_budget(run,manifest,sink)
         if tieba_curl is not None:tieba_curl.restore()
         if bili_wbi is not None:bili_wbi.restore()
         if seed_hook is not None:seed_hook.restore()

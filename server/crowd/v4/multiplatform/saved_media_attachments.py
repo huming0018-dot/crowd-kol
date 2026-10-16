@@ -87,7 +87,11 @@ def verify_source(run,media_id):
     files={name:read(run/name,32*1024*1024 if name=='normalized.json' else 1024*1024) for name in ('manifest.json','status.json','normalized.json')}
     manifest,status,norm=(parse_json_object(files[n]) for n in ('manifest.json','status.json','normalized.json'))
     if not isinstance(manifest.get('executor'),dict) or not isinstance(manifest.get('request'),dict) or not isinstance(norm.get('media'),list) or not isinstance(norm.get('records'),list):raise ValueError('attachment_source_shape_invalid')
-    if any(row.get('run_id')!=rid for row in (manifest,status,norm)) or status.get('state')!='completed' or norm.get('run_state')!='completed' or manifest.get('executor',{}).get('backend')!='pro' or manifest.get('request',{}).get('platform') not in ('xhs','wb') or norm.get('source_kind')!='mediacrawler_api' or norm.get('reward_eligible') is not False:raise ValueError('attachment_source_not_verified')
+    terminal_verified=status.get('state')=='completed' and norm.get('run_state')=='completed'
+    if not terminal_verified and manifest['request'].get('platform')=='wb':
+        from public_source_progress import known_partial_media
+        terminal_verified=known_partial_media(run,manifest,status,norm)
+    if any(row.get('run_id')!=rid for row in (manifest,status,norm)) or not terminal_verified or manifest.get('executor',{}).get('backend')!='pro' or manifest.get('request',{}).get('platform') not in ('xhs','wb') or norm.get('source_kind')!='mediacrawler_api' or norm.get('reward_eligible') is not False:raise ValueError('attachment_source_not_verified')
     refs=[r for r in norm.get('media',[]) if isinstance(r,dict) and r.get('media_id')==media_id]
     if len(refs)!=1:raise ValueError('attachment_reference_ambiguous')
     ref=refs[0]
@@ -105,7 +109,7 @@ def verify_source(run,media_id):
     if manifest.get('source_continuation') is not None:
         from continuation_media import reused_body_context
         context=reused_body_context(run,manifest,norm,body)
-        expected_source_run=context['source_local_run_id']
+        expected_source_run=__import__('source_continuation_chain').seed_source(context)
     if body.get('record_hash')!=sha({k:v for k,v in body.items() if k!='record_hash'}) or origin.get('run_id')!=expected_source_run or origin.get('operation_id')!=expected_source_run or origin.get('executor')!='mediacrawler_pro' or not isinstance(origin.get('observation_sha256'),str) or not HEX.fullmatch(origin['observation_sha256']):raise ValueError('attachment_source_hash_invalid')
     return ref,body,{name:sha(data) for name,data in files.items()}
 

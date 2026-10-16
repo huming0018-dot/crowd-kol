@@ -15,6 +15,11 @@ def uuid(value):
 
 def seed_source(context):
  proof=context.get('proof',{});chain=proof.get('chain')
+ if 'progress'in proof:
+  from public_source_progress import PROGRESS_KEYS
+  marker=proof['progress']
+  if type(marker)is not dict or set(marker)!=PROGRESS_KEYS or 'chain'in proof or proof.get('identity_binding')!='same_verified_subject' or proof.get('failure_reason')!='wb_reply_terminal_incomplete':raise SeedError('progress_grant_invalid')
+  return uuid(marker['seed_source_local_run_id'])
  if chain is None:return context.get('source_local_run_id')
  if type(chain)is not dict or set(chain)!=CHAIN_KEYS:raise SeedError('continuation_chain_invalid')
  uuid(chain.get('previous_continuation_id'));uuid(chain.get('seed_source_local_run_id'))

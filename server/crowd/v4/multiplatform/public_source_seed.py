@@ -89,12 +89,12 @@ def validate_seed(seed):
 def matching_reuse(seed,kind,identity,new_raw):
  """Only explicitly cached reads may call this; fresh HTTP must never be ID-skipped."""
  validate_seed(seed)
- candidates=[seed['topic']]+[r for r in seed['raw_root_rows'] if r['entity_id'] in seed['selected_root_ids']]+seed['embedded_rows']
+ candidates=__import__('public_source_progress').candidates(seed)
  matches=[r for r in candidates if r['kind']==kind and r['entity_id']==identity]
  if len(matches)!=1 or not isinstance(new_raw,dict):raise SeedError('seed_reuse_not_bound')
  old=matches[0]
  if canonical({k:v for k,v in old['payload'].items() if k not in DERIVED})!=canonical({k:v for k,v in new_raw.items() if k not in DERIVED}):raise SeedError('seed_reuse_changed')
- return {'source_kind':'reused_previous_attempt','source_run_id':seed['source_run_id'],'source_observation_sha256':old['source_observation_sha256'],'source_record_hash':old['normalized_record'].get('record_hash'),'readback_observation_sha256':digest(new_raw),'seed_sha256':seed['seed_sha256'],'kind':kind,'entity_id':identity,'new_capture_eligible':False}
+ return {'source_kind':'reused_previous_attempt','source_run_id':old['normalized_record']['origin']['run_id'],'source_observation_sha256':old['source_observation_sha256'],'source_record_hash':old['normalized_record'].get('record_hash'),'readback_observation_sha256':digest(new_raw),'seed_sha256':seed['seed_sha256'],'kind':kind,'entity_id':identity,'new_capture_eligible':False}
 
 class ReuseJournal:
  """Explicit cached-store provenance; fresh HTTP writes clear matching row marks."""
@@ -123,7 +123,7 @@ class ReuseJournal:
  def begin_store(self,kind,identity,mode):
   if kind not in ('topic','comment') or not isinstance(identity,str) or not re.fullmatch('[1-9][0-9]{0,29}',identity) or mode not in ('cached','fresh'):raise SeedError('seed_identity_invalid')
   if mode=='cached':
-   candidates=[self.seed['topic']]+[r for r in self.seed['raw_root_rows'] if r['entity_id'] in self.seed['selected_root_ids']]+self.seed['embedded_rows']
+   candidates=__import__('public_source_progress').candidates(self.seed)
    if not any(r['kind']==kind and r['entity_id']==identity for r in candidates):raise SeedError('seed_reuse_not_bound')
   token=str(uuid.uuid4())
   with self.connection() as db:
@@ -169,7 +169,7 @@ class ReuseJournal:
    if not isinstance(origin,dict) or origin.get('run_id')!=self.run.name or origin.get('operation_id')!=self.run.name:raise SeedError('seed_record_run_invalid')
    metadata=self.lookup(kind,str(identity),origin.get('observation_sha256'))
    if metadata is None:fresh.append(record);continue
-   candidates=[self.seed['topic']]+self.seed['raw_root_rows']+self.seed['embedded_rows']
+   candidates=__import__('public_source_progress').candidates(self.seed)
    old=next((r for r in candidates if r['kind']==kind and r['entity_id']==str(identity)),None)
    if old is None or 'normalized_record' not in old:raise SeedError('seed_normalized_binding_invalid')
    reused.append(copy.deepcopy(old['normalized_record']));evidence.append({**metadata,'readback_run_id':self.run.name})

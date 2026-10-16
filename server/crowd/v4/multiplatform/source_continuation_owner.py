@@ -1,6 +1,6 @@
 from source_continuation import *
 
-def owner_payload(root,preview,account,runtime_sha256,idempotency_key):
+def owner_payload(root,preview,account,runtime_sha256,idempotency_key,outbox_path=None):
  """Combine authoritative read-only CAS preview with local public proof, no cloud write."""
  import fcntl,re
  root=Path(root).resolve()
@@ -10,6 +10,9 @@ def owner_payload(root,preview,account,runtime_sha256,idempotency_key):
  subject={k:account.get(k) for k in ('session_id','generation','account_ref')}
  if account.get('identity_status')!='authenticated_self_id' or account.get('login_in_progress') is not False or account.get('state') not in ('authenticated','resumed','ready') or preview['account_context'] not in ({},subject):raise SeedError('continuation_account_changed')
  old=root/'runs'/preview['local_run_id'];manifest=read_object(old/'manifest.json')[0];request=manifest['request']
+ if manifest.get('source_continuation')is not None and (read_object(old/'status.json')[0].get('failure_reason')=='wb_reply_terminal_incomplete' or 'progress'in manifest['source_continuation'].get('proof',{})):
+  from public_source_progress import owner_progress_payload
+  return owner_progress_payload(root,preview,account,runtime_sha256,idempotency_key,outbox_path)
  if read_object(old/'status.json')[0].get('failure_reason')=='wb_reply_page_shape_invalid' and manifest.get('source_continuation') is not None:
   from source_continuation_chain import owner_chain_payload
   return owner_chain_payload(root,preview,account,runtime_sha256,idempotency_key)

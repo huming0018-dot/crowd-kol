@@ -1142,6 +1142,13 @@ class CloudWorker:
             self._save(state)
             if stage not in mc_runner.FINAL:
                 return {'state': 'running', 'local_stage': stage}
+            terminal_attempts=current.get('api_requests',current.get('api_attempts',0))
+            if current.get('api_attempts_unverified') is True or type(terminal_attempts)is not int or terminal_attempts<0 or terminal_attempts>lease['request'].get('max_api_requests',500):
+                # Keep the original lease and reservation. Re-read only; never start,
+                # import or finish with a guessed zero/old parent sink count.
+                state['status_read_error']='runner_budget_unavailable'
+                self._save(state)
+                return {'state':'running','error':'runner_budget_unavailable'}
             from run_diagnostics import from_status as run_diagnostic_from_status
             diagnostic=run_diagnostic_from_status(current)
             if diagnostic is not None:state['run_diagnostic']=diagnostic
