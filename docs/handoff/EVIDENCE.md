@@ -450,4 +450,6 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - `wb-public-progress-cloud/v2/FREEZE.json` SHA56795d57；`root-independent/FINAL.json` SHA712f71ac：非作者独跑源72/五轮预算、三种图片合同、JS23及精确基线guard/重放拒。PGlite与解码fixture不代表真实新采集或上传。
 - 同目录`actual-independent/FINAL.json` SHAa530da3985f9c06a79b2e023ed0673d0f82e1534eb782d7832c0ace93e37c1bc：独立MCP原查询/响应核Edge40、两合同原文、三RPC定义/ACL、原30ACK/7of12及两既有grant；SOURCE-PUBLISH-RECEIPT.json核69781d1/push0/远端同与四源精确SHA。其余25模块39→40由root逐字核，不冒充第三代理独立比较。
 - `wb-public-progress/FREEZE.json` SHAfdda9453及DELIVERY/AUTHOR-FINAL-RESULTS：13本地候选、7组作者通过；非作者本地审未出最终结论，不是实际采用。`e62-progress-runtime-adoption/PREPARATION-FREEZE.json` SHAba074b0f为8生命周期保持/fresh索引候选，不是运行回执。
-- `dy-pro-complete/MATURE-GOLDEN87-BUDGET12.log`、`GOLDEN87-EXACT-MEDIA-EXPORT-FINAL.log`：仅受控同输入，HTTP签名12预算43评论，本地纯签可87评论+原54237B图/三导出89行，但视频预算前73、作者UID不可还原，full_same_input_acceptance=false。未冻结/未独审/未实际来源，不认完整Pro替换。
+- `dy-pro-complete/MATURE-GOLDEN87-BUDGET12.log`、`GOLDEN87-EXACT-MEDIA-EXPORT-FINAL.log`：仅受控公开实体投影（非同输入），HTTP签名12预算43评论，本地纯签可87评论+原54237B图/三导出89行，但视频预算前73、作者UID不可还原，full_same_input_acceptance=false。未冻结/未独审/未实际来源，不认完整Pro替换。
+
+E62后续更正：root直接读取原DY `5afdd0e1-960d-4381-b6b7-1e3dcfa258cb/manifest.json`（SHA330ffd5e9656df7c7d816d12b7274d4c4266ca2603c852a2542f6d8ed25b5842），原homefeed/targets空/timeout300/16字段，与detail120回放不同，撤回“同输入”表述。fdda本地独审又复现missing-ledger整链失败，当前禁止采用，待v2；ba074自引用空SHA亦需新准备冻结，不是已通过的证据。
