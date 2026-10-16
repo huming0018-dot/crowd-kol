@@ -40,7 +40,7 @@ def validate_manifest(value):
     continuation=isinstance(value,dict) and value.get('schema')=='crowd-image-object-v3'
     if not isinstance(value,dict) or set(value)!=set(FIELDS+CONTINUATION_FIELDS if continuation else FIELDS):raise ValueError('invalid_image_manifest')
     version=3 if continuation else 2 if value['schema']=='crowd-image-object-v2' and value['platform']=='weibo' else 1
-    if continuation and (not all(uid(value[k]) for k in ('continuation_id','continuation_run_id','source_local_run_id')) or type(value['continuation_lease_epoch']) is not int or value['continuation_lease_epoch']!=value['lease_epoch']+1 or value['continuation_run_id']==value['run_id'] or value['source_local_run_id']==value['local_run_id']):raise ValueError('invalid_image_manifest')
+    if continuation and (not all(uid(value[k]) for k in ('continuation_id','continuation_run_id','source_local_run_id')) or type(value['continuation_lease_epoch']) is not int or value['continuation_lease_epoch']-value['lease_epoch'] not in (1,2) or value['continuation_run_id']==value['run_id'] or value['source_local_run_id']==value['local_run_id']):raise ValueError('invalid_image_manifest')
     if value['schema']!=('crowd-image-object-v'+str(version)) or type(value['manifest_version']) is not int or value['manifest_version']!=version:raise ValueError('invalid_image_manifest')
     if not all(uid(value[k]) for k in ('task_id','child_id','run_id','local_run_id','local_job_id','capture_id')):raise ValueError('invalid_image_manifest')
     if not all(isinstance(value[k],str) and HEX.fullmatch(value[k]) for k in HASH_FIELDS):raise ValueError('invalid_image_manifest')
@@ -162,8 +162,8 @@ def prepare_image(adapter,run_id,virtual_path,capture):
            'transport_url_sha256':sidecar['transport_url_sha256'],'normalized_sha256':files['normalized.json']}
     if context is not None:
         continuation=source_manifest.get('source_continuation_lease')
-        if not isinstance(continuation,dict) or continuation.get('run_id')==receipt['run_id'] or continuation.get('lease_epoch')!=receipt['lease_epoch']+1:raise ValueError('image_source_binding_denied')
-        value.update(continuation_id=context['continuation_id'],continuation_run_id=continuation['run_id'],continuation_lease_epoch=continuation['lease_epoch'],source_local_run_id=context['source_local_run_id'])
+        if not isinstance(continuation,dict) or continuation.get('run_id')==receipt['run_id'] or continuation.get('lease_epoch')!=context['source_lease_epoch']+1 or continuation.get('lease_epoch')-receipt['lease_epoch']!=(2 if context.get('proof',{}).get('chain') is not None else 1):raise ValueError('image_source_binding_denied')
+        value.update(continuation_id=context['continuation_id'],continuation_run_id=continuation['run_id'],continuation_lease_epoch=continuation['lease_epoch'],source_local_run_id=__import__('source_continuation_chain').seed_source(context))
     validate_manifest(value)
     if verify_source(run,sidecar.get('media_id'))[2]!=files:raise ValueError('image_source_changed')
     for path,generation in ((asset,asset_generation),(sidecar_path,sidecar_generation),(registration_path,registration_generation)):

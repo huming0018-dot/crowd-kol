@@ -18,8 +18,13 @@ def prepare(root,payload,account):
  for field in ('run_id','task_id','child_id','worker_id'):identifier(lease.get(field))
  if lease['worker_id']!=context['source_worker_id'] or type(context.get('source_lease_epoch')) is not int or type(lease.get('lease_epoch')) is not int or lease['lease_epoch']!=context['source_lease_epoch']+1 or lease.get('delivery_basis')!='live_capture' or lease.get('may_dispatch') is not True:raise SeedError('continuation_lease_invalid')
  proof=context.get('proof');subject=context.get('account_context')
- if not isinstance(proof,dict) or not isinstance(subject,dict) or proof.get('continuation_kind')!='wb-replies-v1' or proof.get('failure_reason')!='wb_embedded_replies_incomplete' or proof.get('exit_code')!=74 or proof.get('executor_inactive') is not True:raise SeedError('continuation_grant_invalid')
+ if not isinstance(proof,dict) or not isinstance(subject,dict) or proof.get('continuation_kind')!='wb-replies-v1' or proof.get('failure_reason') not in ('wb_embedded_replies_incomplete','wb_reply_page_shape_invalid') or proof.get('exit_code')!=74 or proof.get('executor_inactive') is not True:raise SeedError('continuation_grant_invalid')
  if not isinstance(account,dict) or account.get('login_in_progress') is not False or account.get('account_changed') is True or account.get('identity_status')!='authenticated_self_id' or account.get('state') not in ('authenticated','resumed','ready') or {k:account.get(k) for k in ('session_id','generation','account_ref')}!=subject:raise SeedError('continuation_account_changed')
+ if 'chain' in proof:
+  from source_continuation_chain import seed_source,prepare_chain
+  seed_source(context)
+  return prepare_chain(root,payload,account)
+ if proof.get('failure_reason')!='wb_embedded_replies_incomplete':raise SeedError('continuation_grant_invalid')
  root=Path(root).resolve();old=root/'runs'/context['source_local_run_id'];oldrequest=read_object(old/'manifest.json')[0]['request']
  account_path=root/'accounts'/subject['session_id']/'state.json'
  if read_object(account_path)[1]!=proof.get('account_state_sha256'):raise SeedError('continuation_account_changed')
@@ -49,5 +54,5 @@ def split_import(run,manifest,records):
  context=manifest.get('source_continuation')
  if context is None:return None
  seed=read_object(Path(run)/'public-source-seed.json')[0]
- if seed.get('seed_sha256')!=context.get('seed_sha256') or seed.get('seed_sha256')!=context.get('proof',{}).get('seed_sha256') or seed.get('account_context')!=context.get('account_context') or seed.get('source_run_id')!=context.get('source_local_run_id'):raise SeedError('continuation_seed_changed')
+ if seed.get('seed_sha256')!=context.get('seed_sha256') or seed.get('seed_sha256')!=context.get('proof',{}).get('seed_sha256') or seed.get('account_context')!=context.get('account_context') or seed.get('source_run_id')!=__import__('source_continuation_chain').seed_source(context):raise SeedError('continuation_seed_changed')
  return ReuseJournal(Path(run),seed,existing_only=True).split_records(records)

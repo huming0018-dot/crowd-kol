@@ -6,7 +6,7 @@ def reused_body_context(run,manifest,norm,body):
  context=manifest.get('source_continuation')
  if not isinstance(context,dict) or context.get('kind')!='wb-replies-v1' or manifest['request'].get('platform')!='wb' or context.get('new_content_quota') is not False:raise ValueError('continuation_media_denied')
  seed=read_object(Path(run)/'public-source-seed.json')[0]
- if seed.get('seed_sha256')!=context.get('seed_sha256') or seed.get('seed_sha256')!=context.get('proof',{}).get('seed_sha256') or seed.get('account_context')!=context.get('account_context') or seed.get('source_run_id')!=context.get('source_local_run_id'):raise ValueError('continuation_media_denied')
+ if seed.get('seed_sha256')!=context.get('seed_sha256') or seed.get('seed_sha256')!=context.get('proof',{}).get('seed_sha256') or seed.get('account_context')!=context.get('account_context') or seed.get('source_run_id')!=__import__('source_continuation_chain').seed_source(context):raise ValueError('continuation_media_denied')
  rebuilt=build_seed(Path(run).parent/seed['source_run_id'],seed['account_context'],seed['source_pins'])
  if canonical(rebuilt)!=canonical(seed) or canonical(body)!=canonical(seed['topic']['normalized_record']):raise ValueError('continuation_media_denied')
  rows=[r for r in norm.get('source_reuse',[]) if r.get('kind')=='topic' and r.get('entity_id')==seed['content_id']]

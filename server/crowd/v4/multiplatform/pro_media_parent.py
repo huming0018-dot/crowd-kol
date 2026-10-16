@@ -30,7 +30,13 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
  from shared_request_budget import request_fingerprint
  run=Path(run);manifest=json.loads((run/'manifest.json').read_text());request=manifest['request']
  if str(uuid.UUID(run.name))!=run.name or manifest['run_id']!=run.name:raise ValueError('hybrid_media_run_invalid')
- if request['platform']=='wb':
+ if request['platform']=='tieba':
+  from pro_tieba_entry import read_json
+  from pro_tieba_adapter import digest
+  source=read_json(run/'tieba-media-source.json')
+  if note!={'note_id':source['content_id']} or response!={'tieba_source_sha256':digest(source)} or headers!={}:raise ValueError('tieba_media_binding_invalid')
+  child=Path(__file__).with_name('tieba_media_child.py')
+ elif request['platform']=='wb':
   from shared_request_budget import canonical
   import hashlib
   weibo_mblog(note)

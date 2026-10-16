@@ -11,6 +11,7 @@ import inspect
 import json
 import os
 from pathlib import Path
+from pro_tieba_adapter import TiebaStop
 import re
 import resource
 import sqlite3
@@ -275,6 +276,10 @@ def observations(run, manifest):
 
 def completion(run, manifest, summary):
     """Local commit is checked separately from delivery; it is NEVER a cloud ACK."""
+    if manifest['request']['platform']=='tieba':
+        from pro_tieba_entry import read_scope
+        scope=read_scope(run,manifest,sys.modules[__name__])
+        return {'operation_id':manifest['run_id'],'local_committed':True,'task_scope_committed':True,'platform_exhausted':scope['platform_exhausted'],'cloud_ack':False,'content_count':1,'comment_count':scope['source_rows']-1,'coverage':scope['coverage']['coverage']}
     m = bridge()
     cp = checkpoint(run, manifest)
     rows = observations(run, manifest)
@@ -399,6 +404,11 @@ def import_records(run, manifest):
         result=summary(run,manifest)
         evidence['media_evidence']='hybrid_result_verified_at_import' if result else 'hybrid_missing_or_failed_source_preserved'
         evidence['media_state']=result['state'] if result else 'failed_or_unknown'
+    if p=='tieba':
+        from pro_tieba_entry import read_scope
+        if (Path(run)/'tieba-task-scope.json').exists():
+            scope=read_scope(run,manifest,sys.modules[__name__]);evidence.update(local_committed=True,task_scope_committed=True,platform_exhausted=scope['platform_exhausted'],pagination_evidence='typed_journal_original_checkpoint_reread')
+        evidence['pagination']=pagination_summary(run,manifest)
     if p in SUPPORTED:
         evidence['pagination'] = pagination_summary(run, manifest)
     return records, media, evidence
@@ -466,6 +476,9 @@ def pinned_ids(value):
 
 
 def pagination_summary(run, manifest):
+    if manifest['request']['platform']=='tieba':
+        from pro_tieba_entry import summary
+        return summary(run,manifest,sys.modules[__name__])
     """Coverage evidence is separate from upstream commit and cloud delivery."""
     if manifest['request']['platform']=='zhihu':
         from pro_zhihu_adapter import pagination_summary as zhihu_summary
@@ -714,6 +727,7 @@ class ProgressSink:
                     elif line.startswith('---CRAWL_SUMMARY: ') and line.endswith('---'):
                         value = json.loads(line[len('---CRAWL_SUMMARY: '):-3])
                         self.summary = {k: value.get(k) for k in ('operation_id', 'platform', 'crawler_type', 'status')}
+                        if self.manifest['request']['platform']=='tieba':self.summary['tieba_expected_limit_failure']=value.get('error')=='部分评论未采集成功，已保留断点'
                 except (ValueError, TypeError, AttributeError):
                     continue
         return len(text)
@@ -925,7 +939,7 @@ async def run_upstream_bounded(upstream,timeout):
     # Carry deliberate process exits out of wait_for's child task before raising.
     async def attempt():
         try:return True,await run_upstream(upstream)
-        except (SystemExit,CursorStalled,WeiboAdapterStop) as error:return False,error
+        except (SystemExit,CursorStalled,WeiboAdapterStop,TiebaStop) as error:return False,error
     succeeded,value=await asyncio.wait_for(attempt(),timeout=timeout)
     if not succeeded:raise value
     return value
@@ -952,6 +966,7 @@ def execute(run, manifest, *, mc_root=None):
     native_steps = NativeSteps(run, manifest['run_id'], request['platform'])
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
     account_hook=None
+    tieba_curl=None
     bili_wbi=None
     seed_hook=None
     from pro_media_integration import MediaStage
@@ -1027,12 +1042,17 @@ def execute(run, manifest, *, mc_root=None):
                 import acquisition_protocol
                 from pro_weibo_adapter import prepare as prepare_weibo
                 prepare_weibo(config,acquisition_protocol,request)
+            if request['platform']=='tieba':
+                import acquisition_protocol
+                from pro_tieba_adapter import register_observations
+                register_observations(acquisition_protocol)
             import main as upstream
             clients = {'xhs': ('media_platform.xhs.client', 'XiaoHongShuClient'),
                        'bili': ('media_platform.bilibili.client', 'BilibiliClient'),
                        'dy': ('media_platform.douyin.client', 'DouYinApiClient'),
                        'wb': ('media_platform.weibo.client','WeiboClient'),
-                       'zhihu':('media_platform.zhihu.client','ZhiHuClient')}
+                       'zhihu':('media_platform.zhihu.client','ZhiHuClient'),
+                       'tieba':('media_platform.tieba.client','BaiduTieBaClient')}
             import importlib
             module, name = clients[request['platform']]
             client_type = getattr(importlib.import_module(module), name)
@@ -1065,7 +1085,16 @@ def execute(run, manifest, *, mc_root=None):
                 sink.update(phase='failed',account_state='identity_unverified',account_identity_status='baseline_unverified',
                             failure_reason='pro_pending_run_resolution_required')
                 raise SystemExit(85)
-            if request['platform']=='wb':
+            if request['platform']=='tieba':
+                from pro_tieba_entry import Identity,install_detail
+                from pro_tieba_adapter import CurlBudget
+                from shared_request_budget import RunRequestBudget,request_fingerprint
+                from media_platform.tieba.handlers.detail_handler import DetailHandler
+                account_hook=Identity(run.parent.parent,request['session_id'],manifest['run_id'],account_event).install(client_type)
+                ledger=RunRequestBudget(run/'request-budget.json',manifest['run_id'],request_fingerprint(request),request['max_api_requests'])
+                tieba_curl=CurlBudget(importlib.import_module(module),ledger,native_steps,account_hook.observe_response,sink=sink).install()
+                pagination_hook=install_detail(run,manifest,sys.modules[__name__],DetailHandler)
+            elif request['platform']=='wb':
                 from pro_weibo_adapter import WeiboIdentity,WeiboPagination
                 account_hook=WeiboIdentity(run.parent.parent,request['session_id'],manifest['run_id'],account_event).install(client_type,httpx)
                 if request['comments']:
@@ -1083,6 +1112,16 @@ def execute(run, manifest, *, mc_root=None):
             from managed_pro_signer import owned_signer
             with owned_signer(run,request,{'platform':'zhihu','sign_url':'http://127.0.0.1:8990'} if native_provider and request['platform']=='zhihu' else selected['binding']):
                 asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
+            if request['platform']=='tieba':
+                from pro_tieba_entry import summary as tieba_summary,finalize_scope
+                known=tieba_summary(run,manifest,sys.modules[__name__])
+                if known.get('coverage') not in ('exhausted','limit_reached','not_requested'):raise TiebaStop('tieba_task_scope_partial')
+                if known['coverage']=='limit_reached' and (not isinstance(sink.summary,dict) or sink.summary.get('status')!='failed' or sink.summary.get('tieba_expected_limit_failure') is not True):raise TiebaStop('tieba_upstream_outcome_unknown')
+                if media_stage.enabled:media_stage.run(run,manifest,observations(run,manifest),mc_root=mc_root,remaining=execution_deadline-time.monotonic())
+                media_result=__import__('pro_media_integration').summary(run,manifest) if media_stage.enabled else None
+                finalize_scope(run,manifest,sys.modules[__name__],media_result['assets'] if media_result else [])
+                sink.attempts=RunRequestBudget(run/'request-budget.json',manifest['run_id'],request_fingerprint(request),request['max_api_requests']).snapshot()['used']
+                result=completion(run,manifest,sink.summary);m.write(run/'pro-completion.json',result);sink.update(**result);return
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
             # Preserve committed source before media: failed media still imports/ACKs source.
@@ -1096,6 +1135,9 @@ def execute(run, manifest, *, mc_root=None):
                     raise
                 sink.update(media_stage='completed',content_committed=True)
             sink.update(**result)
+    except TiebaStop as error:
+        denied=error.reason=='tieba_content_access_denied'
+        sink.update(phase='failed',failure_reason='pro_content_access_denied' if denied else error.reason if re.fullmatch(r'tieba_[a-z_]{1,80}',error.reason) else 'tieba_task_scope_partial',coverage='partial');raise SystemExit(87 if denied else 74)
     except ZhihuStop as error:
         sink.update(phase='failed',failure_reason=error.reason if re.fullmatch(r'zhihu_[a-z_]{1,80}',error.reason) else 'pro_zhihu_pagination_partial',coverage='partial')
         raise SystemExit(74)
@@ -1122,6 +1164,7 @@ def execute(run, manifest, *, mc_root=None):
         sink.update(phase='failed', failure_reason=str(exc) if isinstance(exc, m.BridgeError) else 'pro_executor_error')
         raise SystemExit(74)
     finally:
+        if tieba_curl is not None:tieba_curl.restore()
         if bili_wbi is not None:bili_wbi.restore()
         if seed_hook is not None:seed_hook.restore()
         if pagination_hook is not None:pagination_hook.restore()

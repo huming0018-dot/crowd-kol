@@ -28,12 +28,17 @@ class MediaStage:
  def run(self,run,manifest,rows,*,mc_root,remaining):
   if not self.enabled:return None
   from pro_hybrid_media import supports_request
-  if not supports_request(manifest['request']) or mc_root is None:raise ValueError('hybrid_media_runtime_unavailable')
+  tieba=(manifest['request'].get('platform')=='tieba' and manifest['request'].get('mode')=='detail' and manifest['request'].get('max_items')==1 and manifest['request'].get('platform_options',{})=={})
+  if not (supports_request(manifest['request']) or tieba) or mc_root is None:raise ValueError('hybrid_media_runtime_unavailable')
   topics=[row for kind,entity,row in rows if kind=='topic']
   # The present child owns one fresh output/dispatch intent, so no implicit fanout.
   if len(topics)!=1 or manifest['request']['max_items']!=1:raise ValueError('hybrid_media_single_content_required')
   note=topics[0]
-  if manifest['request'].get('platform')=='wb':
+  if manifest['request'].get('platform')=='tieba':
+   from pro_tieba_entry import read_json
+   from pro_tieba_adapter import digest
+   source=read_json(Path(run)/'tieba-media-source.json');note={'note_id':note['note_id']};view={'tieba_source_sha256':digest(source)};headers={}
+  elif manifest['request'].get('platform')=='wb':
    from pro_hybrid_media import weibo_mblog
    from shared_request_budget import canonical
    weibo_mblog(note)
@@ -79,7 +84,7 @@ def annotate_import(run,manifest,media):
  if result is None:return
  expected=result['assets'];paths=set()
  from cloud_sync import canonical
- fields=(('path','bytes','sha256','platform','content_id') if manifest['request'].get('platform')=='wb' else ('path','bytes','sha256','platform','content_id','source_media_id','bilibili_view_cid','bilibili_media_identity_sha256'))
+ fields=(('path','bytes','sha256','platform','content_id') if manifest['request'].get('platform') in ('wb','tieba') else ('path','bytes','sha256','platform','content_id','source_media_id','bilibili_view_cid','bilibili_media_identity_sha256'))
  for asset in expected:
   if not isinstance(asset,dict) or asset.get('path') in paths:raise ValueError('hybrid_media_result_binding_invalid')
   paths.add(asset.get('path'))

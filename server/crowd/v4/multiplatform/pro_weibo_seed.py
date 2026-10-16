@@ -16,7 +16,7 @@ class SeedHook:
    raise SeedError('seed_context_invalid')
   self.seed,_=read_object(self.run/'public-source-seed.json');validate_seed(self.seed)
   if (context.get('seed_sha256')!=self.seed['seed_sha256'] or context['proof'].get('seed_sha256')!=self.seed['seed_sha256']
-      or context.get('source_local_run_id')!=self.seed['source_run_id']
+      or __import__('source_continuation_chain').seed_source(context)!=self.seed['source_run_id']
       or canonical(context.get('account_context'))!=canonical(self.seed['account_context'])
       or request.get('session_id')!=self.seed['source_session_id']):raise SeedError('seed_context_binding_invalid')
   old=self.run.parent/self.seed['source_run_id'];old_manifest,old_sha=read_object(old/'manifest.json')
@@ -118,7 +118,7 @@ def reused_rows(run,manifest,rows):
  if not isinstance(context,dict) or context.get('kind')!='wb-replies-v1':raise SeedError('seed_context_invalid')
  seed,_=read_object(Path(run)/'public-source-seed.json');validate_seed(seed)
  if (context.get('seed_sha256')!=seed['seed_sha256'] or not isinstance(context.get('proof'),dict) or context['proof'].get('seed_sha256')!=seed['seed_sha256']
-     or context.get('source_local_run_id')!=seed['source_run_id'] or canonical(context.get('account_context'))!=canonical(seed['account_context'])):
+     or __import__('source_continuation_chain').seed_source(context)!=seed['source_run_id'] or canonical(context.get('account_context'))!=canonical(seed['account_context'])):
   raise SeedError('seed_context_binding_invalid')
  journal=ReuseJournal(run,seed,existing_only=True);journal.split_records([])
  found=set()

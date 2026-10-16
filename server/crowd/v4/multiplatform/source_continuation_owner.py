@@ -9,7 +9,10 @@ def owner_payload(root,preview,account,runtime_sha256,idempotency_key):
  for field in ('task_id','child_id','worker_id','claim_id','run_id','local_run_id'):identifier(preview.get(field))
  subject={k:account.get(k) for k in ('session_id','generation','account_ref')}
  if account.get('identity_status')!='authenticated_self_id' or account.get('login_in_progress') is not False or account.get('state') not in ('authenticated','resumed','ready') or preview['account_context'] not in ({},subject):raise SeedError('continuation_account_changed')
- old=root/'runs'/preview['local_run_id'];request=read_object(old/'manifest.json')[0]['request']
+ old=root/'runs'/preview['local_run_id'];manifest=read_object(old/'manifest.json')[0];request=manifest['request']
+ if read_object(old/'status.json')[0].get('failure_reason')=='wb_reply_page_shape_invalid' and manifest.get('source_continuation') is not None:
+  from source_continuation_chain import owner_chain_payload
+  return owner_chain_payload(root,preview,account,runtime_sha256,idempotency_key)
  if canonical(request)!=canonical(preview['request']):raise SeedError('continuation_request_changed')
  session=root/'sessions'/subject['session_id'];fd=os.open(session/'active.lock',os.O_RDWR|os.O_NOFOLLOW|os.O_NONBLOCK)
  try:

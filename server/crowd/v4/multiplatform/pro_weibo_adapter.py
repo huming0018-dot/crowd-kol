@@ -9,7 +9,9 @@ import re
 import os
 import stat
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlencode
+import importlib
+import inspect
 
 class WeiboAdapterStop(BaseException):
     def __init__(self,reason):self.reason=reason;super().__init__(reason)
@@ -166,8 +168,22 @@ class WeiboPagination:
         # so each child identity is saved exactly once in the authoritative chain.
         cursor=0;result=[];known=set();expected=int(declared)
         for _ in range(self.page_budget):
-            raw=await processor.wb_client.get('/comments/hotFlowChild',{'cid':root,'max_id':cursor,'max_id_type':0})
-            if not isinstance(raw,dict) or not isinstance(raw.get('data'),list):raise WeiboAdapterStop('wb_reply_page_shape_invalid')
+            client=processor.wb_client
+            # Exact installed SDK raw-response contract, without its retry/IP rotation.
+            request=inspect.unwrap(client.request)
+            sdk=importlib.import_module(type(client).__module__)
+            if (not callable(request) or getattr(request,'__module__',None)!=type(client).__module__
+                    or Path(inspect.getfile(request)).resolve()!=Path(sdk.__file__).resolve()
+                    or getattr(sdk,'WEIBO_API_URL',None)!='https://m.weibo.cn'):
+                raise WeiboAdapterStop('wb_reply_transport_contract_invalid')
+            response=await request(client,method='GET',url=sdk.WEIBO_API_URL+'/comments/hotFlowChild?'+urlencode({'cid':root,'max_id':cursor,'max_id_type':0}),return_response=True)
+            if type(getattr(response,'status_code',None)) is not int or response.status_code!=200:
+                raise WeiboAdapterStop('wb_reply_http_invalid')
+            try:raw=response.json()
+            except (ValueError,UnicodeError,RecursionError):raise WeiboAdapterStop('wb_reply_page_shape_invalid') from None
+            if not isinstance(raw,dict) or type(raw.get('ok')) is not int or raw['ok'] not in (0,1):
+                raise WeiboAdapterStop('wb_reply_business_code_invalid')
+            if not isinstance(raw.get('data'),list) or (raw['ok']==0 and raw['data']):raise WeiboAdapterStop('wb_reply_page_shape_invalid')
             outgoing=raw.get('max_id')
             if type(outgoing) is not int or outgoing<0:raise WeiboAdapterStop('wb_reply_cursor_invalid')
             rows=raw['data'];targets={};models=[]
