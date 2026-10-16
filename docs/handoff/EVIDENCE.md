@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E60为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E61为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -437,3 +437,8 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 | E60C | RUN16/wb-continuation-chain/independent-review/FINAL.json 3393；wb-continuation-chain-deployment/{GUARD-FINAL.json baf73,independent-native/POST-DEPLOY-FINAL.json 055ae,SOURCE-PUBLISH-RECEIPT.json} | 两RPC/Edge39真实部署回读，source9a9已发布，保steps68/其他25/ACL；非新来源验收 |
 | E60A | RUN16/current-platform-combination/independent-review/FINAL.json 39480；e60-platform-runtime-adoption/{RUNTIME-FREEZE-APPROVED.json,ROOT-MAPPING-REVIEW.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json cc537,SOURCE-PUBLISH-RECEIPT.json} | 50165/16精确+440其他/五库backup/179保护/fresh6+24+18+3在新来源前保持；源码0a0fcde已发布 |
 | E60W | RUN16/actual-wb-chain/{INDEPENDENT-FINAL.json 70868,INDEPENDENT-TERMINAL-CHECK.json,EXPORT-INDEPENDENT.json,ACTUAL-PREVIEW.jpg,ACTUAL-AFTER-CONTINUE.jpg} | 实际epoch3/a061/唯一新grant，1新评论receipt/原29保持，父7of12剩5，有限错误真实上云/6来源步骤；R86三HTTP导出32行仅1新；failed74无新媒体非完整业务 |
+
+| E61P | RUN16/wb-accessible-replies-partial/{FREEZE.json 42aa,independent-review/FINAL.json abeda} | 2文件局部覆盖差距继续独立根/媒体，最终partial/74不假完整；原SDK/8篡改/8wire/4恶意独审，无来源 |
+| E61A | RUN16/e61-partial-runtime-adoption/{ADOPTER-REVIEW.json 9de6,RUNTIME-FREEZE-APPROVED.json eadb,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json 51d235,SOURCE-PUBLISH-RECEIPT.json} | 53987/2exact+454其他/五库backup/189保护/6+24+28+3保持，源码7a586fa已发布；本轮源0/ACK0 |
+| E61R | RUN16/wb-public-progress/ACTUAL-RECONSTRUCTION-SECOND.log | 作者真实只读重建3段[29,0,1]ACK30、已7剩5/22原件SHA同；非最终SDK/中央整链独审 |
+| E61H | docs/handoff/archive/HANDOFF-through-E60-20261016.md | 截至E60入口全文归档，当前状态只读docs/HANDOFF.md；非删工程/经验证据 |

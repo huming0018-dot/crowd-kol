@@ -423,3 +423,12 @@
 - 原因范围：持久分页仅证声明2/返回保存1/terminal，无rawbody不能猜删评/权限；自加count全局throw阻断后续根/媒体。central修partial-gap候选并设计复用已ACK断点，不再固定epoch特判。native核DY/KS入口/原样本，复用现有session身份与本人原账号确认，不伪造官方UID、不新增Cookie权限。
 - 用户校准：自有采集核心未证优于Pro；成熟能力优先复用，自有聚焦参与者/派单/评分/回传/云回执/OTA。重复实现只在同输入保真验收后退役，不把工程过程算产品优势。
 - 下一步：独审并采用partial-gap/耐久断点后，原总12/已7/剩5/旧30内真实验证；未自动发新grant。其他Pro/登录恢复/Bili连接/连续OTA/跨端/48h仍未验，目标active/watchdog暂停。
+
+
+## 2026-10-16 09:54 CST｜E61 partial-gap正式采用，原回执不变，公开断点继续
+
+- central作者两源42aa经peer abeda原SDK/保存错73取消父错/回读篡改审后root采用53987；采用器原8函数及mapping经9de6独审，现场51d235核2+454/fullset、五库backup/189保护/6账号24产物28WB3ZH保持，7a586fa push0/remote同。旧50165停；云仍Edge39，本轮来源0/grant0/ACK0。
+- 原真实WB30（旧29+新1）/a061 failed74/累计7of12剩5保持，完整业务未过。局部差距现能继续独立根/媒体但仍partial；未知/保存/父错/重复/预算/取消不放松。
+- 通用断点作者只读重建[29,0,1]30ACK/7spent/22原件SHA同；多origin SDK/SQL/JS尚未最终冻审，不把该重建当恢复成功。DY/KS真实样本与现会话机制有受控证据，新Pro来源/云未验，不冒JPEG为MP4或session为official UID。
+- 固定入口去重：E60及之前逐轮全文完整归档（原文件SHA 5e380a1e9fac2db1979071974c2e25421ef9ba8be32c586d8def9a65e953fb4e），保留日志/证据/决定/当前能力表；没有删除源码、任务、回执或原始工件。四文档发布另核HANDOFF-E61-PUBLISH-RECEIPT。
+- 下一步整链与独审后原剩5内有效新grant验证；其他平台/登录/OTA/全端/48h未全验。目标active/watchdog暂停。
