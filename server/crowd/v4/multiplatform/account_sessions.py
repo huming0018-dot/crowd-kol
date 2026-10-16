@@ -404,6 +404,13 @@ class AccountSessions:
         except BlockingIOError:
             lock.close(); raise ValueError('session_busy')
         try:
+            def close_abandoned_self_check(value):
+                check=value.get('last_self_check')
+                if isinstance(check,dict) and check.get('check_only') is True and check.get('phase')=='checking':
+                    value['last_self_check']={**check,'phase':'interrupted','reason':'previous_check_outcome_unknown'}
+            # The acquired original active lock proves the old self-check no longer owns it.
+            # Keep all operation files and account proof; only retire the stale display.
+            self._update(session_id,platform,close_abandoned_self_check)
             if _recovery is not None:
                 if type(_recovery) is not dict or set(_recovery) != {'run_id','generation','account_ref'}:
                     raise ValueError('invalid_cloud_login_context')

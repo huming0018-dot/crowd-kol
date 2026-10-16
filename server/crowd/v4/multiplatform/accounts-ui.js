@@ -33,6 +33,14 @@ const accountView = (() => {
     }
     return phase+'；'+request('bridge','登录桥')+'；'+request('official_self','平台官方核验')+'。';
   }
+  function selfCheckMain(session){
+    const check=session.last_self_check,now=Date.now()/1000;
+    const valid=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=now;
+    if(check?.check_only!==true||!valid(check.checked_at)||!valid(session.verified_at)||check.checked_at<session.verified_at)return null;
+    if(check.reason==='official_logged_out')return '最新自检：官方提示未登录；仅检查，不授权或继续任务。';
+    if(check.reason==='account_changed')return '最新自检：账号与原身份不同；仅检查，不授权或继续任务。';
+    return null;
+  }
   let generation=0,timer=null,sequence=0,taskFocus=null;
   dialog.addEventListener('close',()=>{generation++;taskFocus=null;clearTimeout(timer);browserDialog.close();});
   async function chooseBrowser(session,ticket,restartConnection=false,refreshTargets=false,recovery=null){
@@ -84,18 +92,24 @@ const accountView = (() => {
       if(sessions.length!==1){browserSequence++;browserDialog.close();$('accounts_error').textContent='原任务账号上下文缺失或存在多个匹配，请核对原任务；尚未核验，也不会切换会话。';timer=setTimeout(()=>guarded(()=>refresh(ticket)),3000);return;}
     }
     for(const session of sessions){
+      const checkOnlyActive=session.last_self_check?.check_only===true&&session.last_self_check.phase==='checking'&&session.login_in_progress===true;
       const unavailable=session.platform==='ks'&&session.login_verification_available===false&&session.login_diagnostic?.graphql_errors==='present';
-      const row=node('article');row.className='task';row.append(node('h3',platformNames[session.platform]||session.platform),node('p',unavailable?'登录核验接口失败，登录状态尚未确认；已登录者无需重复扫码。':labels[session.state]||session.state));
+      const row=node('article');row.className='task';row.append(node('h3',platformNames[session.platform]||session.platform),node('p',selfCheckMain(session)||(unavailable?'登录核验接口失败，登录状态尚未确认；已登录者无需重复扫码。':labels[session.state]||session.state)));
       if(unavailable){const diagnostic={schema_validation:'当前核验请求与平台接口不兼容，不能据此认定账号登出。',authentication_required:'接口提示需要登录；原会话与任务保留。',rate_or_permission:'接口返回频率或权限限制，保持暂停。',unknown:'接口错误原因尚未定位，保留原会话与任务。'};row.append(node('p',diagnostic[session.login_diagnostic.graphql_error_kind]||diagnostic.unknown));}
       if(session.login_error_code)row.append(node('p',loginErrors[session.login_error_code]||'登录核验尚未完成。'));
       const diagnostic=proDiagnostic(session.login_diagnostic);if(diagnostic)row.append(node('p',diagnostic));
+      if(session.last_self_check?.check_only===true){
+        const checks={authenticated_same_account:'上次官方自检通过（检查时为原账号）；仅检查，不授权或继续任务。',official_logged_out:'上次官方自检提示未登录；仅检查，不授权或继续任务。',account_changed:'上次自检账号与原身份不同；仅检查，不授权或继续任务。',bridge_unavailable:'原登录桥暂不可用；不能判断账号已登出。',signer_unavailable:'本机签名依赖暂不可用；未判定平台登出。'};
+        row.append(node('p',session.last_self_check.phase==='checking'?(session.login_in_progress===true?'仅检查登录：后台自检进行中，采集不会因此启动。':'上次自检结果未知，原任务不变；可明确再次点击“仅检查原账号登录”，不会重试采集。'):checks[session.last_self_check.reason]||'仅检查登录未完成；原身份、任务和进度保留。'));
+      }
       const recovery=session.login_recovery;
       if(recovery?.kind==='cloud_pro')row.append(node('p','此账号属于原云端等待任务。复用当前原浏览器在后台核验；不会另开登录窗口，也不会自动继续已暂停任务。'));
       if(recovery?.kind==='blocked')row.append(node('p','原任务恢复上下文暂不可核对，请查看原任务；不会切换到其他登录方式。'));
       if(session.browser_connection)row.append(node('p','复用本人选择的已登录浏览器'));
       if(session.browser_connection_error)row.append(node('p','原浏览器连接暂不可用；任务仍保留，请恢复原窗口或重新选择。'));
-      if(session.login_wait_reason==='verification_paused'&&session.login_in_progress===true)row.append(node('p','核验已暂停，原登录窗口保留。完成登录后点下方按钮继续核验。'));
+      if(!checkOnlyActive&&session.login_wait_reason==='verification_paused'&&session.login_in_progress===true)row.append(node('p','核验已暂停，原登录窗口保留。完成登录后点下方按钮继续核验。'));
       const actions=node('div');actions.className='actions';
+      if(session.platform==='xhs'&&session.pro_self_check_available===true){const check=button('仅检查原账号登录（不采集）',()=>guarded(async()=>{check.disabled=true;try{await operate('check_pro_login',{session_id:session.session_id,platform:'xhs'},ticket);}finally{check.disabled=false;}}));check.disabled=session.login_in_progress===true;actions.append(check);}
       if(recovery?.kind==='cloud_pro'){
         const recover=button('复用原账号后台核验',()=>guarded(async()=>{
           recover.disabled=true;
@@ -118,7 +132,7 @@ const accountView = (() => {
         if(ticket!==generation||!dialog.open)return;
         await operate('open_login',{session_id:session.session_id,platform:session.platform},ticket);
       }));original.disabled=session.login_in_progress===true;actions.append(original);}
-      if(session.login_wait_reason==='verification_paused'&&session.login_in_progress===true)actions.append(button('我已登录，继续核验',()=>guarded(async()=>{await operate('resume_verification',{session_id:session.session_id},ticket);})));
+      if(!checkOnlyActive&&session.login_wait_reason==='verification_paused'&&session.login_in_progress===true)actions.append(button('我已登录，继续核验',()=>guarded(async()=>{await operate('resume_verification',{session_id:session.session_id},ticket);})));
       if(session.state==='identity_unverified')actions.append(button('确认仍是原账号',()=>guarded(async()=>{await operate('confirm_same_account',{session_id:session.session_id,expected_generation:session.generation,confirm_same_account:true},ticket);})));
       if(session.state==='waiting_login'||session.state==='checking')actions.append(button('取消登录',()=>guarded(async()=>{await operate('cancel_login',{session_id:session.session_id},ticket);})));
       if(session.state==='account_changed')row.append(node('p','请创建独立会话或新任务；原账号的剩余额度和结果不会转给新账号。'));

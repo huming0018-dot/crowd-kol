@@ -167,8 +167,16 @@ async def verify(store,session_id,recovery,installed,diagnostic=None,*,mc_root=N
  store._update(session_id,'bili',success_cleanup)
  return result
 
+def launch_check_only(store,session_id,platform):
+ if platform!='xhs':raise ValueError('pro_self_check_unsupported')
+ from pro_xhs_selfcheck import launch
+ return launch(store,session_id)
+
 def main():
- p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--session-id',required=True);p.add_argument('--lock-fd',required=True,type=int);a=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--xhs-check-only',action='store_true');p.add_argument('--root',required=True);p.add_argument('--session-id',required=True);p.add_argument('--lock-fd',required=True,type=int);a=p.parse_args()
+ if a.xhs_check_only:
+  from pro_xhs_selfcheck import worker
+  return worker(a)
  from account_sessions import AccountSessions
  store=AccountSessions(a.root);payload=None
  diagnostic={'method':'pro_official_self','phase':'checking','bridge_requests':0,'official_self_requests':0}

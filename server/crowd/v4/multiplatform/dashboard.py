@@ -558,6 +558,13 @@ class Application:
                 route = self._account_login_route(AccountSessions(matches[0]), value['session_id'], value['platform'], routes)
                 if route is not None:
                     value['login_recovery'] = route
+                if value['platform']=='xhs':
+                    try:
+                        from pro_executor import binding_for,task_installation
+                        request={'platform':'xhs','session_id':value['session_id'],'source_executor':'pro'}
+                        bound=binding_for(matches[0],request);task_installation(matches[0],request)
+                        value['pro_self_check_available']=bound.get('provider') is None
+                    except (ValueError,OSError,SystemExit):value['pro_self_check_available']=False
             return {'ok': True, 'sessions': sessions}
         if action=='create_browser_session' and set(payload)=={'platform','port','target_id','browser_fingerprint'}:
             return self._prefer_session(AccountSessions(self._roots()[0]).create_browser_session(**payload))
@@ -567,6 +574,9 @@ class Application:
         if len(matches) != 1:
             raise ValueError('collector_session_ambiguous' if matches else 'session_not_found')
         store = AccountSessions(matches[0])
+        if action == 'check_pro_login' and set(payload)=={'session_id','platform'}:
+            from pro_login_recovery import launch_check_only
+            return launch_check_only(store,session_id,payload['platform'])
         if action == 'status' and set(payload) in ({'session_id'}, {'session_id', 'platform'}):
             return store.status(session_id, payload.get('platform'))
         if action == 'open_login' and set(payload) == {'session_id', 'platform'}:
@@ -1005,8 +1015,8 @@ class Application:
         raise ValueError('invalid_media_processing_action')
 
 
-ACCOUNT_FAILURE_ACTIONS=frozenset(('recover_cloud_login','bind_cloud_browser','open_login','cancel_login','resume_verification','confirm_same_account'))
-ACCOUNT_FAILURE_CODES=frozenset(('invalid_request','invalid_account_request','invalid_account_action',
+ACCOUNT_FAILURE_ACTIONS=frozenset(('check_pro_login','recover_cloud_login','bind_cloud_browser','open_login','cancel_login','resume_verification','confirm_same_account'))
+ACCOUNT_FAILURE_CODES=frozenset(('self_check_identity_unverified','self_check_outcome_unknown','self_check_account_changed','self_check_start_failed','invalid_self_check_path','invalid_request','invalid_account_request','invalid_account_action',
  'cloud_not_connected','principal_denied','unsafe_cloud_file','cloud_controller_busy',
  'cloud_login_context_invalid','cloud_login_context_missing','cloud_login_context_changed',
  'cloud_login_source_not_terminal','cloud_login_account_changed','collector_session_ambiguous',

@@ -19,7 +19,7 @@ ROUTES = {
     'collector': {'capabilities', 'list', 'status', 'start', 'stop', 'import'},
     'media-processing': {'speech_check_bypass', 'video_ocr_start', 'capabilities', 'list', 'status', 'start', 'cancel', 'resume', 'video_cloud_status', 'video_cloud_save', 'quality_lookup', 'transcript_revision', 'optimization_preview', 'optimization_apply', 'native_video_cloud_status', 'native_video_cloud_save'},
     'cloud': {'status', 'results'},
-    'accounts': {'bind_cloud_browser', 'recover_cloud_login', 'list', 'status', 'open_login', 'cancel_login', 'resume_verification', 'confirm_same_account', 'accept_account_switch', 'browser_candidates', 'bind_browser', 'create_browser_session', 'use_persistent_browser'},
+    'accounts': {'check_pro_login','bind_cloud_browser', 'recover_cloud_login', 'list', 'status', 'open_login', 'cancel_login', 'resume_verification', 'confirm_same_account', 'accept_account_switch', 'browser_candidates', 'bind_browser', 'create_browser_session', 'use_persistent_browser'},
     # Starting an external model job remains an explicit UI authorization step.
     'analysis': {'lookup', 'status', 'cancel'},
 }
