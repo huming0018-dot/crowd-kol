@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 12:32 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 12:52 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,22 +16,22 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：F1A素材纵切已接正式工作台，当前83631/materials-download-9b9e9241；已ACK原WB31素材经固定051源clean/score/audit/Consumer可查询，实际浏览器三导出逐字节等；非作者现场ea9dd205核五库/原资产/原回执保持。正式源码a036e19be0ec85f7895731d5f4f721ad08ad3951已提交且push0/远端同，文档14a86bc同步；回执SOURCE-PUBLISH-RECEIPT.json。中央仍Edge40（本轮无fresh云查询），原WB partial74/10of12剩2不变，无新采集/新ACK。F1B领域事实/评分和F2完整知识反馈、其他Pro平台/原重登/连续OTA/跨端/48h未全验。
+当前阶段：F1A31素材与F1B真实六店发现候选均已接原工作台，当前87942/domain-79e4de53-0fad9455；非作者919e83e6核四源/五库/原回执/两发布保持，原iab六店页及三导出已实际核字节。源码f7e475053c4e639ee0f6c4bb1f68993fb12a7d83本机提交，发布另核本轮回执。六店来自原64,902B/3canonical正文/25引文，仍非已核口味/当期地址营业。0.3.4新增12unknown及真实待审model提案只候选，不冒本人批准；完整知识Owner权限映射、自动新ACK处理、双域/PWA/原登录恢复/连续OTA/全平台跨端48h未全验。原WB31ACK/partial74/10of12剩2与中央Edge40保持（本轮无新云查询/来源/ACK）。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### 当前主结果卡｜F1A正式可用，转领域结果和知识反馈
+### 当前主结果卡｜六店领域消费已正式，接知识审核与新ACK自动处理
 
-- **本轮结论**：原v2.2计划及[执行合同](product/EXECUTION-CONTRACT.md)继续有效。已有真实31素材已接现M0/M2/M3/M6/M7确定性链和原工作台。正式运行83631，源码a036e19be0ec85f7895731d5f4f721ad08ad3951。不是完整领域产品验收，不把材料准入当餐厅口味或参与奖励。
-- **用户实际入口**：原工作台45937→资料库→“查看当前已审素材”及“导出当前已审素材”；`/materials`、`/materials/report.json`、`/materials/materials.jsonl`、`/materials/materials.csv`。浏览器原iab真实打开页、三格式均下载，31 typed相等及SHA同正式快照；截图/文件证据见E65。
-- **输入/原账本**：原WB已ACK31项，本地mode=ro核原canonical/回执；本轮0新来源/0新ACK，原failed74/partial/累计10of12剩2保留。固定051的85源码pin（直接源码运行，不冒生产wheel），六文件纯材料包，0toolbox core重写；原RAW是耐久capture快照，不是原HTTP字节。
-- **实现/独审/采用**：V2三问题已修成V3c8e75/b127，组件dd056840、六源c2241ee7、准备86dcd87f通过；正式六源采用82280并d1ace184现场核。实际浏览器又发现JSON漏附件头，单行修9b9e经c9f60f9d/451168a2独审再采用83631；最终现场ea9dd205核1exact+458其他/fullset/五库实际backup原行/194保护及fresh66、idle/outbox0/原wait/31原ACK/四GET，均保持。
-- **并行F2**：复用065原runner四项保真修复冻结ea96f1ca、独审9b06bb70通过：214语料段UTF8 byte exact、18,239字符全文、原话与派生parent/hash分离、真实覆盖缺口。仅隔离候选，未执行KnowledgeStore本人审核/发布/pin，065整体NOT_PASS未升级；持久事件cand1/初始pin及Consumer联动仍未全验。
-- **F2事件/pin工程补充**：新冻结60e70471、非作者2b04ab3d核真实SDK持久反馈/gap/getters读回→候选、三域初始pin、新版与回滚历史及7组回归；仅engineering_test角色，原main/CLI/051 Consumer及本人采用仍未验。不覆盖四保真冻件，不升级065全生命周期；F1B真实领域输入正只读定位。
-- **下一结果/依赖**：F1B从既有授权领域证据形成实体/主张/评分与候选差异；F2先修原runner真实事件读回及初始pin，再同数据新旧包重算→审计发布→Consumer切pin/回滚。每版独立pack root，避免051旧版重审受active变化破坏。主控PM/集成，central作者，knowledge_reuse_probe与native_diagnostics_review非作者分工；F3成熟平台/F4参与端OTA并行支持，不以单平台调试抢主线。
-- **仍未完成**：自动新ACK触发处理尚未接现postprocessing回调（当前为固定真实批次发布）；领域事实/推荐、知识完整生命周期、双领域消费者、原两节点重登/连续OTA、全平台/跨端/48h。每个15–30分钟探索盒输出证据，连续两盒无证据换成熟替代。看门狗仍暂停。
+- **正式版本/入口**：87942/domain-79e4de53-0fad9455；源码f7e475053c4e639ee0f6c4bb1f68993fb12a7d83，外部发布见E66回执。工作台45937→资料库→“查看领域发现/导出领域发现”，固定`/data-product`、`/data-product/report.json`、`/data-product/items.jsonl`、`/data-product/items.csv`。原`/materials`31ACK素材页/导出/config保留。
+- **真实用户结果**：六店原64902B bundle/3完整canonical正文/25exact引文，经原05185pin+cuisines0.3.3 clean/score/audit/Consumer，原生候选报告。原iab实际页/三下载精确正式快照；报告hash cec2019d3f3c7724d2ff6712d31cbf44a1a4731ee1b255f94cd4fe4cbfb6b5a8。不是伪造餐厅推荐或新云ACK；raw是canonical bundle bytes，未保原HTTP bytes。
+- **审查/采用**：六店27冻件35169c17/非作者e97863fa；原CLI无stdout读取→薄publication_reader复用Consumer.current/render/make_storage，只本机SQLite RO，不新服务/处理框架。四源冻9f3a8a/非作者46584a4d，Manifest重读漂移/pins同bytes/错误project/pack/report均实拒；11实际HTTP/兼容31通过。准备V2 2daf5124/aec4efe0，唯一installer计数18含WALSHM初败→16白名单修复，旧冻件保留。原采用器切87942/旧83631停。
+- **现场证据**：非作者919e83e6实际4exact+456其他/fullset1新增，五库实际backup schema/raw两次等、220保护+fresh6/50/33/3同、idle/pending0/原wait同；领域6与原素材31各四GET精确，原31逐ACK canonical/digest/receipt保持。新领域配置600/pin固定，旧素材配置不变。BROWSER-FINAL另核原iab3下载和截图，不借测试当实机。
+- **知识增量当前状态**：f1b-cuisines-unknowns新包0.3.4只version/fields两optional unknown和labels，原四配置/rubric/core同；同RAW重算新增12unknown、原7语义字段/25引文/评分同，旧root可读。f7274923/非作者3ca8b74a有限通过，真实gap→model提案prop:f1b-proposal-cuisines-034为private/proposed，reviewgrant/review/release/pin0；未采用正式。非空optional仍不核事实，不能当地址/营业验证器。
+- **权限及待审入口缺口**：现Cloud Owner身份不等知识admin/reviewer。f2-owner-knowledge-preview候选0522d29d只读实际prop034/差异/证据，approve/reject在IO前authority_unmapped，已由非作者82f7ed63有限独审通过但未接正式；禁止造AuthContext(admin)或engineering_test冒本人授权。先复用真实登录/项目Owner授权完成映射，之后才开放动作。
+- **主线下一结果**：新ACK接现CloudWorker postprocessing_callback/toolbox jobs自动形成处理/发布，不新来源队列、不重发未知；并行知识真实Owner映射/审核及同数据新版切pin/回滚、领域实体事实与现PWA动态分类/地图/体验反馈。当前HTML显示taxonomy内部标签，消费体验仍需复用旧前端补齐，不能把原生报告称完整PWA。
+- **保留与未验**：0新来源/0新云ACK，原WB partial74/10of12剩2/任务身份预算保持；F1A正式31链与E65独审继续有效。F2保真/事件/pin工程slice已独审，完整main/CLI/Owner批准/Consumer联动未全验；双无关领域真实消费、七平台完整Pro/原两节点登录与连续OTA/Windows VM手机/48h未全验。主控PM/集成，central作者，knowledge/native非作者交叉；看门狗仍暂停。
 
 ### 12:07前规划阶段记录｜整产品基线继续有效
 
@@ -95,7 +95,7 @@
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | a036e19be0ec85f7895731d5f4f721ad08ad3951自有14源码/测试/包；14a86bc文档；push0/远端同，后续文档另回执 | 当前83631/materials-download-9b9e9241/云40；31素材正式Consumer/四HTTP/浏览器三下载/原ACK同；原WB partial74/10of12剩2 |
+| crowd-kol | f7e475053c4e639ee0f6c4bb1f68993fb12a7d83本轮5源码/测试本机提交；发布看E66回执，原a036e19/6e6d39已发布 | 当前87942/domain-79e4de53-0fad9455/云40；六店领域候选+31素材双入口，原WB partial74/10of12剩2保持 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
 crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E63及e63-progress-runtime-adoption批准冻结/现场独审为准，并保留continuation-current-runtime-adoption的17文件继承链，不能以HEAD替代；不要reset/clean或覆盖其他改动。
@@ -138,10 +138,10 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 ## 8. 接力可做与推进顺序
 
-先读本轮[统一产品计划](product/PRODUCT-PLAN.md)和两份独审，按F0–F7工作包推进；当前F1A及原E63真实WB证据继续保留。不要重新部署已采用13源，不为填满预算重跑原WB终页/同图，不恢复已暂停任务。
+先读本轮[统一产品计划](product/PRODUCT-PLAN.md)和两份独审，按F0–F7工作包推进；当前F1A/F1B及原E63真实WB证据继续保留。不要重新部署已采用13源，不为填满预算重跑原WB终页/同图，不恢复已暂停任务。
 
 1. F0/F1A已有固定051 source-pin和31已ACK正式发布证据；生产wheel仍未知，不以源码运行补写wheel安装。后续保旧发布与原ACK，禁止整包升级NOT_PASS候选。
-2. F1A已正式可用，继续F1B领域实体/评分/消费者、自动新ACK处理与F2知识新版同数据重算；F3成熟Pro来源/会话、F4原参与者恢复/连续OTA限槽并行，每项非作者独审。模型分析不作确定性首链前置。
+2. F1A及六店F1B候选已正式可用，继续领域事实/PWA、自动新ACK处理与F2真实Owner审核/新版同数据重算；F3成熟Pro来源/会话、F4原参与者恢复/连续OTA限槽并行，每项非作者独审。模型分析不作确定性首链前置。
 3. 原WB31ACK/累计10of12剩2、partial74保留；DY视频预算/本人会话、Bili原连接、贴吧原URL/主体、ZH stopped12、参与端两原设备/OTA/跨端/48h分别保未验。原两设备各两条，不重建身份制造通过。
 4. 主计划的阶段与指标是目标，不是当前完成。每轮更新日期/结论/下一步，主要变更记录精确版本/验证/采用/真实结果/独审，不靠测试数宣布业务完成。
 

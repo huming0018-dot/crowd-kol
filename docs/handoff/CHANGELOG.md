@@ -499,3 +499,24 @@
 - 自有14源码a036e19、七文档14a86bc已push授权crowd-kol分支，ls-remote同；SOURCE-PUBLISH-RECEIPT.json原件已锁，不以本机commit称发布。私码/原快照/凭据/无关dirty未入仓。
 - F2事件/pin新候选60e70471，非作者2b04ab3d实际SDK getters/四持久事件/初pin/升级回滚及7组回归通过，工程测试角色明示；原main/CLI/051 Consumer/本人审核未验。非作者初探针用错actor被ACL拒，初败保留后按原actor修探针，没放松产品ACL。
 - 交接版本表已同步83631，旧65679明确历史；下一步F1B具名实体事实与知识同数据Consumer联动/自动后处理，不将候选工程结果当完整交付。
+### 2026-10-16 12:51 CST｜E66｜代码代理工具 GitHub 只读初筛
+
+- **交接者**：Codex /root；无代码改动，无独立审查代理（未发生实质代码改动）。
+- **目标与范围**：为非专业用户筛选写代码、审代码、测试验收用 MCP 与 Skills。阅读当前 HANDOFF、EVIDENCE、CHANGELOG、ENTRY_TEMPLATE、OPTIMIZATION_RULES 和项目 ponytail/caveman 技能；官方一手仓库/文档优先。
+- **联网证据**：OpenAI Codex 的只读 `review-agent` 与 `code-review-testing` 样例；GitHub MCP 与 Copilot code review 文档；Microsoft Playwright MCP/Test；Semgrep 主仓 MCP 文档（旧独立 `semgrep/mcp` 已归档）；`obra/superpowers` 与 `github/awesome-copilot`。逐项记录用途、维护方、关注度提示和限制见 `outputs/code-agent-tools-research-20261016.md`。
+- **独立推演**：写改动、差异审查、用户行为验收是不同阶段；MCP 增上下文/动作入口，Skill 约束工作步骤，自动化测试/扫描产生可重复检查结果。建议先借鉴 Codex 官方审查样例；缺少对应能力时再小范围试单个 Skill 或 MCP。
+- **实际改动**：只新增研究记录；同步 HANDOFF、证据索引与本日志。未改代码、配置、数据、身份、浏览器凭证、采集任务或部署状态。
+- **版本 / 验证 / 独审 / 部署 / 业务验收**：本轮研究产物及链接已写入索引；不适用代码测试。未安装或运行候选，未核权限/本项目效果；未部署、无线上业务验收。无独立代码审查（没有实质代码修改）。
+- **风险 / 下一步**：Stars 不是专家共识或效能证明。用户若授权采用，先对单一候选做低风险同任务试用，记录质量、误报、操作数、耗时及权限，再决定是否安装。
+
+
+## 2026-10-16 12:52 CST｜E66｜真实六店领域链正式接入与知识待审增量
+
+- 接力/root（薄reader/工作台/集成）；central（原六店SDK纵切、新规则包与待审预览）；knowledge_reuse_probe（领域/规则非作者）、native_diagnostics_review（四源/采用器/现场非作者）。
+- 实际改动：5自有源码/测试，复用原Consumer而非新框架，新增固定领域四路由/入口/三导出；F1A31config及ACK guard保持。六店0.3.3原RAW64902B/3正文/25quote，6clean/score/audit/Consumer原生候选。原研究+独立推演在e66/OPTIMIZATION_PLAN；SQLite本轮页面刷新超时明确不冒fresh。
+- 验证/部署：35169c/e97863真实领域输入与SDK独审；9f3a8a/46584a四源11HTTP/漂移负例；准备2daf5124/aec4efe，原采用器87942/旧83631停，919e83e现场4+456/fullset/五库actual backup/220资产/fresh92/idle0/两发布8GET与31原ACK均同。实际原iab六店页+3下载SHA同正式report/unknown，截图/BROWSER-FINAL保留。源码f7e475053c4e639ee0f6c4bb1f68993fb12a7d83已commit，push另看SOURCE-PUBLISH-RECEIPT。
+- 初失败保留：安装18总条目误当排除WALSHM后数量，非作者临时BASE实复现，窄修16白名单；正式前修完，不复制WALSHM。一次shell stdin编码错使日志标签改动未执行，随后显式Python3.12改正后才冻结/全测。
+- 知识：新0.3.4纯配置f7274923/3ca8b74a独审，同RAW12明确unknown，真实model gap提案仍private/proposed无grant/review/release/pin；旧版独立root读回。待审preview0522d29d尚未采用，真实Owner→知识权限映射缺失，approve/reject拒，未伪本人授权。
+- 未完成/下一步：自动ACK处理、Owner知识审核与正式新版消费回滚、实体事实/现PWA/地图反馈、第二无关领域消费及原平台/登录/连续OTA/跨端48h。0平台/云模型请求或新ACK；预算/原身份不变，看门狗暂停。
+
+E66后补：Owner待审preview非作者82f7ed63有限通过，原DB与10冻结工件同；仍未正式采用、无admin或本人审批。自动新ACK处理与现M7前端接线已并行定位，未启动新来源。

@@ -5,6 +5,7 @@
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
 | E01 | EXEC/SESSION65-FREEZE.json、CHANNEL65-INDEPENDENT-VERIFY.json、participant-65/FREEZE.json；AUDIT/rea-shipped65-evidence.json、shipped65/manifest.json | 正式65源912b080；实际包解开检查（REA），非仅看版本声明。内包143663B/SHA256 0ee83b8deb48748bf9bfab95cd552026d877be5b2dae039af2326ef2fbf13df8；外包372007B/f18a477ea1f49304c6f65c045c601761c79299363b6b812488156b195e50ad30。10-14本轮重算本地包摘要。不能代表每台终端已应用 |
+| E66 | `outputs/code-agent-tools-research-20261016.md`；GitHub 官方仓库/官方产品文档链接见研究记录 | 10-16 只读浏览官方 OpenAI Codex、GitHub、Microsoft Playwright、Semgrep 仓库/文档及社区 Skills 仓库；比较能力和边界。未安装、未运行、未验证权限或本项目效果；Stars 仅为当时页面的关注度信号，非质量证明。 |
 | E02 | EXEC/ACCESS65-DEPLOY-READY/{CLOUD-REVIEWER-V12-READBACK.json,CLOUD-REVIEWER-PUBLIC-MANIFEST.json}；crowd-pages/v4/releases/；公开元数据入口见主文档 | 10:58 CST非作者生产三文件精确SHA回读与固定公网包核验，crowd-access v12。后续接力须复查线上是否仍同版本；本轮交接不重发包 |
 | E03 | EXEC/SECOND65-ADOPTION-INDEPENDENT.json、LOCAL65-IDENTITY-INDEPENDENT.json、LOCAL65-NATIVE-INDEPENDENT.json、LOCAL65-PARKING-INDEPENDENT-VERIFY.json；REVIEW-LOCAL65-PHYSICAL.md；local-physical-acceptance/REVIEW64-BODY-AND-RECEIPTS.md | 实机/云响应和独审原件：两实体65、4正文精确ACK、原身份保持、本机自然停车。远端助手完整ACK不可直接访问；全评论、媒体及完整重登恢复不在这4正文验收里 |
 | E04 | 本地 `2026-10-14-cloud-readback.json`（未在线共享）；EXEC/FINISH65-INDEPENDENT-RESULT.json、FINISH65-INDEPENDENT-PRODUCTION.json、FINISH66-PRODUCTION-AFTER.json；server/crowd/v4/supabase/migrations/20261014031206_crowd_v4_received_task_finish.sql | 11:34:42 CST实际SELECT：task19/20仍leased、2/2、过期；proof31–34 MD5固定。已部署finish函数MD5 98517d09b9759c5d316d7981b9a3b64f。作者17/独立18用例与定义差异/ACL回读为历史本轮执行证据；交接整理没有调用finish |
@@ -493,3 +494,17 @@ E62后续更正：root直接读取原DY `5afdd0e1-960d-4381-b6b7-1e3dcfa258cb/ma
 - e64-integration/SOURCE-COMMIT.json记录14公开自有源/测试/纯包及精确SHA；外部发布另以SOURCE-PUBLISH-RECEIPT.json为准。Pro私码、corpus、PRIVATE快照/配置/凭据不入仓。
 
 E65补：f2-knowledge-events/FREEZE.json60e70471；independent-knowledge/FINAL.json2b04ab3d（原actor新进程逐payload/event/receipt/evidence SHA、4事件、pin三版本历史及7测试；工程slice）。SOURCE-PUBLISH-RECEIPT.json核a036e19源码/14a86bc文档远端同，后续交接刷新另回执，旧回执不可覆盖。
+
+
+## E66｜六店领域发现正式入口（2026-10-16）
+
+- RUN16/f1b-domain-input/INPUT-READBACK.json、INPUT-PROBE.md核既有64902B bundle/3canonical/25quote；f1b-real-six/FINAL-FREEZE.json35169c17、independent-knowledge/FINAL.json e97863fa实际freshSDK/readonly重开、18原发布工件保持（含WAL/SHM；安装只16持久项）。原HTTPbytes未留、独立食客0/口味未核。
+- RUN16/e66-domain-consumer/FREEZE.json9f3a8a12、independent-review/FINAL.json46584a4d：4源exact、11实际HTTP含6领域/31原素材/错误pins、原Manifest漂移与同bytes反例；37发布文件不变。原CLI无stdout，READer复用报告见f1b-domain-input/READER-REUSE-REVIEW.md。
+- e66/formal-adoption/PREPARATION-V2.json2daf5124、MAPPING-ADOPTER-REVIEW.jsonaec4efe0、RUNTIME-FREEZE-APPROVED.jsoncd0d2193，原8函数采用器保持；installer初18→16窄修首失败/复核保原报告。DOMAIN-ASSETS-STAGED/FORMAL-DOMAIN-READY记16白名单、0600config、0来源四读6typed，单样本0.568–0.676s不冒p95。
+- e66/formal-adoption/runtime-adoption/ADOPTED.json记录87942；independent-review/ACTUAL-RUNTIME-FINAL.json919e83e6实际唯一PID/CMD、4exact+456others/fullset1new、五库backup schema/raw前后同、220保护/fresh92、idle/pending0、领域6与旧31各4GET及原ACK精确。
+- e66/BROWSER-FINAL.json及ACTUAL-DOMAIN-PAGE.jpg：实际原iab资料库链接→六店页、三个downloadMedia真实文件typed/SHA同正式快照。浏览器popup出现存在时序延迟，按实际tab4定位，没有据第一次tab列表补造失败。
+- f1b-cuisines-unknowns/FREEZE.jsonf7274923、independent-knowledge/FINAL.json3ca8b74a（40工件；正文计数误39另COUNT-ERRATUM，FINAL不覆）：新0.3.4仅配置/12unknown、原语义/旧版保持；实际gap/model提案private/proposed，0reviewgrant/review/release/pin。不是Owner本人采纳。
+- f2-owner-knowledge-preview/FREEZE.json0522d29d仅候选待审preview，原权限角色依据/authority_unmapped前置见DELIVERY；独审与正式采用另核，不能把现Cloud Owner CSRF当知识admin。
+- e66/SOURCE-COMMIT.json记录本轮5自有源/测试。远端发布以e66/SOURCE-PUBLISH-RECEIPT.json为准；不公开原bundle/DB/PRIVATE配置/Pro代码/凭据。
+
+E66补：f2-owner-knowledge-preview/independent-knowledge/FINAL.json82f7ed63核10冻件/原DB保持、实际CLI提案与diff读取/4测试/任何IO前approve-reject拒；不等Owner权限映射或正式审核入口通过。
