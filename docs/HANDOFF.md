@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 09:18 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
+更新：2026-10-16 09:43 CST，Asia/Shanghai。维护：Codex /root。本文件维护当前状态；重要历史留在日志。**交接是每轮工作的伴随机制，主线继续推进。**
 
 ## 1. 接力规则
 
@@ -16,13 +16,22 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：中央Edge38/68码已部署并独立回读，源码已推送；本机仍38406，新增caller未采用。微博rawresponse与贴吧当前窄合已独审但未正式采用；原WB累计5/12剩7、旧29ACK/新ACK0。链式恢复正在补跨epoch媒体与同锁身份校验，未冻结或上线；其他平台/OTA/全端/48h未全验，watchdog暂停。详见E59。
+当前阶段：云Edge39及两RPC、16源客户端50165已正式采用并独立现场核验，源码0a0fcde已推送。原WB新增1评论真实回执，现30（旧29不变），终态74/reply_terminal_incomplete；父7/12剩5。真实三HTTP导出及6来源步骤/准确细因上云已证，新媒体及完整回复未过；正修自加count严格中断和可复用断点，不再固定epoch补丁。其他Pro/登录/OTA/跨端/48h未全验，看门狗暂停。详见E60。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### E59｜中央微博有限诊断正式上线；分页与贴吧窄合独审完成，链式恢复仍在补齐
+### E60｜Pro组合正式采用；原任务新增1条真实回执，回复差距仍阻断完整采集
+
+- **云端/源码**：chain ba5f经非作者3393及guard baf73独审后，root按原授权部署两现有RPC函数/Edge39，ledger20261016012735、012838；非作者055ae完整fresh核27模块仅两契约变、其余25/steps68保持、实际两函数和全迁移字节/ACL一致、原任务quota/29received保持。四云源9a9d354fde199d2bb782b1455f58e88fec1e400f push0/远端同。没有新表、权限或默认执行器变化。
+- **客户端正式采用**：组合421a的16源由非作者39480独跑scratch17组及贴吧整入口/59回归；保183当前源/Ownerfb563/XHS/WBI/native/CDP/媒体。root采用50165/platform-chain-3b3184a3-ca164be9，旧38406停；非作者cc537实际核16exact+440其他/fullset新4、HTTP Fleet41719/Ownerfb563、五库实际backup schema/raw相等、179保护及fresh6账号/24产物/18WB/3ZH保持、idle/outbox0。该相等仅在新来源动作前。16源0a0fcde2b280391decc9f6ed7961f7546d5fa103 push0/远端同；不含Pro私码。RUNTIME-FREEZE-APPROVED/ROOT-MAPPING-REVIEW独立保留，旧PENDING准备原件不改。
+- **真实来源/云回执/导出（有限通过，完整未过）**：root在原UI先预览剩7，再只点一次确认；唯一新grant1dd1/原child epoch3，终端自动执行a061d526-1904-4a2c-8fb6-2784dc82301a/cloud9bf74269…，failed74/wb_reply_terminal_incomplete/API2of7，父累计7/12剩5。非作者70868核旧29 items+receipts逐typed同、18旧WB原件SHA同，新1评论/本地capture/真实UUID receipt35f51d7c…逐typed一致，原任务现30（1body29comment）。中央18events中6source逐字段等本地journal，终态有限码/74已实际投递，不再generic。真实HTTP JSON/JSONL/CSV R86各32行typed同，新1语义/全字段/版本hash/origin/receipt映射过；其余历史及引用行不冒新抓。新媒体0、未dispatch，未完成正文/评论回复/媒体完整业务验收。
+- **本次故障实证与修复方向**：持久reply页显示父声明2、实际保存1、has_moreFalse；原始HTTP body未保留，不能认定删评/权限或具体平台原因。当前自有adapter在保存后因少于声明数全局throw，尚未访问另两选根，媒体亦被阻断；Pro原版只保存embedded/按根cursor结束，也不能据此当完整。central正在独立候选保留missing_unknown/partial、不提交根游标，同时继续其他独立根和媒体，父子/重复/保存/预算校验保留。a061已有fresh1，已超现零fresh单层恢复模式，不能重放grant、重建任务或扩12凑通过。后续复用Pro断点并泛化同原任务已ACK行的origin/最新失败证明，不继续增加固定epoch特判。
+- **其他平台与定位校准**：native正核DY/KS实际Pro入口和原样本差距。Pro账号池已有固定Bridge client绑定，项目已有session_only_unverified/confirm_same_account能力，不应以不存在的官方自身UID接口永久阉割平台；会话身份与官方UID必须分别标明，未正式放宽guard或新增Cookie权限。用户再次要求说明价值：采集核心尚未证明优于Pro，优先完整复用成熟采集；自有价值集中参与者/评分/中央派单/耐久回传/云回执/OTA。重复平台实现须同输入保真验证后逐项退役，不能三套长期叠加。
+- **下一步/未验**：独审partial-gap组件及可复用已ACK断点恢复，保原总12/已7/剩5与旧30回执；无新授权前不自动再采。并行DY/KS成熟能力接入与原会话连续性；贴吧原主体/URL、Bili原连接及同主体、登录恢复全场景、连续OTA/跨端/48h仍未全验。目标active，看门狗暂停。
+
+### E59历史｜中央微博有限诊断正式上线；分页与贴吧窄合独审完成，链式恢复仍在补齐
 
 - **代码/测试/部署**：本轮从已实现的自有微博适配器静态失败分支补32码，旧36全部保留，共68；Python、Edge、SQL、Fleet中文标签一致。非作者d3e4独跑Python68/敏感5、Fleet10旧+32新、Edge→PGlite134与重复guard136、生产MachineSteps耐久SQLite68条断网/重启重放/全ACK及5坏事件拒绝。root按本人已有步骤诊断授权部署，仅steps有限枚举变化，Edge38/27模块、实际ledger20261016011137；非作者实际回读见POST-DEPLOY-FINAL.json（b10f11959f718e19e48fadf76782199db58d8a024fae12380efb9d0755733d2a），源码21632a7ba30885bbd7af653b997cf4274353a75a push0/远端同。其他26模块及source/image/原ACL保持。没有发送新来源请求，也没有回填或改写旧15条微博云事件。发布回执记录首版实际审查SHA34055，审查者随后补真实quota/receipt使最终SHA变为b10f；原回执保留，SOURCE-PUBLISH-FINAL-REVIEW-LINK关联锁定终版，不用旧摘要冒终版。
 - **客户端边界**：本机仍38406/owner-preview-fb5636ff3bb3；新run_diagnostics和Fleet只在候选，未采用，不能称真实细因已成功上报。原WB最新9b为known failed74，新尝试API2/9，父累计5/12剩7/原29ACK；本轮没有重放旧grant、扩额度或新增真实ACK。历史shape细因本地已知、原实际响应body未知，不能用SDK风险推断真实响应。
@@ -230,7 +239,7 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | http://127.0.0.1:45937/ | 本机工作台，其他设备不能直接访问loopback |
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
-| .crowd-launch/runtime-revisions/owner-preview-fb5636ff3bb3/ | E59当前38406，继承已审17文件续采/36码客户端及Owner轮询确认修复；XHS/Bili/CDP/流式媒体SHA保持。中央Edge38/68码已部署独核，本机36码caller尚未更新。真实WB新尝试失败74，父5/12剩7/旧29，不能用部署或旧回执称业务通过。默认MC，显式Pro原守门保持；snapshot不等于Git HEAD |
+| .crowd-launch/runtime-revisions/platform-chain-3b3184a3-ca164be9/ | E60当前50165/platform-chain-3b3184a3-ca164be9；16源正式采用、Ownerfb563/XHS/Bili/CDP/流式媒体SHA保持。中央Edge39/68码已独核。真实WB新1评论已ACK，现30/父7of12剩5、reply_terminal_incomplete/74；新媒体与完整回复未过。默认MC，显式Pro原守门保持；snapshot不等于Git HEAD |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
 | outputs/collector-adversarial-audit-2026-10-14/ | 当前会诊、独立复现、正式65解包、未发布恢复检查点及Pro盘点 |
@@ -246,10 +255,10 @@ E41 00:55历史候选记录了原3cda首次断桥和38818正常菜单退出→39
 | 仓库 | HEAD | 未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | 2143c7c2e3c42a7294809789ad319422c6cfd03b已push0/远端同；父ed7bdddb为17文件；云36码56639c17 | 当前38406/owner-preview-fb5636ff3bb3，云37；原微博已知失败shape/剩7/新ACK0，其他未提交资产不并入 |
+| crowd-kol | 0a0fcde2b280391decc9f6ed7961f7546d5fa103已push0/远端同；云chain9a9d354、诊断21632a7 | 当前50165/platform-chain-3b3184a3-ca164be9/云39；原WB已知部分失败，现30回执/已7of12剩5，其他未提交资产不并入 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E59及continuation-card-preview-runtime运行冻结为准，并保留continuation-current-runtime-adoption的17文件继承链，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E60及e60-platform-runtime-adoption批准冻结/现场独审为准，并保留continuation-current-runtime-adoption的17文件继承链，不能以HEAD替代；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -289,12 +298,13 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 ## 8. 接力可做与推进顺序
 
-先读E59、68码实际云部署独审和源码回执，再读E58原WB实际失败与当前38406运行冻结。不要将单adapter/贴吧受控独审写成正式来源验收；链式恢复未最终冻结，先处理锁内身份复核及原seed/最新失败分离。
+先读E60、actual-wb-chain/INDEPENDENT-FINAL（70868）、本机采用现场cc537及云39实际055ae。上轮已部署/已采用/已跑真实来源，不得从旧E59“候选待采用”重复执行；当前是有1fresh后的已知失败，不能再套零fresh链。
 
-1. 修SDK hotFlowChild原response合同并保单次HTTP与共享预算/步骤；不凭HTTP200推断实际payload形状，不复制vendor。修最新失败与原seed分离的链式续采后，只对latest epoch2/已知失败/原scope/剩7做新CAS授权，禁止重放原grant或reset总12/旧29。
-2. 未知、pending store、取消半写或身份改变仍阻断；代码/离线/部署/真实来源/新增云ACK分别验，画面文字不冒全文转写。中央已接受68有限码，但本机caller未采用，旧事件仍为通用码；实际新细因上报未验。
-3. 贴吧V3受控独审已过但账号ref/Pro绑定/原Bridge与URL保真仍缺；current窄合保持WB/WBI/媒体，只读先核原资产与最小真实主体路径，不借Bili/XHS新profile安装权限、不重连expired CDP。Bili原3cda暂停、已用1/总12；知乎原任务stopped12/12，不擅自重启。
-4. 旧历史4BEFORE和旧PREPARATION原字节丢失，不能假装可复核；新的采用已用现场索引和五库备份独审，事故与缺口保留。完成后按模板更新唯一入口、证据和日志；completed代理用followup_task唤醒，不以协调消息代替执行。
+1. 修自有adapter声明数差距的全局中断，明确missing_unknown/partial而非假完整；继续其他独立根及媒体，保父子、重复、保存、预算与未完成游标。优先复用Pro原生执行，不能复制其只保存embedded就当完整。
+2. 复用原任务断点/现有source_continuations，分离不可变seed、历次已ACK行origin、最新失败证明；总12/已7/剩5、旧30保持。未知/pending/未持久保存仍拒，不新任务、重放grant、固定epoch补丁或自动扩额度。候选独审/正式采用后才新的有界来源验收。
+3. DY/KS优先复用Pro成熟入口及项目既有会话绑定，官方UID与session身份区分；不能要求上游没有的UID前置，也不能伪装已核官方主体或越授权读新profile。贴吧原主体/URL、Bili原授权连接仍缺；ZH原任务stop12不重启。
+4. 历史证据事故与缺失原件仍保留；本轮新的采用已用当前现场索引/五库实际备份独审。继续按固定模板更新，FINAL一次完整锁定，追加证据另文件。
+
 
 参与端连续OTA、其他Pro平台正文/评论分页/媒体/三导出、跨端和48h未全验，看门狗仍暂停；不得自行arm试验或扩大参与者预算。
 

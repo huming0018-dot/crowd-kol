@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E59为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E60为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -433,3 +433,7 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 | E59W | RUN16/pro-wb-child-wire/independent-review/FINAL.json f8b782 | 单adapter原SDK rawresponse和单次传输受控独审；非实际响应body归因、未采用 |
 | E59T | RUN16/pro-tieba-adapter/current-36106/independent-review/FINAL.json 80c304 | 7源窄合/实际SDK受控/旧21publicraw投影与三导出独核；原账号/URL/新来源云未验 |
 | E59C | RUN16/wb-continuation-chain/independent-review/PRE-REVIEW.json c3ad | 非最终审：最新epoch2与原anchor分离，Owner锁内身份并发风险待修复复核；候选未冻结/部署 |
+
+| E60C | RUN16/wb-continuation-chain/independent-review/FINAL.json 3393；wb-continuation-chain-deployment/{GUARD-FINAL.json baf73,independent-native/POST-DEPLOY-FINAL.json 055ae,SOURCE-PUBLISH-RECEIPT.json} | 两RPC/Edge39真实部署回读，source9a9已发布，保steps68/其他25/ACL；非新来源验收 |
+| E60A | RUN16/current-platform-combination/independent-review/FINAL.json 39480；e60-platform-runtime-adoption/{RUNTIME-FREEZE-APPROVED.json,ROOT-MAPPING-REVIEW.json,runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json cc537,SOURCE-PUBLISH-RECEIPT.json} | 50165/16精确+440其他/五库backup/179保护/fresh6+24+18+3在新来源前保持；源码0a0fcde已发布 |
+| E60W | RUN16/actual-wb-chain/{INDEPENDENT-FINAL.json 70868,INDEPENDENT-TERMINAL-CHECK.json,EXPORT-INDEPENDENT.json,ACTUAL-PREVIEW.jpg,ACTUAL-AFTER-CONTINUE.jpg} | 实际epoch3/a061/唯一新grant，1新评论receipt/原29保持，父7of12剩5，有限错误真实上云/6来源步骤；R86三HTTP导出32行仅1新；failed74无新媒体非完整业务 |

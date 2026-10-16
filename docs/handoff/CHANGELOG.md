@@ -414,3 +414,12 @@
 - 验证：跨四端有限码、134/136 SQL与68耐久重放独审；实际云回读见POST-DEPLOY-FINAL。旧原WB29/父5of12剩7保持，本轮新来源0/新ACK0，不回填历史15steps。
 - 已审候选：原SDK WB rawresponse单adapterf8b782、贴吧current窄合80c304，均不是正式来源/云验收。
 - 风险与下一步：chain预审c3ad发现Owner账号锁内重核缺口，作者修复；跨epoch媒体、真实SDK whole/CloudWorker/最终独审仍待。之后以current38406合并采用，latestepoch2剩7有界原任务验证；不重放旧grant、不扩12、不清旧29。Bili登录连接/其他平台/OTA/全端/48h仍未全验，看门狗暂停。
+
+
+## 2026-10-16 09:43 CST｜E60 云与客户端正式采用，原任务新增1真实回执但完整回复仍失败
+
+- root部署两guard SQL/Edge39，cloud源码9a9d354 push0/remote同；central作者chain ba5f，peer3393及guard baf73，native实际055ae独核。native组合421a经peer39480后root采用50165，peercc537实际16+440/fileset、五库backup/179/fresh6+24+18+3保持，客户端0a0fcde push0/remote同。源前保护证据不能外推源后全库不变。
+- root原UIpreview剩7后单次确认；新grant1dd1/epoch3/a061/cloud9bf自动执行，failed74/wb_reply_terminal_incomplete/API2of7，父已7/总12剩5。peer70868独核旧29整items/receipt+18WB SHA保持，新1逐条capture/receipt/normalize一致；真实R86 JSON/JSONL/CSV32行typed同仅1新。中央18steps中6来源与local逐字段同、准确有限终态码已到云。无新媒体/后两根/完整业务通过，不重试。
+- 原因范围：持久分页仅证声明2/返回保存1/terminal，无rawbody不能猜删评/权限；自加count全局throw阻断后续根/媒体。central修partial-gap候选并设计复用已ACK断点，不再固定epoch特判。native核DY/KS入口/原样本，复用现有session身份与本人原账号确认，不伪造官方UID、不新增Cookie权限。
+- 用户校准：自有采集核心未证优于Pro；成熟能力优先复用，自有聚焦参与者/派单/评分/回传/云回执/OTA。重复实现只在同输入保真验收后退役，不把工程过程算产品优势。
+- 下一步：独审并采用partial-gap/耐久断点后，原总12/已7/剩5/旧30内真实验证；未自动发新grant。其他Pro/登录恢复/Bili连接/连续OTA/跨端/48h仍未验，目标active/watchdog暂停。
