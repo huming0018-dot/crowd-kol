@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E57为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E58为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -416,3 +416,15 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 | E57CF | RUN16/central-authorized-deployment/POST-DEPLOY-FINAL.json d387820c；SOURCE-PUBLISH-RECEIPT.json | Edge36/27文件字节精确、三RPC实际body/ledger精确、RLS/ACL及表0行、三原任务只读状态保持，非作者无源/写；云7源b20611c push0远端同，不含privateindex/vendor。15码非36码；本机caller待合、续采业务未验 |
 
 | E57R | RUN16/central-authorized-deployment/MIGRATION-FILENAME-ALIGNMENT-RECEIPT.json | 96996e95 push0远端同；正式三SQL改名为20261016001508/001523/001534匹配实际ledger，原SQL SHA完全保持，0云调用，旧计划文件留outputs；不是再部署 |
+
+| E58D | RUN16/central-diagnostics-current36/{FREEZE.json,independent-review/FINAL.json,DEPLOYMENT-RECEIPT.json,independent-review/POST-DEPLOY-FINAL.json,SOURCE-PUBLISH-RECEIPT.json} | 36码102检查、repeat-guard、Edge37仅steps与实际SQL/ledger逐字核；原预算/ACK不变，无新来源 |
+| E58T | RUN16/pro-tieba-adapter/v2-full-entry/independent-review/INITIAL-FINAL.json 37fa | 历史V2四组实证阻断未放行；当时V3需另审，最终受控独审见E58TV3，不以正常fixture替代 |
+| E58C | RUN16/continuation-current-baseline/{INITIAL-MERGE.json,CONFLICT-RESOLUTION.json,FREEZE15.json,REGRESSION-RESULTS.json} | 历史15码当前合并准备证据；最终36/正式采用及现场核验另见E58A/E58U |
+| E58I | RUN16/continuation-current-runtime-adoption/HISTORICAL-COLLISION.json；historical-index-recovery/RESULT.json | 旧runtime freeze恢复dfc；4旧BEFORE与原PREPARATION缺失，禁止冒新为旧；新采用需现场独审 |
+
+| E58A | RUN16/continuation-current-baseline/FREEZE36.json 1c885/independent-review/FINAL.json 8bcc；continuation-current-runtime-adoption/{runtime-adoption/ADOPTED.json,independent/ACTUAL-RUNTIME-FINAL.json 6e165,SOURCE-PUBLISH-FINAL-REVIEW-LINK.json} | 17文件36106采用与现场独核，源码ed7；最终报告链接更正审查中间hash，旧回执保留 |
+| E58U | RUN16/continuation-card-preview/v3/independent-review/FINAL.json 08a15；continuation-card-preview-runtime的运行/现场b425/源码2143及ACTUAL-WB-CONFIRM-RETAINED.jpg | 38406单JS实际采用、轮询确认保留/显式第二步；新来源前五库/保护同，不能外推来源后全库不变 |
+| E58W | RUN16/actual-wb-continuation/INDEPENDENT-FINAL.json 28cb及INDEPENDENT-TERMINAL-CHECK.json/SQL原件 | 唯一真实grant/epoch2/new9b1，API2/9/父5of12剩7/旧29不变；新ACK0/无媒体/三导出未过，15steps中4source等本地，细因目前未上云 |
+| E58TV3 | RUN16/pro-tieba-adapter/v3-full-entry/independent-review/FINAL.json e489；current-36106/FREEZE.json 4d2c | V3受控修四组阻断，当前窄合未采用；原publicraw投影与API源保真分开，主体/原URL/真实云缺 |
+
+| E58WC | RUN16/pro-wb-child-wire/FREEZE.json 91ae23/DELIVERY.md | 单adapter原SDK rawresponse与unwrap原传输20组作者受控测试，尚待非作者审/正式采用；实际9b payload形状仍未知，不追加来源请求 |

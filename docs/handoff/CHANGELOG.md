@@ -394,3 +394,14 @@
 - 08:20独立补证：POST-DEPLOY-FINAL.json d387820c已fresh核Edge36/27文件、三SQL实际body及ledger、RLS/ACL/表0行与三原任务保持，无source或业务验收。云7源b20611c85177dd6e4e21bebde07fb318f4c1af6b push0/remote同，不含私有index/vendor；本机仍27263、六源0c744985，旧V3 caller不能整包覆盖，须当前基线窄合后独审。独立36码尚未云采用。
 
 - 迁移源码命名收口：当前96996e95e0fe1dc10e21399d8652b52bbab667c8/push0/remote同，仅将三正式SQL文件名对齐实际ledger 20261016001508/001523/001534，SQL字节/SHA不变，0云操作；原计划名冻结仍在outputs。云部署依据仍b20611c及d387独审，不能重发已执行迁移。
+
+
+## 2026-10-16 08:58 CST｜E58 诊断与续采正式采用；真实原任务已知失败后定位协议缺口
+
+- 接力/改动：root中央36码增量与正式采用、UI操作；native_diagnostics当前17文件三方合并/单Owner预览持久化；central_steps采用器草稿/Tieba窄合；native_diagnostics_review独立回放、现场和真实云结果审查。先独审再正式copy，不混受控与真实。
+- 源码与部署：中央Edge37/实际ledger20261016002450/有限36码，源码56639c17；客户端17文件ed7bdddb→36106/现场6e165，再单Owner2143c7c2→38406/owner-preview-fb5636ff3bb3/现场b425，均push0/remote同。SOURCE-PUBLISH-FINAL-REVIEW-LINK保最终6e165，原审查中间e4cc链接不删。三MD发布另看HANDOFF-E58-PUBLISH-RECEIPT，不拿源码发布替代。
+- 验证：36码102及重复guard；17合并72含原Cloud38、原SDK微博4组、Bili2、XHS17、Owner20/Fleet10；新UI13+原20/4/4及3额外旧DOM/迟到反例。旧V1/V2首败保留；来源动作前实际五库schema/raw、170/6身份/24产物/9WB/3ZH保持，不外推来源后全库不变。
+- 真实来源/回执：root在原UI预览/轮询与显式刷新后保剩9确认，再单次第二click；唯一grant15bb/原child next epoch2，new9b1/cloud6cb自动执行，两次请求后known failed74/wb_reply_page_shape_invalid。父累计5of12剩7/reserved0，新ACK0/新媒体0/三导出未过；旧29 receipts/items逐字typed同且9旧资产SHA同。复用4条不冒新抓。中央15steps中4source=本地逐字段，终态细因仍run_failure_unclassified；响应body形状没有保留，SDK剥data是已核代码风险而非这次实际payload归因。没有再试/重放原grant。
+- 其他Pro：贴吧V3 88d9/e489受控修四组反例通过，current窄合4d2c未正式采用；原publicraw21业务投影/导出可核，真实账号ref/Pro绑定/Bridge对应及原媒体URL未知，不扩SUPPORTED。Bili暂停1of12、ZH stopped12of12维持，OTA/其他平台/跨端/48h未全验，看门狗暂停。
+- 事故：准备采用器误覆盖历史6件，runtime精确恢复dfc；4BEFORE+原PREPARATION原字节仍缺失，不重造旧证据。新采用已用新的现场索引和五库备份独审，事故及roothash追索原件保留。
+- 下一步：修SDK原response/单次传输及最新失败与不变seed分离的链式恢复，原总12/已5/剩7/旧29不可改；补有限shape细因，候选各独审后再正式采用/云部署/真实回执。目标active，本轮不是业务完成。
