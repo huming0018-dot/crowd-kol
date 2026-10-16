@@ -535,6 +535,7 @@ class CloudWorker:
             if 'session_bindings' not in state:state['session_bindings']=prior.get('session_bindings',{})
             if 'waiting_logins' not in state:state['waiting_logins']=prior.get('waiting_logins',[])
             if 'postprocessing_runs' not in state:state['postprocessing_runs']=prior.get('postprocessing_runs',[])
+            if 'postprocessing_contexts' not in state:state['postprocessing_contexts']=prior.get('postprocessing_contexts',{})
             if 'pending_deliveries' not in state:state['pending_deliveries']=prior.get('pending_deliveries',[])
             if 'last_stop' not in state and 'last_stop' in prior:state['last_stop']=prior['last_stop']
         if self.last_stop is not None:state['last_stop']=self.last_stop
@@ -716,11 +717,15 @@ class CloudWorker:
                 if self.postprocessing_callback:
                     latest = mc_runner.read(self.path)
                     for run_id in list(latest.get('postprocessing_runs', [])):
-                        try:self.postprocessing_callback('enqueue', {'run_id': run_id})
+                        try:
+                            enqueued = self.postprocessing_callback('enqueue', {'run_id': run_id, **({'material_context': latest['postprocessing_contexts'][run_id]} if run_id in latest.get('postprocessing_contexts', {}) else {})})
+                            if isinstance(enqueued, dict) and enqueued.get('material_pending') is True:
+                                continue  # Normal background work retains the original pending item.
                         except Exception:
                             self.postprocessing_error = 'postprocessing_enqueue_failed'
                             continue  # Retain this pending job without stopping a separate source lease.
                         latest['postprocessing_runs'].remove(run_id)
+                        latest.get('postprocessing_contexts', {}).pop(run_id, None)
                         self._save(latest)
                     try:self.postprocessing_callback('tick', {})
                     except Exception:
@@ -1217,9 +1222,24 @@ class CloudWorker:
                 raise CloudError('invalid_cloud_ack')
             self._observe_workflow(state, 'waiting_login' if state['outcome'] == 'login_required' else
                                    'completed' if state['outcome'] == 'completed' else 'paused')
-            if (self.postprocessing_callback and state['outcome'] == 'completed' and state.get('local_run_id')
-                    and state['lease'].get('request', {}).get('platform_options', {}).get('transcript_only') is True):
-                state['postprocessing_runs'] = list(dict.fromkeys([*state.get('postprocessing_runs', []), state['local_run_id']]))
+            legacy_postprocessing = (state['outcome'] == 'completed' and state.get('local_run_id')
+                    and state['lease'].get('request', {}).get('platform_options', {}).get('transcript_only') is True)
+            material_postprocessing = (state['outcome'] in ('completed', 'failed', 'stopped') and state.get('local_run_id')
+                    and type(state.get('api_attempts')) is int and state['api_attempts'] >= 0
+                    and not state.get('api_attempts_unverified')
+                    and type(status.get('acknowledged')) is int and status['acknowledged'] > 0
+                    and (self.root.parent / 'data-products/material-auto-runtime.json').is_file())
+            if self.postprocessing_callback and (legacy_postprocessing or material_postprocessing):
+                local = state['local_run_id']
+                state['postprocessing_runs'] = list(dict.fromkeys([*state.get('postprocessing_runs', []), local]))
+                if material_postprocessing:
+                    state.setdefault('postprocessing_contexts', {})[local] = {
+                        'schema': 'crowd-material-postprocessing-v1', 'local_run_id': local,
+                        'task_id': state['lease']['task_id'], 'child_id': state['lease']['child_id'],
+                        'cloud_run_id': state['lease']['run_id'], 'lease_epoch': state['lease']['lease_epoch'],
+                        'platform': mc_runner.PLATFORMS[state['lease']['platform']],
+                        'outcome': state['outcome'], 'api_attempts': state['api_attempts'],
+                        'finish_hash': payload['finish_hash'], 'finish_verified': True}
                 self._save(state)
             if state['outcome'] == 'login_required':
                 pending = {k:v for k,v in state.items() if k != 'waiting_logins'}

@@ -69,7 +69,16 @@ def snapshot_bundle(snapshot,runtime_root):
   candidates.append({'id':cid,'revision':1,'draft':{'title':title,'text':text,'entity_type':rec['kind']},'evidence':[{'source_version_id':cid,'start':0,'end':len(title),'quote':title,'field':'title'}]+[{'source_version_id':cid,'start':start,'end':min(start+5000,len(text)),'quote':text[start:start+5000],'field':'text'}for start in range(0,len(text),5000)],'capture':item,'coverage':snapshot.get('coverage','unknown'),'unscoreable_reason':'No verified restaurant identity or independent dining evidence. Material traceability is not taste, quality or reward.'})
  return {'source_versions':sources,'candidates':candidates,'capture_snapshot':snapshot}
 
-def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_sha256,output,as_of,runtime_root,runtime_cloud_sha256):
+def _same_or_create(path,raw):
+ path=Path(path).absolute()
+ if any(x.is_symlink()for x in (path,*path.parents)):raise MaterialError('material_path_symlink')
+ if path.exists()or path.is_symlink():
+  if read_bytes(path,MAX_SNAPSHOT)!=raw:raise MaterialError('material_job_artifact_changed')
+  return
+ fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+ with os.fdopen(fd,'wb')as f:f.write(raw);f.flush();os.fsync(f.fileno())
+
+def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_sha256,output,as_of,runtime_root,runtime_cloud_sha256,job_id=None):
  # Fixed admin configuration supplies roots/digests; browser callers supply only job scope.
  root=pin_source(toolbox_root,toolbox_pins);blob=read_bytes(snapshot_path,MAX_SNAPSHOT)
  if hashlib.sha256(blob).hexdigest()!=snapshot_sha256:raise MaterialError('material_snapshot_changed')
@@ -91,20 +100,50 @@ def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_s
  utc(as_of,'as_of')
  if toolbox.__version__!='0.5.1'or not Path(toolbox.__file__).resolve().is_relative_to(root.resolve()):raise MaterialError('toolbox_import_mismatch')
  snapshot=parse_json(blob);bundle=snapshot_bundle(snapshot,runtime_root);raw=json.dumps(bundle,sort_keys=True,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode();digest=hashlib.sha256(raw).hexdigest()
+ if job_id is not None and (type(job_id)is not str or len(job_id)!=64 or any(x not in '0123456789abcdef'for x in job_id)):raise MaterialError('material_job_id_invalid')
  output=Path(output).absolute()
  if any(p.is_symlink()for p in (output,*output.parents)):raise MaterialError('material_output_symlink')
- output.mkdir(mode=0o700,parents=False,exist_ok=False)
- store=output/'packs';mgr=OntologyManager(store);installed=mgr.install(pack);packdoc=yaml.safe_load(read_bytes(pack/'pack.yaml',MAX_SNAPSHOT));packid=packdoc['pack']['pack_id'];contract=load_pack(store,packid)
+ output.mkdir(mode=0o700,parents=False,exist_ok=job_id is not None)
+ if job_id is not None:
+  # The caller persists job scope/as_of; retries cannot silently bind new bytes.
+  bound={'job_id':job_id,'snapshot_sha256':snapshot_sha256,'bundle_sha256':digest,'as_of':as_of,'toolbox_pins_sha256':hashlib.sha256(read_bytes(toolbox_pins,MAX_SNAPSHOT)).hexdigest(),'pack_sha256':pack_sha256,'runtime_cloud_sha256':runtime_cloud_sha256}
+  marker=output/'material-job-input.json'
+  if not marker.exists() and any(output.iterdir()):raise MaterialError('material_job_unbound_directory')
+  _same_or_create(marker,json.dumps(bound,sort_keys=True,separators=(',',':'),allow_nan=False).encode())
+ store=output/'packs'
+ if job_id is not None and any(p.is_symlink()for p in (store,output/'data',output/'inputs')):raise MaterialError('material_output_symlink')
+ mgr=OntologyManager(store);packdoc=yaml.safe_load(read_bytes(pack/'pack.yaml',MAX_SNAPSHOT));packid=packdoc['pack']['pack_id']
+ installed_pack=store/'packs'/packid/packdoc['pack']['version']
+ if job_id is None or not installed_pack.exists():mgr.install(pack)
+ contract=load_pack(store,packid)
+ if job_id is not None:
+  for name in expected:
+   if hashlib.sha256(read_bytes(installed_pack/name,MAX_SNAPSHOT)).hexdigest()!=pack_sha256[name]:raise MaterialError('material_pack_changed')
  pid='confirmed-'+snapshot['task_id'];mf={'schemaVersion':'0.4.0','project':{'project_id':pid,'name':'已确认公开素材','domain':'public-source-material','region':'unknown'},'storage':{'backend':'sqlite','path':'data/store.sqlite'},'crawler':{'connector':'snapshot-file','timeout_seconds':30.0,'max_requests':1,'max_bytes':MAX_SNAPSHOT,'per_request_max_bytes':MAX_SNAPSHOT},'ontology':{'packs':[packid]},'pipelines':{k:{'schemaVersion':'0.2.0','target':'data/'+k}for k in ['raw','clean','scored','audit']},'raw':{'sources':[{'source_id':'confirmed-snapshot','kind':'json','url':'snapshot://'+snapshot['task_id'],'connector':'snapshot-file'}]}}
- mfpath=output/'manifest.yaml';mfpath.write_text(yaml.safe_dump(mf,allow_unicode=True));manifest=Manifest.load(mfpath);(output/'data').mkdir();db=SqliteStorage(output/'data/store.sqlite')
+ if job_id is not None:
+  (output/'inputs').mkdir(mode=0o700,exist_ok=True)
+  _same_or_create(output/'inputs/confirmed-bundle.json',raw)
+  mf['raw']['sources'][0].update(url='snapshot://inputs/confirmed-bundle.json',expected_sha=digest)
+ mfpath=output/'manifest.yaml';_same_or_create(mfpath,yaml.safe_dump(mf,allow_unicode=True).encode());manifest=Manifest.load(mfpath);(output/'data').mkdir(exist_ok=job_id is not None);db=SqliteStorage(output/'data/store.sqlite')
  try:
-  source='snapshot://'+snapshot['task_id'];rid=db.write_raw(pid,{'schemaVersion':'0.2.0','project_id':pid,'layer':'RAW','payload':raw,'source_url':source,'source_hash':digest,'batch':snapshot_sha256,'captured_at':as_of,'lineage':{'project':pid,'source_url':source,'source_hash':digest,'batch':snapshot_sha256,'captured_at':as_of,'steps':['durable-capture-snapshot-not-http'],'tool_versions':['ctfs-toolbox:'+toolbox.__version__]}})
-  stages=Stages(manifest,contract,db,as_of);chains=[]
-  for ods in stages.clean(rid):
-   dw=stages.score(ods['record_id'],ods['version']);audit=stages.audit(rid,dw['record_id'],dw['version'])
-   if not audit['passed']:raise MaterialError('material_audit_failed')
-   chains.append({'raw':exact_ref(db.read(pid,'RAW',rid),'RAW'),'dw':exact_ref(dw,'DW'),'audit':exact_ref(audit['audit'],'APP')})
-  consumer=Consumer(manifest,contract,db,as_of);receipt=consumer.publish(chains);data=consumer.current()
+  if job_id is not None:
+   from toolbox.jobs import Jobs
+   jobs=Jobs(manifest,contract,db,as_of)
+   try:
+    status=jobs.run(job_id)
+    if status.get('state')!='completed':raise MaterialError('material_job_not_completed')
+   finally:jobs.close()
+   consumer=Consumer(manifest,contract,db,as_of);data=consumer.current()
+   receipt=status['attempts'][-1]['outputs']
+   consumer.publication(receipt)
+  else:
+   source='snapshot://'+snapshot['task_id'];rid=db.write_raw(pid,{'schemaVersion':'0.2.0','project_id':pid,'layer':'RAW','payload':raw,'source_url':source,'source_hash':digest,'batch':snapshot_sha256,'captured_at':as_of,'lineage':{'project':pid,'source_url':source,'source_hash':digest,'batch':snapshot_sha256,'captured_at':as_of,'steps':['durable-capture-snapshot-not-http'],'tool_versions':['ctfs-toolbox:'+toolbox.__version__]}})
+   stages=Stages(manifest,contract,db,as_of);chains=[]
+   for ods in stages.clean(rid):
+    dw=stages.score(ods['record_id'],ods['version']);audit=stages.audit(rid,dw['record_id'],dw['version'])
+    if not audit['passed']:raise MaterialError('material_audit_failed')
+    chains.append({'raw':exact_ref(db.read(pid,'RAW',rid),'RAW'),'dw':exact_ref(dw,'DW'),'audit':exact_ref(audit['audit'],'APP')})
+   consumer=Consumer(manifest,contract,db,as_of);receipt=consumer.publish(chains);data=consumer.current()
   if len(data['items'])!=len(bundle['candidates']):raise MaterialError('material_count_mismatch')
   expected_records={x['capture_id']:x for x in snapshot['captures']}
   if {x['identity']['source_record_id']:x['metadata']['capture']for x in data['items']}!=expected_records:raise MaterialError('material_delivery_mapping_changed')
@@ -113,14 +152,15 @@ def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_s
  try:
   if Consumer(manifest,contract,readonly,as_of).current()!=data:raise MaterialError('material_reopen_changed')
  finally:readonly.close()
- with (output/'materials.jsonl').open('x')as f:
-  for row in data['items']:f.write(json.dumps(row,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
- with (output/'materials.csv').open('x',newline='')as f:
-  w=csv.DictWriter(f,fieldnames=['source_record_id','score_domain','restaurant_taste_score','record']);w.writeheader()
-  for row in data['items']:w.writerow({'source_record_id':row['identity']['source_record_id'],'score_domain':'material_traceability_only','restaurant_taste_score':'','record':json.dumps(row,ensure_ascii=False,sort_keys=True,separators=(',',':'))})
+ jsonl=''.join(json.dumps(row,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n'for row in data['items'])
+ _same_or_create(output/'materials.jsonl',jsonl.encode())
+ buffer=io.StringIO(newline='');w=csv.DictWriter(buffer,fieldnames=['source_record_id','score_domain','restaurant_taste_score','record']);w.writeheader()
+ for row in data['items']:w.writerow({'source_record_id':row['identity']['source_record_id'],'score_domain':'material_traceability_only','restaurant_taste_score':'','record':json.dumps(row,ensure_ascii=False,sort_keys=True,separators=(',',':'))})
+ _same_or_create(output/'materials.csv',buffer.getvalue().encode())
  if data['items']!=[json.loads(v)for v in (output/'materials.jsonl').read_text().splitlines()]or data['items']!=[json.loads(v['record'])for v in csv.DictReader(io.StringIO((output/'materials.csv').read_text()))]:raise MaterialError('material_export_mismatch')
  result={'state':'completed','task_id':snapshot['task_id'],'child_id':snapshot['child_id'],'snapshot_sha256':snapshot_sha256,'items':len(data['items']),'coverage':snapshot.get('coverage','unknown'),'source_calls':0,'budget_debits':0,'restaurant_taste_score':None,'score_domain':'material_traceability_only','as_of':as_of,'tool_version':toolbox.__version__,'publication':receipt,'html':receipt['directory']+'/index.html','json':receipt['directory']+'/report.json','jsonl':'materials.jsonl','csv':'materials.csv'}
- (output/'result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n');return result
+ if job_id is not None:result.update(job_id=job_id,processing_driver='existing_toolbox_jobs_snapshot_file',source_calls=0,local_snapshot_reads=1)
+ _same_or_create(output/'result.json',(json.dumps(result,ensure_ascii=False,indent=2)+'\n').encode());return result
 
 def read_publication(request,fmt='json'):
  root=pin_source(request['toolbox_root'],request['toolbox_pins'])
@@ -164,11 +204,12 @@ def read_publication(request,fmt='json'):
  raise MaterialError('material_format_invalid')
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--request',required=True);p.add_argument('--action',choices=['build','read'],default='build');p.add_argument('--format',choices=['html','json','jsonl','csv'],default='json');a=p.parse_args();req=read_json(a.request,65536)
+ p=argparse.ArgumentParser();p.add_argument('--request',required=True);p.add_argument('--action',choices=['build','read','build-jobs'],default='build');p.add_argument('--format',choices=['html','json','jsonl','csv'],default='json');p.add_argument('--job-id');a=p.parse_args();req=read_json(a.request,65536)
  if type(req)is not dict or set(req)!={'snapshot_path','snapshot_sha256','toolbox_root','toolbox_pins','pack_path','pack_sha256','output','as_of','runtime_root','runtime_cloud_sha256'}:raise MaterialError('material_request_invalid')
+ if (a.action=='build-jobs')!=(a.job_id is not None):raise MaterialError('material_job_id_required')
  if a.action=='read':sys.stdout.buffer.write(read_publication(req,a.format))
  else:
-  result=run(**req);print(json.dumps({k:result[k]for k in ['state','items','coverage','source_calls','budget_debits','snapshot_sha256','html','json','jsonl','csv']},ensure_ascii=False))
+  result=run(**req,job_id=a.job_id);print(json.dumps({k:result[k]for k in ['state','items','coverage','source_calls','budget_debits','snapshot_sha256','html','json','jsonl','csv']},ensure_ascii=False))
 if __name__=='__main__':
  try:main()
  except Exception as error:

@@ -46,6 +46,7 @@ class Application:
         self.results_store = None
         self.media_jobs = None
         self.light_transcripts = None
+        self.automatic_materials = None
         self.cloud_worker = None
         self.cloud_client = None
         config = {}
@@ -457,11 +458,28 @@ class Application:
             # and retries this read/import, without starting another source action.
             return {'ok': False, 'error': 'local_results_persistence_failed'}
         if action == 'import' and self.cloud_worker is None and response.get('ok') is not False:
-            try:self._light_postprocessing('enqueue', payload)
+            try:self._light_postprocessing('enqueue', {'run_id': payload['run_id']})
             except (ValueError, OSError):pass
         return response
 
     def _light_postprocessing(self, action, payload):
+        # Existing transcript route is unchanged; material computation has its
+        # own deterministic background child and never invokes AnalysisJobs.
+        context = payload.get('material_context') if action == 'enqueue' else None
+        if context is not None:
+            from automatic_materials import validate_context
+            validate_context(context)
+        legacy = self._transcript_postprocessing(action, payload) if context is None or context.get('outcome') == 'completed' else None
+        if action == 'enqueue' and context is not None:
+            if getattr(self, 'automatic_materials', None) is None:
+                from automatic_materials import AutomaticMaterials
+                with self.lock:
+                    if self.automatic_materials is None:
+                        self.automatic_materials = AutomaticMaterials(self.root)
+            return self.automatic_materials.enqueue(payload['material_context'])
+        return legacy
+
+    def _transcript_postprocessing(self, action, payload):
         if action == 'tick' and self.light_transcripts is None and not (self.root / 'light-transcripts').exists():return
         if action == 'enqueue':
             from analysis_artifact import _read
@@ -1283,6 +1301,8 @@ def make_server(app, port=45937):
                 app.owner_tasks.close()
             if app.cloud_worker is not None:
                 app.cloud_worker.close()
+            if getattr(app, 'automatic_materials', None) is not None:
+                app.automatic_materials.close()
             if app.media_jobs is not None:
                 app.media_jobs.close()
             super().server_close()
