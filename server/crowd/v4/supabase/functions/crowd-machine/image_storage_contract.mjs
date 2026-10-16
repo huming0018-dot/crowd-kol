@@ -19,7 +19,7 @@ export function sourceCanonical(value){
 export async function imageManifest(value){
  const continuation=value?.schema==='crowd-image-object-v3',fields=continuation?[...IMAGE_FIELDS,...CONTINUATION_FIELDS]:IMAGE_FIELDS;
  assert(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===fields.length&&fields.every(k=>Object.hasOwn(value,k)),'invalid_image_manifest');
- if(continuation)assert(['continuation_id','continuation_run_id','source_local_run_id'].every(k=>uuid(value[k]))&&Number.isSafeInteger(value.continuation_lease_epoch)&&[1,2].includes(value.continuation_lease_epoch-value.lease_epoch)&&value.continuation_run_id!==value.run_id&&value.source_local_run_id!==value.local_run_id,'invalid_image_manifest');
+ if(continuation)assert(['continuation_id','continuation_run_id','source_local_run_id'].every(k=>uuid(value[k]))&&Number.isSafeInteger(value.continuation_lease_epoch)&&value.continuation_lease_epoch>value.lease_epoch&&value.continuation_run_id!==value.run_id&&value.source_local_run_id!==value.local_run_id,'invalid_image_manifest');
  const wb=['crowd-image-object-v2','crowd-image-object-v3'].includes(value.schema)&&value.platform==='weibo',version=continuation?3:wb?2:1;
  assert(value.schema==='crowd-image-object-v'+version&&value.manifest_version===version&&['task_id','child_id','run_id','local_run_id','local_job_id','capture_id'].every(k=>uuid(value[k]))&&hashes.every(k=>hex(value[k])),'invalid_image_manifest');
  assert(value.idempotency_key==='image:'+value.local_job_id&&value.platform===(wb?'weibo':'xiaohongshu')&&(wb?['content']:['content','comment']).includes(value.content_kind)&&typeof value.content_id==='string'&&/^[A-Za-z0-9_.:-]{1,200}$/.test(value.content_id),'invalid_image_manifest');
