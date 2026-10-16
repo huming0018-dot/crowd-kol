@@ -455,7 +455,7 @@ def run_dir(root, run_id):
         fail('run_not_found')
     return folder
 
-def start(root, mc, payload):
+def start(root, mc, payload, continuation=None):
     p = validate(payload)
     from pro_executor import selection, prepare, task_installation
     executor, info, python = prepare(root, mc, p, selection(p, installation=task_installation(root,p)))
@@ -476,6 +476,12 @@ def start(root, mc, payload):
     except BlockingIOError:
         lock.close()
         fail('session_busy')
+    if continuation is not None:
+        from source_continuation import prepare as prepare_continuation
+        from account_sessions import AccountSessions
+        continuation_payload = continuation['_payload']
+        continuation = prepare_continuation(root, continuation_payload, {**AccountSessions(root).status(p['session_id'],'wb'), 'login_in_progress': False})
+        continuation['_lease'] = {k:continuation_payload['lease'][k] for k in ('task_id','child_id','worker_id','run_id','lease_epoch')}
     identity = session/'identity.json'
     if identity.exists() and read(identity)['platform'] != p['platform']:
         lock.close()
@@ -494,11 +500,26 @@ def start(root, mc, payload):
     if executor['backend']=='pro':
         (run/'schema').symlink_to(Path(executor['root'])/'schema',target_is_directory=True)
     manifest = {'run_id':run_id,'request':p,'source':info,'executor':executor,'created_at':time.time(),'source_kind':'mediacrawler_api','reward_eligible':False,'discovery_contract_version':1}
+    if continuation is not None:
+        from source_continuation import initialize_run
+        manifest['source_continuation'] = initialize_run(run, continuation)
+        manifest['source_continuation_lease'] = continuation['_lease']
     write(run/'manifest.json',manifest)
     write(run/'status.json',{'run_id':run_id,'state':'starting','phase':'starting','session_id':p['session_id'],'platform':p['platform'],'mode':p['mode'],'executor':executor['backend'],'executor_fallback_reason':executor.get('fallback_reason'),'source_kind':'mediacrawler_api','reward_eligible':False,'updated_at':time.time()})
     proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_worker','--run-id',run_id,'--lock-fd',str(lock.fileno())],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock.fileno(),))
     lock.close()
     return {'run_id':run_id,'state':'starting','session_id':p['session_id'],'supervisor_pid':proc.pid,'executor':executor['backend'],'executor_fallback_reason':executor.get('fallback_reason'),'source_kind':'mediacrawler_api','reward_eligible':False}
+
+def start_continuation(root, mc, payload):
+    from account_sessions import AccountSessions
+    from source_continuation import prepare
+    request=payload.get('request') if isinstance(payload,dict) else None
+    if not isinstance(request,dict):fail('continuation_payload_invalid')
+    # Session state is read inside runner; caller cannot supply an account assertion.
+    account=AccountSessions(root).status(request.get('session_id'),'wb')
+    prepared=prepare(root,payload,account)
+    prepared['_payload']=payload
+    return start(root,mc,prepared['request'],continuation=prepared)
 
 def argv_for(p, output):
     args = ['--platform',p['platform'],'--type','search' if p['mode'] in ('homefeed','trending') else p['mode'],'--lt','qrcode','--headless',str(p['headless']).lower(),'--save_data_option','jsonl','--save_data_path',str(output),'--crawler_max_notes_count',str(p['max_items']),'--max_concurrency_num','1','--start',str(p.get('start_page',1)),'--max_comments_count_singlenotes',str(p['max_comments']),'--get_comment',str(p['comments']).lower(),'--get_sub_comment',str(p['replies']).lower(),'--get_media',str(p['media'] and p['platform'] in NATIVE_MEDIA).lower(),'--enable_ip_proxy','false']
@@ -1106,6 +1127,13 @@ def import_output(root,payload):
             record['discovery_kind'] = discovery_kind
     data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'discovery':discovery,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
     if pro_evidence is not None:data['pro_acquisition']=pro_evidence
+    if manifest.get('source_continuation') is not None:
+        from source_continuation import split_import
+        split=split_import(run,manifest,records)
+        data['records']=split['fresh_records']+split['reused_previous_attempt_records']
+        data['capture_records']=split['fresh_records']
+        data['source_reuse']=split['reuse_evidence']
+        records=data['records']
     write(run/'normalized.json',data)
     return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'dynamics':sum(r['kind']=='dynamic' for r in records),'media_files':len(media),'rejected_records':rejected,'coverage':'unverified'}}
 
@@ -1114,7 +1142,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--root',required=True)
     parser.add_argument('--mc-root',required=True)
-    parser.add_argument('action',choices=['capabilities','start','status','stop','import','list','_worker','_execute'])
+    parser.add_argument('action',choices=['capabilities','start','start_continuation','status','stop','import','list','_worker','_execute'])
     parser.add_argument('--run-id')
     parser.add_argument('--lock-fd',type=int)
     args=parser.parse_args()
@@ -1127,6 +1155,7 @@ def main():
         if not isinstance(payload,dict): fail('invalid_request')
         if args.action=='capabilities': result=capabilities(args.mc_root)
         elif args.action=='start': result=start(args.root,args.mc_root,payload)
+        elif args.action=='start_continuation': result=start_continuation(args.root,args.mc_root,payload)
         elif args.action=='status': result=status(args.root,payload)
         elif args.action=='stop': result=stop(args.root,payload)
         elif args.action=='import': result=import_output(args.root,payload)

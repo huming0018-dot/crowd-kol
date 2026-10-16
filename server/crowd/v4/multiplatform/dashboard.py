@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from copy import deepcopy
 import base64
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -21,7 +22,7 @@ import uuid
 import webbrowser
 
 HERE = Path(__file__).resolve().parent
-ACTIONS = {'capabilities', 'start', 'status', 'stop', 'import', 'list'}
+ACTIONS = {'capabilities', 'start', 'start_continuation', 'status', 'stop', 'import', 'list'}
 DELIVERY_ERRORS = {'invalid_capture_retry', 'capture_not_quarantined', 'owner_authorization_required',
     'worker_revoked', 'principal_denied', 'task_not_found', 'task_paused', 'task_stopped',
     'delivery_state_conflict', 'delivery_not_deferred', 'delivery_recovery_busy', 'controller_busy',
@@ -398,7 +399,7 @@ class Application:
                 seen.add(run_id)
             return {'ok': True, 'result': {'runs': runs}}
         root = (self._registered_run_root(payload.get('run_id')) if action in ('status', 'stop', 'import')
-                else self._start_root(payload) if action == 'start' else self.runner_root)
+                else self._start_root(payload['request'] if action == 'start_continuation' else payload) if action in ('start','start_continuation') else self.runner_root)
         value = self._call_runner(root, action, payload)
         if action == 'import' and value.get('ok') is not False:
             imported = value.get('result', value)
@@ -686,6 +687,23 @@ class Application:
                 capabilities = self.process_media('capabilities', {})
                 if not capabilities['asr'] or not capabilities['ffmpeg']:raise ValueError('light_transcript_local_processor_required')
             return getattr(self.owner_tasks, action)(payload)
+        if action in ('continue_failed_source_preview','continue_failed_source'):
+            required={'task_id','child_id','idempotency_key'}|({'preview_sha256'} if action=='continue_failed_source' else set())
+            if set(payload)!=required or not hasattr(self.owner_tasks,'continuation_preview'):raise ValueError('invalid_continuation_request')
+            from source_continuation_owner import owner_payload
+            from public_source_seed import canonical as seed_canonical,digest as seed_digest
+            from account_sessions import AccountSessions
+            authoritative=self.owner_tasks.continuation_preview({k:payload[k] for k in ('task_id','child_id')})['continuation_preview']
+            local_root=self._registered_run_root(authoritative['local_run_id'])
+            account=AccountSessions(local_root).status(authoritative['request']['session_id'],'wb')
+            runtime_sha=hashlib.sha256((HERE/'mc_runner.py').read_bytes()).hexdigest()
+            prepared=owner_payload(local_root,authoritative,account,runtime_sha,payload['idempotency_key'])
+            prepared_sha=seed_digest(prepared)
+            if action=='continue_failed_source_preview':
+                return {'ok':True,'preview_sha256':prepared_sha,'task_id':payload['task_id'],'child_id':payload['child_id'],'idempotency_key':payload['idempotency_key'],'requests_spent':authoritative['api_attempts'],'requests_remaining':authoritative['requests_remaining'],'old_captures_preserved':authoritative['capture_count'],'new_content_quota':False,'historical_subject_continuity_proven':False}
+            if payload['preview_sha256']!=prepared_sha:raise ValueError('continuation_preview_changed')
+            # Explicit Owner approval targets this exact fresh CAS proof; no automatic retry.
+            return self.owner_tasks.continue_failed_source(prepared)
         if action in ('retry_supplemental', 'reconcile'):
             method = getattr(self.owner_tasks, action, None)
             if method is None:

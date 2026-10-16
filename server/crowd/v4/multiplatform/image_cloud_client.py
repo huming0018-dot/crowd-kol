@@ -66,7 +66,7 @@ def source_capture(outbox_path, adapter, run_id, virtual_path, client):
                           "AND json_valid(envelope) AND json_extract(envelope,'$.record.origin.run_id')=? "
                           "AND json_extract(envelope,'$.record.kind')=? "
                           "AND json_extract(envelope,'$.record.content_id')=? LIMIT 101",
-                          (run_id, body['kind'], body['content_id'])).fetchall()
+                          (body['origin']['run_id'], body['kind'], body['content_id'])).fetchall()
     if len(rows) > 100:
         raise ValueError('image_capture_ambiguous')
     matches = []

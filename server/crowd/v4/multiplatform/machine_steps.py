@@ -40,6 +40,9 @@ class MachineSteps:
         if type(epoch) is not int or epoch < 1:
             raise ValueError('invalid_machine_steps')
         event = {'phase':phase}
+        from run_diagnostics import PHASES as DIAGNOSTIC_PHASES, validate as validate_diagnostic
+        if 'run_diagnostic' in state and phase in DIAGNOSTIC_PHASES:
+            event.update(validate_diagnostic(state['run_diagnostic'],phase))
         if state.get('outcome') in ('completed','failed','stopped','unknown','login_required'):
             event['outcome']=state['outcome']
         if state.get('local_run_id'):

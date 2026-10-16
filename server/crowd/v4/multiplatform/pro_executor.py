@@ -953,6 +953,7 @@ def execute(run, manifest, *, mc_root=None):
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
     account_hook=None
     bili_wbi=None
+    seed_hook=None
     from pro_media_integration import MediaStage
     media_stage=MediaStage(request)
     execution_deadline=time.monotonic()+request['timeout_seconds']
@@ -1073,6 +1074,11 @@ def execute(run, manifest, *, mc_root=None):
             else:
                 account_hook=install_pro_account_hooks(run.parent.parent,request['session_id'],request['platform'],
                     manifest['run_id'],account_event,httpx,client_type)
+            if manifest.get('source_continuation') is not None:
+                if request['platform']!='wb':raise SystemExit(78)
+                from pro_weibo_seed import install_seed
+                from repo.platform_save_data import weibo as seed_store
+                seed_hook=install_seed(run,manifest,sys.modules[__name__],client_type,seed_store)
             sys.argv = [str(root/'main.py'), *argv_for(request)]
             from managed_pro_signer import owned_signer
             with owned_signer(run,request,{'platform':'zhihu','sign_url':'http://127.0.0.1:8990'} if native_provider and request['platform']=='zhihu' else selected['binding']):
@@ -1117,6 +1123,7 @@ def execute(run, manifest, *, mc_root=None):
         raise SystemExit(74)
     finally:
         if bili_wbi is not None:bili_wbi.restore()
+        if seed_hook is not None:seed_hook.restore()
         if pagination_hook is not None:pagination_hook.restore()
         if account_hook is not None:account_hook.restore()
         finished.set()

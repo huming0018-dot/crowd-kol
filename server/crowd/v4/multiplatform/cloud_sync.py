@@ -181,7 +181,7 @@ class CloudClient:
                 if (attempt + 1 < attempts and not http_response
                         and isinstance(error, (urllib.error.URLError, TimeoutError))):
                     continue
-                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
+                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'continue_failed_source_preview', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
                 raise CloudError(code) from None
 
 
@@ -225,6 +225,12 @@ class CloudOwnerAdapter:
 
     def retry_supplemental(self, payload):
         return {'ok': True, **self.client.call('retry_supplemental', payload)}
+
+    def continuation_preview(self, payload):
+        return self.client.call('continue_failed_source_preview', payload)
+
+    def continue_failed_source(self, payload):
+        return {'ok': True, **self.client.call('continue_failed_source', payload)}
 
     def reconcile(self, payload):
         return {'ok': True, **self.client.call('task_reconcile', payload)}
@@ -1097,7 +1103,11 @@ class CloudWorker:
                     else:
                         state['phase'] = 'dispatching'
                         self._save(state)  # Commit authorization before the first source call.
-                        result = self._runner('start', request)
+                        if lease.get('source_continuation') is not None:
+                            result = self._runner('start_continuation', {'request': request, 'lease': lease})
+                            state['account_context'] = lease['source_continuation']['account_context']
+                        else:
+                            result = self._runner('start', request)
                         run_id = result.get('run_id') or result.get('run', {}).get('run_id')
                         mc_runner.uid(run_id)
                         state.pop('recovery_authorized_run', None)
@@ -1132,6 +1142,10 @@ class CloudWorker:
             self._save(state)
             if stage not in mc_runner.FINAL:
                 return {'state': 'running', 'local_stage': stage}
+            from run_diagnostics import from_status as run_diagnostic_from_status
+            diagnostic=run_diagnostic_from_status(current)
+            if diagnostic is not None:state['run_diagnostic']=diagnostic
+            else:state.pop('run_diagnostic',None)
             state.update(phase='importing', outcome='unknown' if stage == 'interrupted' else stage,
                          api_attempts=current.get('api_requests', current.get('api_attempts', 0)))
             if state['outcome'] not in ('completed','stopped','failed','login_required'):
@@ -1146,7 +1160,11 @@ class CloudWorker:
         if state['phase'] == 'importing':
             with self._delivery_keepalive(state):
                 records = self._runner('import', {'run_id': state['local_run_id']})
-                self.outbox.stage_imported(records, state['lease'])
+                if state['lease'].get('source_continuation') is not None:
+                    if not isinstance(records,dict) or not isinstance(records.get('capture_records'),list) or not isinstance(records.get('source_reuse'),list):raise CloudError('continuation_import_unknown')
+                    self.outbox.stage_imported(records['capture_records'], state['lease'])
+                else:
+                    self.outbox.stage_imported(records, state['lease'])
             state['phase'] = 'delivering'
             self._save(state)
         if state['phase'] == 'delivering':

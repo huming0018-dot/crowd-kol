@@ -101,7 +101,12 @@ def verify_source(run,media_id):
     if len(rows)!=1:raise ValueError('attachment_source_ambiguous')
     body=rows[0];origin=body.get('origin',{})
     if not isinstance(origin,dict):raise ValueError('attachment_source_shape_invalid')
-    if body.get('record_hash')!=sha({k:v for k,v in body.items() if k!='record_hash'}) or origin.get('run_id')!=rid or origin.get('operation_id')!=rid or origin.get('executor')!='mediacrawler_pro' or not isinstance(origin.get('observation_sha256'),str) or not HEX.fullmatch(origin['observation_sha256']):raise ValueError('attachment_source_hash_invalid')
+    expected_source_run=rid
+    if manifest.get('source_continuation') is not None:
+        from continuation_media import reused_body_context
+        context=reused_body_context(run,manifest,norm,body)
+        expected_source_run=context['source_local_run_id']
+    if body.get('record_hash')!=sha({k:v for k,v in body.items() if k!='record_hash'}) or origin.get('run_id')!=expected_source_run or origin.get('operation_id')!=expected_source_run or origin.get('executor')!='mediacrawler_pro' or not isinstance(origin.get('observation_sha256'),str) or not HEX.fullmatch(origin['observation_sha256']):raise ValueError('attachment_source_hash_invalid')
     return ref,body,{name:sha(data) for name,data in files.items()}
 
 

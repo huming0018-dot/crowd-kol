@@ -64,10 +64,15 @@ def project(run,manifest=None):
  for suffix in ('-wal','-shm'):safe_path(run/(DB_NAME+suffix))
  # Mature reader validates operation_id, entity ID, platform, JSON shape and size.
  rows=observations(run,manifest)
+ reused=set();public_seed=None
+ if manifest.get('source_continuation') is not None:
+  from pro_weibo_seed import reused_rows
+  reused,public_seed=reused_rows(run,manifest,rows)
  comments={identity:raw for kind,identity,raw in rows if kind=='comment'}
  topics={identity:raw for kind,identity,raw in rows if kind=='topic'}
  facts=[]
  for identity,raw in sorted(topics.items()):
+  if ('topic',identity) in reused:continue
   key=digest({'domain':'pro-current-durable-body-v1','operation':rid,'platform':platform,'entity':identity,'record':raw})
   facts.append((key,{'source_stage':'content_saved','scope':'content','saved_rows':1,'page_sha256':key}))
  doc=safe_json(run/'pro-pagination.json')
@@ -85,6 +90,13 @@ def project(run,manifest=None):
        or len(page['ids'])!=len(set(page['ids']))
        or page['scope']=='reply' and (not isinstance(page.get('parent_id'),str) or not page['parent_id'])):
     raise ValueError('pro_steps_page_invalid')
+   if public_seed is not None:
+    selected=page.get('selected_ids',page['ids'])
+    cached_roots=set(public_seed['selected_root_ids'])
+    original=public_seed['root_page']
+    cached_root=(page['scope']=='root' and page['content_id']==public_seed['content_id'] and page['ids']==original['ids'] and page.get('cursor_in')==original['cursor_in'] and page.get('cursor_out')==original['cursor_out'] and selected==public_seed['selected_root_ids'] and all(('comment',i) in reused for i in selected))
+    cached_embedded=(page['scope']=='reply' and page.get('embedded') is True and page.get('parent_id') in cached_roots and ('comment',page['parent_id']) in reused and all(('comment',i) in reused for i in page['ids']))
+    if cached_root or cached_embedded:continue
    # Exclude mutable saved/checkpoint flags and later reply metadata. Index is append order,
    # not historic request timing. Stable hash pairs received/readback across status calls.
    stable={k:page.get(k) for k in ('scope','content_id','parent_id','ids','cursor_in','cursor_out','pn','ps','embedded')}
