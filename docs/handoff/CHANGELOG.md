@@ -453,3 +453,23 @@
 - root直接核DY原5af manifest SHA330ffd5e，原homefeed/targets空/timeout300/16字段，受控detail120不是同输入；撤回先前同输入措辞，仅保公开实体投影结果。没有因此放行/替换正式采集。
 - 本地非作者实复现删除账本后仍旧计数的守门缺口，fdda禁止采用；central独立v2正在修，正式53987不变。root准备冻结ba074自列空SHA的元数据错误也已发现，必须新冻结，旧原件保留。不把7组旧绿或静审8函数当最终放行。
 - 本次仅更正文档，云40及已独核三RPC/30ACK/7of12不变；下一步v2独审/采用后才真实续采。
+
+### 2026-10-16 11:09 CST｜E63｜正式采用与真实原任务评论/媒体/云回取验收
+
+- 接力root；实现central_steps；组件/采用编排非作者native_diagnostics_review；实际采用和云业务非作者progress_cloud_actual_review。
+- 代码：V2 a854/Pro45b8，13映射12变更；修共享预算最终计数、missing-ledger已证0/未知区分、多origin ACK复用及partial图片anchor。旧fdda/ba074失败保留，新准备d135排自身；初次读V2无baseline字段已在正式前终止，改核父freeze，无隐瞒覆盖。
+- 独审/采用：8ad851cf+fe3b896f；root切65679/旧53987停，23750a实际13+444/fullset/五库备份/189资产及61fresh保护通过，idle803731和固定Python9ead附证另存。源码18d14b35 push0/远端同，中央40/步骤68/权限保持。
+- 真实动作：原Owner预览确认一次grant d5d4083d；af947/4c1d810d/epoch4，旧30+新1真实评论ACK=31；原预算12已10剩2。6实体复用，36中央steps/8source匹配，仍failed74/partial，完整回复缺口不假完成。
+- 媒体/导出：真实4.28MB JPEG经Owner核验→私有云save→get；非作者再GET与source/附件/浏览器下载四份字节+像素同。R88三真实HTTP导出各33行typed/version/body同，仅1新评论；最终业务独审32a77277一次锁定。核证脚本URL/JSONL/record_hash误假设初败均保留，按既有合同纠正不改gold/产品。
+- 未完/下一步：Owner预览总回执/无剩余未访问工作提示候选；DY成熟推荐流/原循环/纯签正在审，视频预算/本人会话caller仍缺；Bili原Bridge离线过期而非已证登出，原暂停/知乎停止不动。登录重登恢复、其他Pro全量/OTA/跨端/48h未全验，目标active/watchdog暂停。
+- 交接：旧完整入口归档截至E62，不删除任何源/数据；本轮4MD发布以HANDOFF-E63-PUBLISH-RECEIPT核，不凭文字认已发布。
+
+
+## 2026-10-16 11:30 CST｜整产品融合基线与范围校准（文档阶段）
+
+- 接力：root主计划/研究；central_steps资产盘点及非作者一致性复核；native_diagnostics架构；native_diagnostics_review完整计划非作者审。
+- 实际改动：docs/product下固定PRD执行基线、M0–M7融合/版本/栈、22用户能力与F0–F7、双路线研究、资产/证据和独审；更新唯一HANDOFF/EVIDENCE/本日志。原文只保用户提供v2.2提取与摘要，不含Pro私码/凭据。
+- 核验：v2.2全文及SHA、三仓/Pro八仓/TOOL051源码映射、WB真实32a77277与065 NOT_PASS原件读取；外部官方文档研究；两轮非作者规划审修复游标/ACK屏障、候选谱系、四评分/Vox非前置、P↔F排期和已有授权。链接与U/F/M覆盖自动检查。具体原件见docs/product两审查报告和本地研究目录。
+- 版本/部署：本轮开始源码18d14b35/runtime65679/Edge40保持；文档提交另看PUBLISH-RECEIPT。没有产品源码/业务数据变更、来源请求、部署、升级、模型调用或恢复watchdog。不能把计划PASS当产品/生产验收。
+- 未验：v2.1原件、toolbox实际生产wheel/PWA/PG、完整双域消费、M4生命周期、Pro每平台完整性、原两节点恢复/连续OTA、Windows/VM/手机与48h。
+- 下一步：按既有授权F0→F1，已ACK材料接既有toolbox确定性链；F2/F3/F4并行独审，不再重写M0–M7/平台核心。旧Owner/DY候选停止并保快照，原预算/队列/身份不改。

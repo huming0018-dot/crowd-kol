@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E62为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E63为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -453,3 +453,20 @@ E21补证（15:31）：RUN/COOKIEBRIDGE-CLIENT.json、COOKIEBRIDGE-RESTART-PASS.
 - `dy-pro-complete/MATURE-GOLDEN87-BUDGET12.log`、`GOLDEN87-EXACT-MEDIA-EXPORT-FINAL.log`：仅受控公开实体投影（非同输入），HTTP签名12预算43评论，本地纯签可87评论+原54237B图/三导出89行，但视频预算前73、作者UID不可还原，full_same_input_acceptance=false。未冻结/未独审/未实际来源，不认完整Pro替换。
 
 E62后续更正：root直接读取原DY `5afdd0e1-960d-4381-b6b7-1e3dcfa258cb/manifest.json`（SHA330ffd5e9656df7c7d816d12b7274d4c4266ca2603c852a2542f6d8ed25b5842），原homefeed/targets空/timeout300/16字段，与detail120回放不同，撤回“同输入”表述。fdda本地独审又复现missing-ledger整链失败，当前禁止采用，待v2；ba074自引用空SHA亦需新准备冻结，不是已通过的证据。
+
+## E63｜正式采用与原任务真实增量（2026-10-16）
+
+- RUN16/wb-public-progress-v2/FREEZE.json SHAa854f94f；wb-public-progress/independent-review/FINAL.json SHA8ad851cf：非作者原7/38+新边界/真实SDK/媒体/worker→finish，missing-ledger反例已修；不靠freshsink0假证明。
+- e63-progress-runtime-adoption：PREPARATION d135/ADOPTER-REVIEW fe3b896f/APPROVED a7a5f97b，实际ADOPTED65679；independent/FINAL23750a4c82e640afa1085725f598db07b245af7758c316b022cce4eac82127ce、IDLE803731、FIXED-PYTHON9ead92d，13exact+444其他/五库与备份/189资产及fresh61保持。pre-source保护核不能外推采集后五库完全不变。源码发布SOURCE-PUBLISH-RECEIPT：18d14b35/push0/远端同。
+- actual-wb-progress/ACTUAL-REQUEST-START.json、独立INITIAL/FINAL32a772772d47b1a9f9609d6e5d3cd2f64fce865b545dcf13f1a7b7e93a87f6e3：原task/child/subject、epoch4、旧30typed+新1ACK、36step/8source、3次请求累计10/12剩2、failed74/partial保持。原数据保持同时合法新增run/观察/导入/附件/步骤。
+- 同目录RESULTS-R88.{json,jsonl,csv}/EXPORT-ROOT.json及独立EXPORT检查：各33数据行，只有1新评论；版本/正文/parent/hash逐项核真实SQLite。JSONL首行是manifest，不能计成数据；URL hash按成熟canonical JSON字符串合同，不能按raw URL误判。原核证首失败已另日志保留。
+- CLOUD-RETURN-ROOT.json/ACTUAL-CLOUD-RETURN.png及独立image/GET证据：实际Owner核验、私有云ready v3 37字段/原正文epoch1→epoch4、source/附件/浏览器下载/独立GET四份4284573B、1080×8101字节及像素相同；不是旧图路径或仅URL。云row artifact067979d8（完整UUID在本地独审），未改变采集partial。
+- handoff/archive/HANDOFF-through-E62-20261016.md为E63更新前入口完整字节归档；其原SHA在当前主文档。当前本轮全文不重复追加，重要决定及旧失败保日志。
+
+
+## 整产品融合计划｜2026-10-16（仅规划证据）
+
+- docs/product/PRODUCT-PLAN.md：U01–U22、F0–F7、角色流程、结果倒排、同输入/两节点/OTA/质量/双域验收。ARCHITECTURE/ASSETS/RESEARCH分别给技术机制、实际资产和官方联网+独立推演。
+- docs/product/REFERENCE-v2.2-MANIFEST.json及TEXT：用户原HTML未改，SHAaee488f21b14637a805f38ba4686b31bc5ce4be459acac950f8b2603863a6c5b；未取得v2.1不伪读。
+- docs/product/PLAN-REVIEW.md：非作者完整范围/接线/工期审，发现与修复复核；ASSET-CONSISTENCY-REVIEW.md：另一非作者复核主计划/架构/研究的资产映射（不自审其ASSETS）。结论只对文稿范围。
+- 本地爬虫/outputs/product-integration-plan-2026-10-16/：原始读取/源SHA/审查初始和复核JSON、发布回执；JSON默认本地。当前运行/云/新来源没有因规划变化；E63真实有限业务仍按上节原件。
