@@ -1122,6 +1122,16 @@ def execute(run, manifest, *, mc_root=None):
                 finalize_scope(run,manifest,sys.modules[__name__],media_result['assets'] if media_result else [])
                 sink.attempts=RunRequestBudget(run/'request-budget.json',manifest['run_id'],request_fingerprint(request),request['max_api_requests']).snapshot()['used']
                 result=completion(run,manifest,sink.summary);m.write(run/'pro-completion.json',result);sink.update(**result);return
+            if request['platform']=='wb' and request['comments']:
+                accessible=pagination_summary(run,manifest)
+                if accessible.get('coverage')=='partial' and accessible.get('reason')=='wb_reply_terminal_incomplete' and accessible.get('independent_selected_roots_visited') is True:
+                    # An accessible terminal cannot prove the declared population. Keep
+                    # parent checkpoint uncommitted, but finish independent media work.
+                    if media_stage.enabled:
+                        sink.update(phase='running',media_stage='running',coverage='partial',content_committed=False)
+                        media_stage.run(run,manifest,observations(run,manifest),mc_root=mc_root,remaining=execution_deadline-time.monotonic())
+                        sink.update(media_stage='completed',content_committed=False)
+                    raise WeiboAdapterStop('wb_reply_terminal_incomplete')
             result = completion(run, manifest, sink.summary)
             m.write(run/'pro-completion.json', result)
             # Preserve committed source before media: failed media still imports/ACKs source.

@@ -207,7 +207,8 @@ class WeiboPagination:
             page['embedded']=False;page['targets']=targets;page['declared_count']=expected
             await self.save(page,models,callback);result.extend(models)
             if outgoing==0:
-                if len(known)<expected or not {str(c.comment_id) for c in embedded}.issubset(known):raise WeiboAdapterStop('wb_reply_terminal_incomplete')
+                if len(known)<expected or not {str(c.comment_id) for c in embedded}.issubset(known):
+                    page['reply_coverage']='missing_unknown';page['observed_count']=len(known);page['missing_count']=max(0,expected-len(known));self.persist()
                 if any(t!=root and t not in known for p in self.pages if p.get('parent_id')==root for t in p.get('targets',{}).values()):raise WeiboAdapterStop('wb_reply_target_unbound')
                 return result
             if not rows or outgoing==cursor:raise WeiboAdapterStop('wb_reply_cursor_stalled')
@@ -247,6 +248,8 @@ class WeiboPagination:
             if self.manifest['request']['replies']:
                 for model in models:
                     result.extend(await self.collect_replies(processor,note_id,model,callback))
+            if any(p.get('reply_coverage')=='missing_unknown' for p in self.pages if p['content_id']==str(note_id)):
+                root['selected_replies_visited']=True;self.coverage='partial';self.reason='wb_reply_terminal_incomplete';self.persist();self.notify(root);return result
             self.reason='wb_embedded_replies_incomplete' if not complete else 'wb_cursor_stalled' if outgoing and (not models or [incoming,cursor_type]==[outgoing,next_type]) else None
             if self.reason:
                 self.coverage='partial';self.persist();raise WeiboAdapterStop(self.reason)
@@ -289,11 +292,12 @@ def pagination_summary(run,manifest,executor):
         saved={identity:row for kind,identity,row in rows if kind=='comment'}
         checkpoint=executor.checkpoint(run,manifest)
         notes={str(n['note_id']):n for n in (checkpoint or {}).get('crawled_note_list',[])}
-        seen=set();all_exhausted=True
+        seen=set();all_exhausted=True;missing_unknown=False
         for note in topics:
             roots=[p for p in evidence.pages if p['scope']=='root' and p['content_id']==note]
             if not roots or roots[0]['cursor_in']!=[-1,0]:raise ValueError('origin')
-            root_ids=set();count=0
+            root_ids=set();count=0;partial_roots=[p for p in roots if p.get('selected_replies_visited') is True]
+            if partial_roots and (len(partial_roots)!=1 or partial_roots[0] is not roots[-1] or evidence.coverage!='partial' or evidence.reason!='wb_reply_terminal_incomplete'):raise ValueError('partial_root_scope')
             for index,page in enumerate(roots):
                 for key in ('cursor_in','cursor_out'):
                     pair=page[key]
@@ -306,13 +310,13 @@ def pagination_summary(run,manifest,executor):
                     consumed=sum(len(v.get('selected_ids',v['ids'])) for v in evidence.pages[:evidence.pages.index(page)] if v['content_id']==note)
                     if len(selected)!=min(len(page['ids']),max(0,manifest['request']['max_comments']-consumed)):raise ValueError('selection_count')
                     if (index!=len(roots)-1 or not isinstance(selected,list) or not selected or selected!=page['ids'][:len(selected)] or len(selected)>=len(page['ids']) or
-                        page['saved'] is not False or page['checkpoint_committed'] is not False or page.get('selected_saved') is not True or page.get('selection_completed') is not True or
+                        page['saved'] is not False or page['checkpoint_committed'] is not False or page.get('selected_saved') is not True or (page.get('selection_completed') is not True and page not in partial_roots) or
                         type(page.get('selection_limit')) is not int or page['selection_limit']!=manifest['request']['max_comments'] or len(selected)>page['selection_limit']):raise ValueError('selection')
-                elif page['saved'] is not True or page['checkpoint_committed'] is not True:return {'coverage':'partial','reason':'wb_parent_checkpoint_unconfirmed'}
+                elif page['saved'] is not True or (page['checkpoint_committed'] is not True and page not in partial_roots):return {'coverage':'partial','reason':'wb_parent_checkpoint_unconfirmed'}
                 root_ids.update(selected if selected is not None else page['ids'])
             selected=[p for p in evidence.pages if p['content_id']==note]
             for page in selected:
-                if page['scope'] not in ('root','reply') or (page['saved'] is not True and page.get('selection_completed') is not True):return {'coverage':'partial','reason':'wb_page_not_saved'}
+                if page['scope'] not in ('root','reply') or (page['saved'] is not True and page.get('selection_completed') is not True and page not in partial_roots):return {'coverage':'partial','reason':'wb_page_not_saved'}
                 if page['scope']=='reply':
                     if page['parent_id'] not in root_ids or page['checkpoint_committed'] is not False:return {'coverage':'partial','reason':'wb_reply_binding_invalid'}
                     chain=[p for p in selected if p['scope']=='reply' and p['parent_id']==page['parent_id']]
@@ -329,7 +333,11 @@ def pagination_summary(run,manifest,executor):
                         if chain[-1]['has_more'] is not False:raise ValueError('reply_incomplete')
                         identities={v for part in chain for v in part['ids']}
                         for part in chain:
-                            if type(part.get('declared_count')) is not int or part['declared_count']<0 or len(identities)<part['declared_count']:raise ValueError('reply_count')
+                            if type(part.get('declared_count')) is not int or part['declared_count']<0 or str(part['declared_count'])!=str(saved.get(page['parent_id'],{}).get('sub_comment_count') or '0'):raise ValueError('reply_count')
+                            if len(identities)<part['declared_count']:
+                                last=chain[-1]
+                                if last.get('reply_coverage')!='missing_unknown' or type(last.get('observed_count')) is not int or last['observed_count']!=len(identities) or type(last.get('missing_count')) is not int or last['missing_count']!=part['declared_count']-len(identities):raise ValueError('reply_missing_evidence')
+                                missing_unknown=True
                             targets=part.get('targets')
                             if not isinstance(targets,dict) or not set(targets).issubset(part['ids']) or any(t!=page['parent_id'] and t not in identities for t in targets.values()):raise ValueError('reply_target')
                 if len(page['ids'])!=len(set(page['ids'])):raise ValueError('duplicates')
@@ -340,6 +348,12 @@ def pagination_summary(run,manifest,executor):
                     parent=str(row.get('parent_comment_id') or '')
                     if page['scope']=='root' and parent not in ('','0',identity):raise ValueError('root_parent')
                     if page['scope']=='reply' and parent!=page['parent_id']:raise ValueError('reply_parent')
+            if partial_roots:
+                if not missing_unknown or not root_ids.issubset({p['parent_id'] for p in selected if p['scope']=='reply'}):raise ValueError('independent_roots_unvisited')
+                cp=notes.get(note,{})
+                prior=sum(len(p.get('selected_ids',p['ids'])) for p in selected[:selected.index(partial_roots[0])])
+                if cp.get('is_success_crawled_comments') is not False or type(cp.get('saved_comment_count')) is not int or cp['saved_comment_count']!=prior or str(cp.get('current_note_comment_cursor') or '-1')!=str(partial_roots[0]['cursor_in'][0]) or partial_roots[0]['checkpoint_committed'] is not False:raise ValueError('partial_checkpoint_advanced')
+                continue
             cp=notes.get(note,{})
             if (cp.get('is_success_crawled_comments') is not True or type(cp.get('saved_comment_count')) is not int or cp.get('saved_comment_count')!=count or
                 str(cp.get('current_note_comment_cursor'))!=str(roots[-1]['cursor_in'][0] if roots[-1].get('selection_completed') else roots[-1]['cursor_out'][0])):return {'coverage':'partial','reason':'wb_checkpoint_count_or_cursor_mismatch'}
@@ -354,6 +368,7 @@ def pagination_summary(run,manifest,executor):
                 all_exhausted=False
             else:raise ValueError('terminal')
         if set(saved)!=seen or any(p['content_id'] not in topics for p in evidence.pages):raise ValueError('unbound')
+        if missing_unknown:return {'coverage':'partial','reason':'wb_reply_terminal_incomplete','reply_scope':'accessible_terminal_missing_unknown','independent_selected_roots_visited':True}
         return {'coverage':'exhausted' if all_exhausted else 'limit_reached','reason':'accessible_chain_ended' if all_exhausted else 'selected_root_prefix_limit' if any(p.get('selection_completed') is True for p in evidence.pages) else 'comment_limit','reply_scope':'embedded_or_verified_child_cursor'}
     except (OSError,ValueError,KeyError,TypeError,AttributeError,RecursionError,executor.bridge().BridgeError):
         return {'coverage':'unknown','reason':'wb_pagination_evidence_invalid'}
