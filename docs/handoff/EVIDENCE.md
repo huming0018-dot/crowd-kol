@@ -560,3 +560,11 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - RUN16/dy-owner-entry-v2/independent-review/FINAL.json SHA326865b4edf87c2013c2b19d72ec2f909925cb7bfb1e4bc41b37ac73c96da9e5，有限组件未采用。
 - RUN16/f6-software-current/independent-review/FINAL.json SHAee72adc2a62be14969ef5e255c630fdfacb9e299d3e06e4f7cd817cefb19c0e5，仅确认预HTTP失败。
 - 爬虫/outputs/product-plan-1.3-20261016：原1.2、主计划、总览、ROOT-CHECK、非作者PLAN-INDEPENDENT-REVIEW；正式product/PLAN-1.3-REVIEW.md与archive/PRODUCT-PLAN-1.2.md。保22需求/8工作包/12结果工单；本轮仅文档。发布需该目录PUBLISH-RECEIPT.json，缺文件不补写推送。
+
+
+## E76｜统一入口实际接入
+
+- RUN16/g02-dy-owner-adoption：FREEZE-V2、PREPARATION-V2、independent-review/FINAL SHA843169b076186ef9605feb1d3bbe27362184bd2aee2013d271ba56c0d6f0765f；FORMAL-INSTALLED、runtime-adoption/ADOPTED、SOURCE-COMMIT。
+- 实际非作者independent-runtime/FINAL SHAe01aad112c69f3551e46d1a557006f200c157ab7d88eec3e0d1dffbe558a555f、CLOUD-FRESH-REVIEW SHAa00dacbfd3cd5c341cc1ef79219bb5a22b8f9ad0955c8a413edb500a94637483；根CUA ACTUAL-UNIFIED-ENTRY.jpg/txt。无新来源/ACK。
+- RUN16/e76-unified-pro-entry：FRESH-RPC、FRESH-EDGE、CLOUD-DEPLOY-RECEIPT、INDEPENDENT-FRESH-EDGE/RPC；MCP实际迁移/Edge41与后续只读原件，仅本地不公开整包。
+- RUN16/e76-original-node/LOCAL-FRESH.json：15:36只读原登记缺失，未改资料/凭据；G04原快照与候选不当云交付。源码/文档push以E76-PUBLISH-RECEIPT.json实际远端核对为准。

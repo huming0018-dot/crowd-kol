@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 15:29 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
+更新：2026-10-16 15:49 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
 
 ## 1. 接力规则
 
@@ -16,11 +16,21 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：按用户要求完成交付基线1.3校准；本轮不启动来源/部署。最近实际运行证据E74为15:16 PID22476/dy-pro-32cd0a80-b9f66331，十源正式复制默认关闭、尚未提交；Owner/中央V2有限独审通过未采用。E73知识入口保持，四知识写表0/真实决定未发生。原终端恢复/连续OTA、新ACK自动发布、远端消费/双域/跨端/48h未全验。原T0 13:06:48和预算不重置，看门狗暂停。
+当前阶段：计划1.3继续实施。G02统一Pro入口已正式接入中央Edge41/RPC迁移20261016074224，本机28754/dy-unified-0a30b7f4-530bc01f；非作者现场e01aad及云核a00dac通过。新DYscope仍在安装元数据门拒绝，未建新任务/来源/ACK，不是业务采集通过。G04真实六店快照远端init/put/get候选已实现，正在组合G02基线并独审，未云保存；G01原扩展登记缺失仍确认。原知识四写表0、真实决定未发生；全平台/连续OTA/远端消费/双域/跨端/48h未全验。原T0/预算保持，看门狗暂停。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
+
+### E76｜G02统一入口正式云/本机接入及现场独审
+
+- 源码：E74十源按实际SHA提交85181b707604a46d0fc4870e2bf5e6f386cbae70；G02六本机源+两Edge+实际远端迁移导出提交ed12ac0e776eaad92df58998908c4cd30bd640ed。未夹带ASR等旧dirty。提交/推送分开，发布回执生成后才认远端。
+- 非作者准备审843169b076186ef9605feb1d3bbe27362184bd2aee2013d271ba56c0d6f0765f，冻86c28eda。fresh旧RPC artifact9b112逐字同，文件额外LF与definition域明确分开；不把277bdace文件MD5用于线上CAS。
+- 根实际Supabase migration成功20261016074224/pro_dy_trending_unified_capability；三hunk只扩claim能力过滤/字段校验和DY trending capture绑定。实际definitionMD5c96211fcf35879f747685ce5401de886/prosrcfaa17a349689e818be13aed069576bc3；OID31987、service-only ACL、非definer/searchpath保持。Edge40→41，实际get27exact/改2保25，原JWT及自身认证保持。
+- 云回读后本机六源精确copy（旧五源备份）→原采用器预检96/5锁PASS→唯一apply22476停/28754起。实际运行独审e01aad112c69f3551e46d1a557006f200c157ab7d88eec3e0d1dffbe558a555f，6exact+469其他/fullset1新、五库两次actualbackup/schema/raw、246保护/四配置/知识DB四表0、31原ACK与六店四格式保持。云fresh独核a00dacbfd3cd5c341cc1ef79219bb5a22b8f9ad0955c8a413edb500a94637483。0新来源/云ACK/人工知识决定。
+- 根实际IAB正常新建草稿，模式选项/仅DY/1内容/评论回复媒体联动可见；g02/ACTUAL-UNIFIED-ENTRY.jpg及完整AX。未点创建；非作者实际unified_preview在本地元数据门HTTP400/pro_task_installation_missing，无云create/source。原Owner列表正常；没有把界面或默认关闭当业务通过。
+- G01 fresh15:36原903d Chrome71456存在但参与扩展未登记；安装70/缓存71，与旧观察一致；CUA只暴露日常资料，不碰同ID另一产品/原preferences。G04原Consumer六店四格式已读同SHA，37服务端+3客户端测试是候选证据；V2组合/独审/云保存回取待继续。
+- 下一步：补实际Pro安装描述与原会话binding/主体核验，不造UID或改pending；G04组合Edge41后独审→正式云保存回取→远端消费；G03须合法新ACK触发。原任务/2条预算/ACK/知识决定、watchdog暂停保持。
 
 ### E75｜整产品交付计划1.3；本轮仅文档/研究
 
