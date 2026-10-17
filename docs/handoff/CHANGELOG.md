@@ -668,3 +668,32 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 当时回取actual独审进行中（完成结果见下行补结），正式消费UI/Pro原登录/原两设备与连续OTA未通过；按HANDOFF E82下一步推进。root更新文档脚本首遇stdin编码SyntaxError，未写入任何文件，显式UTF8后完成；保失败，不算产品错误。
 
 - E82实际补结：native非作者c5705402确认4原格式逐字节、4GET/私有权限、6账号与96原run摘要一致；未打开URL/另发请求。当前仅正式消费页面、原登录/两终端/连续OTA等未验，不把本次下载扩大为系统全部通过。
+
+
+## 2026-10-17 19:37 CST｜E83正式消费已部署，原节点恢复继续
+
+- root集成/真实调用；central消费作者、knowledge非作者完整build/发布审/实际审；native原节点诊断与重开准备、central/knowledge交叉非作者审。
+- 六源a34ae5b已推原PR17，实际merged8202d5f/原Vercel生产Ready；真实无登录6卡与四按钮211899B exact、旧真实过期link拒，正式原CTFS六文件已备份同步；raw能力URL与Owner值不写交接/Git。原6a88未换ID，19:23心跳恢复，仍旧2条完成自动停止；无新来源ACK/扩预算。
+- 本机原扩展缺登记；normal开页UI路径被工具stale拒未安装；正常Chrome重开曾ready后新进程退出，forward持久启动待审执行；7storage已证保留，日志保失败，不回写成功。诊断显示候选审出2P2仍未采用，连续OTA未验。
+- 原始证据与后续步骤见HANDOFF/EVIDENCE E83；当前实际审/恢复仍进行中，后续补结后再正式交接发布。
+
+
+## 2026-10-17 20:00 CST｜E83原插件恢复、72真实采用及质量核验对账
+
+- root原生UI加载原profile既有participant目录，无需本人再选择；native非作者实际核原32文件签71/助手applied/新云633。原forward首次UNKNOWN及reconcile候选保留，恢复不用它强过门。
+- 正式72四源+两portabletest，源码9c99894/固定包6a66c9c/签通道14bf5a2已推，公开包/通道实际回读；每项候选、正式采用和真实签名分别非作者审。root原helper检查+一次原UI更新，本机72/seq2026101772/digest1596/新云643；远端仍71，未切73。原身份/接收/队列/预算保持，平台登录unknown。
+- 用户明确限定原task19/20和四proof核验/原因/奖励；代理第一SQL越界被拒0执行，root移除额外字段后同工具唯一限定SELECT成功。四条received/null是尚无最终质量结论，非判无效；native有限非作者ce8d0ba7核，不读取正文或改评分。
+- 消费真实actual非作者83fde8a7完成；Owner分享入口和73历史checking提示修复在做，仍未采用。完整范围/证据/下一步同步HANDOFF与EVIDENCE；watchdog继续暂停，48h未启动。
+
+- E83补结：本机实际非作者25bbad54已核70→71→72闭环/32安装文件及新云643，远端72仍未过。73的会话/文案组件V2经cd06170a独审，root为并行等待提前离线构建152006B/SHA3f03bbd7并补三便携回归，首次漏改sibling require失败已保并修；未正式采用/签发/切通道，不跳过远端72验收。
+
+## 2026-10-17 20:34 CST｜E84 两端72→73及Owner全流程正式通过
+
+- **接力者/独审者**：root集成/签发/采用/实际浏览器；native作者73、非作者Owner组件及采用/实际审；central非作者OTA各阶段及真实两端审；knowledge作者Owner、只读manual合同审。交叉非作者，不把作者自述当验收。
+- **目标/实际改动**：保两原参与身份、预算、outbox/评分与云回执；修73历史checking展示，显式生成900秒查看链接接正式工作台及原生产consumer，不新账号或公开桶。
+- **文件/版本**：EXT b7d34adfb028514088b8c8f5d81329c49be6ccf1（73两产品源+版本+3回归）；PAGES2a3c590758ec2c648a27989adc4312b9bb584352/固定ZIP66ca88e；crowd-kol b7ff3b8d7240aec21ba56f6cdad6c3493bbf55ea（dashboard.py/publication_share.py/results-ui.js及两便携测试）。三仓原分支已推，旧dirty不暂存。consumer原main8202生产保持，未重复部署。
+- **验证/发现与修复**：73组件继承键P2修复，portable漏sibling require首败留存后修；原签名/包公开回取/正式源非作者审。Owner采用V1漏client键/运行数，V2在IO前校验、477计数/5测试通过；首次原锁忙保留失败，现场锁空后采用，不强清。非作者使用原快照实际7Python+JS过、无skip。
+- **线上/实际结果**：工作台760→17487，revision owner-share-0dbbb7ec-5f833cfa，477运行源/473其余源/248保护/五库原行/31原ACK/8导出/96状态保持。Owner一次生成、复制原生粘贴、正式6卡、4次按钮得4新文件211899B原字节一致，native实际35cb0fe0通过；链接20:35:58到期，不自动续签。
+- **两端业务边界**：原本机72云643后73云661，远端72云650后73云669；版本/摘要/顺序与原ID实证，central实际d361be87通过。人手显式检查两次，不宣无人值守周期通过；远端原文件未直接读。均平台unknown、无新采集/预算扩大。task19/20四proof received/null是待质量审核，不判无效。
+- **遗留/下一步**：manual仅expected_ref存在才同绑定核验，真实登录恢复未验；诊断漏identity_verification_required/platform_identity_changed两枚举未修。先保原绑定做不采集核验，再窄修独审/后续OTA；Pro同输入正文/评论分页媒体/导出及新云ACK仍未全部通过。48h和watchdog继续暂停。
+- **证据/更新**：HANDOFF E84与EVIDENCE E84精确路径/SHA；本轮文档发布另见本地E84-PUBLISH-RECEIPT.json，不把commit成功当push成功。

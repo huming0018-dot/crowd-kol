@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-17。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E82为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-17。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E83为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -652,3 +652,45 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - 本次未新采集/新业务ACK/新增账号/上传；一次匿名下载不证明正式消费UI、永久分享、即时撤销、登录恢复或连续OTA。actual独审及发布回执完成后追加结果。
 
 - 实际非作者回取审：`signed-download-verification/independent-review/ACTUAL-FINAL.json` SHAc57054023f3ed5706779a4bb5610a5c872aadd036c34ecc54923a306e48fd601；4新文件与原件byteexact211899B、4GET/私有权限、6账号及96原run保持，0额外HTTP；不是全5库重新审或新采集验收。
+
+
+## E83｜2026-10-17正式消费生产与原节点新鲜状态（进行中）
+
+根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/`：
+
+- `consumer-capability-page/independent-knowledge/FINAL.json` SHA25f02d80704ecf3cdf3a15c9895967dbe21398425556e561fc9f4ff811117096、`RELEASE-FINAL.json` SHA5b28032c2d676f688d1a0affa5b9dace0a8d3a8d5de9405e17c179ddc06bcd13；完整build与精确release六源/便携测试。
+- `e83-consumer-and-nodes/GITHUB-MERGE-ACTUAL.json`真实GH响应、`PRODUCTION-BUILD-STATE.txt`原Vercel精确8202 Production Ready；`release-adoption/ADOPTED-FINAL.json`明确supersede旧ADOPTED reader头/部署待定记录，旧件保留。`formal-adoption/ADOPTED.json`同步原CTFS正式六文件且其余基线保持。
+- `e83-consumer-and-nodes/ANONYMOUS-ACTUAL.txt`、`ANONYMOUS-FOUR-DOWNLOADS.txt`、`ANONYMOUS-PRODUCTION.png`、`EXPIRED-ACTUAL.txt`、`browser-downloads/`和`BROWSER-ACTUAL-RECEIPT.json`：真实正式alias免登录6卡、4原字节回验及真实旧link过期拒绝；实际独审另记。private-share内rawURL禁止Git/日志外发。
+- `participant-recovery-evening/`实际仅两原node及原6a88同主体限定读，19:23已恢复heartbeat/seq340；`REMOTE-NAME-METADATA.json`证明无登记名称，不编造；`DAILY-CONFLICT-MANIFEST.json`只核日常其他产品3.5.3，不动它。原字段变更/来源预算未扩大。
+- `participant-open-original/independent-knowledge/FINAL.json` SHAefb8783304e0a98afaba7bdf6743f8211d7b5c349f45fe890efa9912a4099fd0，仅单次正常开页准备；`OPEN-RESULT.json`实际请求成功，非安装验收。
+- `participant-original-cdp/independent-central/FINAL.json` SHAc0cff4663cb26043c48f6bc095821714a73dde07f59199e3ea02bc37370a3cc6；`REOPEN-RESULT.json`原Chrome正常重开曾ready/7storage同，随后bring失败及rootps/lsof确认新PID退出；不把ready算持久恢复。未完成forward/安装/登录/OTA。
+
+- E83实际补结：`e83-consumer-and-nodes/independent-knowledge/ACTUAL-FINAL-V2.json` SHA83fde8a75c9c233c3746d7766dccb1b901039ffe6bd24876422739f55a51c25d，真实6卡/四下载/过期拒、生产与正式源exact；原已有UID测试copy前缺口仍标未验。
+- `participant-recovery-evening/RESTORATION-OBSERVATION.json` SHAb79a57b6c1aca05740ac91330cad9c325392b576f2b8be6c7bd612a1e610ee18：原profile正常UI加载、原32签71文件/助手握手与新云633；不以7旧hash要求加载后的存储不维护。
+- `original-four-review-status/LIMITED-ACTUAL-RESULT.json` SHAea28320f8fc020afc25422b1168c7a1b09e6d08759766b7a4d3b19026ab73c87：本人限定授权下root实际SELECT；原四proof均received/null，旧首拒原件保留。
+- `original-four-review-status/LIMITED-INDEPENDENT-REVIEW.json` SHAce8d0ba71e7685acab441dcdbb6a6558cf88aeb517bfd7567c7b3053b2bc6f6e：原结果+原源码质量/奖励分账非作者有限审，不读正文不改评分。
+- `participant-ota72-preparation/independent-central/FINAL.json` SHAe68b623fe69e1df0cfc3f6ae625e49305bbb7949d38717a8c1540d35eed446ed：72整包/原ID权限/独建包exact非作者审。
+- `participant-ota72-portable-tests/independent-central/FINAL.json` SHA569779ff4ab237848d23cf2aa3967a4c8cf620c24b68b07cbf7a11d8bf29aee1：两个原反例仅路径便携化实际复跑。
+- `participant-ota72-formal-adoption/independent-central/FINAL.json` SHAb2e3f26f881ea28744a6e9924c3a21596890e29112c9238713e452a7056d966c：正式30输入/4前件/2tests及包actual非作者审。
+- `participant-ota72-formal-adoption/independent-central/SIGNED-FINAL.json` SHA901fa69adbd0e105a065f0ee9da1bb5b9dba7920c2b5985415fbd8823fcc3cee：真实公钥验签/原通道/序列/固定ZIPcommit envelope非作者审。
+- `participant-ota72-formal-adoption/LOCAL72-ACTUAL-RECEIPT.json` SHA54db9f4b0bb51bf1275c4d636800f9ae0e8baf97007b373ef1700660ccab67e3：root原助手与一次原UI更新；本机72 applied/loaded/seq/digest及新云643，远端仍71。
+- `participant-ota72-formal-adoption/PUBLIC-CHANNEL-READBACK-RECEIPT.json` SHAb67276ab916d605c814c49dae414f593c60c63c9d0c754c674a86578aba44960：原公开通道实际单GET72/序列/包与release摘要。
+- `e83-consumer-and-nodes/RECOVERY-OPTIMIZATION.md` SHAf2048fd37182e37dfeb823a087cd4f666df3267322355a48403e572c2af61416：联网官方与独立推演恢复路径，旧退出因果不补写确定。
+
+- `participant-ota72-formal-adoption/independent-central/ACTUAL-LOCAL72-FINAL.json` SHA25bbad54c9f42eb83a19a3ca1a3040733b649dafe90d31d5e3fdd20a7ca55bc9：非作者fresh本机32安装文件/原登记/助手状态及原云回执独立解析，闭合70→71→72；远端仍71，不认两端连续OTA全部通过。
+
+## E84｜2026-10-17 20:34 CST 两端连续更新及Owner全流程
+
+以下路径根为 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17`，原件只本机；状态范围以实际报告为准，原URL/凭据不入文档。
+
+- `participant-ota73-formal-adoption/independent-central/ACTUAL-BOTH73-FINAL.json` SHAd361be87c19f1e1eedf4d15da8132ce5ddc1aa5a48d53947fa050420e87c553a：两端72→73实际OTA事件/摘要；本机32文件及助手真实状态。
+- `participant-ota73-formal-adoption/independent-central/FINAL.json` SHAb85354b53ee5cfc52d2f54554a6b2b3c4900903b9e57d8cb15c25328423d9dc2：73正式采用实际独审。
+- `participant-ota73-formal-adoption/independent-central/SIGNED-FINAL.json` SHA544fe66bcae4420f955f2bd77a26f7ef68bcefb3edd8fdfcbee3a7bf20ede36d：73签名发布实际独审。
+- `owner-publication-share-adoption-v2/independent-runtime/FINAL.json` SHA82266cefc381328f6fe4e0f35fd49278d2f2d0b2d89457d884d3f861ab943599：Owner实际477运行源/五库/保护资产非作者审。
+- `owner-publication-share-actual/independent-review/FINAL.json` SHA35cb0fe0d0dcf594853b05fb155a7ea6c38238ea57c592ffa77a3a98decb9fc0：真实Owner复制/正式消费/四新下载211899B/便携测试有限非作者审。
+- `participant-manual-login-contract/FINAL.json` SHAb9c16c06721d87281e692240dc7fc16290cc4e4cc025c04af038c80b5d080b41：73停止态manual不采集核验合同及诊断漏枚举，只读独立核查。
+- `owner-publication-share-actual/BROWSER-ACTUAL-RECEIPT.json` 记录根一次生成/复制/6卡及四新下载；非作者审另核新文件、原字节、时间与安全截图，不伪称自己独立签发或具备全网络trace。
+- 正式源码crowd-kol b7ff3b8d7240aec21ba56f6cdad6c3493bbf55ea已push0，5文件；EXT b7d34adfb028514088b8c8f5d81329c49be6ccf1及PAGES2a3c590758ec2c648a27989adc4312b9bb584352已发布，固定包66ca88ee2b34a1fdd4cce636eaa61aa9bb7d46b4。
+- 业务未验：同主体平台登录恢复、无人值守定时OTA、Pro全量同输入/评论分页媒体、新来源回执、Windows/VM/mobile与48h。原四proof仍received/null，不做人工评分。
+- `participant-ota72-formal-adoption/independent-central/BOTH72-FINAL.json` SHA4bd71d7eaa84a9076ad8093ecd975a55811a9d99096842ad656b1cda5ac38b1a：两端72真实阶段有限独审。
+- `owner-publication-share/independent-native/FINAL-V2.json` SHA59481a09537745619d1b1e9c273ce57757492ceba3faa1a7c032bb0757cd29cc：Owner组件V2非作者审。

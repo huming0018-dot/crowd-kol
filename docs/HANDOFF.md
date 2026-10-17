@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-17 19:00 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
+更新：2026-10-17 20:34 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
 
 ## 1. 接力规则
 
@@ -16,13 +16,33 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：E81 Owner协调轮换已独审实际通过，工作台760；E82签名下载已部署云45/29文件、正式三源66cb426已推。原六店四格式900秒链接唯一签发，真实匿名四GET回取211899B逐字节/SHA全等；回取实际非作者独审c5705402通过。Vercel新Production Secret已保存但未redeploy，正式在线消费页/原两设备恢复/连续OTA未通过。保原参与者、31ACK、原两条预算及看门狗暂停。
+当前阶段：E84原两设备连续72→73真实云回执及非作者独审通过；Owner一键分享已接入正式工作台17487，真实生成/复制/免登录6卡/四格式211899B下载通过独审，源b7ff3b8已推。消费页生产8202保持。原task19/20四proof仍received/备注null，尚未质量核验，不是无效。平台两端登录仍unknown、远端身份核验步骤待定位；不宣新采集、无人值守自动周期、跨端或48h通过。原身份/两条预算/31旧ACK保留，看门狗暂停。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### E82｜2026-10-17真实免登录四格式下载
+### E84｜2026-10-17 20:34 CST 连续OTA与Owner分享正式采用
+
+- **两设备真实更新/独审通过**：原本机2dac与远端d575同installID，依次72、73。72本机completed643/seq301、远端650/seq346；73本机661/seq311、远端669/seq355。20:21原限定读两端version4.2.73/release684bbb0be829f697a424cabe6a4abf882ed545ec9552f73a06daafdb649799fb/queued0。非作者central实际ACTUAL-BOTH73-FINAL/d361be87核真实保存云原件和本机32安装文件/原登记/助手applied+loaded73/seq2026101773/pending空。远端安装字节不能直接读取，不伪称已核。用户各点一次检查更新；两段真实下载/采用/重载/云确认通过，不冒无人干预60分钟定时轮询已验。
+- **73正式发布**：停止/历史核验页opened不再无限显示“正在确认”；120秒只读展示期限、停止或无效时间明确未核验，接收与质量审核分别提示。不改采集调度/原记录/Start/预算。component cd06170a、formal b85354b5、signed544fe66b独审通过；正式源b7d34adfb028514088b8c8f5d81329c49be6ccf1，固定ZIP66ca88ee2b34a1fdd4cce636eaa61aa9bb7d46b4，签名channel2a3c590758ec2c648a27989adc4312b9bb584352已推。包152006B/SHA3f03bbd7c67a0fe8dbccba799555d4f2f831c63450f5fdbfa1469c8c3306d3d7；真实公钥验签/公开channel与包回读通过。73提前离线准备但正式采用发布在两端72实际门后，未跳段。
+- **Owner代码/测试/实际运行通过**：正式3产品源dashboard.py/publication_share.py/results-ui.js及2相对路径便携测试，b7ff3b8d7240aec21ba56f6cdad6c3493bbf55ea已推原分支。复用既有publication_client.py与原Owner/Host/Origin/CSRF边界，只对原六店快照显式签一次900秒链接，无新账号或公开桶；请求意图耐久保存安全metadata，未知结果不盲重签，URL仅页面内存/剪贴板。原工作台已由760正式采用为17487/revision owner-share-0dbbb7ec-5f833cfa；477运行源、其他473源、248保护文件、5库原行、31原ACK、8原导出与96状态保持，native实际独审82266cef。worker可claiming但无租约/新来源，不写成一直idle。
+- **采用审查发现与修复**：V1漏算旧snapshot不存在的client依赖，文件数476修为477；formal_expected缺client键可能KeyError，V2在任何IO前验证。原失败/冻件保留，5采用测试过、V2非作者0dbaf662通过。首次实际锁忙在重启/备份前退出；后续现场原锁无持有者才采用，未强清锁。Python3.9/3.11 Unicode repr比较差异以同3.11复核，不改原数据掩盖。
+- **真实Owner全流程/非作者独审通过**：工作台“资料库→导出领域发现→生成15分钟查看链接→复制查看链接”，根一次显式生成，原生浏览器粘贴证实复制有效；CUA剪贴板读取空是工具差异，不重签。正式consumer页6原候选及未知说明显示，4按钮各一次产生4个新的Downloads文件，JSON47764/HTML67133/JSONL46950/CSV50052共211899B，与原快照和审计副本逐字一致。native35cb0fe0核新文件时间/不在before清单/有效期内、实际运行和安全截图。链接有效至20:35:58 CST，到期需Owner主动生成，不在handoff写原URL。单次签发计数依据根实际click及安全intent/禁用按钮，不冒独立网络trace；原snapshot接入业务通过，不等同新来源质量验收。7 Python+JS便携测试由非作者使用原snapshot实际复跑，无skip。
+- **登录与监控尚未通过**：两端平台login_state均unknown；远端最后step identity_verification_required、diagnostic unexpected_error。只读代码查出background诊断枚举缺identity_verification_required/platform_identity_changed，会降级为未知错误；未读取远端私有last_error，不断定其实际值或冒修好。73原expected_ref存在时“登录/处理验证”走manual核验，可停止态复用原页且不领任务；缺ref分支只是打开页面，不能作为同主体证据。只读独审b9c16c06核此合同，尚未执行真实manual同主体恢复，不点继续采集补预算。平台/Pro恢复及新正文/分页/媒体/导出同输入验收仍待办。
+- **下一步**：先在原绑定确认后走不采集manual核验，取得同主体健康证据；修复上述诊断漏枚举并独审、后续发布保持原更新链；再按原任务预算/原游标验证Pro及实际云ACK。未启48h实验或看门狗、不修改评分、未重发unknown。E83以下为历史时点，远端71/候选未采用表述均被本节当前状态取代。
+
+### E83历史｜2026-10-17正式消费与原两节点恢复
+
+- **消费代码/独审/生产**：原PR17/a34ae5b合并为8202d5f363d6cdcfc54586ef6952a5cc51859160；原Vercel Production 2dNhJ5XUGFyVigLAXLnudeuKM43F/19:27 Ready，正式alias的materials页真实免登录展示6项资料与未知说明。原锁Next14/ES5完整build、UID/Auth/Handler回归及负例先后独审；正式CTFS六源与已审版本exact。既有UID测试copy前状态缺before，仍未验证，不补造备份。
+- **真实消费验收已通过**：4按钮各下载一次，211899B与原JSON/HTML/JSONL/CSV byte/SHA全同；JSON下载等待工具超时但新磁盘文件及页面成功已证，不重复未知下载。旧真实过期link拒绝且无资料/按钮，恢复有效查看页多一次手动JSON读取，不称全程只有5GET。knowledge实际非作者ACTUAL-FINAL-V2/83fde8a7通过。签名仅本轮900秒、已到期，不自动续签；rawURL不入日志/Git。生产匿名路径不使用Owner Secret，不冒它证明了Vercel Owner认证。此为19:37初轮结果；Owner后续正式采用和真实全流程见E84。
+- **两原设备**：本机2dac与远端d575均有新鲜heartbeat/原installID保持。远端用户面板v71/已登approved/2接收、有效0、自动停止、outbox0；无登记设备名/hostname，不能编电脑名。19:58:50CST原限定读：本机72/digest1596、远端71/digestcfe4；两端login_state unknown、test_completed/queued0，本机enabled=true为等待实验、远端enabled=false，不等同正在访问来源。绝不动日常Chrome同ID其他产品3.5.3。
+- **本机恢复与真实连续更新**：原profile曾缺participant登记、7存储文件在加载前保留。旧正常重开8390退出，forward10932一次启动后先UNKNOWN，旧DevTools元数据首读可报ValueError是代码边界缺口，实际分支未记录不倒填原因。后续只读证10932独占原profile/loopback、父已退出/存储保持；root最终用按PID原生UI正常加载原固定目录，无Preferences编辑/重报身份/清存储。加载后存储正常维护，不再要求旧7哈希不变，不执行已审reconcile候选。实际原32安装文件逐字等签71包、助手applied71/新云completed633；root随后原helper正常poll一次与原UI检查更新一次，实际72/applied/loaded72/seq2026101772、pending空，云新completed643/node_seq301/digest1596，队列仍0。native实际恢复审与central实际72独审25bbad54已完成；不是来源登录成功。
+- **72已正式发布**：诊断仅原ID/最近真实登记确认/固定错误显示；V1审出PGRST202兼容缓存误当确认及toString继承键两P2，V2修复独审afc586通过。正式4源+2便携回归，源9c99894f3b287af4ed7df58f508c445f46253173已推；原builder重建151454B/SHA3478eda7与非作者独建exact。固定ZIP6a66c9cf0acd463d66f20ea6e9a688dddda97ae8，唯一签名通道14bf5a20da0ff506512c7f77ae6baf2a584330ea已推；公开实际channel SHAa415faff/seq2026101772、release1596df及固定ZIP回取一致。原公开key真实验签独审901fa69a。缓存不当安装；远端72仍未应用，未发73跳过该段。
+- **原四条核验状态已查清**：先前私数据查询被自动审批拒，用户本轮明确允许原task19/20与四proof核验状态/失败原因/奖励。代理首SQL多加其他域再次被拒，0执行并保留；root删除全部越界投影，仅在同工具执行已授权状态/备注/奖励字段SELECT成功。任务均complete/received2/reward_fen0，proof31–34均received/review_note null；没有最终verified/rejected结论。原源码质量核验与接收分别统计，奖励按verified满100条批次计算。native实际有限非作者ce8d0ba7核原结果与源码，不改评分、不读正文。不能把本次元数据查询当内容质量或正文完整验收。
+- **73及下一步**：源代码实证旧verification opened无展示截止，可能一直“正在确认”，不等同HTTP无限挂或本人平台已登录。候选两源仅有限120秒只读投影/停止或过期明确未核验，不新增source/probe/Start；独审发现新map继承键P2正窄修，并加无虚构待审条数的接收/核验分账说明。73已提前离线构建以并行准备，未正式采用/签名/发布，线上硬门仍必须先等远端72真ACK；原平台登录恢复仍需同主体核验，不能以node或中台已登代替，不扩两条预算制造新采集通过。Owner分享入口继续，watchdog/48h未启动。
+
+### E82历史｜2026-10-17真实免登录四格式下载
 
 - **实际部署/源码**：本人明确允许原六店4文件900秒只读链接及回验。已审候选两云源精确叠加fresh44，45实际回读29文件exact，其他27含新Owner校验保持；native非作者窄审b421721a通过。正式core.mjs、publication_storage.mjs、publication_client.py三源精确copy与原件备份，66cb426已推原crowd-kol分支。原760 immutable源码475文件不变、未重启；CLI显式调用正式3bdf模块（该CLI不在运行snapshot中），不冒工作台UI已接通签发。
 - **真实签发/回取**：根唯一CLI links调用exit0，4个签名只写本机0600私有文件，15分钟，到期2026-10-17 19:13:37 CST；只给原固定路径，不新账号/上传/公开桶。回取脚本central作者/native非作者c5dcfd41（5原组+4独立组），唯一运行4GET/无AuthCookie/无代理/拒重定向，无重试重签；211899B四格式与原件byte/SHA完全相同，SAFE-RECEIPT complete true。下载输出本机0700/文件0600；未打开实际URL作为审查步骤，native实际非作者独审c5705402通过，4原字节/私有权限、6账号和96原run状态保持；未新发请求。HTML下载后可本地打开，本轮未核页面展示；非在线HTML产品通过。
@@ -228,17 +248,17 @@
 
 ## 5. 代码版本与未提交资产
 
-以下为相应发布回执/证据时点的源码版本；本轮crowd-kol原分支三源66cb426已推（远端独立回读见E82发布回执），另外两仓沿历史原件，不能冒新鲜HEAD。三仓均分支 `codex/v4.0.6-handoff`：
+以下为E84已核实际源码/包/运行版本；历史签名下载66cb426保持，Owner正式源b7ff3b8已推（交接文档提交另记）。发布与终端采用分开。三仓均分支 `codex/v4.0.6-handoff`：
 
 | 仓库 | 已核源码提交（文档后续提交另见发布回执） | 状态与未提交边界 |
 |---|---|---|
-| crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | 66cb426fecdc6cab019507b1d4885d103142c2cc，本轮签名下载三源push0；原日志30413e1见E80 | 当前760/owner-key-rotation-read-observability-175bf73e；本轮fresh云45/29文件：先44仅OwnerHash，再45仅两签名下载源；六店候选+31旧素材/ACK、原WB partial74/10of12剩2保持；旧无关dirty不暂存 |
-| crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
+| crawler-extension | b7d34adfb028514088b8c8f5d81329c49be6ccf1 | 73正式源与3便携回归已推；原ID/权限不变，两端72→73真实云更新确认通过 |
+| crowd-kol | b7ff3b8d7240aec21ba56f6cdad6c3493bbf55ea | Owner分享3产品源+2便携测试已推；当前17487/owner-share-0dbbb7ec-5f833cfa/477源；云45与六店+31原ACK保持，原WB partial74/10of12剩2不变；旧无关dirty不暂存 |
+| crowd-pages | 2a3c590758ec2c648a27989adc4312b9bb584352 | 签名73实际公开回读，固定ZIP66ca88ee2b34a1fdd4cce636eaa61aa9bb7d46b4；两端连续72/73云确认通过，远端native文件未直接读 |
 
-消费项目另在 `/Users/hubowen/Desktop/桌面 - 胡博文的MacBook Pro/china-travel-food`，正式目录原main保持自有7源码dirty；本轮隔离发布工作树为 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/consumer-release`，分支 `codex/publication-consumer-20261017`，最新07cddfb已推/原云构建success，PR17未合生产。不可reset正式目录或把源代码接入当生产验收。
+消费项目正式目录在 `/Users/hubowen/Desktop/桌面 - 胡博文的MacBook Pro/china-travel-food`，保留原main/无关dirty；本轮六源精确copy。隔离发布目录 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/consumer-release` 的a34ae5b已合原PR17/main8202d5f并实际生产部署/真实匿名下载通过；不要用正式目录旧HEAD代替实际生产版本，也不可reset原资产。
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。当前运行以第3节E82/E81及owner-key-rotation-preparation-v3/runtime-adoption/ADOPTED.json为准；原E80实际独审5341ec5e仅继承源码日志变更；旧E63/E71等是继承历史，不能作为当前PID。原continuation-current-runtime-adoption继承链仍保留，不能以HEAD替代运行源码；不要reset/clean或覆盖其他改动。
+三仓E84源码与发布版本已实际核对；当前工作台以第3节E84及 `owner-publication-share-adoption-v2/runtime-adoption/ADOPTED.json` / 非作者实际82266cef为准。旧E81的760/475仅历史，不作当前PID；原continuation继承链保留，不能以HEAD替代运行源码。禁止reset/clean或覆盖无关改动。
 
 
 ## 6. 关键决定
@@ -261,7 +281,7 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 | ID/优先级 | 问题、证据与影响 | 解决所需证据 |
 |---|---|---|
-| R1–R4 | fresh2026-10-16 OTA只读核：远端原6a88已上报71+正式cfe4摘要，当前注册/健康及昨22:39完成事件支持实际客户端采用；远端native文件/原生连续回滚链未直验。本机3cde仍70、心跳自昨停止，helper8198正常/签名71已缓存；原903d现Chrome71456已正常重开、Bridge AX启用，但participant登记仍缺，目录面板32502待本人选择，原storage仍在；当前参与者outbox值未读未知。原19/20均complete2/2，原身份保持；先恢复原profile扩展，不动日常同ID3.5.2 | 本机原ID/用户/outbox/2回执保持、自然71apply/reload/原生ACK/后续current；两节点连续原生链分别取证 |
+| R1–R4 | E84两原端fresh，依次72→73/摘要/新OTA逐事件已独审；原身份/2接收/outbox0保持。平台unknown；远端identity_verification_required与泛化诊断，不等同来源登录有效 | 原绑定manual同主体核验与真实来源证据；修诊断漏枚举；无人值守定时周期另验，不重置身份/原预算 |
 | D1 | 槽释放、原ID交付恢复、Owner入口已上线；当前无真实坏组可验 | 实际defer→原ID ACK→finish链；不人为破坏用户数据充当验收 |
 | D2–D3 | E44已采用Pro真实Python transport与durable readback同journal接线，历史E44新XHS41逐条ACK/105步骤、最新E47另一新任务40ACK/99步骤分别独立实证；既有机器phase/Pro保存页/ACK也已部署；MC逐页机制已在E35采用，E36 Bili24来源事件根页保存缺失保留；E37新批次25步骤含选中部分保存已证，游标commit仍未证；通用参与者派单及supervisor child PID/预算标记时间仍不完整 | 任意任务两节点不重复领取、完整中央来源至ACK时间线 |
 | D4–D7 | 用户中台恢复、克隆身份围栏、跨任务去重和并发仍未全验 | 同UID不清outbox恢复、双节点epoch竞态、失败隔离与受控并发 |
@@ -291,7 +311,7 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 唯一当前入口为本文件；WORKSPACE/HANDOFF.md和爬虫/HANDOFF.md只作指针。[证据](handoff/EVIDENCE.md)、[日志](handoff/CHANGELOG.md)、[接力模板](handoff/ENTRY_TEMPLATE.md)及仓库AGENTS.md共同维护。
 
-[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。E81/E82本轮文档发布以爬虫/outputs/runtime-2026-10-17/E82-PUBLISH-RECEIPT.json为准；E63历史及当轮产品规划文档发布以爬虫/outputs/product-integration-plan-2026-10-16/PUBLISH-RECEIPT.json的commit/push/remote为准；无此回执不认发布。原计划中的HANDOFF-E63-PUBLISH-RECEIPT未生成，不补造旧回执；E62更正发布见HANDOFF-E62-CORRECTION-PUBLISH-RECEIPT.json，旧回执保留，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
+[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。E84本轮文档发布以爬虫/outputs/runtime-2026-10-17/E84-PUBLISH-RECEIPT.json为准；E81/E82历史见E82-PUBLISH-RECEIPT.json；E63历史及当轮产品规划文档发布以爬虫/outputs/product-integration-plan-2026-10-16/PUBLISH-RECEIPT.json的commit/push/remote为准；无此回执不认发布。原计划中的HANDOFF-E63-PUBLISH-RECEIPT未生成，不补造旧回执；E62更正发布见HANDOFF-E62-CORRECTION-PUBLISH-RECEIPT.json，旧回执保留，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
 
 接力者先读本入口、证据、日志并核日期/所涉源码与原件，再按第8节推进；主要改动按模板回写，每轮结束更新日期、结论、下一步。读不到原件时明确标未知/未核验，不把Markdown中的记录当自己查询线上所得。
 
