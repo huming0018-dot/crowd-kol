@@ -648,3 +648,23 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 2026-10-17 18:16 CST发布补结：07cddfb原Vercel构建现按精确SHA回读success，记录auth-source-adoption/RELEASE.json；生产/真实UID/登录切号/四下载仍未验，不因Ready放行。
 
 - 2026-10-17 18:17 CST实际采用复核：Auth非作者7507573f确认正式/release/原备份/07cddf三文件scope，原5源及三可移植测试exact；无生产部署/真实登录授权证明。固定handoff日期/本轮结论/下一步已更新，在线发布另见E80-PUBLISH-RECEIPT。
+
+
+## 2026-10-17 18:52 CST｜E81协调轮换及消费访问校准
+
+- root执行；V3轮换准备central非作者审，真实读取探针knowledge非作者8/8（修复bool/int typed equality，保留首败）；实际采用独审进行中。
+- 修改：云43→44仅OwnerHash；原工作台仅Owner配置替换及PID89529→760、源码0变更；原Vercel Production Secret更新、未redeploy；无业务数据/Worker key/参与身份变更。
+- 真实验证：原Owner基线可读、原Worker ACK；轮换后新Owner原JSON47764字节exact、旧Owner403及Worker同ACK，五锁/空闲/五库备份后采用。初次部署参数比较因附加固定project_id差异失败，文件/元数据本身一致；剔除该工具必填定位字段后exact才部署，未跳过实质审查。
+- 根记录旧Owner表单误回显事故及用户明确轮换授权；交接不含值。Vercel成功保存但当前部署未重建，不能声称已生效。
+- 消费：邮箱UID0，原匿名首页用途经代码确认；改复用Storage签名候选，已独审但未部署/真实签发，15分钟四格式授权待答；不创建用户或把原私桶改公开。
+- 证据：runtime-2026-10-17/consumer-authorized-config、owner-key-rotation-preparation-v3、publication-signed-links；后续实际审另记。范围、缺口和下一步见HANDOFF E81。
+
+
+## 2026-10-17 19:00 CST｜E82唯一签发与真实匿名四下载
+
+- root集成/唯一实际签发及回取；signed源码central/knowledge独审，云正式采用native实际审b421721a；回取drivercentral/native独审c5dcfd41。
+- 原快照授权已获明确答复；fresh44→45仅2已审源，29源actualexact、新Owner保持；正式3源66cb426已提交并push0，旧dirty不动。一次CLI签发900秒/私有输出，唯一4GET全部exact211899B，未创建用户/新上传/公开桶或重签。HTML是本地下载。
+- 轮换actual独审d200fc9e已完成，475源/五库/31ACK及8原格式保持；Vercel保存Secret但未redeploy。临时旧新Owner输入移除、必要私有配置备份保持；工具记录旧key不能删除。
+- 当前回取actual独审进行中，正式消费UI/Pro原登录/原两设备与连续OTA未通过；按HANDOFF E82下一步推进。root更新文档脚本首遇stdin编码SyntaxError，未写入任何文件，显式UTF8后完成；保失败，不算产品错误。
+
+- E82实际补结：native非作者c5705402确认4原格式逐字节、4GET/私有权限、6账号与96原run摘要一致；未打开URL/另发请求。当前仅正式消费页面、原登录/两终端/连续OTA等未验，不把本次下载扩大为系统全部通过。

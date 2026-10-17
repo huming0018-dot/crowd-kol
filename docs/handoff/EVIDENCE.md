@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-16。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E63为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-17。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E82为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -628,3 +628,27 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 
 - `auth-session-timing-fix/independent-knowledge/ACTUAL-FINAL.json` 7507573f1dad288b223f14ff2ad3956fad769ad951a8f98f844565d412e0479d：正式/release/提交/备份/旧5源/三测试限定实际审PASS，0HTTP；原云success由root真实查询+RELEASE保存，非审查者fresh云验证。
 - `E80-PUBLISH-RECEIPT.json`：本轮handoff三文档源码提交/push/远端核，生成前不认已发布。
+
+
+## E81｜2026-10-17协调Owner轮换与免登录消费候选
+
+根目录 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/`：
+
+- `consumer-authorized-config/{BASELINE-PROBES,CLOUD-PROBES}.json`：真实原快照及Worker只读前后验证，新Owner成功、旧403；`independent-knowledge/FINAL.json` SHA6982e47706760c9723eeba2eb18ad722e87261a6b9a386c2710406fbd87ea50e仅探针离线独审。
+- `owner-key-rotation-preparation-v3/independent-central/FINAL.json` SHA2b7de788f5807c10fb5148e0e0b3be2c1f1f67081179222145691bfd717db82c：V3准备非作者审；`STAGED/STAGED.json`、`CLOUD-ROTATION-RECEIPT.json`绑定实际前后读取；`runtime-adoption/ADOPTED.json`记录实际760及五库/保护资产，actual独审另记。
+- `consumer-authorized-config/EDGE44-ACTUAL.PRIVATE.json`：实际回读ownsource44，29文件仅OwnerHash替换；私有参考不复制到Git。`VERCEL-ROTATED.json`及脱敏截图`VERCEL-ROTATED.png`：Production新Secret保存，redeployed false。`BROWSER-CONTROL.json`修正截图成功，失败的是markHandoff扩展版本门，原生选择另被用户切换app取消。
+- `publication-signed-links/independent-knowledge/FINAL.json` SHA211c29708fa8906587fd0304218ea2e0e3531d3211c7d610b84a7ec0861219da：固定四格式900秒Storage SDK候选审；真实签发/下载/生产入口未验，不是完整消费验收。
+- 私有原/新配置、Worker探针payload及临时输入仅本机0600保留，不收入交接或公开仓库；工具记录旧密钥事故用轮换关闭，无法撤回工具记录。
+
+
+## E82｜2026-10-17已授权四格式真实签发回取
+
+本机根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/`：
+
+- `owner-key-rotation-preparation-v3/independent-knowledge/FINAL.json` SHAd200fc9e1d2a5dabebd92f26f5773ff47ab849fdb01ac801af0c3f1bd9cdd436：轮换真实非作者有限PASS，云44/760/475源/五库/31ACK/8格式输出。
+- `publication-signed-links/independent-review/POST-DEPLOY-LIMITED.json` SHAb421721a4ab510ece0e00613f496f3494423a2c0d675435c3c037d1ec5dcd5f8：45/29回读相对44仅2源，正式3源码/原备份和760未重启核；不签发/回取。`formal-adoption/ADOPTED.json`、`EDGE45-ACTUAL.PRIVATE.json`保本地，源码66cb426三源已推。
+- `publication-signed-links/ISSUANCE-RECEIPT.json`：真实唯一签发安全摘要（不含URL），900秒/4原文件；实际capability只在0600私有文件，禁止Git/日志/截图复制。
+- `signed-download-verification/independent-review/FINAL.json` SHAc5dcfd41853fa61a7e26e719557b7826f8c19abb7a0d239221076b584a93964f：固定回取driver a2dc1080，5原+4独立组，0真实请求；`DOWNLOAD-INTENT.json`防隐式重复；`verified-downloads/SAFE-RECEIPT.json`为根实际4GET全部成功及4bytes/SHA，与该目录4原格式一起供非作者actual复核。
+- 本次未新采集/新业务ACK/新增账号/上传；一次匿名下载不证明正式消费UI、永久分享、即时撤销、登录恢复或连续OTA。actual独审及发布回执完成后追加结果。
+
+- 实际非作者回取审：`signed-download-verification/independent-review/ACTUAL-FINAL.json` SHAc57054023f3ed5706779a4bb5610a5c872aadd036c34ecc54923a306e48fd601；4新文件与原件byteexact211899B、4GET/私有权限、6账号及96原run保持，0额外HTTP；不是全5库重新审或新采集验收。

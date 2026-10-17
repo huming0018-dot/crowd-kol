@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-17 18:17 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
+更新：2026-10-17 19:00 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
 
 ## 1. 接力规则
 
@@ -16,13 +16,28 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：G04原六店私有云四格式保存回取保持；本轮唯一读取200/2.5435s/47764B exact，旧失败根因unknown。安全读取日志已实际采用89529/175bf、原五库及31ACK保持并独审。消费7源码（五源+两Auth修复）及三份测试已在原PR17发布07cddfb，独立完整Next构建及原Vercel精确SHA构建success；尚未merge生产/真实UID配置、登录切号和四下载。原XHS Bridge已自动重连，但唯一官方自检判未登录，未恢复采集。原两节点stale/远端71本机70，连续OTA仍未证；DY无成功出口候选不采用。原身份/两条预算/watchdog暂停保持。
+当前阶段：E81 Owner协调轮换已独审实际通过，工作台760；E82签名下载已部署云45/29文件、正式三源66cb426已推。原六店四格式900秒链接唯一签发，真实匿名四GET回取211899B逐字节/SHA全等；回取实际非作者独审c5705402通过。Vercel新Production Secret已保存但未redeploy，正式在线消费页/原两设备恢复/连续OTA未通过。保原参与者、31ACK、原两条预算及看门狗暂停。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### E80｜2026-10-17日志实际采用、原登录自检与消费回归接续
+### E82｜2026-10-17真实免登录四格式下载
+
+- **实际部署/源码**：本人明确允许原六店4文件900秒只读链接及回验。已审候选两云源精确叠加fresh44，45实际回读29文件exact，其他27含新Owner校验保持；native非作者窄审b421721a通过。正式core.mjs、publication_storage.mjs、publication_client.py三源精确copy与原件备份，66cb426已推原crowd-kol分支。原760 immutable源码475文件不变、未重启；CLI显式调用正式3bdf模块（该CLI不在运行snapshot中），不冒工作台UI已接通签发。
+- **真实签发/回取**：根唯一CLI links调用exit0，4个签名只写本机0600私有文件，15分钟，到期2026-10-17 19:13:37 CST；只给原固定路径，不新账号/上传/公开桶。回取脚本central作者/native非作者c5dcfd41（5原组+4独立组），唯一运行4GET/无AuthCookie/无代理/拒重定向，无重试重签；211899B四格式与原件byte/SHA完全相同，SAFE-RECEIPT complete true。下载输出本机0700/文件0600；未打开实际URL作为审查步骤，native实际非作者独审c5705402通过，4原字节/私有权限、6账号和96原run状态保持；未新发请求。HTML本地打开，非在线HTML产品通过。
+- **轮换已完成**：knowledge实际独审d200fc9e确认原新Owner/旧403/Worker同ACK、475源码、248保护、5库actual备份与live、31canonical ACK和原8格式输出保持；临时旧新Owner输入已移除，必要配置/备份仍私有600。Vercel仅保存未redeploy，原Secret编辑误回显事故及旧key失效证据保留，不宣工具记录已删除。
+- **下一步/缺口**：4下载实际独审已完成，发布本轮固定交接；将已经可用的签名下载接入正式消费页面及Owner入口，不能把一次CLI交付当用户全流程。Pro原主体恢复/两原设备新ACK/连续OTA仍是缺口；线上不新建账号或扩大原预算补通过。链接到期后需Owner显式重新签发，不自动续签；用户本轮授权仅这一次4文件。
+
+### E81历史｜2026-10-17 Owner轮换与匿名消费模型校准
+
+- **用户授权与真实查询**：本人明确允许原Vercel服务端Secret配置和精确邮箱UID查询；实际原Supabase auth.users限定查询返回0，未新建用户或授其他人。本人指出原产品不需要登录；原主页代码匿名读公开餐厅/菜系，登录用于收藏/评论。改用现成Supabase Storage短时签名下载，保留原可选UID授权能力，不继续强迫注册。
+- **凭据事故与轮换**：root保存原Secret后误将编辑表单AX状态回显一次旧Owner值，工具记录可能保留；未将原值写入handoff/Git，不复制回显。本人明确允许协调轮换并验证。V3准备经central非作者审通过；根只读基线成功，fresh Edge43核29文件exact后唯一部署44，回读29文件仅index OwnerHash变更；真实新Owner原JSON47764B/SHA exact、旧Owner403 principal_denied、原Worker同ACK且Worker配置不变。Vercel新Production Secret已保存，原4配置保留；未重新部署，不声称消费生产已采用新Secret。
+- **工作台实际采用**：原五锁空闲预检通过，apply完成5库备份、仅owner_key文本原位替换、原89529退出及新760单实例启动；revision owner-key-rotation-read-observability-175bf73e。采用器记录五库原行、任务、身份及受保护文件保持、运行源码0修改。knowledge非作者实际审d200fc9e通过：475源/248保护/五库actual备份live、31条canonical ACK及原8格式输出全等。未新增采集/任务/上传/预算变更。
+- **免登录候选**：publication_links只允许Owner固定report_hash，经原manifest和4文件SHA校验，使用原Storage createSignedUrls，固定900秒/四格式download，CLI私有输出且不自动重签未知结果；knowledge非作者审PASS，16独立负例及原SDK验证。用户已明确允许这一个原快照4个限时链接及回验；现云45已部署两源并实际回读、其他27文件含新OwnerHash保持，正式3源已精确copy；尚未真实签发；持链接者可在有效期读取，Owner轮换不等于撤销既发Storage签名链接。HTML为下载本地打开，在线消费页尚未交付。
+- **下一步**：轮换实际独审已完成；原900秒四格式授权已获答，已独立部署45/两源并回读29文件exact、正式3源copy，继续唯一签发及4格式真实回取字节/SHA核验，再补正式消费入口。Pro原XHS仍官方未登录、原两设备stale及连续OTA缺口保持，不用旧回执或候选测试宣完成。
+
+### E80历史｜2026-10-17日志实际采用、原登录自检与消费回归接续
 
 - **日志已运行**：原工作台单源 cloud_sync.py 175bf73e 已实际采用，新PID89529/revision read-observability-175bf73e。首次apply五锁等待超时，在数据库备份及重启前退出；不强清锁，现场锁释放/空闲变化后第二次成功。knowledge非作者实际审5341ec5e核五库actual备份/live schema及raw行、其余474运行文件、31ACK、六店四格式、知识四写表0与三执行flag未启用。准备快照repr摘要与3.11不同，经三解释器同输入ASCII JSON摘要相同证实为Unicode repr版本差异；不改数据掩盖。原追加读取历史失败根因仍unknown；部署分类日志不等于又发生一次真实失败事件。
 - **源码与回归**：本轮30413e1（crowd-kol原分支，推送已返回0）仅安全日志与相对路径合成测试。root正式49项回归过；首次隔离端口权限失败保留说明，允许本机临时端口后原测试通过，无真实云请求。未夹带旧dirty或私码/凭据。
@@ -213,17 +228,17 @@
 
 ## 5. 代码版本与未提交资产
 
-以下为相应发布回执/证据时点的源码版本；本轮仅crowd-kol原分支已真实核远端30413e1，另外两仓沿历史原件，不能冒新鲜HEAD。三仓均分支 `codex/v4.0.6-handoff`：
+以下为相应发布回执/证据时点的源码版本；本轮crowd-kol原分支三源66cb426已推（远端独立回读见E82发布回执），另外两仓沿历史原件，不能冒新鲜HEAD。三仓均分支 `codex/v4.0.6-handoff`：
 
 | 仓库 | 已核源码提交（文档后续提交另见发布回执） | 状态与未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | 30413e1bfcc72008500e4de74240e6fcea613acf，本轮日志及测试源码push0/远端同；SOURCE-PUBLISH-RECEIPT见E80 | 当前89529/read-observability-175bf73e；云43沿E78实际原件（此轮未fresh云）；六店候选+31旧素材/ACK、原WB partial74/10of12剩2保持；旧无关dirty不暂存 |
+| crowd-kol | 66cb426fecdc6cab019507b1d4885d103142c2cc，本轮签名下载三源push0；原日志30413e1见E80 | 当前760/owner-key-rotation-read-observability-175bf73e；本轮fresh云45/29文件：先44仅OwnerHash，再45仅两签名下载源；六店候选+31旧素材/ACK、原WB partial74/10of12剩2保持；旧无关dirty不暂存 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
 消费项目另在 `/Users/hubowen/Desktop/桌面 - 胡博文的MacBook Pro/china-travel-food`，正式目录原main保持自有7源码dirty；本轮隔离发布工作树为 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/consumer-release`，分支 `codex/publication-consumer-20261017`，最新07cddfb已推/原云构建success，PR17未合生产。不可reset正式目录或把源代码接入当生产验收。
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。当前运行以第3节E80、read-observability-adoption/runtime-adoption/ADOPTED.json及实际独审5341ec5e为准；旧E63/E71等是继承历史，不能作为当前PID。原continuation-current-runtime-adoption继承链仍保留，不能以HEAD替代运行源码；不要reset/clean或覆盖其他改动。
+crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。当前运行以第3节E82/E81及owner-key-rotation-preparation-v3/runtime-adoption/ADOPTED.json为准；原E80实际独审5341ec5e仅继承源码日志变更；旧E63/E71等是继承历史，不能作为当前PID。原continuation-current-runtime-adoption继承链仍保留，不能以HEAD替代运行源码；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定
@@ -263,7 +278,7 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 ## 8. 接力可做与推进顺序
 
-先读[统一产品计划1.3](product/PRODUCT-PLAN.md)和规划独审，按第10节G00–G11及F0–F7关联推进；当前F1A/F1B及原E63真实WB证据继续保留。不要重新部署已采用13源，不为填满预算重跑原WB终页/同图，不恢复已暂停任务。
+先读[统一产品计划1.3](product/PRODUCT-PLAN.md)和规划独审，按第10节G00–G11及F0–F7关联推进；当前F1A/F1B及原E63真实WB证据继续保留。不要重新部署已生效组件，不为填满预算重跑原WB终页/同图，不恢复已暂停任务。
 
 1. F0/F1A已有固定051 source-pin和31已ACK正式发布证据；生产wheel仍未知，不以源码运行补写wheel安装。后续保旧发布与原ACK，禁止整包升级NOT_PASS候选。
 2. F1A及六店F1B候选已正式可用，继续领域事实/PWA、自动新ACK处理与F2真实Owner审核/新版同数据重算；F3成熟Pro来源/会话、F4原参与者恢复/连续OTA限槽并行，每项非作者独审。模型分析不作确定性首链前置。
@@ -276,7 +291,7 @@ crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不�
 
 唯一当前入口为本文件；WORKSPACE/HANDOFF.md和爬虫/HANDOFF.md只作指针。[证据](handoff/EVIDENCE.md)、[日志](handoff/CHANGELOG.md)、[接力模板](handoff/ENTRY_TEMPLATE.md)及仓库AGENTS.md共同维护。
 
-[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。E63当前状态及本轮产品规划文档发布以爬虫/outputs/product-integration-plan-2026-10-16/PUBLISH-RECEIPT.json的commit/push/remote为准；无此回执不认发布。原计划中的HANDOFF-E63-PUBLISH-RECEIPT未生成，不补造旧回执；E62更正发布见HANDOFF-E62-CORRECTION-PUBLISH-RECEIPT.json，旧回执保留，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
+[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。E81/E82本轮文档发布以爬虫/outputs/runtime-2026-10-17/E82-PUBLISH-RECEIPT.json为准；E63历史及当轮产品规划文档发布以爬虫/outputs/product-integration-plan-2026-10-16/PUBLISH-RECEIPT.json的commit/push/remote为准；无此回执不认发布。原计划中的HANDOFF-E63-PUBLISH-RECEIPT未生成，不补造旧回执；E62更正发布见HANDOFF-E62-CORRECTION-PUBLISH-RECEIPT.json，旧回执保留，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
 
 接力者先读本入口、证据、日志并核日期/所涉源码与原件，再按第8节推进；主要改动按模板回写，每轮结束更新日期、结论、下一步。读不到原件时明确标未知/未核验，不把Markdown中的记录当自己查询线上所得。
 
