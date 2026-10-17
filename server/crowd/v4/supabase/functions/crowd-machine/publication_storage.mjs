@@ -19,20 +19,47 @@ function validateManifest(manifest,rid){
 }
 export async function handlePublication(payload,backend,actor,action='publication_get'){
  assert(actor==='owner','principal_denied');
+ if(action==='publication_links')return signedLinks(payload,backend);
  if(action!=='publication_get')return writePublication(action,payload,backend,actor);
  assert(exact(payload,['report_hash','format'])&&hex(payload.report_hash)&&typeof payload.format==='string'&&Object.hasOwn(MIME,payload.format),'invalid_publication_request');
- const storage=await verifyBucket(backend),base=`publications/${SCOPE}/${payload.report_hash}/`;
- const manifestBytes=await readObject(storage,base+'manifest.json',16384);
- let manifest;try{manifest=strictJSON(new TextDecoder('utf-8',{fatal:true}).decode(manifestBytes));}catch{assert(false,'publication_mismatch');}
- validateManifest(manifest,payload.report_hash);
- const reportBytes=await readObject(storage,base+'report.json',LIMIT);
- assert(reportBytes.length===manifest.formats.json.bytes&&await hash(reportBytes)===payload.report_hash,'publication_mismatch');
- let report;try{report=publicationJSON(new TextDecoder('utf-8',{fatal:true}).decode(reportBytes));}catch{assert(false,'publication_mismatch');}
- assert(report.project_id===manifest.project_id&&report.as_of===manifest.as_of&&report.tool_version===manifest.tool_version&&Array.isArray(report.items)&&report.items.length===manifest.item_count,'publication_mismatch');
+ const {storage,base,manifest,reportBytes}=await readVerifiedPublication(payload.report_hash,backend);
  const fmt=payload.format,bytes=fmt==='json'?reportBytes:await readObject(storage,base+'report.'+fmt,LIMIT),expected=manifest.formats[fmt];
  assert(bytes.length===expected.bytes&&await hash(bytes)===expected.sha256,'publication_mismatch');
  let body;try{body=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{assert(false,'publication_mismatch');}
  return {schema:'crowd-publication-read-v1',owner_scope:SCOPE,report_hash:payload.report_hash,project_id:manifest.project_id,as_of:manifest.as_of,tool_version:manifest.tool_version,item_count:manifest.item_count,format:fmt,mime:expected.mime,bytes:bytes.length,sha256:expected.sha256,body_utf8:body,media_bytes_included:false};
+}
+
+async function readVerifiedPublication(rid,backend){
+ const storage=await verifyBucket(backend),base=`publications/${SCOPE}/${rid}/`;
+ const manifestBytes=await readObject(storage,base+'manifest.json',16384);
+ let manifest;try{manifest=strictJSON(new TextDecoder('utf-8',{fatal:true}).decode(manifestBytes));}catch{assert(false,'publication_mismatch');}
+ validateManifest(manifest,rid);
+ const reportBytes=await readObject(storage,base+'report.json',LIMIT);
+ assert(reportBytes.length===manifest.formats.json.bytes&&await hash(reportBytes)===rid,'publication_mismatch');
+ let report;try{report=publicationJSON(new TextDecoder('utf-8',{fatal:true}).decode(reportBytes));}catch{assert(false,'publication_mismatch');}
+ assert(report.project_id===manifest.project_id&&report.as_of===manifest.as_of&&report.tool_version===manifest.tool_version&&Array.isArray(report.items)&&report.items.length===manifest.item_count,'publication_mismatch');
+ return {storage,base,manifest,reportBytes};
+}
+async function signedLinks(payload,backend){
+ assert(exact(payload,['report_hash'])&&hex(payload.report_hash),'invalid_publication_request');
+ const {storage,base,manifest,reportBytes}=await readVerifiedPublication(payload.report_hash,backend);
+ // Sign only bytes already verified against the committed immutable manifest.
+ for(const fmt of Object.keys(MIME)){
+  const bytes=fmt==='json'?reportBytes:await readObject(storage,base+'report.'+fmt,LIMIT),pin=manifest.formats[fmt];
+  assert(bytes.length===pin.bytes&&await hash(bytes)===pin.sha256,'publication_mismatch');
+ }
+ const paths=Object.keys(MIME).map(fmt=>base+'report.'+fmt),issued=Date.now();
+ let signed;try{signed=await storage.createSignedUrls(paths,900,{download:true});}catch{assert(false,'publication_links_unavailable');}
+ assert(!signed.error&&Array.isArray(signed.data)&&signed.data.length===4,'publication_links_unavailable');
+ const formats={},origin=new URL(backend.storage.url).origin;
+ for(let i=0;i<paths.length;i++){
+  const entry=signed.data[i],fmt=Object.keys(MIME)[i];
+  assert(entry&&entry.error===null&&entry.path===paths[i]&&typeof entry.signedUrl==='string'&&entry.signedUrl.length<=8192,'publication_links_mismatch');
+  let url;try{url=new URL(entry.signedUrl);}catch{assert(false,'publication_links_mismatch');}
+  assert(url.protocol==='https:'&&url.origin===origin&&!url.username&&!url.password&&!url.hash&&url.pathname===new URL(backend.storage.url).pathname+'/object/sign/'+PUBLICATION_BUCKET+'/'+paths[i]&&url.searchParams.getAll('token').length===1&&url.searchParams.get('token')&&url.searchParams.getAll('download').length===1&&url.searchParams.get('download')===''&&[...url.searchParams.keys()].every(k=>['token','download'].includes(k)),'publication_links_mismatch');
+  formats[fmt]={...manifest.formats[fmt],signed_url:entry.signedUrl};
+ }
+ return {schema:'crowd-publication-links-v1',owner_scope:SCOPE,report_hash:payload.report_hash,project_id:manifest.project_id,issued_at:new Date(issued).toISOString(),expires_at:new Date(issued+900000).toISOString(),expires_in:900,formats,media_bytes_included:false};
 }
 
 // storage-js 2.5.5 preserves HTTP status, not JSON statusCode. Legacy Storage
