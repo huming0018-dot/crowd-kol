@@ -25,7 +25,7 @@
 ### E82｜2026-10-17真实免登录四格式下载
 
 - **实际部署/源码**：本人明确允许原六店4文件900秒只读链接及回验。已审候选两云源精确叠加fresh44，45实际回读29文件exact，其他27含新Owner校验保持；native非作者窄审b421721a通过。正式core.mjs、publication_storage.mjs、publication_client.py三源精确copy与原件备份，66cb426已推原crowd-kol分支。原760 immutable源码475文件不变、未重启；CLI显式调用正式3bdf模块（该CLI不在运行snapshot中），不冒工作台UI已接通签发。
-- **真实签发/回取**：根唯一CLI links调用exit0，4个签名只写本机0600私有文件，15分钟，到期2026-10-17 19:13:37 CST；只给原固定路径，不新账号/上传/公开桶。回取脚本central作者/native非作者c5dcfd41（5原组+4独立组），唯一运行4GET/无AuthCookie/无代理/拒重定向，无重试重签；211899B四格式与原件byte/SHA完全相同，SAFE-RECEIPT complete true。下载输出本机0700/文件0600；未打开实际URL作为审查步骤，native实际非作者独审c5705402通过，4原字节/私有权限、6账号和96原run状态保持；未新发请求。HTML本地打开，非在线HTML产品通过。
+- **真实签发/回取**：根唯一CLI links调用exit0，4个签名只写本机0600私有文件，15分钟，到期2026-10-17 19:13:37 CST；只给原固定路径，不新账号/上传/公开桶。回取脚本central作者/native非作者c5dcfd41（5原组+4独立组），唯一运行4GET/无AuthCookie/无代理/拒重定向，无重试重签；211899B四格式与原件byte/SHA完全相同，SAFE-RECEIPT complete true。下载输出本机0700/文件0600；未打开实际URL作为审查步骤，native实际非作者独审c5705402通过，4原字节/私有权限、6账号和96原run状态保持；未新发请求。HTML下载后可本地打开，本轮未核页面展示；非在线HTML产品通过。
 - **轮换已完成**：knowledge实际独审d200fc9e确认原新Owner/旧403/Worker同ACK、475源码、248保护、5库actual备份与live、31canonical ACK和原8格式输出保持；临时旧新Owner输入已移除，必要配置/备份仍私有600。Vercel仅保存未redeploy，原Secret编辑误回显事故及旧key失效证据保留，不宣工具记录已删除。
 - **下一步/缺口**：4下载实际独审已完成，发布本轮固定交接；将已经可用的签名下载接入正式消费页面及Owner入口，不能把一次CLI交付当用户全流程。Pro原主体恢复/两原设备新ACK/连续OTA仍是缺口；线上不新建账号或扩大原预算补通过。链接到期后需Owner显式重新签发，不自动续签；用户本轮授权仅这一次4文件。
 

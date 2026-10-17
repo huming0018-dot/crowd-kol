@@ -665,6 +665,6 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - root集成/唯一实际签发及回取；signed源码central/knowledge独审，云正式采用native实际审b421721a；回取drivercentral/native独审c5dcfd41。
 - 原快照授权已获明确答复；fresh44→45仅2已审源，29源actualexact、新Owner保持；正式3源66cb426已提交并push0，旧dirty不动。一次CLI签发900秒/私有输出，唯一4GET全部exact211899B，未创建用户/新上传/公开桶或重签。HTML是本地下载。
 - 轮换actual独审d200fc9e已完成，475源/五库/31ACK及8原格式保持；Vercel保存Secret但未redeploy。临时旧新Owner输入移除、必要私有配置备份保持；工具记录旧key不能删除。
-- 当前回取actual独审进行中，正式消费UI/Pro原登录/原两设备与连续OTA未通过；按HANDOFF E82下一步推进。root更新文档脚本首遇stdin编码SyntaxError，未写入任何文件，显式UTF8后完成；保失败，不算产品错误。
+- 当时回取actual独审进行中（完成结果见下行补结），正式消费UI/Pro原登录/原两设备与连续OTA未通过；按HANDOFF E82下一步推进。root更新文档脚本首遇stdin编码SyntaxError，未写入任何文件，显式UTF8后完成；保失败，不算产品错误。
 
 - E82实际补结：native非作者c5705402确认4原格式逐字节、4GET/私有权限、6账号与96原run摘要一致；未打开URL/另发请求。当前仅正式消费页面、原登录/两终端/连续OTA等未验，不把本次下载扩大为系统全部通过。
