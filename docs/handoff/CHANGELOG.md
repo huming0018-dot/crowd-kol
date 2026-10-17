@@ -699,3 +699,17 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **证据/更新**：HANDOFF E84与EVIDENCE E84精确路径/SHA；本轮文档发布另见本地E84-PUBLISH-RECEIPT.json，不把commit成功当push成功。
 
 - E84交接独立窄审：central核新增状态/版本/R1范围无实质阻断；按建议将SIGNED-FINAL准确标为发布前公钥/CAS审，线上采用依据另列d361be87。未新增云请求或采集。
+
+
+## 2026-10-17 21:34 CST｜E85 74正式采用、诊断实效及两端一次自然更新
+
+- **接力/独审**：root集成/唯一真实执行，knowledge登录作者、native非作者；native诊断作者、central非作者；central整包/签名/部署后/实际两端独审。原件范围及SHA见EVIDENCE E85。
+- **目标与实际文件**：EXT participant-session.js停止态manual确认、两个background固定错误枚举、manifest/core74及3便携回归；中央diagnostics_identity_errors.sql/DB测试/真实定义fixture。共EXT8文件提交22b0762615fb315fb71c153d27491fa87e3c1eb0，crowd-kol3文件befc8692a96c26dd5d7e1dc366fda070fc756d2e；原分支已推，不夹带无关dirty/Pro源码。
+- **验证/修复**：登录保护/竞态受控通过；双reporter20+PGlite4RED→12正9负及正式4组退出0。原双转义regex怀疑被真实定义反证，不改原guard。原builder两次独建ZIP152194B/addcc705exact，30输入4变/26同、32文件/原ID权限不变；签名与公开回读独审通过。
+- **部署/线上**：根原Supabase仅诊断函数CAS19086f0a→1eb521d9、OID/ACL/searchpath/definer同；实际独审8fe5eceb。固定包b300f6f及签通道a2655e3/seq1774上线GET200；不重复工作台/Vercel部署。远端实际73 unexpected_error→74 identity_verification_required，分类生效，登录仍未知。
+- **设备验收**：本机原闹钟21:19:32→completed693/333；远端原周期21:22→completed703/364，原ID/74/release075ab与新心跳，central实际91a91c51。根未手点/调用check/apply或改周期；本机32/助手直核，远端仅云链/周期，不冒远端字节直读或两段连续无人值守。
+- **窗口/登录**：本人找不到原窗口，根经窄审正常singleton找回原Chrome；既有openLogin API单次开原核验页，原业务/身份/绑定/desired保持，native实际f5de0842。平台显示电脑设备登录超限，待本人重登；不重放旧editorUNKNOWN/不自动登录。21:29只读页面仍同提示。
+- **额外发现/未决**：只读receiver探针V1缺token/document假匹配P2，V2最小非空string门、15测和非作者原反例通过90415ccc；根唯一实际探测UNKNOWN/exit1，意图保留无结果，不重复或宣布连接根因。当前没有据此改产品/刷新本人登录页面。
+- **业务/风险/下一步**：同账号真实恢复、换号拒绝、新来源逐条ACK及连续自然OTA第二段尚缺。原task19/20预算2已满，保原进度；各追加最多1条验收待本人答，不预开48h绕门、不重放旧proof、不改人工评分。本人登录后原绑定鲜活核验，预算授权后独审有限验证合同并收新ACK；门齐才真实开始48h。watchdog继续暂停。固定HANDOFF日期/状态/下一步与EVIDENCE同步，本轮文档发布另看E85-PUBLISH-RECEIPT.json。
+
+- E85诊断补结：21:33独审范围内仅GET当前page位置布尔，唯一XHS页/explore而非严格/，说明该探针当前首页前置不满足；不回填旧UNKNOWN或据此宣产品故障。无WS/消息/导航。

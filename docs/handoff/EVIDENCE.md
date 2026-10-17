@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-17。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E83为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-17。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E85为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -694,3 +694,22 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - 业务未验：同主体平台登录恢复、无人值守定时OTA、Pro全量同输入/评论分页媒体、新来源回执、Windows/VM/mobile与48h。原四proof仍received/null，不做人工评分。
 - `participant-ota72-formal-adoption/independent-central/BOTH72-FINAL.json` SHA4bd71d7eaa84a9076ad8093ecd975a55811a9d99096842ad656b1cda5ac38b1a：两端72真实阶段有限独审。
 - `owner-publication-share/independent-native/FINAL-V2.json` SHA59481a09537745619d1b1e9c273ce57757492ceba3faa1a7c032bb0757cd29cc：Owner组件V2非作者审。
+
+
+## E85｜2026-10-17 21:34 CST 登录/诊断正式修复与两端各一次自然OTA
+
+原件根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17`，只本地保存；安全摘要入交接，Cookie/Owner值/签名私钥/原分享URL不入Git。
+
+- `participant-stopped-login-recovery/FREEZE.json` SHA4c1d840b433902eb704eb651718ace513c6c7067e30fb11574453c3a5dd9cc08；`independent-native/FINAL.json` SHA7db163d326e8b2435f1516719989ae5b03d89a89349b6c4ab89d1dbc1854ad36：停止态同原主体manual确认的受控正反例与竞态；非真实登录通过。
+- `participant-diagnostic-identity-errors/independent-central/FINAL.json` SHA38f2bd3764f097f95eaf8a6a6a74302dc2526e90aa8457c0bfd27ab8459b5502；`ACTUAL-DEPLOY-FINAL.json` SHA8fe5eceb8f827723ee7923c5fe25451b39b66fd456786222c49bdc78912acfa4：两reporter20/真实PGlite4RED→12正9负与实际中央OID28135/定义MD5/权限回读。`login-ota-e85/DIAGNOSTICS-APPLIED-QUERY.sql`、`DIAGNOSTICS-APPLIED-RAW.json`、`DIAGNOSTICS-POSTCONDITION-RAW.json`保实际单事务CAS/回读。
+- `login-ota-e85/formal-adoption/FORMAL-TESTS.json`：根正式四组实际退出0；EXT22b0762615fb315fb71c153d27491fa87e3c1eb0、中央befc8692a96c26dd5d7e1dc366fda070fc756d2e已推。仅已审源码/测试入提交，无无关ASR/私码。
+- `release74-preparation/independent-central/FINAL.json` SHAddeb836d9aaf91a6bfe1dac114beb301335c97dcaf3e795d7459bfda6572038a；`login-ota-e85/release74-signing/independent-central/SIGNED-FINAL.json` SHAc2c7be4886f25c57724601f63f14d0863a49066467244fc95c4efde9b311a83b；`PUBLISHED-FINAL.json` SHA2b16ec944ca299867a1a88c16d38eb5e98ef21154e5062c2231846437c01ef44：独建整包/原公钥验签/旧通道CAS/实际公开回读各自分门。
+- `login-ota-e85/release74-signing/PUBLIC-ZIP-READBACK.json`、`PUBLIC-CHANNEL-READBACK.json`：实际GET200，152194B/ZIP SHAaddcc70513099ce659c88d1a94d8e3bd67068f831b62d04a582026747d693c90，release075ab30d0eee32153d86079708acc217725361cce79b78cd3ed06b39faaa634c。固定ZIP b300f6f1fd52a71bfbf2d33c82c0ed2450c284aa，通道PAGES a2655e318c39eb18e735f07426faff1383ba7412/seq2026101774。
+- `login-ota-e85/TWO-NODES-NATURAL74-POST-CYCLES.json` SHA4f52f76e44a182fde487c54e2e37445d13b642ebf8d0b291a42fc0df07d804b5：21:23两个原ID/74/新事件693及703，远端诊断实际identity_verification_required。`TWO-NODES-AFTER-NATURAL-CYCLES.json`是21:21远端尚未到时的旧快照，不能用文件名冒两端通过。
+- `login-ota-e85/release74-signing/independent-central/ACTUAL-BOTH74-FINAL.json` SHA91a91c51de4aca0b87e9a767b6e38f7b10ed0e6a0ab73ef803a81d0c6ca68059；`ACTUAL-LOCAL74-FINAL.json` SHA17d82299a38c28a8e81d89d6f2ae869d89fa758ff759a53e00d4e60a8c85134a：本机原alarm21:19:32→新完成21:19:44/32安装文件/助手原身份核；远端20:22→21:22周期与新云完成5.526s。远端文件/alarm未直接读，非全量人行为遥测；只本轮各一次自然升级，不是两段连续无人值守或48h。
+- `login-ota-e85/ORIGINAL-WINDOW-RESTORE-{PREFLIGHT,INTENT,RESULT}.json`、`ORIGINAL-WINDOW-RESTORED-OBSERVATION.json`：原Chrome正常singleton找回blank/新心跳，不清未决编辑。`ORIGINAL-RUNTIME-READONLY.json`及`ORIGINAL-RUNTIME-AFTER74.json`是不同时间只读结果，旧ref相等不证有效登录。
+- `participant-manual-login-driver/independent-native/FINAL.json` SHA403883cbdb6637347bbad37450f86cc91fb97b77e66a434ccf50792b72f5bb01，`ACTUAL-FINAL.json` SHAf5de084224b51138355d03bc042c84a955c0f30beb6e7ddf009b8d7d15d2b528；同目录INTENT/RESULT/ACTUAL-PAGE-OBSERVATION：现有openLogin仅一次、业务/Owner/绑定/desired摘要同，原window40730实际设备登录超限，待本人。不是旧地址栏重放、未Start或采集。
+- `participant-manual-page-probe/independent-native/INITIAL.json`与`EMPTY-OWNERSHIP-INITIAL.log`：原9测遗漏undefined===undefined假匹配。V2 freeze dbcf9dbc9146487d36b5c3e90bcf8949ebd8290b95d03a9e70cf224b34dc0a12，`participant-manual-page-probe-v2/independent-native/FINAL.json` SHA90415ccc3079d825093fc5d9be3b35bd9c740d1651e1962ec1c9268909a8069e，新增6/原反例通过；根唯一真实--read-once exit1/UNKNOWN_NO_RETRY，INTENT存在、无RESULT，不重试、不推根因。后续固定错误阶段诊断另记，不覆盖旧意图。
+- `unattended-ota-path/INDEX.json` SHA957faa7a7c87bdf9ec1dd50fb154471df0da7674bb17425ccf282dbaa7681d67：原全历史两条预算/awaiting_acceptance合同静态核。两原端各最多追加1条新验证请求待本人答，未派单/改预算/arm48h；旧4proof不当新回执，人工评分未动。
+
+- E85当前位置补测：`login-ota-e85/CURRENT-PAGE-LOCATION-BOOLEANS.json`于21:33:14仅GET /json/list，fresh原PID/profile/端口归属后见1个XHS page、/explore而非/、无query；不输出URL/title/id。无WS/消息/导航；非manual slot识别，不补写旧UNKNOWN。严格首页探针当前不适用，不是已证产品receiver故障。

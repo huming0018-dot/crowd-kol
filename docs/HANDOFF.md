@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-17 20:34 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
+更新：2026-10-17 21:34 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
 
 ## 1. 接力规则
 
@@ -16,13 +16,24 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：E84原两设备连续72→73真实云回执及非作者独审通过；Owner一键分享已接入正式工作台17487，真实生成/复制/免登录6卡/四格式211899B下载通过独审，源b7ff3b8已推。消费页生产8202保持。原task19/20四proof仍received/备注null，尚未质量核验，不是无效。平台两端登录仍unknown、远端身份核验步骤待定位；不宣新采集、无人值守自动周期、跨端或48h通过。原身份/两条预算/31旧ACK保留，看门狗暂停。
+当前阶段：E85两项修复已独审、正式发布74，中央诊断函数已部署回读；两原节点各一次73→74自然周期更新及新OTA云回执已有限独审通过。远端诊断从unexpected_error正确保留identity_verification_required；登录仍unknown。原本机Chrome已找回并打开原小红书核验页，平台明确“电脑设备登录超限，请重新登录”，本人重登待答。一次只读页面连接探测返回UNKNOWN，原意图保留、不重试、不推断接收器缺失。原两条预算用尽，各追加最多1条验收请求待答；没有清旧记录、新采集或提前启动48h，watchdog仍暂停。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 
-### E84｜2026-10-17 20:34 CST 连续OTA与Owner分享正式采用
+### E85｜2026-10-17 21:34 CST 正式修复与两端自然更新通过；原账号与新采集门未过
+
+- **授权与保护**：root集成/唯一真实执行；knowledge登录作者、native非作者；native诊断作者、central非作者；central独立包/签名/实际两端审。保留两原installID、task19/20、各两条历史预算、评分/outbox/旧回执；watchdog不恢复。本人要求门禁通过后48h，尚未通过，不能预先arm。
+- **同账号恢复代码/测试/正式发布，实机未验**：participant-session.js仅7行，在停止态提前返回前确认已存在的manual opened页；先捕旧expected_ref，复用recoverPage(confirm:true)，比较原主体并守unsafe/代际/竞态。无Start/claim/新导航/重置预算。native非作者7db163d3实跑正例、13保护、5原组和4独立竞态/保存失败反例。当前本机enabled=true/pilot_waiting，不拿它证明停止态新分支已真实命中；换号、登录恢复、真正新来源尚未验。
+- **日志分类已部署且有真实生效证据**：两个background与中央顶层诊断漏identity_verification_required/platform_identity_changed导致unknown，只修客户端会被中央拒。仅两JS数组/SQL扩两固定枚举；central38f2bd37实跑两个reporter20及真实PGlite4RED→12正9负。根同事务CAS原函数MD5 19086f0a775a3df8f76432cb00d6da8a到1eb521d9b00a7bd54cc702705cad8271，OID28135/ACL/security/search_path保持，非作者实际8fe5eceb。21:23远端74真实diagnostic_error=identity_verification_required，原73=unexpected_error，证明分类链已生效，不证明平台已登录。未改表/任务/评分，standalone SQL不伪造迁移ledger。手构双转义regex假设已由真实prosrc/accepted诊断推翻，版本guard未改。
+- **正式源码/包/发布**：EXT22b0762615fb315fb71c153d27491fa87e3c1eb0（5产品源含版本+3回归）、中央befc8692a96c26dd5d7e1dc366fda070fc756d2e（SQL+DB测试+实际定义fixture）已推；正式4组回归0。fixture保原备份额外LF，diff-check一处EOF空行提示保留，不改真实fixture造无提示。74原builder根与central各重建152194B/SHA addcc70513099ce659c88d1a94d8e3bd67068f831b62d04a582026747d693c90，30输入仅4变/26保持、32包文件、原ID/权限/公共配置保持；包审ddeb836d。固定ZIP b300f6f1fd52a71bfbf2d33c82c0ed2450c284aa，签名/原通道CAS审c2c7be48后发布PAGES a2655e318c39eb18e735f07426faff1383ba7412，公开ZIP/通道实际GET200，通道SHA2279b2fec5d02168c5a590a3296c2f3663802ad2a9d744f9709ef83780c35774、seq2026101774、release075ab30d0eee32153d86079708acc217725361cce79b78cd3ed06b39faaa634c。公开回读独审2b16ec94。
+- **两端一次自然73→74更新：实际有限通过**：本机原闹钟21:19:32.855/60min，21:19:44.082新completed693/seq333；远端原20:22周期后21:22:06 started700/361→21:22:11.622 completed703/364，5.526秒。两原ID、74与075ab摘要、新心跳明确；central实际91a91c51再次直核本机32安装文件/原登记/助手applied+loaded74/1774/pendingnull。远端仅新云事件/版本/摘要与原周期，不能直接读其alarm/安装32文件；无人为检查依据根操作记录，非全量用户行为遥测。本轮没有updater.check/apply/手点或改60min。只证明各一次自然升级，不能冒两段连续无人值守、睡眠重启恢复或48h。
+- **原窗口已自主找回，实际登录待本人**：原PID10932无窗口且旧editor39967写回执未决，原生新输入被阻，0新输入，不清UNKNOWN/不重放地址。fresh原profile/32原签73/登记核验并双非作者窄审后，根只正常Chrome singleton新建blank一次，PID/lstart不变、window40687可见，20:53心跳恢复。经独审403883cb的现有participantSession.openLogin项目入口唯一调用，原业务/Owner/绑定/desired摘要保持，打开原核验页window40730；非旧编辑重放、不开始采集。native实际f5de0842确认该有限结果。实际AX明确“电脑设备登录超限，请重新登录”，21:29复读仍同；已请本人原账号登录/验证码，尚未获答，不从旧ref相等或头像推有效登录。
+- **页面探针发现与未决结果**：只读原worker元数据98a35ec4于21:04核received2/tasknull/outbox0/无test_run，原ref相等但health no_page；74后已有manual opened但healthunknown。接收器探针V1独审发现缺token/document时undefined===undefined假匹配P2，旧freeze/首败保留；V2仅两处要求非空string，原9+新增6与独立反例通过，非作者90415ccc。根21:30:31意图后唯一执行V2 --read-once返回UNKNOWN_NO_RETRY/exit1，INTENT保留无RESULT；不重发消息/刷新页面、不宣布接收器丢失或检测器根因。21:33另一次仅GET元数据新测量只见1个XHS页、路径为/explore非/、无query；当前严格首页guard不满足，是探针适用范围缺口，不能回填21:30失败原因或判产品连接故障。无WS/消息/导航，未定位manual slot。无产品连接修复以未证假设上线；本人登录后按原核验入口检查。
+- **来源预算与下一步**：原awaiting_acceptance以全历史proof>=2永久test_completed，19/20均complete2；没有不增总2却新采条目的路径。已问本人是否保身份/旧任务/进度，仅两原端各追加最多1条验收、回执后停，待答前不改任务或额度。不能改phaseactive预开48h绕门，也不能仅抬上限却漏pilot_waiting客户端合同。本人登录后先同ref、换号阻断、恢复状态实证；获该有限预算后设计独审新验证合同并取真实逐条ACK。连续自然OTA第二段/两端登录与新来源门仍缺；门齐才记真实48h起点。
+
+### E84历史｜2026-10-17 20:34 CST 连续OTA与Owner分享正式采用
 
 - **两设备真实更新/独审通过**：原本机2dac与远端d575同installID，依次72、73。72本机completed643/seq301、远端650/seq346；73本机661/seq311、远端669/seq355。20:21原限定读两端version4.2.73/release684bbb0be829f697a424cabe6a4abf882ed545ec9552f73a06daafdb649799fb/queued0。非作者central实际ACTUAL-BOTH73-FINAL/d361be87核真实保存云原件和本机32安装文件/原登记/助手applied+loaded73/seq2026101773/pending空。远端安装字节不能直接读取，不伪称已核。用户各点一次检查更新；两段真实下载/采用/重载/云确认通过，不冒无人干预60分钟定时轮询已验。
 - **73正式发布**：停止/历史核验页opened不再无限显示“正在确认”；120秒只读展示期限、停止或无效时间明确未核验，接收与质量审核分别提示。不改采集调度/原记录/Start/预算。component cd06170a、formal b85354b5、signed544fe66b独审通过；正式源b7d34adfb028514088b8c8f5d81329c49be6ccf1，固定ZIP66ca88ee2b34a1fdd4cce636eaa61aa9bb7d46b4，签名channel2a3c590758ec2c648a27989adc4312b9bb584352已推。包152006B/SHA3f03bbd7c67a0fe8dbccba799555d4f2f831c63450f5fdbfa1469c8c3306d3d7；真实公钥验签/公开channel与包回读通过。73提前离线准备但正式采用发布在两端72实际门后，未跳段。
@@ -248,17 +259,17 @@
 
 ## 5. 代码版本与未提交资产
 
-以下为E84已核实际源码/包/运行版本；历史签名下载66cb426保持，Owner正式源b7ff3b8已推（交接文档提交另记）。发布与终端采用分开。三仓均分支 `codex/v4.0.6-handoff`：
+以下为E85已核实际源码/包版本；工作台运行仍沿E84；历史签名下载66cb426保持，Owner正式源b7ff3b8已推（交接文档提交另记）。发布与终端采用分开。三仓均分支 `codex/v4.0.6-handoff`：
 
 | 仓库 | 已核源码提交（文档后续提交另见发布回执） | 状态与未提交边界 |
 |---|---|---|
-| crawler-extension | b7d34adfb028514088b8c8f5d81329c49be6ccf1 | 73正式源与3便携回归已推；原ID/权限不变，两端72→73真实云更新确认通过 |
-| crowd-kol | b7ff3b8d7240aec21ba56f6cdad6c3493bbf55ea | Owner分享3产品源+2便携测试已推；当前17487/owner-share-0dbbb7ec-5f833cfa/477源；云45与六店+31原ACK保持，原WB partial74/10of12剩2不变；旧无关dirty不暂存 |
-| crowd-pages | 2a3c590758ec2c648a27989adc4312b9bb584352 | 签名73实际公开回读，固定ZIP66ca88ee2b34a1fdd4cce636eaa61aa9bb7d46b4；两端连续72/73云确认通过，远端native文件未直接读 |
+| crawler-extension | 22b0762615fb315fb71c153d27491fa87e3c1eb0 | 74正式修复5产品源+3回归已推；两端各一次自然73→74有限通过，历史72→73手点链通过 |
+| crowd-kol | befc8692a96c26dd5d7e1dc366fda070fc756d2e | 诊断SQL+DB测试/fixture已推且RPC部署；Owner分享b7ff3b8运行保持；当前17487/owner-share-0dbbb7ec-5f833cfa/477源；云45与六店+31原ACK保持，原WB partial74/10of12剩2不变；旧无关dirty不暂存 |
+| crowd-pages | a2655e318c39eb18e735f07426faff1383ba7412 | 签名74实际公开回读，固定ZIPb300f6f1fd52a71bfbf2d33c82c0ed2450c284aa；两端74新云确认独审通过；两段连续无人值守未验 |
 
 消费项目正式目录在 `/Users/hubowen/Desktop/桌面 - 胡博文的MacBook Pro/china-travel-food`，保留原main/无关dirty；本轮六源精确copy。隔离发布目录 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/consumer-release` 的a34ae5b已合原PR17/main8202d5f并实际生产部署/真实匿名下载通过；不要用正式目录旧HEAD代替实际生产版本，也不可reset原资产。
 
-三仓E84源码与发布版本已实际核对；当前工作台以第3节E84及 `owner-publication-share-adoption-v2/runtime-adoption/ADOPTED.json` / 非作者实际82266cef为准。旧E81的760/475仅历史，不作当前PID；原continuation继承链保留，不能以HEAD替代运行源码。禁止reset/clean或覆盖无关改动。
+三仓E85源码与发布版本已实际核对；中央本轮仅部署诊断RPC固定错误枚举；当前工作台以第3节E84及 `owner-publication-share-adoption-v2/runtime-adoption/ADOPTED.json` / 非作者实际82266cef为准。旧E81的760/475仅历史，不作当前PID；原continuation继承链保留，不能以HEAD替代运行源码。禁止reset/clean或覆盖无关改动。
 
 
 ## 6. 关键决定
@@ -281,7 +292,7 @@
 
 | ID/优先级 | 问题、证据与影响 | 解决所需证据 |
 |---|---|---|
-| R1–R4 | E84两原端fresh，依次72→73/摘要/新OTA逐事件已独审；原身份/2接收/outbox0保持。平台unknown；远端identity_verification_required与泛化诊断，不等同来源登录有效 | 原绑定manual同主体核验与真实来源证据；修诊断漏枚举；无人值守定时周期另验，不重置身份/原预算 |
+| R1–R4 | E85两原端各一次自然73→74/摘要/新OTA独审；74诊断真实保留identity_verification_required。平台仍unknown，本机实际设备登录超限；原身份/历史进度保留 | 本人重登后同主体恢复；只读页面探针UNKNOWN先定位不盲重试；有限新预算待答，不重置旧记录或提前48h；第二段连续自然更新仍待 |
 | D1 | 槽释放、原ID交付恢复、Owner入口已上线；当前无真实坏组可验 | 实际defer→原ID ACK→finish链；不人为破坏用户数据充当验收 |
 | D2–D3 | E44已采用Pro真实Python transport与durable readback同journal接线，历史E44新XHS41逐条ACK/105步骤、最新E47另一新任务40ACK/99步骤分别独立实证；既有机器phase/Pro保存页/ACK也已部署；MC逐页机制已在E35采用，E36 Bili24来源事件根页保存缺失保留；E37新批次25步骤含选中部分保存已证，游标commit仍未证；通用参与者派单及supervisor child PID/预算标记时间仍不完整 | 任意任务两节点不重复领取、完整中央来源至ACK时间线 |
 | D4–D7 | 用户中台恢复、克隆身份围栏、跨任务去重和并发仍未全验 | 同UID不清outbox恢复、双节点epoch竞态、失败隔离与受控并发 |
@@ -311,7 +322,7 @@
 
 唯一当前入口为本文件；WORKSPACE/HANDOFF.md和爬虫/HANDOFF.md只作指针。[证据](handoff/EVIDENCE.md)、[日志](handoff/CHANGELOG.md)、[接力模板](handoff/ENTRY_TEMPLATE.md)及仓库AGENTS.md共同维护。
 
-[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。E84本轮文档发布以爬虫/outputs/runtime-2026-10-17/E84-PUBLISH-RECEIPT.json为准；E81/E82历史见E82-PUBLISH-RECEIPT.json；E63历史及当轮产品规划文档发布以爬虫/outputs/product-integration-plan-2026-10-16/PUBLISH-RECEIPT.json的commit/push/remote为准；无此回执不认发布。原计划中的HANDOFF-E63-PUBLISH-RECEIPT未生成，不补造旧回执；E62更正发布见HANDOFF-E62-CORRECTION-PUBLISH-RECEIPT.json，旧回执保留，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
+[在线固定入口](https://github.com/huming0018-dot/crowd-kol/blob/codex/v4.0.6-handoff/docs/HANDOFF.md)随已授权分支更新。E85本轮文档发布以爬虫/outputs/runtime-2026-10-17/E85-PUBLISH-RECEIPT.json为准；E84历史以E84-PUBLISH-RECEIPT.json为准；E81/E82历史见E82-PUBLISH-RECEIPT.json；E63历史及当轮产品规划文档发布以爬虫/outputs/product-integration-plan-2026-10-16/PUBLISH-RECEIPT.json的commit/push/remote为准；无此回执不认发布。原计划中的HANDOFF-E63-PUBLISH-RECEIPT未生成，不补造旧回执；E62更正发布见HANDOFF-E62-CORRECTION-PUBLISH-RECEIPT.json，旧回执保留，源码提交与文档提交分开；缺回执不认定已发布。[截至E60完整历史](handoff/archive/HANDOFF-through-E60-20261016.md)保留旧入口全文和原SHA，重要决定及发布记录继续在CHANGELOG/EVIDENCE中。
 
 接力者先读本入口、证据、日志并核日期/所涉源码与原件，再按第8节推进；主要改动按模板回写，每轮结束更新日期、结论、下一步。读不到原件时明确标未知/未核验，不把Markdown中的记录当自己查询线上所得。
 
