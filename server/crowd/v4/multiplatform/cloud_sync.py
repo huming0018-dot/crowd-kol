@@ -5,6 +5,9 @@ from decimal import Decimal
 import fcntl
 import hashlib
 import json
+import logging
+import socket
+import ssl
 import os
 from pathlib import Path
 import re
@@ -129,6 +132,37 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         raise CloudError('cloud_redirect_denied')
 
 
+def _log_publication_read_failure(stage, error):
+    # Fixed metadata only: exception text can contain credentials, URLs or body.
+    cause = error
+    for _ in range(8):
+        if isinstance(cause, urllib.error.URLError) and isinstance(cause.reason, BaseException):
+            cause = cause.reason
+        else:
+            break
+    if isinstance(error, urllib.error.HTTPError):
+        classification = 'http_error'
+    elif isinstance(cause, socket.gaierror):
+        classification = 'dns_resolution_failed'
+    elif isinstance(cause, ssl.SSLCertVerificationError):
+        classification = 'tls_certificate_verification_failed'
+    elif isinstance(cause, ssl.SSLError):
+        classification = 'tls_failed'
+    elif isinstance(cause, (TimeoutError, socket.timeout)):
+        classification = 'timeout'
+    elif isinstance(cause, ConnectionRefusedError):
+        classification = 'connection_refused'
+    elif isinstance(cause, ConnectionResetError):
+        classification = 'connection_reset'
+    else:
+        classification = 'transport_other'
+    status = error.code if isinstance(error, urllib.error.HTTPError) and type(error.code) is int and 100 <= error.code <= 599 else None
+    try:
+        logging.getLogger(__name__).warning('cloud_read_diagnostic action=publication_get stage=%s classification=%s http_status=%s', stage, classification, status)
+    except Exception:
+        pass  # A logging handler must not change the existing request outcome.
+
+
 class CloudClient:
     def __init__(self, config_path, role='owner', allow_test_loopback=False):
         path = Path(config_path)
@@ -162,13 +196,17 @@ class CloudClient:
         attempts = 2 if self.role == 'owner' and action == 'transcript_get' else 1
         for attempt in range(attempts):
             http_response = False
+            read_stage = 'connection'
             try:
                 try:
                     response = self.opener.open(request, timeout=15)
                 except urllib.error.HTTPError as error:
+                    if self.role == 'owner' and action == 'publication_get':
+                        _log_publication_read_failure('http_response', error)
                     response = error
                     http_response = True
                 with response:
+                    read_stage = 'body_read'
                     raw = response.read(2000001)
                     if len(raw) > 2000000:
                         raise CloudError('cloud_response_size_limit')
@@ -178,6 +216,8 @@ class CloudClient:
                     raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
                 return result['result']
             except (urllib.error.URLError, TimeoutError, OSError) as error:
+                if self.role == 'owner' and action == 'publication_get':
+                    _log_publication_read_failure(read_stage, error)
                 if (attempt + 1 < attempts and not http_response
                         and isinstance(error, (urllib.error.URLError, TimeoutError))):
                     continue
