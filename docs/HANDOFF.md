@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-16 17:46 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
+更新：2026-10-17 18:17 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
 
 ## 1. 接力规则
 
@@ -16,11 +16,30 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：G02已正式采用并push d3440dc，本机28754保持，Pro路径登记后原主体binding仍缺；G04 Edge43/29源与私桶已采用，用户已明确授权六店四格式及清单保存回取，本轮唯一publish成功、四格式回取exact，非作者实际云结果限定审查通过。Next消费页V2候选修复首render泄露并获限定非作者PASS，未配置真实UID/未部署；G11证据包独审通过但六店业务不通过，合格食客0/至少缺12，不能推荐。原知识四写表0/原两终端恢复连续OTA/完整平台双域跨端48h仍未全验。原T0/身份预算不重置，看门狗暂停。
+当前阶段：G04原六店私有云四格式保存回取保持；本轮唯一读取200/2.5435s/47764B exact，旧失败根因unknown。安全读取日志已实际采用89529/175bf、原五库及31ACK保持并独审。消费7源码（五源+两Auth修复）及三份测试已在原PR17发布07cddfb，独立完整Next构建及原Vercel精确SHA构建success；尚未merge生产/真实UID配置、登录切号和四下载。原XHS Bridge已自动重连，但唯一官方自检判未登录，未恢复采集。原两节点stale/远端71本机70，连续OTA仍未证；DY无成功出口候选不采用。原身份/两条预算/watchdog暂停保持。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
+
+### E80｜2026-10-17日志实际采用、原登录自检与消费回归接续
+
+- **日志已运行**：原工作台单源 cloud_sync.py 175bf73e 已实际采用，新PID89529/revision read-observability-175bf73e。首次apply五锁等待超时，在数据库备份及重启前退出；不强清锁，现场锁释放/空闲变化后第二次成功。knowledge非作者实际审5341ec5e核五库actual备份/live schema及raw行、其余474运行文件、31ACK、六店四格式、知识四写表0与三执行flag未启用。准备快照repr摘要与3.11不同，经三解释器同输入ASCII JSON摘要相同证实为Unicode repr版本差异；不改数据掩盖。原追加读取历史失败根因仍unknown；部署分类日志不等于又发生一次真实失败事件。
+- **源码与回归**：本轮30413e1（crowd-kol原分支，推送已返回0）仅安全日志与相对路径合成测试。root正式49项回归过；首次隔离端口权限失败保留说明，允许本机临时端口后原测试通过，无真实云请求。未夹带旧dirty或私码/凭据。
+- **原Pro Bridge真实边界**：原已授权CookieBridge现PID87923/127.0.0.1:8274，原XHS client自动重连/缓存新鲜，central实际审3429ed0d；原绑定/进度保持，无扫码或新权限。root在日志实际审后唯一官方check_only op8cc98e7f-a2e3-4415-949c-06440594ed61完成：Bridge/sign/official各1，结果official_logged_out（未恢复采集）。只改last_self_check及正常updated_at，原账号主体/代数/pending/授权不变；不将has_cookies当有效登录，也不重发未知任务或自动扩预算。native非作者实际审d5fae997核原intent/result、三类HTTP200各1、八字段/绑定/五库保持及Signer8990已退出；仅已知失败回执审PASS，不是登录通过。原worker90607已退出但ps为Z待父进程回收（P2），不写为PID不存在。原账户需恢复后的新自检和真实任务ACK仍未通过。
+- **消费页云链**：PR17新增可移植Handler/账号隔离两测试，由root非作者复跑29接口及first-render/迟到A响应/旧下载闭包/退出四下载受控测试后，e1005260ee047109c8693dc46eb33992d356d7d0已推原分支；原Vercel该SHA构建success/BsTWUebBsV9oJb2pkkwBR5GjT3CH。仍未merge生产/真实授权下载。root再次刷新原站点仍登录表单；不能断言本人未操作或登录根因。原Auth两源竞态已合成RED/GREEN、独立ES5/完整Next14构建与29接口/账号隔离回归；knowledge非作者0ec140ef核通过。root精确备份/copy正式2源与PR17，补相对路径测试，07cddfbbc4972aa26ab984748164ce922e1f8768已推；最新原Vercel j9GdaFEveVLWo4B4sChUD8BF9X5Q已按07cddfb精确提交回读success；不是沿用e100结果。knowledge实际窄审7507573f核正式/release/提交两源、原5源、三测试、旧备份及仅3文件提交范围一致。未改登录方式/配置/权限，未证明当前本人登录失败根因。
+- **授权与原节点**：精确Owner Secret保存原Vercel/本人auth.users UID只读查询问题仍未获答；不填值、不查询或换通道。原两节点stale/70与71/连续OTA未证等E79事实保持，未新开采集或改原两条预算；watchdog仍暂停。
+- **下一步**：Auth两源已独审接入正式源码并推同PR，07cddfb原云构建已成功，等待真实授权配置；获得限定服务端配置授权及真实站点会话后，原账号快照授权/真实切号/四格式浏览器下载→生产合入。原XHS结果已独核为未登录；原主体恢复后才明确发起新自检，再接原两终端及连续OTA；不得把本轮自检失败或已保存旧ACK冒充新采集验收。
+
+### E79历史｜2026-10-17 17:51消费页原云构建与待接入状态
+
+- **读取失败定位**：central唯一有诊断原GET，本轮200、2.5435秒、47764B/SHAcec201 exact；底层旧日志只剩cloud_read_unavailable，根因unknown，不能倒推DNS/云故障。根独立核脚本/7离线分类和保存实际结果，0额外云请求。read-observability单cloud_sync候选175bf…/冻862887fd、native独审46dd3f371edd4477f0e43844a9a7e037755bc1a88d63caa6565e159daed3f2c9：5新+38回归+2独立负例，固定action/stage/class/status脱敏日志，不加重试/不改原外部合同；未正式采用，准备另行独审。
+- **正式源码与完整构建**：根按V2cc64d五源copy原CTFS工作区，保两原件备份、原Auth/其他源不改。实际完整Next14构建首败TS2802（原ES5不支持Set for-of），原隔离高target测试确实漏检；修为两处forEach，不提高tsconfig/禁类型。ES5组件审1ddecdfe，正式materials新SHA dcb6df7766671c6ad18d34689864c70e89b2699c99c2cacdde0bac6b0644c056。第二次隔离全build因原声明qrcode依赖未装失败；只在独立普通目录按原锁禁scripts恢复505包后完整build exit0，独立0d85c04a50db2d30d5d1a3525e21df78c8c32c48b1b5cadb1e3a284e42aa9f00，原ES5/类型/PWA保持。原正式node_modules未改，首败保留。
+- **原项目云发布链**：现原Vercel团队/项目prj_p24AJdVkzTACRzXJz3g1hHErOrjK、生产app-lyart-eta-22.vercel.app；连接器403，本机原CLI凭据在用户明确允许使用该项目后一次查询仍403。未换项目或改权限。原浏览器已登录Vercel，实际生产来源1244bb1；根拉取原main核5源基线无漂移，在隔离工作树基于1244bb1提交df3954e0b109053e9e349f72d3f0f58abd0c5544并push。PR17/已attach，原Git集成云构建success/部署7cxPXLf6DgEh3ZWmaKT3gmnYtQ7e，真实浏览器预览/materials显示原账号登录门。未merge main/生产部署；不要把Ready当真实授权下载通过。
+- **真实授权缺口**：原站点本人称登录完成后，根刷新仍邮箱页，未获取真实Auth UID。已请本人完成该站点魔法链接流程；不混为采集平台/Gmail登录。邮箱搜索被自动审批拒，未执行搜索，改由本人完成；精确auth.users本人UID元数据只读查询亦被审批拒，未执行或绕路。当前待用户答复：允许在原Vercel Production保存现中央Owner服务端Secret，并精确查本人UID/仅授这一个原快照读取权。原Vercel仅原4环境变量；新Secret表单只有变量名，无值/未保存。真实切两账号/四格式浏览器下载/长期稳定均未验。
+- **原两终端/OTA**：native本轮原903d/71456仍在、参与扩展未登记；原安装70/32文件exact，缓存71；helper/NativeHost正常不代表扩展运行。中央两个原节点本轮都stale：远端71末心跳16:04CST/最新OTA599 seq326今日15:40 skipped，最近completed509 seq236为10-15 22:39；本机70末心跳10-15、最新491 seq273 skipped，最近completed460 seq255为10-15 14:50。版本摘要对齐、但逐事件没有版本/摘要和download→apply→reload→ACK字段，最多证明有限原handshake，不宣连续OTA。原任务19/20附带proof元数据查询被自动审批拒（超两node范围），未执行；原4回执不作本轮fresh。CUA只绑定日常同ID另一产品，无安全原窗口target；不动Preferences/重建身份或强杀Chrome。
+- **Pro复用真实边界**：DY原binding缺、scope主体未证；native薄扩冻a8e3dc21的5组件+80回归仅受控，独审b374ed3689d249b79acf76226e986c65ffcb90d13d68614afb5810e8ac0b134c实证两凭据入口无条件profile_mode_unverified/原SDK0账号，否决为可用登录功能，不采用、不删guard。改用原XHS903d已授权CookieBridge，精确原client/binding保持；既有服务8274未监听、原解释器和原app可导入，最小启动/metadata脚本V2冻f356bb51…待中央独审/根唯一启动；仅localhost、不输出Cookie/原message。启动或has_cookies不算官方同主体自检/采集恢复。
+- **下一步**：获限定配置授权且本人真实登录后，原项目配置→验证预览/生产同一输入授权、切号和四下载→独审后生产采用；先完成安全日志唯一采用与Bridge原client/官方同主体回验，再沿原节点/连续OTA与新ACK门推进。所有新候选/准备/线上/业务状态分开，禁止重置原任务预算、重发unknown、复制Pro私码或恢复暂停watchdog。
 
 ### E78｜获明确授权后真实六店快照保存与四格式回取
 
@@ -182,7 +201,7 @@
 | https://app-lyart-eta-22.vercel.app/api/crowd/manifest | 正式安装元数据入口；最近已存生产回读见E02 |
 | .crowd-launch/unified-workbench/ | 工作台配置、SQLite、作业运行资产；不复制其内容进交接包 |
 | .crowd-launch/runtime-revisions/wb-progress-45b8e4f7-a1346798/ | 历史E63的65679；13映射/12变更/1新模块，实际独审23750a+idle803731+固定Python9ead；云40/步骤68。原WB31ACK/累计10of12剩2，真实原图云v3/回取/R88三导出独审32a77277，完整回复仍partial74；默认MC/原身份/OTA及其他源码保持，snapshot不等于Git HEAD |
-| .crowd-launch/runtime-revisions/owner-knowledge-412a2e2f-3d33539b/ | 当前E71不可变运行源码/PID6620；六源入口，原自动ACK worker仍固定旧immutable路径，不能按Git HEAD替代运行SHA |
+| .crowd-launch/runtime-revisions/owner-knowledge-412a2e2f-3d33539b/ | 历史E71不可变运行源码/当时PID6620；六源入口，原自动ACK worker仍固定旧immutable路径，不能按Git HEAD替代运行SHA |
 | .crowd-launch/unified-workbench/knowledge/、data-products/knowledge-runtime.json | 原提案单库迁移/固定审核配置与私有intent；配置0600、非凭据公开库，原四审核发布表0；不得复制私token |
 | .crowd-launch/seven-platform-live/ | 原采集目录、会话和运行数据；不清理或复制登录资料作VM模板 |
 | /Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/ | 8仓私有参考副本；SOURCE-MANIFEST.json固定SHA；未纳入发布仓或安装包 |
@@ -194,15 +213,17 @@
 
 ## 5. 代码版本与未提交资产
 
-以下为相应发布回执/证据时点的版本；本次整理未向远端发起新查询。三仓均分支 `codex/v4.0.6-handoff`：
+以下为相应发布回执/证据时点的源码版本；本轮仅crowd-kol原分支已真实核远端30413e1，另外两仓沿历史原件，不能冒新鲜HEAD。三仓均分支 `codex/v4.0.6-handoff`：
 
-| 仓库 | HEAD | 未提交边界 |
+| 仓库 | 已核源码提交（文档后续提交另见发布回执） | 状态与未提交边界 |
 |---|---|---|
 | crawler-extension | d7707cb82d26e0594ef8220299a5e8c3a37cf8cd | 71登录状态诊断源码；包签名发布/缓存已证，远端节点71登记/摘要/完成事件已证；本机最后已证70、当前参与端运行未核 |
-| crowd-kol | f7e475053c4e639ee0f6c4bb1f68993fb12a7d83本轮5源码/测试本机提交；发布看E66回执，原a036e19/6e6d39已发布 | 当前87942/domain-79e4de53-0fad9455/云40；六店领域候选+31素材双入口，原WB partial74/10of12剩2保持 |
+| crowd-kol | 30413e1bfcc72008500e4de74240e6fcea613acf，本轮日志及测试源码push0/远端同；SOURCE-PUBLISH-RECEIPT见E80 | 当前89529/read-observability-175bf73e；云43沿E78实际原件（此轮未fresh云）；六店候选+31旧素材/ACK、原WB partial74/10of12剩2保持；旧无关dirty不暂存 |
 | crowd-pages | 0a3bc4f04d0b2ffafd4c8619096ba6f3e28ea900 | 签名OTA71；固定ZIP提交deaab37b7eca21056ee2007e9d7aaeef90e15960；远端71登记/摘要/完成事件已证，本机71采用及远端native文件链未验 |
 
-crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。运行源码以第3节E63及e63-progress-runtime-adoption批准冻结/现场独审为准，并保留continuation-current-runtime-adoption的17文件继承链，不能以HEAD替代；不要reset/clean或覆盖其他改动。
+消费项目另在 `/Users/hubowen/Desktop/桌面 - 胡博文的MacBook Pro/china-travel-food`，正式目录原main保持自有7源码dirty；本轮隔离发布工作树为 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/consumer-release`，分支 `codex/publication-consumer-20261017`，最新07cddfb已推/原云构建success，PR17未合生产。不可reset正式目录或把源代码接入当生产验收。
+
+crowd-kol所列发布回执本轮已读；其余仓沿先前已核版本，不能当本次新鲜HEAD。当前运行以第3节E80、read-observability-adoption/runtime-adoption/ADOPTED.json及实际独审5341ec5e为准；旧E63/E71等是继承历史，不能作为当前PID。原continuation-current-runtime-adoption继承链仍保留，不能以HEAD替代运行源码；不要reset/clean或覆盖其他改动。
 
 
 ## 6. 关键决定

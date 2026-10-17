@@ -591,3 +591,40 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - `g04-next-consumer-v2/FREEZE.json`：cc64d967596d46a1204dcb03b66f2f3211a5298be9d2163ccd5af4580381ae17，首render与旧下载回调P1作者修复/非作者复核待结，V1阻断证据保留。
 
 - `g04-next-consumer-v2/independent-central/FINAL.json`：1e188baaa43e5b2b2a434a477a491d03812d79c389fc6318f732d4517adf01bc；P1原独立反例在修后exit0，类型/UI/旧回调0下载/登出首render复测通过，未真实Auth/部署。
+
+
+## E79｜2026-10-17真实读取诊断、消费页云构建与原节点
+
+根目录`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/`：
+- `read-diagnostics/FINAL.json` 18d6d0a4及`ROOT-INDEPENDENT-REVIEW.json`：唯一200读取/7安全分类复核，历史根因仍未知。
+- `consumer-adoption/FORMAL-SOURCE-ADOPTION.json`、`BUILD-INITIAL.log`与`consumer-build-fix/FORMAL-ADOPTED.json`：正式5源及ES5首败/单源修复。
+- `consumer-build-fix/independent-central/FINAL.json` 1ddecdfe与`consumer-full-build/FINAL.json` 0d85c04a：ES5修复和完整Next构建，旧缺qrcode首败保留/仅隔离恢复依赖。
+- PR https://github.com/huming0018-dot/china-travel-food/pull/17 ，提交df3954e0b109053e9e349f72d3f0f58abd0c5544，原Vercel云构建success；`consumer-adoption/CLOUD-PREVIEW-LOGIN-GATE.png`真实页面，不等真实授权。
+- `participant-recovery/LATEST-OTA-REVIEW.json` f9d8ded8040f92a593e9fcec9ce6595fab3634e728c6409846b9d3d1eda477f9及`ROOT-INDEPENDENT-REVIEW.json`：原两节点stale、版本70/71，连续OTA未证。
+- `pro-login-reuse/independent-review/FINAL.json` b374ed36：不适用真实DY登录，未采用。
+- `read-observability/independent-review/FINAL.json` 46dd3f37：单源脱敏日志候选有限PASS/未采用。
+- `existing-bridge-recovery-v2/FREEZE.json` f356bb51：原XHS本机服务恢复准备，启动另看后续实际记录。
+
+
+## E80｜2026-10-17实际日志采用与原账号官方自检
+
+根目录`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-17/`：
+- `read-observability-adoption/runtime-adoption/ADOPTED.json`：实际新89529/revision read-observability-175bf73e、五库备份与保护。
+- `read-observability-adoption/independent-knowledge/FINAL.json` 5341ec5e146d9f23d5b0986f94269ddb1b456a49001906a7d492b79b148ace96：实际限定独审，非新读取/登录/采集证明；`INITIAL.log`与`REPR-INTERPRETER-DIAGNOSTIC.json`保解释器摘要差异及定位。
+- `read-observability-portable-test/ROOT-INDEPENDENT-REVIEW.json`与`ROOT-REGRESSION.log`：正式相对路径测试/49项回归。
+- `existing-bridge-live/independent-central/ACTUAL-FINAL.json` 3429ed0d：原服务/客户端实际重连有限审。
+- `xhs-official-recheck/CHECK-RESULT.json`：真实唯一官方check_only返回official_logged_out；准备审4e422445不是官方结果审，实际独审另看ACTUAL-FINAL（存在才算）。
+- `consumer-portable-tests/ROOT-INDEPENDENT-REVIEW.json`与`RELEASE.json`：e100526/PR17/原Vercel该SHA success，非生产或真实Auth证明。
+- `auth-callback-readonly/FINDINGS.json`与`auth-session-timing-fix/`：竞态依据/合成RED/候选；非本次真实登录根因证明，采用状态以后续门禁为准。
+
+- `xhs-official-recheck/independent-review/ACTUAL-FINAL.json` d5fae997a2790bad94837406f5921de9720454396b0c6a4bdc410b0daa67558c：实际已知官方未登录/无source无授权/保护保持，Signer停止；worker Z待reap限制明确，不等于恢复成功。
+
+- `auth-session-timing-fix/independent-knowledge/FINAL.json` 0ec140efdc735985308f79f1de6fd97f9dd2ea7d09a9befeb65e46696c74265c：两源RED/GREEN、独立反例/原ES5/完整Next14构建PASS；真实登录未知。
+- `auth-source-adoption/ADOPTED.json`：正式原件备份及2源精确copy/portable测试；PR17提交07cddfbbc4972aa26ab984748164ce922e1f8768，最新云构建结果以其SHA状态为准，不继承e100成功。
+- `e80-handoff-review/FINAL.json` 2f8821189c59712054c11b45062d785677c517c195694ce0f38b2a9d919f0765：E80当时文档窄核，3处旧运行导航/字段/重复检查措辞已改；不外推背书之后Auth/发布状态。
+
+- `auth-source-adoption/RELEASE.json`：原PR17最新07cddfb按精确SHA查Vercel success/j9GdaFEveVLWo4B4sChUD8BF9X5Q；正式源码已copy，未合生产/真实授权未验。
+- `read-observability-adoption/SOURCE-PUBLISH-RECEIPT.json`：crowd-kol30413e1源码push/远端精确同；文档后续发布另取E80回执。
+
+- `auth-session-timing-fix/independent-knowledge/ACTUAL-FINAL.json` 7507573f1dad288b223f14ff2ad3956fad769ad951a8f98f844565d412e0479d：正式/release/提交/备份/旧5源/三测试限定实际审PASS，0HTTP；原云success由root真实查询+RELEASE保存，非审查者fresh云验证。
+- `E80-PUBLISH-RECEIPT.json`：本轮handoff三文档源码提交/push/远端核，生成前不认已发布。
