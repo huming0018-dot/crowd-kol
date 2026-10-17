@@ -189,6 +189,9 @@ class Application:
     def cloud(self, action, payload):
         if not isinstance(payload, dict):
             raise ValueError('invalid_cloud_request')
+        if action == 'publication_share':
+            from publication_share import generate
+            return generate(self, payload)
         if action in ('delivery_status', 'retry_delivery'):
             if action == 'delivery_status' and payload or action == 'retry_delivery' and set(payload) != {'capture_ids'}:
                 raise ValueError('invalid_delivery_request')

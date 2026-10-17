@@ -11,6 +11,36 @@ const resultsView = (() => {
   const domainExports=node('details');domainExports.append(node('summary','导出领域发现'),node('p','导出当前已审领域发布快照；未核事实和候选状态保留。'));
   for(const [format,path]of [['JSON','report.json'],['JSONL','items.jsonl'],['CSV','items.csv']]){const link=node('a',format);link.href='/data-product/'+path;link.download='data-product.'+format.toLowerCase();domainExports.append(link,document.createTextNode(' '));}
   dialog.querySelector('#library_export').after(domainLink,domainExports);
+  // Explicit Owner action; the bearer URL exists only in this dialog's memory until expiry/close.
+  function attachPublicationShare(parent, ownerDialog) {
+    const generate=node('button','生成15分钟查看链接'),copy=node('button','复制查看链接'),status=node('p','仅分享当前领域发现快照；点击才签发，持有人15分钟内免登录查看。不会自动续签。');
+    generate.type=copy.type='button';copy.disabled=true;status.setAttribute('role','status');
+    parent.append(generate,copy,status);
+    let epoch=0,link=null,timer=null;
+    const clear=()=>{++epoch;link=null;clearTimeout(timer);copy.disabled=true;generate.disabled=false;};
+    ownerDialog.addEventListener('close',()=>{clear();status.textContent='链接已从本页清除。此前复制的链接仍到原有效期结束。';});
+    generate.onclick=async()=>{
+      if(generate.disabled||!ownerDialog.open)return;
+      clear();generate.disabled=true;const ticket=epoch;
+      status.textContent='正在生成；结果未知时不会自动重发。';
+      try {
+        const value=await api('/api/cloud',{action:'publication_share',payload:{request_id:crypto.randomUUID()}});
+        if(ticket!==epoch||!ownerDialog.open)return;
+        if(value.schema!=='crowd-owner-publication-share-v1'||typeof value.page_url!=='string'||!value.page_url.startsWith('https://app-lyart-eta-22.vercel.app/materials#publication=')||!value.page_url.match(/#publication=[A-Za-z0-9_-]+$/)||!Number.isFinite(Date.parse(value.expires_at))||Date.parse(value.expires_at)<=Date.now())throw Error('publication_share_invalid_response');
+        link={url:value.page_url,expires:Date.parse(value.expires_at)};copy.disabled=false;
+        status.textContent='链接已生成，有效期至 '+new Date(link.expires).toLocaleString()+'。点击复制后可发给接收者；原未知项保留。';
+        timer=setTimeout(()=>{if(ticket===epoch){link=null;copy.disabled=true;status.textContent='链接已到期，已从本页清除；不会自动续签。';}},Math.max(0,link.expires-Date.now()));
+      }catch(error){if(ticket===epoch&&ownerDialog.open)status.textContent='生成未确认，请先核对结果。不会自动重试；关闭后重新打开可显式准备新一次操作。';}
+    };
+    copy.onclick=async()=>{
+      const ticket=epoch,value=link;
+      if(!value||copy.disabled||!ownerDialog.open||value.expires<=Date.now()){link=null;copy.disabled=true;return;}
+      try{await navigator.clipboard.writeText(value.url);if(ticket===epoch&&ownerDialog.open)status.textContent='查看链接已复制，请仅发给需要查看的人。';}
+      catch{if(ticket===epoch&&ownerDialog.open)status.textContent='浏览器未允许复制；链接未重新生成。请允许本页使用剪贴板后再点复制。';}
+    };
+  }
+  attachPublicationShare(domainExports,dialog);
+
   const materialLink=node('a','查看当前已审素材');materialLink.href='/materials';materialLink.target='_blank';materialLink.rel='noopener';
   const materialExports=node('details');materialExports.append(node('summary','导出当前已审素材'),node('p','导出当前发布批次的全部已审素材。'));
   for(const [format,path]of [['JSON','report.json'],['JSONL','materials.jsonl'],['CSV','materials.csv']]){const link=node('a',format);link.href='/materials/'+path;link.download='materials.'+format.toLowerCase();materialExports.append(link,document.createTextNode(' '));}
