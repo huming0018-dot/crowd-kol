@@ -685,7 +685,7 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 
 - `participant-ota73-formal-adoption/independent-central/ACTUAL-BOTH73-FINAL.json` SHAd361be87c19f1e1eedf4d15da8132ce5ddc1aa5a48d53947fa050420e87c553a：两端72→73实际OTA事件/摘要；本机32文件及助手真实状态。
 - `participant-ota73-formal-adoption/independent-central/FINAL.json` SHAb85354b53ee5cfc52d2f54554a6b2b3c4900903b9e57d8cb15c25328423d9dc2：73正式采用实际独审。
-- `participant-ota73-formal-adoption/independent-central/SIGNED-FINAL.json` SHA544fe66bcae4420f955f2bd77a26f7ef68bcefb3edd8fdfcbee3a7bf20ede36d：73签名发布实际独审。
+- `participant-ota73-formal-adoption/independent-central/SIGNED-FINAL.json` SHA544fe66bcae4420f955f2bd77a26f7ef68bcefb3edd8fdfcbee3a7bf20ede36d：73签名候选/发布前公钥及CAS独审；该报告不证明已上线，实际两端发布采用由d361be87覆盖。
 - `owner-publication-share-adoption-v2/independent-runtime/FINAL.json` SHA82266cefc381328f6fe4e0f35fd49278d2f2d0b2d89457d884d3f861ab943599：Owner实际477运行源/五库/保护资产非作者审。
 - `owner-publication-share-actual/independent-review/FINAL.json` SHA35cb0fe0d0dcf594853b05fb155a7ea6c38238ea57c592ffa77a3a98decb9fc0：真实Owner复制/正式消费/四新下载211899B/便携测试有限非作者审。
 - `participant-manual-login-contract/FINAL.json` SHAb9c16c06721d87281e692240dc7fc16290cc4e4cc025c04af038c80b5d080b41：73停止态manual不采集核验合同及诊断漏枚举，只读独立核查。

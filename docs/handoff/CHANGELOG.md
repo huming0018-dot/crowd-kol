@@ -697,3 +697,5 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **两端业务边界**：原本机72云643后73云661，远端72云650后73云669；版本/摘要/顺序与原ID实证，central实际d361be87通过。人手显式检查两次，不宣无人值守周期通过；远端原文件未直接读。均平台unknown、无新采集/预算扩大。task19/20四proof received/null是待质量审核，不判无效。
 - **遗留/下一步**：manual仅expected_ref存在才同绑定核验，真实登录恢复未验；诊断漏identity_verification_required/platform_identity_changed两枚举未修。先保原绑定做不采集核验，再窄修独审/后续OTA；Pro同输入正文/评论分页媒体/导出及新云ACK仍未全部通过。48h和watchdog继续暂停。
 - **证据/更新**：HANDOFF E84与EVIDENCE E84精确路径/SHA；本轮文档发布另见本地E84-PUBLISH-RECEIPT.json，不把commit成功当push成功。
+
+- E84交接独立窄审：central核新增状态/版本/R1范围无实质阻断；按建议将SIGNED-FINAL准确标为发布前公钥/CAS审，线上采用依据另列d361be87。未新增云请求或采集。
