@@ -1,5 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
+## 当前追加｜2026-10-19 02:54 CST｜Pro ACK自动素材链已正式运行
+
+- **实现/源码**：已将中央参与者Pro回执接到现有postprocessing耐久列表、AutomaticMaterials单子进程、原051 Jobs/Stages.clean/score/audit和Consumer；没有重写Pro平台核心、另建队列或评分器。正式源码a33ecb4、迁移账本对齐4b673e7已推crowd-kol/codex/v4.0.6-handoff；9个Owner运行文件来自已审冻结，不把整个HEAD冒实际运行。
+- **中央部署**：crowd-machine实际version46、verify_jwt=false保原定制鉴权，30源回读全字节exact（只改core/加handler，原index与45同）；只读RPC实际迁移账本20261018183429，SQL SHA5a4ad208b38d81490f7fcd930a19215559e85f91cb0ce681bf2e09e8663dd9a4。CLI原草稿182409保本地证据，正式文件名已对齐实际183429，未重复apply。anon/authenticated禁EXECUTE、service_role可；原19/20/29任务、正文proof及receipt全行hash部署前后相等。
+- **正式本机采用**：唯一45937 PID86092，immutable owner-pro-materials-00abc42fa74eaedb，原477文件＋已审9overlay＝480。原进程17487已确认退出后才启动；五锁、五库完整backup/schema业务rows、277原账号/任务/发布资产和native schema/业务行均保。auto配置95b93eb1…→b331f70cd66e66a7671d6c8f251f9acc496c4e30febdddb19fc41008be49e767，仅更新运行代码路径/hash及Pro extractor pin，原Python/toolbox/pack不变；material/domain/knowledge原指针未换。原参与者4.2.99、task29complete2/2、pending0和原来源run均未重开。
+- **真实自动结果**：没有手工enqueue/import/build，原scheduler自然读取Owner feed：task19的proof54/55、task29的proof56/57，各2条进入现Jobs；两个job各1行、五个阶段completed（crawl是snapshot-file，非外部HTTP）。两个独立Consumer ready，每scope HTML/JSON/JSONL/CSV共8次实际HTTP，items和metadata.capture逐原云feed完整一致；正文分别137/193及112/9字，原短正文保留。**这是4条已确认Pro数据的自动处理回填，不是4次新采集/新ACK。** 新查询入口工作台资料库→“查看参与者自动处理素材”，/materials/participants；原/materials仍31、/data-product仍六店同原hash，不称累计33/35或新餐厅事实。
+- **重扫/资源/独审**：修复空尾页cursor、事务开始时间导致晚提交ACK漏读、专有8MiB读取/节点限额、跨时钟额外拒绝及proof_id float等值问题。游标只一轮遍历，空尾页原子reset后完整复扫；自然观察job账本间95.303秒/HTTP间145.534秒，两job/stage账本和log/request/snapshot/result mtime及8文件SHA均不变、queue[]/contexts0，处理source/model=0。26真实PGlite/17Edge、7组原Jobs与旧31回归、10组HTTP/队列/读取、7采用器fixture均独立复核；不把作者自检称独审。
+- **证据与边界**：证据根pro-participant-native-entry，先读G03/ACTUAL-OWNER-FEED-VERIFIED.json、ACTUAL-EXPORTS-VERIFIED.json及actual-exports；中央原件CLOUD-BEFORE/AFTER、EDGE46-VERIFIED、MIGRATION-LEDGER；采用器owner-pro-materials-adoption/runtime-adoption/ADOPTED.json和PLAN。非作者review/g03-g04-current/ACTUAL-MATERIALS-FINAL.json SHAf8b9312534008e83e93be679c90bd5fa3f75ded9c358aaca7a7f68b4b925694f，ABC-FINAL SHA8822bbba…，ADOPTER-FINAL SHAbba8b3f6…。原数据/回执PRIVATE原件不能公开发布，不含凭据的证据摘要可复核。
+- **未验/下一步**：G03在采用后收到全新来源ACK、真实进程重启恢复仍待验；本轮不是整个D1/D2/D3完成。G04新Pro异机消费/云端派生快照未做，现task29/19四格式分别101374/212042B均小于250k、合并超限；复用现publication_client/私桶与Next，只需显式Pro scope及两处六店限制，事实合同G04-readonly-contract。新匿名分享未获本轮特定批准，不能沿旧六店授权自行外发。G05真人知识决定/领域评分及撤回、同context换pack显式重算、第二设备/Pro合法依赖准备/无人值守runtime OTA、原生参与者评论媒体仍有缺口。48h实验及watchdog仍暂停，继续按主计划1.3推进，不重做F0。
+
 ## 当前追加｜2026-10-19 02:04 CST（优先于下方历史状态）
 
 - **本机本批已实际完成**：原身份/installation的原task29 complete **2/2**，新Pro run `a379f72a-9f99-4673-965c-293795c52458`，proof **56/57** 两条新receipt均inserted=true、duplicate=false、received依次1/2。17:55生产只读确认；旧task19/20仍22/22、3/3，旧55proof/receipt完整行hash及评分/奖励投影全保，未把历史结果冒本批。

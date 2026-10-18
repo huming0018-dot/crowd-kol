@@ -804,3 +804,17 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - native-message-stop-combined/independent-native/FINAL.json（9916ca1a）、native-eof-attribution/independent-native/FINAL.json（b75b828e）、native-explicit-reexecution/independent-native/FINAL.json（872e5b2b）；对照正式source2d50f94/f417c0c/3f50df9。
 
 未验：本批评论分页/媒体字节、第二设备Pro、普通新机合法SDK准备、通用恢复、无人值守runtime OTA/两设备连续OTA、48h实验；人工评分不由received冒充。专用29临时分支现不可达，下次正常维护移除并保版本追溯，不重复本批来源。
+
+## 2026-10-19 02:54 CST｜G03 Pro ACK自动素材链实际证据
+
+证据根`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`。当前状态看HANDOFF最新追加，以下不替代原件。
+
+| 证据 | 核到的结果与限制 |
+|---|---|
+| G03/EDGE46-VERIFIED.json、CLOUD-BEFORE.json、CLOUD-AFTER.json、MIGRATION-LEDGER.json | 中央46/30源exact、原3任务/正文/回执全行hash同、服务角色只读函数及实际183429账本；不是来源调用或新增ACK |
+| G03/ACTUAL-OWNER-FEED-VERIFIED.json；ACTUAL-OWNER-FEED-ALL.PRIVATE.json | 真实两scope19/29、proof54–57，各2，task29逐字段等真实fixture，尾页cursor保；PRIVATE原文不发布 |
+| owner-pro-materials-adoption/{PLAN,FREEZE}.json、runtime-adoption/ADOPTED.json | 唯一PID86092，新owner-pro-materials-00abc42fa74eaedb/480源，cfg b331，原5DB/277资产/native保，完整旧runtime和备份可回退；实际启动，不是GitHEAD冒运行 |
+| G03/ACTUAL-EXPORTS-VERIFIED.json、actual-exports/task-{19,29}.{html,json,jsonl,csv} | 正式HTTP八文件、每scope2items/原完整capture exact、旧31/六店仍同；仅已确认ACK回填，不是新增来源或口味评分 |
+| review/g03-g04-current/ACTUAL-MATERIALS-FINAL.json（f8b93125…）、actual/{FIRST-FORMATS-VERIFIED,SECOND-STABLE-READ}.json及其实际文件 | 非作者核两job各1/5stage、自然95.303秒job ledger/145.534秒HTTP同、8文件hash/mtime不变，无重复Jobs、source/model0；不冒真实重启或新ACK-afteradopt |
+| review/g03-g04-current/{A2-FINAL,ABC-FINAL,ADOPTER-FINAL,FORMAL-AND-ACTUAL-A2-FINAL}.json | A2 09269b0b/ABC8822bbba/采用bba8b3f6/源码线上c90fcde4；各范围与未验项保留；RED晚提交/跨时钟/float等原反例可追 |
+| G03/OPTIMIZATION_PLAN.md；G04-readonly-contract/{CONTRACT.md,FACTS.json} | 双路线采用理由和剩余G04最小复用点；两scope101374/212042B分别可入现250k合同，合并不行；未新上传或匿名外发 |

@@ -159,3 +159,21 @@ python3 -m unittest test_mc_runner test_dashboard test_analysis test_owner_tasks
 测试覆盖实际上游 21 组 CLI、7 真实 Crawler 类绑定（不访问来源），自有替身 21 组进程/输出、停止、同 session 互斥与复用、发送前限额、响应字节限额、平台/秘密参数边界、媒体清单。独立审查另复现监管丢失并复核子进程停止。发布时以 reviews 下的最终 SHA 与审查报告为准。
 
 待确认：适用授权凭据；各平台本人登录；真实 source 回执与评论树/媒体清单验收；平台变化导致的上游错误；跨机器执行及服务器统一台账均未接入本桥。
+
+## 参与者Pro回执进入现有素材处理
+
+此入口连接已购Pro参与者的数据与现有工具柜，不修改平台请求、解析、评论或媒体核心。当前实现及运行证据看固定`docs/HANDOFF.md`，不能从本节推断所有平台或两设备已经验收。
+
+数据流为：中央`participant_pro_receipts` Owner只读动作 → 原`postprocessing_runs/postprocessing_contexts`耐久列表 → `AutomaticMaterials`原单子进程 → 原固定工具柜的`Jobs`与`Stages.clean/score/audit` → `Consumer`按任务发布。没有第二套队列或评分器。输入适配只支持实际已接通的小红书Pro正文协议；其他模式保留需求，不能冒已接通。
+
+- `pro_ack_snapshot.py`核原整数任务ID、真实subject/installation/dispatch、request/proof、canonical原文、hash及来源；不伪造machine UUID、child、租约或finish_verified。`received/verified`原样保留，不转成人工奖励；`rejected`明确拒绝，通用人审撤回同步尚未实现。
+- `participant_material_feed.py`将完整已确认分组以0600不可变文件落在`data-products/participant-pro-ack-inputs/<sha>.json`，之后队列与游标同次原子保存。中央now()不是提交顺序，游标只用于一轮遍历；尾页清空游标，下轮完整复扫。相同ACK集合直接复用原ready状态，不重采来源或重复运行Jobs。
+- `material_auto_worker.py`驱动现`material_bridge.py`；Pro需要原11键配置加`pro_snapshot_sha256`，并在生成和读取时核代码、pack、toolbox及输入pins。升级采用器须同时更新配置路径与SHA，不能仅修改Git HEAD。
+- Pro发布保存在自己的ready状态`publication_pointer`中，**不替换**原`material-runtime.json`或`domain-runtime.json`。`/materials/participants`为正常资料库中的入口；每任务可查看HTML、JSON、JSONL、CSV。`participant_material_delivery.py`只读现Consumer输出，不触发采集或构建。
+- 完成任务不代表来源覆盖全量。素材分只衡量可追溯性，不是内容质量、餐厅口味、知识批准或参与奖励。历史已确认回执回填不冒新增来源；snapshot-file的crawl阶段不冒外部HTTP访问。
+
+现中央与本地均有限额且拒绝超限，不截组冒成功：每页最多8组、单组最多2000条/8MiB；本入口当前逐组读取，Owner Pro响应专用上限8MiB加包络、100万JSON节点，其他CloudClient动作维持原限额。全量复扫成本随组数增长；需要扩大规模时，再以实际数据实现可证明的提交版本/增量协议。
+
+有私有真实fixture时运行`test_participant_material_*.py`，设置`CROWD_PRO_ACK_FIXTURE`和`CROWD_TEST_MATERIAL_AUTO_CONFIG`；缺fixture时集成用例会明确skip，不能称真实验收。SQL/Edge回归入口是`tests/participant-pro-owner-feed-{db,api}.mjs`，DB测试需已有`CROWD_TEST_TOOLS`中的PGlite。不得提交fixture、浏览器资料、Pro私码或凭据。
+
+已知边界：同context已ready后不会因换pack/config自动重算；需要明确的重新处理/采用流程。重启恢复、上线后新ACK、异机Pro素材消费及通用人审撤回应单独验收；旧六店匿名分享授权不能推定为新Pro素材的匿名分享授权。
