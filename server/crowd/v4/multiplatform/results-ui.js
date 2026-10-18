@@ -44,7 +44,8 @@ const resultsView = (() => {
   const materialLink=node('a','查看当前已审素材');materialLink.href='/materials';materialLink.target='_blank';materialLink.rel='noopener';
   const materialExports=node('details');materialExports.append(node('summary','导出当前已审素材'),node('p','导出当前发布批次的全部已审素材。'));
   for(const [format,path]of [['JSON','report.json'],['JSONL','materials.jsonl'],['CSV','materials.csv']]){const link=node('a',format);link.href='/materials/'+path;link.download='materials.'+format.toLowerCase();materialExports.append(link,document.createTextNode(' '));}
-  $('library_export').after(materialLink,materialExports);
+  const participantMaterialLink=node('a','查看参与者自动处理素材');participantMaterialLink.href='/materials/participants';participantMaterialLink.target='_blank';participantMaterialLink.rel='noopener';
+  $('library_export').after(materialLink,materialExports,participantMaterialLink);
   let revision=null,offset=0,filters={},total=0,generation=0,loading=false;
   $('library_close').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{generation++;loading=false;launch.focus();});
   function getFilters(){const result={};if($('library_platform').value)result.platform=$('library_platform').value;if($('library_tag').value.trim())result.tags=[$('library_tag').value.trim()];if($('library_author').value.trim())result.author_id=$('library_author').value.trim();if($('library_kind').value)result.kind=$('library_kind').value;for(const [id,key]of [['library_after','published_after'],['library_before','published_before']])if($(id).value)result[key]=new Date($(id).value).toISOString();return result;}

@@ -194,6 +194,8 @@ class CloudClient:
             raise CloudError('capture_size_limit')
         request = urllib.request.Request(self.endpoint, body, self.headers, method='POST')
         attempts = 2 if self.role == 'owner' and action == 'transcript_get' else 1
+        pro_feed = self.role == 'owner' and action == 'participant_pro_receipts'
+        response_limit = 8 * 1024 * 1024 + 128 if pro_feed else 2000000
         for attempt in range(attempts):
             http_response = False
             read_stage = 'connection'
@@ -207,10 +209,10 @@ class CloudClient:
                     http_response = True
                 with response:
                     read_stage = 'body_read'
-                    raw = response.read(2000001)
-                    if len(raw) > 2000000:
+                    raw = response.read(response_limit + 1)
+                    if len(raw) > response_limit:
                         raise CloudError('cloud_response_size_limit')
-                    result = _strict_json(raw, max_nodes=100000)
+                    result = _strict_json(raw, max_nodes=1000000 if pro_feed else 100000)
                 if not isinstance(result, dict) or result.get('ok') is not True or not isinstance(result.get('result'), dict):
                     code = result.get('error') if isinstance(result, dict) else None
                     raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
@@ -221,7 +223,7 @@ class CloudClient:
                 if (attempt + 1 < attempts and not http_response
                         and isinstance(error, (urllib.error.URLError, TimeoutError))):
                     continue
-                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('task_list', 'task_status', 'continue_failed_source_preview', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
+                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('participant_pro_receipts', 'task_list', 'task_status', 'continue_failed_source_preview', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
                 raise CloudError(code) from None
 
 
@@ -580,6 +582,7 @@ class CloudWorker:
             if 'waiting_logins' not in state:state['waiting_logins']=prior.get('waiting_logins',[])
             if 'postprocessing_runs' not in state:state['postprocessing_runs']=prior.get('postprocessing_runs',[])
             if 'postprocessing_contexts' not in state:state['postprocessing_contexts']=prior.get('postprocessing_contexts',{})
+            if 'participant_pro_cursor' not in state and 'participant_pro_cursor' in prior:state['participant_pro_cursor']=prior['participant_pro_cursor']
             if 'pending_deliveries' not in state:state['pending_deliveries']=prior.get('pending_deliveries',[])
             if 'last_stop' not in state and 'last_stop' in prior:state['last_stop']=prior['last_stop']
         if self.last_stop is not None:state['last_stop']=self.last_stop
@@ -760,6 +763,9 @@ class CloudWorker:
                 self.postprocessing_error = None
                 if self.postprocessing_callback:
                     latest = mc_runner.read(self.path)
+                    if latest.get('phase') == 'idle' and not latest.get('lease'):
+                        try:latest = self._participant_postprocessing(latest)
+                        except Exception:self.postprocessing_error = 'participant_pro_feed_failed'
                     for run_id in list(latest.get('postprocessing_runs', [])):
                         try:
                             enqueued = self.postprocessing_callback('enqueue', {'run_id': run_id, **({'material_context': latest['postprocessing_contexts'][run_id]} if run_id in latest.get('postprocessing_contexts', {}) else {})})
@@ -808,6 +814,38 @@ class CloudWorker:
                         try:self._save(state)
                         except (OSError,ValueError,sqlite3.Error):self.last_error='cloud_stop_persistence_failed'
                 return {'state': state.get('phase'), 'error': code}
+
+    def _participant_postprocessing(self, state):
+        """Read Owner-scoped ACKs; atomically join the existing durable retry queue."""
+        import copy
+        from automatic_materials import validate_context, material_context_key
+        page = self.postprocessing_callback('participant_receipts', {'after': state.get('participant_pro_cursor')})
+        if page is None:return state
+        if type(page) is not dict or set(page) != {'contexts','next_cursor','rescan'} or type(page['contexts']) is not list or len(page['contexts']) > 8 or type(page['rescan']) is not bool:
+            raise ValueError('participant_pro_feed_invalid')
+        latest = copy.deepcopy(state)
+        for context in page['contexts']:
+            validate_context(context)
+            if context['schema'] != 'crowd-participant-pro-material-context-v1':raise ValueError('participant_pro_feed_invalid')
+            key = material_context_key(context)
+            prior = latest.setdefault('postprocessing_contexts', {}).get(key)
+            if prior is not None and prior != context:raise ValueError('participant_pro_context_changed')
+            latest['postprocessing_contexts'][key] = context
+            latest['postprocessing_runs'] = list(dict.fromkeys([*latest.get('postprocessing_runs', []), key]))
+        # Never advance a cursor without a durable context for every returned group.
+        if page['rescan']:
+            if page['contexts'] or page['next_cursor'] is not None or state.get('participant_pro_cursor') is None:raise ValueError('participant_pro_feed_invalid')
+            latest['participant_pro_cursor']=None
+            self._save(latest)
+        elif page['contexts']:
+            from participant_material_feed import validate_cursor
+            validate_cursor(page['next_cursor'])
+            if page['next_cursor'] != page['contexts'][-1]['group_cursor']:raise ValueError('participant_pro_feed_invalid')
+            latest['participant_pro_cursor'] = page['next_cursor']
+            self._save(latest)
+        elif page['next_cursor'] != state.get('participant_pro_cursor'):
+            raise ValueError('participant_pro_feed_invalid')
+        return latest
 
     def status(self):
         """Safe UI summary. Private lease targets/account bindings never leave this module."""

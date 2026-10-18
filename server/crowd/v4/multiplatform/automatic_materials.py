@@ -25,7 +25,13 @@ def write(path,value):
         os.replace(tmp,path)
     finally:
         if os.path.exists(tmp):os.unlink(tmp)
+def material_context_key(c):
+    validate_context(c)
+    return 'pro-'+sha(canonical(c)) if c.get('schema')=='crowd-participant-pro-material-context-v1' else c['local_run_id']
 def validate_context(c):
+    if type(c)is dict and c.get('schema')=='crowd-participant-pro-material-context-v1':
+        from pro_ack_snapshot import validate_context as validate_pro_context
+        return validate_pro_context(c)
     keys={'schema','local_run_id','task_id','child_id','cloud_run_id','lease_epoch','platform','outcome','api_attempts','finish_hash','finish_verified'}
     if type(c)is not dict or set(c)!=keys:raise ValueError('material_auto_context_invalid')
     for k in ['local_run_id','task_id','child_id','cloud_run_id']:
@@ -40,7 +46,7 @@ class AutomaticMaterials:
         self.directory.mkdir(mode=0o700,parents=True,exist_ok=True)
         self.lock=threading.Lock();self.running={};self.closed=False
     def enqueue(self,context):
-        c=validate_context(context);local=c['local_run_id'];path=self.directory/(local+'.json')
+        c=validate_context(context);local=material_context_key(c);path=self.directory/(local+'.json')
         with self.lock:
             if self.closed:raise MaterialPending('material_auto_closed')
             if path.exists():
@@ -51,7 +57,7 @@ class AutomaticMaterials:
             else:write(path,{'state':'waiting','context':c})
             if local not in self.running and not self.running:
                 config=private_json(self.root/'data-products/material-auto-runtime.json')
-                if type(config)is not dict or set(config)!=KEYS:raise ValueError('material_auto_config_invalid')
+                if type(config)is not dict or set(config)not in (KEYS,KEYS|{'pro_snapshot_sha256'}):raise ValueError('material_auto_config_invalid')
                 if _digest(config['worker_script'])!=config['worker_sha256']:raise ValueError('material_auto_worker_changed')
                 r={'process':None,'thread':None};self.running[local]=r
                 thread=threading.Thread(target=self._work,args=(local,path,config,r),daemon=True)

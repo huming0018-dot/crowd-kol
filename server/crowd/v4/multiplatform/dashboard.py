@@ -9,6 +9,7 @@ import importlib.util
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import stat
@@ -305,7 +306,7 @@ class Application:
         return call(self.root / 'data-products/knowledge-runtime.json',
                     self.root / 'cloud-config.json', body)
 
-    def material_delivery(self, fmt='html', *, domain=False):
+    def material_delivery(self, fmt='html', *, domain=False, pro_key=None):
         """Read the existing toolbox publication; this endpoint never builds or collects."""
         from workbench_material_call import command
         if type(domain) is not bool:
@@ -315,12 +316,18 @@ class Application:
             raise ValueError('material_delivery_unavailable')
         try:
             import stat
-            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-            with os.fdopen(fd, 'rb') as stream:
-                meta = os.fstat(stream.fileno())
-                if not stat.S_ISREG(meta.st_mode) or meta.st_uid != os.getuid() or meta.st_mode & 0o077 or not 0 < meta.st_size <= 1048576:
-                    raise ValueError('material_delivery_unavailable')
-                config = json.loads(stream.read(1048577))
+            if pro_key is not None:
+                from participant_material_delivery import publication
+                state=publication(self.root,pro_key)
+                if domain or state.get('state')!='ready':raise ValueError('material_delivery_unavailable')
+                config=state['publication_pointer']
+            else:
+                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(fd, 'rb') as stream:
+                    meta = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(meta.st_mode) or meta.st_uid != os.getuid() or meta.st_mode & 0o077 or not 0 < meta.st_size <= 1048576:
+                        raise ValueError('material_delivery_unavailable')
+                    config = json.loads(stream.read(1048577))
             # Spool the existing CLI output; oversized batches do not fill parent RAM.
             with tempfile.TemporaryFile() as output:
                 result = subprocess.run(command(config, 'read', fmt), stdout=output,
@@ -330,7 +337,7 @@ class Application:
                     raise ValueError('material_delivery_unavailable')
                 output.seek(0)
                 return output.read(16 * 1024 * 1024 + 1)
-        except (OSError, ValueError, TypeError, RecursionError, subprocess.TimeoutExpired) as error:
+        except (OSError, ValueError, KeyError, TypeError, RecursionError, subprocess.TimeoutExpired) as error:
             code = 'material_delivery_timeout' if isinstance(error, subprocess.TimeoutExpired) else 'material_delivery_unavailable'
             logging.getLogger('crowd.workbench.material_request').warning(json.dumps({'schema':'crowd-material-request-failure-v1','route':'data-product' if domain else 'materials','format':fmt,'error_code':code,'error_type':type(error).__name__},sort_keys=True))
             raise ValueError('material_delivery_unavailable') from None
@@ -482,11 +489,19 @@ class Application:
     def _light_postprocessing(self, action, payload):
         # Existing transcript route is unchanged; material computation has its
         # own deterministic background child and never invokes AnalysisJobs.
+        if action == 'participant_receipts':
+            if self.cloud_client is None or not (self.root/'data-products/material-auto-runtime.json').exists():return None
+            import time
+            now=time.monotonic()
+            if now-getattr(self,'participant_material_poll',-30)<30:return None
+            self.participant_material_poll=now
+            from participant_material_feed import fetch
+            return fetch(self.cloud_client,self.root,payload.get('after'))
         context = payload.get('material_context') if action == 'enqueue' else None
         if context is not None:
             from automatic_materials import validate_context
             validate_context(context)
-        legacy = self._transcript_postprocessing(action, payload) if context is None or context.get('outcome') == 'completed' else None
+        legacy = self._transcript_postprocessing(action, payload) if context is None or (context.get('schema') == 'crowd-material-postprocessing-v1' and context.get('outcome') == 'completed') else None
         if action == 'enqueue' and context is not None:
             if getattr(self, 'automatic_materials', None) is None:
                 from automatic_materials import AutomaticMaterials
@@ -1168,6 +1183,17 @@ def make_server(app, port=45937):
                 self.end_headers()
                 self.wfile.write(data)
                 return
+            if path in ('/materials/participants','/materials/participants.json'):
+                from participant_material_delivery import summaries,index_html
+                try:
+                    if path.endswith('.json'):return self.send({'ok':True,'publications':summaries(app.root)})
+                    return self.send(index_html(app.root).decode(),html=True)
+                except (OSError,ValueError,KeyError,TypeError):return self.send({'ok':False,'error':'material_delivery_unavailable'},409)
+            pro_key=None
+            pro_match=re.fullmatch(r'/materials/pro/(pro-[a-f0-9]{64})(?:/(report.json|materials.jsonl|materials.csv))?',path)
+            if pro_match:
+                pro_key=pro_match[1]
+                path={'report.json':'/materials/report.json','materials.jsonl':'/materials/materials.jsonl','materials.csv':'/materials/materials.csv',None:'/materials'}[pro_match[2]]
             material_routes = {'/materials': ('html', 'text/html; charset=utf-8'),
                                '/materials/report.json': ('json', 'application/json; charset=utf-8'),
                                '/materials/materials.jsonl': ('jsonl', 'application/x-ndjson; charset=utf-8'),
@@ -1180,7 +1206,7 @@ def make_server(app, port=45937):
                 domain = path.startswith('/data-product')
                 fmt, mime = material_routes[path]
                 try:
-                    data = app.material_delivery(fmt, domain=domain)
+                    data = app.material_delivery(fmt, domain=domain, **({'pro_key':pro_key} if pro_key is not None else {}))
                 except ValueError:
                     return self.send({'ok': False, 'error': 'material_delivery_unavailable',
                                       'message': '领域发现尚未就绪或核验未通过；原资料与任务保留。' if domain else '素材处理尚未就绪或核验未通过；原资料与任务保留。'}, 409)
