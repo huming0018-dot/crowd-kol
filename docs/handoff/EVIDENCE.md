@@ -924,3 +924,21 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 | G09-native-startup-eof/FREEZE.json、review/g09-native-startup-eof/FINAL.json | c8390b9e/d113e56f；首HELLO前子退出窄反馈，真实编译边界过，EXT源码1dad14f已推，安装仍100。 |
 | G07-native-package-v2/FREEZE.json、AUDIT.json、review/g07-package-v2-central/FINAL.json | 6a17c209/eae8fcbbdf9f52289fdbbac5ffd810ebde5edddde7846d16e177baafdfabc12a；Mac858b019b/974458B，EXT8498aafe/helper59df7aff/runtime a72d；178冻结/140包/33EXT/113runtime/双arch重编exact，0实际安装/发布。 |
 | G05-source-integration/SOURCE-MANIFEST.json、FORMAL-GREEN.log、FORMAL-UI.log、FORMAL-LEGACY-UI.log | 8正式源接入保G08/UUID，24Py含3原skip＋UI7＋旧share10通过；仍未正式双bundle采用，无生产真人release。 |
+
+## 2026-10-19 07:40 CST｜Owner实际修复、中央兼容与原Mac依赖迁移
+
+根RUN18=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry；PRIVATE/SDK只本机。以下是实际证据，不把准备、离线回放或旧ACK当新来源。
+
+| 证据 | 结果及限制 |
+|---|---|
+| G05-recompute-adoption/ACTUAL-CATALOG-FAILURE.json、ACTUAL-CATALOG-FAILURE-LOG.PRIVATE.txt；review/g05-recompute-adoption/ACTUAL-FINAL.json | 原实际缺yaml/断响应HOLD，f4e646d9。原数据/输出仍保留，不抹旧失败。 |
+| G05-owner-pack-boundary/FREEZE.json；review/g05-owner-pack-central/FINAL.json；review/g05-owner-pack-boundary/FINAL.json | freeze5fd267eb，非作者99386c4f/f13d7071；真实Owner无yaml三入口和六文件hash/旧read/build回归，不改Pro核心。 |
+| G05-owner-pack-source-integration/SOURCE-MANIFEST.json；G05-owner-pack-adoption/runtime-adoption/ADOPTED.json；ACTUAL-CATALOG-ROOT.PRIVATE.json；review/g05-owner-pack-adoption/ACTUAL-FINAL.json | 实际45709/owner-pack-boundary-4c211b6d6659c659；目录200/release0/原版本1，实际独审9fccf6e747bd53859429f837cfd1122572da3c4d5c7159543e634b753884ee1d，旧四格式不变。不是生产COMMITTED重算完成。 |
+| G10-capability-baseline/candidate.sql、MIGRATION-APPLY.json、HELPER-FRESH-BEFORE/HELPER-AFTER/BUSINESS-BEFORE/BUSINESS-AFTER/LEDGER-AFTER.PRIVATE.json、ACTUAL-ROOT.json；review/g10-capability-central/ACTUAL-FINAL.json | SQLf201457b，实际账本20261018231621/helper46770/newMD5319524f9，57业务行不变；实际非作者827b0fa497fade92f73baf086407fabaade5793c9729e0ba2126a31e93407006。只兼容两清单，无任务写入。 |
+| G07-native-package-v3/FREEZE.json、published-readback/VERIFIED.json；review/g07-native-package-v3/FINAL.json | 包5acd1168/974859B、113清单9b373、EXT8498/helper59df；非作者3bae22fa02a80c33e36d246fb5cfd3866add694e8eb9b41af02e7bf61189c0a7；pages4240f3e完整40SHA六资产200回取exact，不改通道。 |
+| G10-actual-install/INTENT.json、INSTALL.log、AFTER-STAGE1-LOCAL.PRIVATE.json；review/g10-stage1-actual/FINAL.json | 原入口一次exit0，实际阶段一非作者695f2231b699c723252263db9784b93808c79de80fb2ad5dd8ba4bc6cea8eece；helper/runtime更新但EXT仍100，不能报101加载。 |
+| G10-101-adoption-preparation-v2/ROOT-PREPARE.log；normal-state-reader/READ100-MIGRATE-PLAN.json；appsupport-private-layout-candidate-v5/FREEZE.json | V4 prepare实际拒且0copy/intent；actual risk是原policy固定false占位。V5仅维护bool门，freeze7f02f68e；非作者18dbd2ab，不改采集准入。 |
+| G10-101-adoption-preparation-v3/MIGRATION-PLAN.PRIVATE.json、ROOT-PREPARE/ROOT-APPLY.log；review/g10-migration-real-plan/FINAL.json；review/g10-migration-actual/FINAL.json | 计划5499b73a、库存1e879913、实际b98fff9f9fb1eae58b86aad7bb44edd450bc8212df244ce1639d18e11bf76b20；9277源/clone、34links/1pth/原新5表保持，单次PRECAS fresh读后0.128秒CAS成功。RESULT configured_no_probe不冒依赖ready。 |
+| G10-dependency-adoption/actual-local-probes/*；review/g10-local-probes/FINAL.json | 实际解释器启动、61/20 metadata和官方SDKearly exit、原profile引用证明；非作者ea8bd44d0f1879db34df74094031f10ea8b8c4f71110ea34a670a082c326a70e。没有全依赖import/网络签名服务/平台login/来源证明。 |
+| G10-dependency-adoption/OPTIMIZATION_PLAN.md；review/uv-offline-feasibility/FINAL.json | 官方venv/site与Pro uv冻结安装证据＋独立三路线取舍，未运行uv sync或安装/下载依赖，不推新Mac通用通过。 |
+| G10-101-adoption-preparation-v3/signed101/channel.json | 仅本机公签信封28a8b3431947521c75cc36e1564f4bb2966efa2e7ce9a02e93c412cd140b22ad/seq20261019101；此记录时未cache/check，不是101/OTA新回执。 |

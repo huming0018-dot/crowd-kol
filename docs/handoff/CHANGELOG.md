@@ -884,3 +884,13 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **正式采用 / 证据**：采用器ff36c74a后新鲜dryrun通过才执行；早期cloud_not_idle及APPROVAL缺失均无INTENT/无动作，不抹失败log。实际e89fbdea独审两读76.49秒，482文件/五库及五备份/native/341资产保持，原两Jobs不重复，8份Pro及旧31/六店HTTP导出逐SHA保持。未新建任务/额度/来源/评论云ACK。
 - **诊断 / 包**：原HELLO-only传输metadata经独审e78f9d74有限对账为stopped，原UNKNOWN结果不改，原100全安装和身份进度保持。EXT 1dad14f首帧前子退出反馈已独审d113e56f；101V2 Mac858b019b/974458B、EXT8498aafe/helper59df7aff/runtime a72d，独审eae8fcbb。未公开101/OTA/cache/安装，23 reconnect非完整回滚。
 - **遗留 / 下一步**：SignSrv Desktop绝对.pth与原外部profile引用需最小迁移修正，V2未实际复制；G05换包重算8正式源码已接入，须Owner＋独立knowledge双bundle采用。G04分享范围、Vercel403、原第二设备、新来源正文评论媒体字节/云ACK和连续无人值守OTA仍未验。48h/watchdog保持暂停。固定HANDOFF和EVIDENCE同步；PRIVATE/SDK不发布。
+
+## 2026-10-19 07:40 CST｜原Owner依赖故障修复上线，原Mac Pro私有依赖实际迁移
+
+- **接力 / 独审**：root操作；central_steps、knowledge_reuse_probe实现；对方及native_diagnostics_review非作者审查。源beb54c8已推crowd-kol原分支；pages4240f3e发布六个已审不可变包，真实回取exact，原通道未改。
+- **Owner实际修复**：G05初始40605目录API断响应，真实日志证明Owner Python3.12无PyYAML；不重试写操作、不安装依赖，四源把解析移回现有受pin工具箱pack-info。真实Owner三入口RED→GREEN、原28回归（3旧skip）、独立六hash/混包/timeout/旧产物保护通过。新Owner45709/482、原knowledge223保，目录API实际HTTP200，social-observations无COMMITTED release。实际9fccf6e7两轮87.323秒保五库/native/564资产/原8Pro+旧31六店导出、原2Jobs不重复；不冒真实知识重算验收。
+- **中央实际兼容**：52a10e6只允许旧a72＋已审新9b runtime，9旧平台核心不改；CLI231048同SQL对齐实际231621，09b6c33保可追溯，无重apply。helper46770/ACL/config/security与57原业务行逐hash保，独审827b0fa4；Edge仍49，无新task/grant/source。
+- **101阶段一**：C独审的101V3 Mac5acd1168/974859B、EXT8498/helper59df/runtime9b由原正式入口实际一次exit0。磁盘新helper/113 runtime已采用，原EXT仍100、原身份六绑定/native全表/注册保持，实际独审695f2231。新101信封已用原公钥验证身份后原publisher本机签出，28a8b343/seq20261019101，不改channel/cache/调用check；签名密钥内容不外显/复制/入交接。
+- **迁移实际落地**：V3明确原profile受限引用及SignSrv3.12额外.pth，V4全锁内单次PRECAS新鲜proof；实际首次prepare被手造risk真值门拒，0plan/0copy。对照正式participant-policy发现实际固定false占位，V5仅维护门严格布尔并保全risk指纹，不改来源准入。新真实计划5499b73a库存独审1e879913后唯一apply成功，9277源/clone、34links/1pth/6run、原新native5表保持，六绑定只root/python改到Application Support，原profile内容0复制。PRECAS reader1次至RESULT0.128秒，实际独审b98fff9f；原HELLO UNKNOWN240ae不改。
+- **后验 / 真实限制**：实际Pro3.11/61和Signer3.12/20 distribution元数据、prefix/sys.path无Desktop，原SDK官方本地能力exit0/d32clean；原profile路径及保扩展校验通过，独审ea8bd44d。未验所有依赖import/签名服务/平台账号现时有效/真实续登/新来源/媒体字节。官方Python通用venv不可移动，故本机受测复制不是通用新机安装；官方Pro uv冻结重建路线缓存完整性未证，双路线证据另列OPTIMIZATION_PLAN。
+- **下一步**：迁移后前像独审缓存CAS＋正常一次update_check，核101 installed/loaded/云OTA后再做零来源ready与按原范围真实路径验收。原第二设备/无人值守连续runtime OTA、G04分享范围/Vercel403、生产社会包真人发布仍有门。48h/watchdog暂停，完整产品不报完成。固定HANDOFF/EVIDENCE同步，PRIVATE/SDK不发布，不夹他人dirty。
