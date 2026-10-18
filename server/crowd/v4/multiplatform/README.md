@@ -202,6 +202,16 @@ Owner 页面与 `data-products/knowledge-runtime.json` 指向的独立 Python �
 
 Owner 的 `pro_ack_snapshot.py` 把子回执和分页封存放在原正文的 `metadata.capture`；35条评论不会算成35条新正文或餐厅。原 Jobs/Consumer 的 HTML/JSON/JSONL/CSV 保留子对象、父链、覆盖和媒体引用。ACK 集变化沿原 context 哈希生成新处理版本，旧 ready 保留。`material-auto-runtime.json` 新增 `pro_comments_sha256` 固定共享校验模块，原 Python/toolbox/pack 不变；旧正文组和导出必须逐字节回归。
 
-当前普通参与者跟随本机固定 Pro 的实际原生配置。实查默认为评论开启、回复关闭、每笔记评论上限0（Pro原生不限，仍受本轮来源预算约束）；历史35评论/13页复现使用上限150及回复开启。中央目前只有 `comments_capture`，Owner尚不能逐任务选择回复与评论上限，不能把历史回复复现说成默认全开。后续应连接原Pro每次运行的配置及Owner已有选项，不要求参与者修改SDK。媒体本轮只验证引用，文件下载另验。
+旧客户端（包括已安装的100）仍跟随本机固定 Pro 原生配置：评论开启、回复关闭、每笔记评论上限0（Pro原生不限，仍受来源预算约束）。历史35评论/13页复现使用上限150及回复开启，不能说成默认全开。新逐任务协议见下节；正式采用与来源验收状态以固定 HANDOFF 为准。媒体引用和媒体文件下载分开验收。
 
 纯合同回归运行 `python -m unittest test_participant_pro_comments`；原 Pro 真类、保存输入、原生帧、完整材料链和实际采用证据见固定 HANDOFF。本机采用、客户端包、中央部署、新来源ACK与OTA是独立门；离线通过不能合并报为全部上线。
+
+## 逐任务 Pro 评论选项
+
+Owner 沿用评论、回复、评论上限三个控件，系统自动选择执行端，不增加手工分配。对已有合法授权批次，新客户端先通过可选 HELLO 协商核验本机运行文件，再用原节点心跳上报功能与容量；正常 Start 在领取任务前完成这一步。旧 HELLO 和无选项 claim 保持原协议及默认值。
+
+中央从原统一派发请求生成精确八键 `pro_comment_options`，绑定任务、派发编号、请求哈希、原用户及安装标识。原生 Worker 保存权威选项并传给 Pro 原 CLI，不改 SDK 全局配置。评论上限0采用 Pro 的不限语义，回复独立控制，HTTP 尝试配额不能超过原安装容量。能力声明核验代码、有效期和容量，不证明平台已经登录；来源前仍执行 Pro 原账号自检与主体匹配。
+
+没有合适终端时，旧有1–200上限请求在同一次原子派发中保留原 Owner Pro 机器路径，不重复建任务；新0或大于200的原生选项若无匹配终端，明确显示不支持，不裁剪参数或假称机器可执行。未知写只查原幂等编号，来源启动后不改派。评论不增加正文计数或奖励。
+
+当前切片仅匹配已有授权任务。普通 Owner 新关键词自动创建参与者授权批次仍待接入，不能用预置批次证明该功能完成。新宿主、113文件运行包、客户端、中央和 Owner 控件须配套核验；仅升级扩展版本不能认定具备能力。测试入口见新增 `test_participant_comment_options.py`、`test_participant_capability.py`、`test_participant_owner_fallback.py` 及 `tests/pro-comment-options/`；依赖受限证据的 PG 测试缺输入会明确失败，不上传私有原件。

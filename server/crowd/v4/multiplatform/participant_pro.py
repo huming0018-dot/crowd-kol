@@ -35,6 +35,19 @@ def claim_scope(value,task_id,installation):
     require(type(task.get('received')) is int and task.get('target')==grant['target'] and task['received']==grant['target']-grant['remaining'],'participant_batch_invalid')
     return task,grant
 
+def task_comment_options(claim,task,capacity):
+    """Only an authenticated claim can override native defaults for this run."""
+    if 'pro_comment_options' not in claim:return None
+    value=claim['pro_comment_options']
+    require(type(value)is dict and set(value)=={'schema','task_id','dispatch_id','request_hash','comments','replies','max_comments','max_api_requests'},'participant_task_options_invalid')
+    require(value['schema']=='crowd-participant-pro-comment-options-v1' and type(value['task_id'])is int and value['task_id']==task['id'],'participant_task_options_invalid')
+    uuid_value(value['dispatch_id'])
+    require(type(value['request_hash'])is str and re.fullmatch('[a-f0-9]{64}',value['request_hash']) and type(value['max_api_requests'])is int and 1<=value['max_api_requests']<=capacity,'participant_task_options_invalid')
+    from participant_pro_comments import options
+    resolved=options({k:value[k]for k in ('comments','replies','max_comments')})
+    require(resolved['comments']is True and task.get('comments_capture')is True,'participant_task_options_invalid')
+    return dict(value)
+
 def source_failure_error(status):
     # A fixed platform diagnosis, never an arbitrary upstream error/body.
     return 'login_required' if isinstance(status,dict) and status.get('state')=='login_required' and status.get('reason')=='login_required' else None
@@ -42,7 +55,7 @@ def source_failure_error(status):
 class ParticipantOutbox(CloudOutbox):
     REJECTIONS=frozenset({'invalid_envelope','request_reused','invalid_pro_payload','invalid_pro_record',
         'record_hash_mismatch','invalid_timestamp','unrelated_note','pro_not_selected','task_full',
-        'detail_not_admitted','safety_pause','test_completed','comment_parent_denied','invalid_pro_comment','comment_request_mismatch','comments_not_enabled','comment_capture_sealed','invalid_comment_capture','comment_capture_objects_mismatch','invalid_comment_pages','comment_capture_pages_mismatch','comment_capture_parent_mismatch','comment_capture_incomplete','lease_lost','approval_required','pro_scope_denied'})
+        'detail_not_admitted','safety_pause','test_completed','comment_parent_denied','invalid_pro_comment','comment_request_mismatch','comments_not_enabled','comment_capture_sealed','invalid_comment_capture','comment_capture_objects_mismatch','invalid_comment_pages','comment_capture_pages_mismatch','comment_capture_parent_mismatch','comment_capture_incomplete','comment_capture_options_mismatch','lease_lost','approval_required','pro_scope_denied'})
     def __init__(self,root,rpc):
         super().__init__(root,rpc)
         with self._db() as db:
@@ -158,6 +171,7 @@ class ParticipantProWorker:
         else:
             claim=self.transport('pro_claim',{'p_task':self.task_id,'p_installation_id':self.installation})
             task,grant=claim_scope(claim,self.task_id,self.installation)
+            authority=task_comment_options(claim,task,(self.request_options or request or {}).get('max_api_requests',0))
             if grant['remaining']==0:return {'state':'stopped','source_started':False}
             if request is None:
                 options=self.request_options
@@ -165,10 +179,10 @@ class ParticipantProWorker:
                 resolved=None
                 if task.get('comments_capture') is True:
                     from participant_pro_comments import options as native_options
-                    resolved=native_options(self.runner('comment_options',{}));require(resolved['comments'] is True,'participant_native_comments_disabled')
+                    resolved=native_options({k:authority[k]for k in ('comments','replies','max_comments')} if authority is not None else self.runner('comment_options',{}));require(resolved['comments'] is True,'participant_native_comments_disabled')
                 query=task['anchor_terms'][0] if isinstance(task.get('anchor_terms'),list) and len(task['anchor_terms'])==1 else task.get('query')
                 request={'platform':'xhs','mode':'search','source_executor':'pro','session_id':self.session,'targets':[query],
-                         'comments':bool(resolved),'replies':resolved['replies'] if resolved else False,'media':False,**options,**({'max_comments':resolved['max_comments']} if resolved else {})}
+                         'comments':bool(resolved),'replies':resolved['replies'] if resolved else False,'media':False,**options,**({'max_comments':resolved['max_comments']} if resolved else {}),**({'max_api_requests':authority['max_api_requests']} if authority is not None else {})}
             require(request.get('platform')=='xhs' and request.get('source_executor')=='pro' and request.get('session_id')==self.session and request.get('mode') in ('search','detail'),'participant_request_invalid')
             if task.get('comments_capture') is not True:
                 require(request.get('comments') is False and request.get('replies') is False,'participant_comments_not_authorized')
@@ -184,7 +198,8 @@ class ParticipantProWorker:
             resolved=None
             if task.get('comments_capture') is True:
                 from participant_pro_comments import options as native_options
-                resolved=native_options(self.runner('comment_options',{}));require(resolved['comments'] is True and all(p.get(k)==resolved[k] for k in ('comments','replies','max_comments')),'participant_native_comments_changed')
+                resolved=native_options({k:authority[k]for k in ('comments','replies','max_comments')} if authority is not None else self.runner('comment_options',{}));require(resolved['comments'] is True and all(p.get(k)==resolved[k] for k in ('comments','replies','max_comments')),'participant_native_comments_changed')
+                if authority is not None:require(p.get('max_api_requests')==authority['max_api_requests'],'participant_task_options_invalid')
             p=mc_runner.validate(p,native_comments=resolved)
             own_known=claim.get('known_note_ids');nested_known=task.get('known_note_ids')
             for values in (own_known,nested_known):
@@ -198,6 +213,7 @@ class ParticipantProWorker:
             binding=getattr(self.transport,'binding',None);require(isinstance(binding,dict),'participant_transport_binding_required')
             context={'schema':'crowd-participant-pro-local-v1','binding':dict(binding),'node':self.transport.node,'task_id':self.task_id,'lease':task['lease_token'],'installation_id':self.installation,'known_ids':server_known,'search_sort':'time_descending','limit':grant['remaining'],'target':grant['target'],'request_sha256':digest(p)}
             if resolved is not None:context['comment_options']=resolved
+            if authority is not None:context['task_comment_options']=authority
             if recovery is not None:context['recovery']=recovery
             if recovering and 'native_start' in json.loads(encoded_context):context['native_start']=json.loads(encoded_context)['native_start']
             with self.outbox._db() as db:

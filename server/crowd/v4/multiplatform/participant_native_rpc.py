@@ -26,6 +26,14 @@ def valid_uuid(value):
     try:return type(value) is str and str(uuid.UUID(value))==value
     except (ValueError,TypeError,AttributeError):return False
 
+def capability(value):
+    require(type(value)is dict and set(value)=={'schema','runtime_sha256','entry_sha256','worker_sha256','upstream_commit','comment_options_v1','max_api_requests'})
+    require(value['schema']=='crowd-participant-pro-capability-v1' and value['comment_options_v1'] is True)
+    import re
+    require(all(type(value[k])is str and re.fullmatch('[a-f0-9]{64}',value[k]) for k in ('runtime_sha256','entry_sha256','worker_sha256')))
+    require(type(value['upstream_commit'])is str and re.fullmatch('[a-f0-9]{40}',value['upstream_commit']) and type(value['max_api_requests'])is int and 1<=value['max_api_requests']<=100)
+    return value
+
 def validate(value):
     require(type(value) is dict and value.get('schema')==SCHEMA and valid_uuid(value.get('id')) and valid_uuid(value.get('session')))
     require(type(value.get('epoch')) is int and 0<=value['epoch']<=9007199254740991)
@@ -36,12 +44,15 @@ def validate(value):
         require(value['error'] is None if value['ok'] else value['result'] is None)
         if not value['ok']:require(type(value['error']) is str and value['error'] in SAFE_ERRORS)
     else:
-        require(kind in EXTRA and set(value)==BASE|EXTRA[kind])
+        require(kind in EXTRA and set(value)==BASE|EXTRA[kind]|({'capabilities'} if kind=='pro_state' and 'capabilities'in value else {'capability_request'} if kind=='pro_hello' and 'capability_request'in value else set()))
+        if kind=='pro_state' and 'capabilities'in value:capability(value['capabilities'])
     if kind=='rpc_request':require(type(value['method']) is str and value['method'] in METHODS and type(value['params']) is dict)
     if kind=='pro_start':
         require(valid_uuid(value['subject']) and valid_uuid(value['installation_id']) and valid_uuid(value['intent']) and type(value['task_id']) is int and 0<value['task_id']<=9007199254740991)
     if kind in ('pro_stop','pro_status'):require(value['run_id'] is None or valid_uuid(value['run_id']))
-    if kind=='pro_hello':require(type(value['version']) is int and value['version']==1)
+    if kind=='pro_hello':
+        require(type(value['version']) is int and value['version']==1)
+        if 'capability_request'in value:require(value['capability_request']=='pro_comment_options_v1')
     return value
 
 def frame(kind,session,epoch,**extra):

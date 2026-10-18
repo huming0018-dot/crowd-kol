@@ -1,12 +1,13 @@
 import {assert,taskPlan} from './contract.mjs';
 
 export async function unifiedPlan(input){
-  const proposal=await taskPlan(input);
+  const proposal=await taskPlan(input,{participantComments:true});
   const candidate=proposal.delivery_basis==='live_capture'&&proposal.mode==='search'
     ?proposal.children.find(child=>child.platform==='xhs'):null;
   // Select the extension only when its existing pilot contract can provide every requested dimension.
-  // Rich capture stays on the existing machine path; missing pilot targets/budgets never fall back.
-  const participant=candidate&&candidate.item_quota>0&&candidate.request.comments===false&&!candidate.request.replies
+  // Comment auto-selection falls back atomically to the original Owner Pro machine plan before any task is created.
+  const proComments=candidate?.request.comments===true&&candidate.request.source_executor!=='mc'&&!candidate.request.media&&!candidate.request.wordcloud&&candidate.request.start_page===1&&!candidate.request.session_id&&!Object.keys(candidate.request.platform_options).length;
+  const participant=candidate&&candidate.item_quota>0&&(proComments||candidate.request.comments===false&&!candidate.request.replies)
     &&!candidate.request.media&&!candidate.request.wordcloud&&candidate.request.start_page===1
     &&!candidate.request.session_id&&!Object.keys(candidate.request.platform_options).length?candidate:null;
   const machines=proposal.children.filter(child=>child!==participant);
@@ -21,9 +22,10 @@ export async function unifiedPlan(input){
     assert(request.desired_items>0,'invalid_budget');
     machine_proposal=await taskPlan(request);
   }
-  return {proposal,machine_proposal,participant:participant?{
+  const machine_fallback=proComments&&candidate.request.max_comments>=1&&candidate.request.max_comments<=200?{...await taskPlan({...proposal.request,idempotency_key:'unified:'+proposal.request_hash},{participantComments:true}),children:proposal.children}:null;
+  return {proposal,machine_proposal,...(machine_fallback?{machine_fallback}:{}),participant:participant?{
     item_quota:participant.item_quota,targets:participant.request.targets,
-    compatible:true
+    compatible:true,...(proComments?{executor:'mediacrawler_pro',required_capability:'crowd-participant-pro-comment-options-v1',request_quota:participant.request_quota,comment_options:{comments:true,replies:participant.request.replies,max_comments:participant.request.max_comments}}:{})
   }:null};
 }
 

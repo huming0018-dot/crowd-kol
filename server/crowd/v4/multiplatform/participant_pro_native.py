@@ -20,7 +20,7 @@ STATES={'ready','not_ready','running','complete','partial','finish_unknown','sou
         'delivery_unknown','source_launch_unknown','stopped','blocked','unknown','native_ready','launching'}
 PHASES={'initial','local_status','scope','delivery','import','stage','finish','source','stopping'}
 ERRORS={'participant_scope_changed','participant_writer_busy','participant_stopped','participant_rpc_outcome_unknown',
-        'participant_protocol_invalid','participant_contract_refused','participant_installation_invalid','participant_existing_run','login_required'}
+        'participant_protocol_invalid','participant_contract_refused','participant_installation_invalid','participant_existing_run','participant_capability_required','login_required'}
 
 def load_config(path):
     path=Path(path)
@@ -50,9 +50,31 @@ def installation_ready(config):
     probe(installation['root'],installation['python'])
     binding_for(config['root'],{'session_id':config['session_id'],'platform':'xhs'})
 
+def ready_capability(config):
+    # A bounded local installation claim, not a hardware/remote execution attestation.
+    # No account/source/probe call here; original installation_ready must also pass.
+    from participant_native_rpc import capability
+    import participant_pro,participant_pro_comments,participant_native_rpc,pro_executor
+    runtime=Path(__file__).resolve().parent
+    manifest=runtime/'PRO-RUNTIME.json'
+    if manifest.is_symlink():raise ProtocolError('participant_installation_invalid')
+    raw=manifest.read_bytes()
+    if len(raw)>65536:raise ProtocolError('participant_installation_invalid')
+    value=json.loads(raw);files=value.get('files')
+    if type(files)is not dict or not 1<=len(files)<=128:raise ProtocolError('participant_installation_invalid')
+    for name,h in files.items():
+        path=runtime/name
+        if type(name)is not str or Path(name).name!=name or path.is_symlink() or type(h)is not str or hashlib.sha256(path.read_bytes()).hexdigest()!=h:raise ProtocolError('participant_installation_invalid')
+    for module in (sys.modules[__name__],participant_pro,participant_pro_comments,participant_native_rpc,mc_runner,pro_executor):
+        path=Path(module.__file__).resolve()
+        if path.parent!=runtime or path.name not in files:raise ProtocolError('participant_installation_invalid')
+    if Path(config['entry']).resolve()!=Path(__file__).resolve() or hashlib.sha256(Path(config['entry']).read_bytes()).hexdigest()!=config['entry_sha256']:raise ProtocolError('participant_installation_invalid')
+    return capability({'schema':'crowd-participant-pro-capability-v1','runtime_sha256':hashlib.sha256(raw).hexdigest(),'entry_sha256':config['entry_sha256'],'worker_sha256':files['participant_pro.py'],'upstream_commit':pro_executor.PINNED_COMMIT,'comment_options_v1':True,'max_api_requests':config['max_api_requests']})
+
 class NativeService:
-    def __init__(self,config,mux,runner_factory=local_runner,worker_class=ParticipantProWorker):
+    def __init__(self,config,mux,runner_factory=local_runner,worker_class=ParticipantProWorker,*,capabilities=None):
         self.config,self.mux,self.runner_factory,self.worker_class=config,mux,runner_factory,worker_class
+        self.capabilities=capabilities
         self.worker=None;self.thread=None;self.start_message=None;self.last={'state':'ready','source_started':False};self.reconnected=False;self.explicit_stop_run=None;self.lock=threading.Lock()
     @contextlib.contextmanager
     def child_channel(self):
@@ -93,6 +115,7 @@ class NativeService:
         value['state']=value['state'] if value['state'] in STATES else 'unknown'
         value['phase']=value['phase'] if value['phase'] in PHASES else 'initial'
         value['error']=value['error'] if value['error'] in ERRORS else None
+        if self.capabilities is not None:value['capabilities']=self.capabilities
         return value
     def emit(self,message):self.mux.port.send(frame('pro_state',self.mux.session,self.mux.epoch,**self.snapshot()))
     def start(self,message):
@@ -223,12 +246,12 @@ def main():
         first=port.read()
         if first['type'] not in ('pro_hello','pro_start'):raise ProtocolError('participant_protocol_invalid')
         try:
-            cfg=load_config(args.config);installation_ready(cfg)
+            cfg=load_config(args.config);installation_ready(cfg);capabilities=ready_capability(cfg) if first.get('capability_request')=='pro_comment_options_v1' else None
         except Exception:
             port.send(frame('pro_state',first['session'],first['epoch'],run_id=None,state='not_ready',phase='initial',received=None,target=None,pending=0,error='participant_installation_invalid'))
             return
         mux=NativeMux(port,first['session'],first['epoch']);mux.seen.add(first['id']);mux.start()
-        NativeService(cfg,mux).serve(first)
+        NativeService(cfg,mux,capabilities=capabilities).serve(first)
     except Exception:
         # No raw traceback/URL/credentials. The host keeps disconnect UNKNOWN/busy.
         raise SystemExit(2) from None
