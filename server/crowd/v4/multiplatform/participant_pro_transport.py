@@ -15,14 +15,16 @@ class ParticipantTransportError(ValueError):
 
 
 class ParticipantProTransport:
-    def __init__(self, profile, subject, installation_id, node=None):
+    def __init__(self, profile, subject, installation_id, node=None, generation=None):
         profile = Path(profile)
         if not profile.is_absolute() or profile.is_symlink():
             raise ParticipantTransportError('invalid_participant_scope')
         for value in (subject, installation_id):
             if str(uuid.UUID(value)) != value:
                 raise ParticipantTransportError('invalid_participant_scope')
-        self.binding = dict(profile=str(profile), subject=subject, installation_id=installation_id)
+        if generation is not None and (type(generation) is not int or generation < 0):
+            raise ParticipantTransportError('invalid_participant_scope')
+        self.binding = dict(profile=str(profile), subject=subject, installation_id=installation_id, generation=generation)
         self.node = node or shutil.which('node')
         if not self.node:
             raise ParticipantTransportError('participant_node_runtime_missing')
@@ -30,6 +32,8 @@ class ParticipantProTransport:
     def __call__(self, action, params):
         if action not in ('scope', 'verify_platform_principal', 'pro_claim', 'pro_guard', 'pro_submit', 'pro_status', 'pro_finish', 'pro_receipt') or not isinstance(params, dict):
             raise ParticipantTransportError('invalid_participant_action')
+        if action != 'scope' and self.binding['generation'] is None:
+            self.scope()
         payload = json.dumps({**self.binding, 'action': action, 'params': params}, ensure_ascii=False)
         if len(payload.encode()) > 280000:
             raise ParticipantTransportError('invalid_participant_params')
@@ -51,7 +55,15 @@ class ParticipantProTransport:
         return value['result']
 
     def scope(self):
-        return self('scope', {})
+        value = self('scope', {})
+        if (not isinstance(value, dict) or value.get('subject') != self.binding['subject'] or
+                value.get('installation_id') != self.binding['installation_id'] or
+                type(value.get('generation')) is not int or value['generation'] < 0):
+            raise ParticipantTransportError('participant_scope_changed')
+        if self.binding['generation'] is not None and value['generation'] != self.binding['generation']:
+            raise ParticipantTransportError('participant_scope_changed')
+        self.binding['generation'] = value['generation']
+        return {key:value[key] for key in ('subject', 'installation_id')}
 
     def verify_platform_principal(self, uid):
         return self('verify_platform_principal', {'uid': uid})

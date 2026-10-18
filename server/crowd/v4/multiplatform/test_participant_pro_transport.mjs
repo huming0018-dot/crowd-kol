@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {webcrypto,createHash} from 'node:crypto';
 import {expression, validate, targetFor, safeFailure} from './participant_pro_rpc.mjs';
-const binding={profile:'/private/original-profile',subject:'2fc8765e-700a-41c1-b325-a21c5faa22ce',installation_id:'3cde2858-39a5-42e1-b7ab-dd62053d2dac'};
+const binding={profile:'/private/original-profile',subject:'2fc8765e-700a-41c1-b325-a21c5faa22ce',installation_id:'3cde2858-39a5-42e1-b7ab-dd62053d2dac',generation:7};
 function context(change={}) {
   const s={enabled:false,outbox:[]};let calls=0;
-  const c={runtime:{owner:async()=>binding.subject},storage:{get:async key=>key==='agent'?s:key.startsWith('node-monitor:')?{installation_id:binding.installation_id}:key==='session'?{user:{id:binding.subject}}:null},agent:{active:null,recoveryUnsafe:()=>false,generationOwner:binding.subject},pendingCommands:0,api:{rpc:async(name,args)=>{calls++;return {name,args};}},...change};
+  const c={runtime:{owner:async()=>binding.subject},storage:{get:async key=>key==='agent'?s:key.startsWith('node-monitor:')?{installation_id:binding.installation_id}:key==='session'?{user:{id:binding.subject}}:null},agent:{active:null,recoveryUnsafe:()=>false,generationOwner:binding.subject,generation:7},pendingCommands:0,api:{rpc:async(name,args)=>{calls++;return {name,args};}},...change};
   return {c,calls:()=>calls,s};
 }
 test('reject arbitrary actions, invalid scope and credential arguments',()=>{
@@ -70,4 +70,9 @@ test('owner switched during final health read cannot approve principal',async()=
   const x=context({crypto:webcrypto,TextEncoder});x.c.platformHealth={read:async()=>{if(++reads===2)x.c.agent.generationOwner='another';return {xiaohongshu:{expected_ref:expected}};}};
   await assert.rejects(vm.runInNewContext(expression({...binding,action:'verify_platform_principal',params:{uid}}),x.c),/participant_scope_changed/);
   assert.equal(x.calls(),0);assert.equal(x.c.agent.maintenance,null);
+});
+test('original Stop generation change blocks further Pro actions',async()=>{
+  const x=context();x.c.agent.generation++;
+  await assert.rejects(vm.runInNewContext(expression({...binding,action:'pro_guard',params:{p_task:19,p_action:'detail'}}),x.c),/participant_scope_changed/);
+  assert.equal(x.calls(),0);
 });

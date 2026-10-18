@@ -10,9 +10,10 @@ const SAFE=new Set(['invalid_participant_transport','invalid_participant_scope',
 export function safeFailure(error){return SAFE.has(error?.message)?error.message:'participant_rpc_outcome_unknown';}
 function requireValue(value,code){if(!value)throw Error(code);}
 export function validate(input){
-  requireValue(input&&Object.keys(input).sort().join(',')==='action,installation_id,params,profile,subject','invalid_participant_transport');
+  requireValue(input&&Object.keys(input).sort().join(',')==='action,generation,installation_id,params,profile,subject','invalid_participant_transport');
   requireValue(typeof input.profile==='string'&&path.isAbsolute(input.profile)&&UUID.test(input.subject)&&UUID.test(input.installation_id),'invalid_participant_scope');
   requireValue(ACTIONS.has(input.action)&&input.params&&typeof input.params==='object'&&!Array.isArray(input.params),'invalid_participant_action');
+  requireValue(input.generation===null&&input.action==='scope'||Number.isSafeInteger(input.generation)&&input.generation>=0,'invalid_participant_scope');
   const encoded=JSON.stringify(input.params);
   requireValue(encoded.length<=262144&&!/"(?:access_token|refresh_token|cookie|cookies|password|owner_key|worker_key)"\s*:/i.test(encoded),'invalid_participant_params');
   if(input.action==='verify_platform_principal')requireValue(Object.keys(input.params).join(',')==='uid'&&/^[a-f0-9]{24}$/.test(input.params.uid),'invalid_platform_principal');
@@ -30,8 +31,9 @@ export function expression(input){
       const owner=await runtime.owner(),session=await storage.get('session'),node=await storage.get('node-monitor:'+owner);
       if(owner!==input.subject||session?.user?.id!==owner||agent.generationOwner!==owner||node?.installation_id!==input.installation_id)throw Error('participant_scope_changed');
       const s=await storage.get('agent')||{};
+      if(!Number.isSafeInteger(agent.generation)||agent.generation<0||input.generation!==null&&input.generation!==agent.generation)throw Error('participant_scope_changed');
       if(busy()||(held?agent.maintenance!==lock:agent.maintenance)||agent.recoveryUnsafe(s)||(s.outbox||[]).length)throw Error('participant_writer_busy');
-      return {subject:owner,installation_id:node.installation_id};
+      return {subject:owner,installation_id:node.installation_id,generation:agent.generation};
     };
     try{
       const scope=await check();
@@ -41,7 +43,7 @@ export function expression(input){
         const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(input.subject+'\\nxiaohongshu\\n'+input.params.uid));
         const ref=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
         await check();const current=(await platformHealth.read()).xiaohongshu?.expected_ref;
-        if(agent.generationOwner!==input.subject||busy()||agent.maintenance!==lock)throw Error('participant_scope_changed');
+        if(agent.generationOwner!==input.subject||agent.generation!==input.generation||busy()||agent.maintenance!==lock)throw Error('participant_scope_changed');
         return {...scope,matched:/^[a-f0-9]{64}$/.test(current||'')&&expected===current&&ref===current};
       }
       const result=await api.rpc(input.action,{...input.params,p_installation_id:input.installation_id});
