@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-18 15:16 CST（91已实际采用；新18/20，静默根因与整批门未过），Asia/Shanghai。维护Codex /root。
+更新：2026-10-18 19:24 CST（原task19真实22/22；Pro最后2条已获回执；完整Pro参与者入口未交付）。Codex /root。
 
 ## 1. 接力规则
 
@@ -16,19 +16,28 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：E87原本机新增20条仍未验收（2026-10-18 15:16 CST）。原task19累计20/22=旧2+新18（proof36–53），余2；远端task20complete3/3。18条全文、UUID/MD5/inserted=true/duplicate=false及累计3..20已核，旧proof31–49投影/评分/奖励保持；received不等于人工verified或奖励。整批从01:56Z起已超过5小时，不能用2.78秒单条准入→DB中位数掩盖整批低效。
+当前阶段：本机原task19已complete22/22＝旧2＋本批旧DOM18＋Pro2，本批20条均有唯一逐条ACK。最后2条Pro由原账号真实取得并完成同run保存结果交付恢复，不能称首次自动全链无故障。远端task20本轮只读全row仍complete3/3，不称当前在线或远端Pro可用。48小时实验和watchdog仍暂停，整个分布式Pro产品未验收完成。
 
-正式源码/签通道/本机实际已91：EXT33817ffeee491516f25e1a72f25f424b81dd29c3；固定ZIP a6d742374892f48e8dd892e4188b54b93402773e，163408B/SHA6ff9804b20965068327b4dd0862549e4ab4e87842e4526cd14e2ca1139cf3077；PAGES a2f5483fd2fbbd8340f7fc1cf588b6ed5cf8e2ca，seq2026101891，通道SHAcf555209ef734fee77adf00c83ab16694d38f04fdedcfc83080a0ab14f22222c。公开回取/验签、32安装文件/helper91/applied/pendingfalse/原worker91已核；云OTA5616 completed4890/release75ad993d76e95051165f94b275cb584e3a93dc67638d4ebb0835a45370387c1f，07:14Z同原身份/安装/绑定、累计20/余2/outbox0/unsafe0/actors0保持。维护check重载断响应UNKNOWN/INTENT保留未重发，不称自然OTA；本次维护没有新开/关闭工作页、Continue或新增采集。远端仍仅88云版本，未验91。
+最新有效决定：2026-10-18默认采用已购Pro原有代码及数据链路，包括账号、请求、解析、搜索、评论/回复分页、媒体与导出；只有核实上游无法满足目标或确需突破已确认边界才自主补充。自有代码保留/连接原参与者任务、身份、进度、评分、outbox、云回执、OTA，不再扩写DOM采集核心。本地接入协议未覆盖不等于Pro没有该能力，不静默回退自研冒Pro成功。已写正式及两级入口AGENTS；私仓源码/凭据不公开分发。
 
-本轮实际改动：89自动恢复focus:false、新建实际最小化确认、停车不补窗；90普通finish仅关闭search，保独立核验页，明确Stop仍全槽。91新增原opt-in有界本地关闭/移除日志（每类最多24条/24h、固定枚举，不含ID/URL/Cookie/ref/正文，不污染原云snapshot），合法完全匹配的task:null沿原5分钟等待、不二次claim。诊断首版因挂起阻关闭/旧关联误归因/诊断等待时proof变化三独立反例被拒；V2已修并复核，真实组合7组0、30输入6变24保持。91日志只是观测能力，不是窗口根因修复证明。
+正式版本/部署：crowd-kol分支codex/v4.0.6-handoff已推96655ff、2f2b4dd、cb3fd36、dd1d8c1、1632ad8、dfc61daaa781fb3d3f13b476db5c7c9e035478d7。本次实际采用不可变runtime pro-participant-dfc61daaa781fb3d，Pro SDK仍为本机独立安装的clean d32dd565277116ba4880c28ccd417a7c376cb62d。中央迁移20261018101344/participant_pro_original_task_bridge已上线，SQL SHA5d9a7d0ac1a5d5c67c15a31ab2287eee1507bc9c96233c9f47b73c490afceb28；6个Pro RPC复用原JWT/installation/task/lease与原proof/receipt表，明确Pro来源/reward_eligible=false，原人工评分账保持。未重启45937工作台或新发扩展包；原扩展实际93，94/95旧DOM候选不采用。
 
-静默实机尚未通过：90在06:46Z原HOME实际最小化/独占tab/当前doc-token-session/同原账号，系统自动续领过原任务；06:52–06:53Z核验页再次明确NoTab/missing。正常source-only finish带真实onRemoved的独立原类测试仍保distinct HOME，移除发起者未知；不能认平台登出、用户关闭或finish全关。当前91仍是旧HOME missing/oldmarker、tasknull、identitypending；window_events为空，不能回填历史原因。历史31条核验代际记录不等于31活窗口。窗口复用只完成官方API/代码只读方案，尚未实现。见window-lifecycle-audit/ACTUAL90-REASSESSMENT.md及quiet-window-reuse-review/REVIEW.md。
+真实结果：run9f3c0bca-7d42-469f-97d9-da7504f93119，原session903d6888-6397-426c-a5e4-8080597c7101及Stop generation10；2正文137/193字、31图片引用，source10.1806秒/10请求。proof54/55逐request inserted=true、duplicate=false、received21/22，正文canonical SHA与原生SQLite/normalized/中央proof/receipt/耐久outbox一致。JSON/JSONL/CSV/XLSX各33行逐字段与引用一致。原taskcomments=false，本次0评论，不拿另样本35评论冒此任务；媒体是引用而非字节存档。
 
-中央原task19预算已采用：REPO源码3b003ccefac76cbf76269b43e2d5312ab8251dbc/migration20261018062441，guardMD5 5a8cbeeca0f70419b01e233a7fc5cbbc，只有原批次/设备/自有任务/源租约的正剩余scroll跟随已配置detail最高200；task19自然可用时唯一Owner配置detail180→200，target22/received20/session160及风险/计数/评分保持，无availability或休息重置。主要源码之外的并行ASR/CTFS/全局规则未夹带。
+旧数据/停车/静默：原53proof及53receipt完整行hash全保，ratings/rewards/grants投影与preV5同，远端20全row不变。11:09:54Z既有CLI --once返回complete/source_started=false、无新run，原rowcomplete、delivered2/pending0。focus60秒573次/窗口58次样本，原Chrome抢焦点0/可见窗口0；不冒采样间隔绝对无闪窗。新2是机器Pro来源，人评/真人奖励不由received冒充。
 
-独审证据根runtime-2026-10-18：release91-root-build/independent-native/FINAL.json(24e8ebb7…)；release91-signing/independent-native/SIGNED-FINAL.json(e2018a31…)；release91-readback/independent-native/ACTUAL-RUNTIME-FINAL.json(d4b59de9…)；automatic91-observation/AFTER91-WINDOW-EVENTS.json；release91-signing/ACTUAL-CLOUD-OTA-RAW.json；原18正文PRIVATE及oldbaseline仅本地。固定交接文档前轮检查点REPO12f83ae，当前本段按实际91更新。
+故障与有据修复：原任务前两Pro run7dc96732…、a6481169…均0新正文/0ACK、各6请求；首run guard reason未存仍未知。第二run明确known_note：候选是旧task2 proof1/2、与19同query，不在本任务own20，适配漏传原node_claim现成nested同query500排重集。只strict合并原集合，不改Pro请求/解析/分页、无需新SQL或全库枚举，不削global guard。V4另修明确action_gap等待/失败不finish，已审CAS仅恢复错误finish造成的availability并audit54，不清计数。累计请求cap由root自设20显式调整26，历史6+6保留，新10/14，三run合计22/26；成功额度仍仅余2。原历史文件/UUID/context/hash保留。
 
-下一步：先沿原身份用后台核验入口恢复当前页、确认原主体并读取新关闭因果日志，不能反复开窗假装修好；落实已审思路的受控最小化采集窗复用并实测数量/焦点/页存活。源召回不足另行处理：九条近期reject确无鮨水月同店证据，不能放宽相关性凑数；Pro原生LATEST成熟但正式options未透传、缺Pro候选→原participant adapter，不能拿机器ACK填真人评分。最后2条/20全文逐条receipt与整体耗时/至少10秒两读稳定自动停止/终审仍待过门。48h实验/watchdog仍暂停，不重发UNKNOWN，不重置身份/进度/旧任务/风险，不扩远端，不外发Pro私码或凭据。已读全局新AGENTS SHA9c7182dc7fed35ae06bacfcf4d6a5750fbe927efa0ab999b4a65f129eb0c74b8，与本轮边界无冲突。
+交付恢复限界：最后source已完成，但父CLI generic UNKNOWN，原异常确因仍未知；原durable0delivery+云0新ACK证明尚未submit。实际immutable+保存run临时outbox回放可stage2；fresh原lease及2reservation仍live。root仅一次已审5f81c7b6脚本，结构性硬拒claim/source，只同run status/import/stage/首次receipt-submit/finish；实际完成22/22。先前HOLD/UNKNOWN保留，不再来源，也不把本轮称无人值守全链首遍通过。
+
+V6已采用：提交18c36862b151d09192725abb88f6e87ab96ddf81已推，对应不可变runtime pro-participant-18c36862b151d091。受控实际Node表达式复现父scope轮询与child guard维护锁争用（不是追认历史UNKNOWN）；只改running本地status、终态仍fresh scope及安全fixed code/phase诊断。111组合包含3持久poll回归，正式原Python亲跑18相关用例通过；独审4b3de631/正式pins2a50d6d3。11:19:38Z一次complete复读明确blocked/participant_writer_busy、0新run；保存未抹，11:22:38纯读确认active/maintenance/health/pending/unsafe均false，11:22:55同complete复读成功、0新run。只验V6已完成态读取，没有新的V6来源验收。
+
+独立验收：review/final-ack-central/DELIVERED-9F3-PASS.json SHAee4dfab5301047542a0f8f5eacf9fff2c0a715033459d788ee1aa18d337a6192；review/final-v5-actual/FINAL.json SHAca3a89e36e5cb9bee13569a7b9c9d4215b93b23a8501f893a952c2af3e6b1732。V5源码/恢复门及原SDK续页/预算反例独审3e0de85f；原真对照run849784f0…已另验1正文/35评论回复/9引用、原分页终止及四导出（约11.79秒），不混为旧DOM同ID基线，不冒全平台采尽。
+
+下一步/产品缺口：普通参与者Start/Stop仍是旧DOM，本次通过固定CLI接原任务。现Mac host一次4KB OTA协议、无现成Mac connectNative双向RPC，不能称Pro已随傻瓜安装包自动接通；原安装不提供合法私有SDK/ProPy/Node/签名服务，普通安装也不保证CDP。先沿原入口/宿主把现Worker与原api.rpc接通，保Stop/OTA busy和原outbox，不另造任务队列/IAM，不把debugflag当正式方案。中央pro_scope当前仍19批次特例；通用派单、其余平台Pro原生接入、外部run主动Stop/OTA busy、两设备Pro登录恢复/连续OTA尚未完成或实证。不能以这次本机2ACK启动48h或扩大远端/重开完成任务。
+
+证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-integration；先读FINAL-DELIVERY.md，再读上述独审及root/NEXT-PRO-PRODUCT-WIRING.md、root/MAC-PRO-IPC-CONTRACT.md（正式宿主双向薄接线合同，尚未实现）。原20条逐ACK在review/final-ack-central/TEST20-ACKS.PRIVATE.csv，含旧18/新Pro2清晰来源；其他机器读不到本地证据须标缺失，不假装同步。旧09:27窗口移除责任未知，未因此宣布修好。
+
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和原数据；2026-10-18本机20条范围已覆盖本机旧预算，远端不扩大；不外发Pro私码、重置凭据、arm试验或恢复看门狗。
 

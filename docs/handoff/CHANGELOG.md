@@ -737,3 +737,29 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 独审：组合FINAL24e8ebb7…、签门e2018a31…、维护43VM c2b7ca4f…、实际软件62a76027…、实际运行/云d4b59de9bc26bdea5402ee78ee940d709214521428c774dbd9d36e2807b16ceb；均有限，不冒20完成/窗口原因已明/整程quiet。原HOME仍missing oldmarker，window_events空仅表示尚无新日志，不回填历史。
 - 证据：runtime-2026-10-18/release91-{root-build,signing,maintenance-knownmissing90,readback}/；automatic91-observation/AFTER91-WINDOW-EVENTS.json SHA0f23f5fb9815574f85822faab37a606885c13c09736250815d576ee50fc8c810；ACTUAL-CLOUD-OTA-RAW.json SHAdbdb49129607c05d1d04ac32a3aef7911bcff7284c565a4f824599b8121cec64。quiet-window-reuse-review/REVIEW.md为只读方案，非实现。
 - 下一步：后台恢复原核验页并用新日志查真正移除链，再完成受控窗复用/最后2真ACK/完整20与稳定自动停止；保原身份/进度/风险，48h与watchdog暂停。此entry取代前15:00“91候选HOLD/未采用”状态，历史失败与限界保留。
+
+## 2026-10-18 17:43 CST｜静默采集未完成；按用户纠偏收敛Pro主线
+
+- **接力者/独审**：Codex /root；central_steps、knowledge_reuse_probe实施或诊断；native_diagnostics_review非作者复核。纯读诊断工具由native实现、root非作者审查。作者自述不作实际业务证据。
+- **实际代码**：92/93已发布并实际安装；93滚动祖先修复未完成剩2。94仅本地8文件提交d94a2d9（3业务/2版本/3测试），32包文件独立重建一致；95仅Agent隔离候选。保留原身份、评分、outbox、回执、权限和60分钟更新周期，未夹其他工作区改动。
+- **真实动作**：92自然OTA收到completed；93一次maintenance重载后会话标记失联。09:01原HOME只刷新一次，返回UNKNOWN未重发；09:05纯读认证原账号，09:07仅绑定续段returned；09:09仅原task19.available_at一次CAS及audit，事务内原计数/额度/证明/回执/远端保持。原normal alarm重新领取/执行；没有新增两条正文。原生排序及其caller没有执行。
+- **离线验证**：92组合/原构建回归及实际包独审；93根16回归；94组件40组/正式8项/独立builder；95V2迟到末页反例及7测试文件通过。精确命令和退出码分别在各freeze/TESTS/independent-native文件；不可相加冒覆盖率或生产验收。
+- **审查发现及修复**：修复队列owner与loading归属、仅关闭search保HOME；当前迁移的desired_running竞态修后独审；94新增challenge竞态修后独审；95过界新候选仍扣scroll反例修后独审。排序helper卡片误点及caller main-world伪造回调P1未完成整合放行，停止采用。首轮失败、UNKNOWN、错误cwd和CDN旧缓存证据保留，不删断言或伪造绿灯。
+- **实际验收失败**：原本轮18/20，累计20/22；09:10唯一最小化窗口复用HOME/search，但已触底20卡不变仍扣scroll至200。09:27两未归因tab移除，09:35:53无窗口、原20/rem2/空队列/unsafe0。没有两条新逐条云ACK、完整20新正文或最终自动停止，不宣布业务完成；全程无闪窗及关闭根因也未通过。
+- **重要决定**：用户明确指出方向失控。停止扩写自研采集核心和新增临时DOM/恢复脚本；优先直接使用已购Pro成熟平台能力，保留分布式产品外围。现有Pro机器路径与参与者DOM路径须明确区分；同输入正文/评论分页/回复/媒体/导出通过后才能替换。不得机器ACK冒参与端回执、放宽品牌相关性、挪repair_notes或重置计数来凑20。
+- **下一步/限制**：只读核当前Pro实际接线及发行/本机账号复用条件，做最薄适配；关闭发起者未知。保留原任务/身份/进度，解决后在既有范围恢复余2；48h实验/看门狗保持暂停。旧once脚本前置条件已失效，不重发UNKNOWN，不擅自操作其他Chrome窗口。
+- **证据**：RUN18=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18。silent-collection92-root/{ACTUAL93-AFTER-BIND.json,ACTUAL93-AFTER-BIND-CLOUD.json,ACTUAL93-RESUME-CLAIM-02.json,GEOMETRY93-02.json,GEOMETRY93-03.json,ACTUAL93-PRE-SORT-SAFE.json}；task19-owner-ready-twenty-once93/{ACTUAL-INTENT.json,ACTUAL-RESULT-RAW.json,independent-native/ACTUAL-FINAL.json}；release94-formal-adoption/independent-native/FINAL.json；search-bottom-progress95-v2/independent-native/FINAL.json；search-scroll-discriminator93*/ACTUAL*；delivery-fact-reassessment-native/FINAL.json。
+
+## 2026-10-18 19:24 CST｜Pro原任务20条批次完成；正式入口仍待接
+
+- **接力者/独审**：Codex /root协调/实际执行；knowledge_reuse_probe实现薄适配；central_steps中央实现及非作者最终逐ACK/行hash复核；native_diagnostics_review非作者SDK、内容/导出、恢复、V6及正式pins复核。作者自述不作实证。
+- **范围与实际改动**：按用户最新Pro-first规则保原身份/任务/进度/评分/OTA，停止94/95 DOM候选。6个Pro RPC中央迁移20261018101344实际部署，原schema表/原JWT/安装/lease复用；一次已审available_at CAS仅修错误finish，audit54，不清计数；最后新proof54/55及2receipt入原库，task19complete22/22。原53行proof/receipt逐fullrowhash与评分奖励/grant/远端投影保全。
+- **版本**：crowd-kol codex/v4.0.6-handoff代码提交96655ff、2f2b4dd、cb3fd36、dd1d8c1、1632ad8、dfc61da、18c36862已推。真实source用不可变dfc61da runtime；V6采用18c36862 archive a78205d4681013fbda59835e5c27411787b3d3474a0da9b89d95a06900474208。私有Pro仍clean d32dd565277116ba4880c28ccd417a7c376cb62d，只在本机，不上传私码/凭据。
+- **验证及修复**：真实排重缺口是漏消费原node_claim同query500 nested集合，不是Pro解析缺失；只strict union，原SDK原请求/分页/store不改，global去重guard不削。V5 108及真实checkpoint候选投影/原SDK已知整页续页/4导出与预算反例经独审。实际两failed各6请求保留；root自设累计cap20显式调26，新run10/14，总22/26、成功仍仅2。V6 parent local poll修可复现维护锁争用，111（含3poll）及正式18相关测试通过，不称历史UNKNOWN已归因。
+- **真实业务**：run9f3c0bca-7d42-469f-97d9-da7504f93119，Pro原账号静默HTTP来源10.18秒，2body137/193字+31图片引用、0comments（任务原comments=false），JSON/JSONL/CSV/XLSX各33行内容/父链适用项/引用/hash准确。proof54/55对应counter21/22；本批20＝DOM18+Pro2，不冒全20 Pro。原2+本批20=22；机器来源reward_eligible=false，不冒人评/真人奖励。另真实比较样本已验35评论/回复分页，不混同本任务，不冒媒体字节下载。
+- **实际故障/恢复**：source成功后父CLI UNKNOWN，历史细因仍未知。原delivery0+云0ACK证明未submit；实际保存run临时outbox可stage2，fresh原lease/两reservation live。已审5f81脚本硬拒claim/start，仅同run首次交付，实际2ACK/complete；HOLD和旧UNKNOWN保留。11:09:54 --once稳定complete/sourcefalse/无新增run/2delivered0pending。V6首次复读knownbusy保留，纯读busyflags全false后11:22:55再次complete/无新run；没有重抓。
+- **静默证据**：60秒573 focus/58window样本原Chrome frontmost0/onscreen0，采样局限保留；不是所有平台、间隔绝对无闪窗或重启长期证明。
+- **部署/未验**：中央已生效及本机固定CLI采用；45937工作台未重启、EXT本轮未发布新包，实际93和OTA资产保持。普通参与者Start/Stop仍DOM、Mac host4KB一次OTA未接Pro双向RPC，中央pro_scope仍task19特例；不能说完整分布式Pro、其他平台/远端Pro、登录恢复/连续OTA或48h通过。48h/watchdog仍暂停。
+- **下一步**：沿原入口/宿主连接现Worker和原api.rpc；短协议MAC-PRO-IPC-CONTRACT.md已据现代码/Chrome官方协议形成，尚未实现。不增加平台请求/解析核心、新任务队列/IAM或JWT外传；本地协议缺口不冒Pro没能力。原完成任务不自行重开。
+- **证据**：RUN=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-integration；FINAL-DELIVERY.md；review/final-ack-central/DELIVERED-9F3-PASS.json SHAee4dfab5301047542a0f8f5eacf9fff2c0a715033459d788ee1aa18d337a6192、TEST20-ACKS.PRIVATE.csv；review/final-v5-actual/FINAL.json SHAca3a89e36e5cb9bee13569a7b9c9d4215b93b23a8501f893a952c2af3e6b1732；review/poll-v6/FINAL.json/FORMAL-PINS-FINAL.json；root/ADOPTED-RUNTIME-V6.json、V6-POST-BUSY-COMPLETE-READ.json。
+- **状态位置**：docs/HANDOFF.md当前块、AGENTS.md及本记录；未夹并行CTFS/ASR差异。
