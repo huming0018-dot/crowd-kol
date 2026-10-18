@@ -106,17 +106,21 @@ class NativeService:
             task_id=message['task_id'],installation_id=message['installation_id'],subject=message['subject'],session_id=self.config['session_id'],known_ids=[],
             request_options={k:self.config[k] for k in ('purpose','max_api_requests')})
         native_start={k:message[k] for k in ('subject','installation_id','task_id','intent')}
-        login_recovery=None
+        login_recovery=None;explicit_reexecution=None
         with worker.outbox._db() as db:
             db.execute('BEGIN IMMEDIATE')
             row=db.execute('SELECT state,context,run_id FROM participant_runs WHERE task=?',(message['task_id'],)).fetchone()
             if row:
                 context=json.loads(row[1]);old=context.get('native_start')
-                if row[0]=='source_failed' and old!=native_start:
+                if row[0]=='running' and row[2]=='729d6565-1cc6-4222-a6bd-670a502f1d05' and old!=native_start:
+                    explicit_reexecution=row[2]
+                elif row[0]=='source_failed' and old!=native_start:
                     login_recovery=(row[2],context['target']-context['limit'])
                 elif row[0]!='complete' and (old!=native_start or context.get('binding',{}).get('generation')!=message['epoch']):raise ProtocolError('participant_existing_run')
             else:
                 db.execute('INSERT INTO participant_runs VALUES(?,?,NULL,?)',(message['task_id'],'native_ready',mc_runner.canonical({'binding':dict(rpc.binding),'native_start':native_start})))
+        if explicit_reexecution is not None:
+            worker.restart_known_stopped_native_once(explicit_reexecution,native_start=native_start)
         if login_recovery is not None:
             worker.recover_known_failed_once(login_recovery[0],expected_used_requests=4,expected_detail_count=None,expected_received=login_recovery[1],native_start=native_start)
         if self.mux.stopped.is_set():raise ProtocolError('participant_stopped')

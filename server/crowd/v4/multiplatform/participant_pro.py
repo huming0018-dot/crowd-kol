@@ -222,6 +222,37 @@ class ParticipantProWorker:
         with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',(final,self.task_id))
         return {'state':final,'run_id':run_id,'receipt_count':len(self.outbox.receipts(self.task_id)),'finish':receipt,'coverage':imported.get('summary',{}).get('coverage','unverified'),'comments_and_media':'preserved_in_original_run_exports','source_started':False}
 
+    def restart_known_stopped_native_once(self,previous_run_id,*,native_start):
+        """Explicit authorized third attempt, not replay or automatic checkpoint resume."""
+        import json
+        require(self.task_id==29 and self.subject=='2fc8765e-700a-41c1-b325-a21c5faa22ce' and self.installation=='3cde2858-39a5-42e1-b7ab-dd62053d2dac' and self.session=='903d6888-6397-426c-a5e4-8080597c7101' and previous_run_id=='729d6565-1cc6-4222-a6bd-670a502f1d05','participant_reexecution_refused')
+        with self.outbox._db() as db:
+            old=db.execute('SELECT state,run_id,context FROM participant_runs WHERE task=?',(self.task_id,)).fetchone()
+            deliveries=db.execute('SELECT count(*) FROM participant_delivery WHERE task=?',(self.task_id,)).fetchone()[0]
+        require(old is not None and old[0]=='running' and old[1]==previous_run_id and deliveries==0,'participant_reexecution_refused')
+        context=json.loads(old[2]);prior=context.get('recovery',{});binding=self.transport.binding;previous=context.get('binding',{});old_start=context.get('native_start',{})
+        require(prior.get('old_run_id')=='356dbc9f-3692-47d7-8c3c-74f5ed101c9b' and prior.get('used_requests')==4 and prior.get('total_limit')==14 and not prior.get('explicit_reexecution') and context.get('target')==2 and context.get('limit')==2,'participant_reexecution_refused')
+        require(type(native_start) is dict and set(native_start)=={'subject','installation_id','task_id','intent'} and native_start['subject']==self.subject and native_start['installation_id']==self.installation and native_start['task_id']==self.task_id,'participant_scope_changed')
+        uuid_value(native_start['intent']);uuid_value(binding.get('native_session'))
+        require(all(binding.get(k)==previous.get(k) for k in ('profile','subject','installation_id')) and binding.get('profile')=='native-messaging' and type(binding.get('generation')) is int and type(previous.get('generation')) is int and binding['generation']>previous['generation'] and binding['native_session']!=previous.get('native_session') and native_start['intent']!=old_start.get('intent') and self.request_options=={'purpose':'noncommercial_research','max_api_requests':14},'participant_scope_changed')
+        require(self.transport.scope()=={'subject':self.subject,'installation_id':self.installation},'participant_scope_changed')
+        inspected=self.runner('inspect',{'run_id':previous_run_id});first=self.runner('inspect',{'run_id':prior['old_run_id']})
+        require(first.get('task_id')==self.task_id and first.get('installation_id')==self.installation and first.get('session_id')==self.session and first.get('state')=='login_required' and first.get('exit_code')==77 and first.get('used_requests')==4 and first.get('total_limit')==14 and first.get('observation_count')==0 and first.get('detail_admissions')==0 and first.get('participant_binding')==prior.get('old_context',{}).get('binding'),'participant_reexecution_refused')
+        require(inspected.get('participant_context_sha256')==digest(context) and inspected.get('state')=='stopped' and inspected.get('exit_code')==-15 and inspected.get('session_idle') is True and inspected.get('budget_binding_valid') is True and inspected.get('used_requests')==4 and inspected.get('total_limit')==10 and inspected.get('observation_count')==0 and inspected.get('detail_admissions')==0 and inspected.get('participant_binding')==previous and inspected.get('session_id')==self.session and inspected.get('task_id')==self.task_id and inspected.get('installation_id')==self.installation and inspected.get('guard_failure')=={'action':'search','outcome':'rpc_unknown','reason':None} and inspected.get('checkpoint_seed') is True,'participant_reexecution_refused')
+        fresh=self.transport('pro_status',{'p_task':self.task_id,'p_installation_id':self.installation});task=fresh.get('task',{});g=fresh.get('acceptance_supplement',{})
+        require(task.get('id')==self.task_id and task.get('source_executor')=='mediacrawler_pro' and task.get('received')==0 and task.get('target')==2 and set(g)=={'schema','id','task_id','installation_id','baseline_received','extra_limit','remaining','target'} and g.get('id')=='13761788-0860-40b8-a8ac-69a20ae1a5a1' and g.get('baseline_received')==0 and g.get('extra_limit')==2 and g.get('schema')=='crowd-acceptance-batch-v1' and g.get('installation_id')==self.installation and g.get('task_id')==self.task_id and g.get('target')==2 and g.get('remaining')==2,'participant_reexecution_refused')
+        lease=context.get('lease');uuid_value(lease)
+        control=self.transport('pro_guard',{'p_task':self.task_id,'p_lease':lease,'p_action':'control','p_note':None,'p_installation_id':self.installation})
+        count=control.get('counts',{}).get('detail') if isinstance(control,dict) else None
+        require(isinstance(control,dict) and control.get('allowed') is True and control.get('reason') is None and type(count) is int and count==prior.get('expected_detail_count'),'participant_reexecution_refused')
+        require(self.runner('inspect',{'run_id':previous_run_id})==inspected and self.transport.scope()=={'subject':self.subject,'installation_id':self.installation},'participant_reexecution_changed')
+        archive={'explicit_reexecution':True,'authorization':'original_task29_two_items_total22','old_run_id':previous_run_id,'old_context':context,'old_context_sha256':digest(context),'inspection':inspected,'first_inspection':first,'used_requests':8,'total_limit':22,'expected_detail_count':count,'expected_received':0}
+        new={**context,'binding':dict(binding),'native_start':dict(native_start),'recovery':archive}
+        with self.outbox._db() as db:
+            changed=db.execute('UPDATE participant_runs SET state=?,context=? WHERE task=? AND state=? AND run_id=? AND context=?',('recover_ready',mc_runner.canonical(new),self.task_id,old[0],previous_run_id,old[2])).rowcount
+            require(changed==1,'participant_reexecution_changed')
+        return {'state':'recover_ready','previous_run_id':previous_run_id,'remaining_source_requests':14,'used_source_requests':8,'total_source_limit':22,'source_started':False}
+
     def recover_known_failed_once(self,previous_run_id,*,expected_used_requests,expected_detail_count,expected_received,native_start=None):
         """Explicit operator recovery of known failed-before-detail, never UNKNOWN replay.
 
@@ -324,10 +355,23 @@ def local_runner(root,mc,*,participant_channel=None):
             journal=mc_runner.read(run/'participant-pro-guard.json') if (run/'participant-pro-guard.json').exists() else {}
             last=journal.get('events',[])[-1] if journal.get('events') else {}
             failure={k:last.get(k) for k in ('action','outcome','reason')}
+            import os,fcntl,stat
+            session_idle=False
+            try:
+                fd=os.open(Path(root)/'sessions'/manifest['request']['session_id']/'active.lock',os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+                try:
+                    info=os.fstat(fd)
+                    if stat.S_ISREG(info.st_mode) and info.st_uid==os.getuid():
+                        fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);session_idle=True
+                finally:os.close(fd)
+            except OSError:pass
+            from shared_request_budget import request_fingerprint
+            budget_binding_valid=budget.get('request_hash')==request_fingerprint(manifest['request'])
+            checkpoint_seed=isinstance(cp,dict) and cp.get('acquisition_committed') is False and cp.get('is_completed') is False and cp.get('current_search_page')==1 and cp.get('current_search_id') is None and cp.get('crawled_note_list')==[] and cp.get('failed_search_pages')==[]
             saved_names=['manifest.json','status.json','request-budget.json']
             for name in ['participant-pro-guard.json','data/checkpoints/'+payload['run_id']+'.json','data/checkpoints/vox/'+payload['run_id']+'.json']:
                 if (run/name).is_file():saved_names.append(name)
-            return {'state':status.get('state'),'exit_code':status.get('exit_code'),'checkpoint_created':status.get('checkpoint_created'),'checkpoint_present':cp is not None,'participant_binding':manifest.get('participant_pro',{}).get('binding'),'task_id':manifest.get('participant_pro',{}).get('task_id'),'installation_id':manifest.get('participant_pro',{}).get('installation_id'),'session_id':manifest.get('request',{}).get('session_id'),'observation_count':len(observations(run,manifest)),'used_requests':budget.get('used'),'total_limit':budget.get('limit'),'guard_failure':failure,'detail_admissions':sum(e.get('action')=='detail' and e.get('outcome')=='admitted' for e in journal.get('events',[])),'selected_note_ids':[n['note_id'] for n in (cp or {}).get('crawled_note_list',[])],'saved_files_sha256':{name:hashlib.sha256((run/name).read_bytes()).hexdigest() for name in saved_names}}
+            return {'participant_context_sha256':digest(manifest.get('participant_pro')),'session_idle':session_idle,'budget_binding_valid':budget_binding_valid,'checkpoint_seed':checkpoint_seed,'state':status.get('state'),'exit_code':status.get('exit_code'),'checkpoint_created':status.get('checkpoint_created'),'checkpoint_present':cp is not None,'participant_binding':manifest.get('participant_pro',{}).get('binding'),'task_id':manifest.get('participant_pro',{}).get('task_id'),'installation_id':manifest.get('participant_pro',{}).get('installation_id'),'session_id':manifest.get('request',{}).get('session_id'),'observation_count':len(observations(run,manifest)),'used_requests':budget.get('used'),'total_limit':budget.get('limit'),'guard_failure':failure,'detail_admissions':sum(e.get('action')=='detail' and e.get('outcome')=='admitted' for e in journal.get('events',[])),'selected_note_ids':[n['note_id'] for n in (cp or {}).get('crawled_note_list',[])],'saved_files_sha256':{name:hashlib.sha256((run/name).read_bytes()).hexdigest() for name in saved_names}}
         if action=='import':
             result=mc_runner.import_output(root,payload)
             result['manifest']=mc_runner.read(mc_runner.run_dir(root,payload['run_id'])/'manifest.json')
