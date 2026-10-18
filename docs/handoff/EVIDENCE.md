@@ -872,3 +872,10 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 | G06-actual-install/CLOUD-BUSINESS-POST100-VERIFIED.json；CLOUD-NODE-AFTER.PRIVATE.json；CLOUD-OTA-AFTER.PRIVATE.json | 原3task27proof27receipt行hash exact，node100/release4d178e32/6217 completed。后skipped非第二段升级。PRIVATE不公开。 |
 | review/g06-native-package/ACTUAL100-FINAL.json；G06-actual-install/CONTROLLER-FOCUS.jsonl | 独审SHA4cf2b76c52feaedf86522cd0aa29afddbe5f85efc9632d6a25c03f286cc49e5c；185焦点样本front0、19窗口样本10/屏上1。有限维护观察，非新来源或零可见窗承诺。 |
 | G06-native-package/DEPENDENCY-READONLY.md；G07-comment-options/ | 新helper依赖/TCC未实测；G07候选不冒部署，真实allocator已只读取回以补委托fixture缺口。新source/评论云ACK/媒体bytes/第二设备/runtime连续OTA未验。 |
+
+## 2026-10-19 05:35 CST｜HELLO实际HOLD原件
+
+- 证据根RUN18/G06-native-package/raw-hello100-once：FREEZE.json SHA0ed84114a655b4d8bfabc4d9eb74093385258a1df2e3910cdae0a07bc7ec431d；固定once-47998108内INTENT/HELLO/RESULT保UNKNOWN，不重试。
+- HELLO-TIMEOUT-PROCESSES.PRIVATE.json；HELLO-TIMEOUT-CHILD-SAMPLE.PRIVATE.txt SHAd23e1e15b42ce521b7d253257bf6adbf63be6a88a3ffefdb41b72e8beb6bc79a。root791与独立793样本同Python初始化open等待，尚缺精确文件/原因；PRIVATE仅本机，不发布栈原文。
+- review/g06-raw-hello100/FINAL.json SHAb78eb4eb34fe6cde9db784888cfdff9cb081cfc5fbbc6f999adf4e477212dbf9（离线有限PASS）；actual-timeout/ACTUAL-FINAL.json SHAd81ab92ae35a600744b6c1f006b61798bb4775b3a317768c4f5318ef494416a4（实际HOLD）。独审系统3.9 native全表/29两交付/config/六绑定/身份保持，hostbusytrue。无新source/claim/断口/kill。
+- CUA listApps实际返回Mac锁屏，已发解锁请求；不是TCC原因证明。G07 product非作者预审见review/g07-product-nonauthor/STATIC.md，未冻结不冒最终独审。

@@ -1,6 +1,8 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-19 05:26 CST｜评论中央/Owner已采用，本机100和原身份进度已独审；新来源与自动选项仍待验
+## 当前状态｜2026-10-19 05:35 CST｜100实装保持，Pro依赖启动HOLD；评论自动路由候选审查中
+
+- **当前运行阻塞（2026-10-19 05:35 CST）**：新helper零来源HELLO唯一一次实际检查20秒无帧/events[]，原once保UNKNOWN_NO_RETRY，未重发/断口/kill/清busy；目前host busytrue/connected、原native17759→Python17760仍活。root791与独立793采样均在Python初始化getpath_readlines/fopen/open等待，尚未到entry/installation_ready；精确文件/原因未证，不把TCC字符串或锁屏当因果。CUA明确Mac锁屏且自动解锁失败，已请求本人解锁，等待中；不绕过锁屏做UI。独立当前系统3.9只读native全表/原29complete2/delivery2/pending0与配置/身份/六绑定全保，未fresh重读浏览器完整agent/pro。实际独审review/g06-raw-hello100/actual-timeout/ACTUAL-FINAL.json SHAd81ab92ae35a600744b6c1f006b61798bb4775b3a317768c4f5318ef494416a4。此HOLD优先于下方05:26停止态快照；100物理采用仍成立，不冒依赖就绪或新来源成功。
 
 - **原身份/进度**：用户已回复原账号登录；原task29/run a379f72a仍complete2/2、pending0，原history20、outbox0、generation16，原六私有绑定和评分回执保留。没有重开19/20/29、追加额度、启动来源或恢复48h/watchdog。平台当前登录尚未用新来源验证，云node.login_state仍unknown，不写成永久登录有效。
 - **源码/实际中央**：crowd-kol `399fb71`/`23a223e`/`6c2d316`及修复`d764e7d`已推原分支；EXT `c43af92`/`12202a8`已推crawler-extension原分支。原Pro平台请求/解析/分页/媒体核心保留，只接typed child ACK/seal、原outbox与Jobs/Consumer；评论不增加正文计数或奖励。评论迁移实际20261018202619/SHA5fae7fde，crowd-machine47/30源仅handler变，原index/auth保持。后又亲复“前未seal组饿死后ready任务”P1，最小查询过滤已独审上线：实际账本20261018204727/SQL e358396b、原feed OID46577/MD5 08931e1b/ACL service-only不变。57原业务行与旧v1两组feed49995B/SHA5ef871d3仍exact；未新写评论ACK。实际独审`review/g06-feed-fairness/ACTUAL-FINAL.json` SHA02aff369c8072116d525babb37b080cda4cd077239aa679aef876cf25f66a73e。

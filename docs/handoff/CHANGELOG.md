@@ -847,3 +847,10 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 本轮source/新grant/新评论云ACK=0，旧29两ACK不冒100新来源。普通status不启动Python，新helper TCC/Pro依赖待零来源HELLO；第二设备/runtime连续自动OTA、G04分享范围/Vercel403和G05同context换pack/真人决定仍有门。
 - 下一步：G07原Owner三控件/auto/真实allocator/权威claim/Pro逐run CLI完整验证；候选只受既有合法batch/pilot约束，非任意新词自动授权。固定能力协商保持旧帧，unknown不冒ready，Pro self和同账号检查不放松。48h/watchdog暂停。
 - 证据根RUN18，详见G06-feed-fairness、G06-native-package、G06-actual-install和review/g06-*。固定HANDOFF/EVIDENCE同步；PRIVATE只本机。保留他人dirty，仅stage本轮块。
+
+## 2026-10-19 05:35 CST｜新helper HELLO真实启动HOLD，保留原进度继续代码独审
+
+- **当前运行阻塞（2026-10-19 05:35 CST）**：新helper零来源HELLO唯一一次实际检查20秒无帧/events[]，原once保UNKNOWN_NO_RETRY，未重发/断口/kill/清busy；目前host busytrue/connected、原native17759→Python17760仍活。root791与独立793采样均在Python初始化getpath_readlines/fopen/open等待，尚未到entry/installation_ready；精确文件/原因未证，不把TCC字符串或锁屏当因果。CUA明确Mac锁屏且自动解锁失败，已请求本人解锁，等待中；不绕过锁屏做UI。独立当前系统3.9只读native全表/原29complete2/delivery2/pending0与配置/身份/六绑定全保，未fresh重读浏览器完整agent/pro。实际独审review/g06-raw-hello100/actual-timeout/ACTUAL-FINAL.json SHAd81ab92ae35a600744b6c1f006b61798bb4775b3a317768c4f5318ef494416a4。此HOLD优先于下方05:26停止态快照；100物理采用仍成立，不冒依赖就绪或新来源成功。
+
+- 离线司机freeze0ed84114、driver a6030782经33+独立4用例及独审b78eb4eb后才唯一实际调用；先read门通过，实际HELLO无READY，不能以离线通过冒依赖就绪。原UNKNOWN保留，未来late-ready只观察不自动断口或回写成功。
+- 并行G07独立预审发现无eligible时误阻断旧Owner Pro machine及0/350仅native语义的假ready；前者正在修原子fallback，后者需明确unsupported/wait，不能PGstub冒原Python可执行。真实原11 allocator函数已接入测试；G07未正式/未部署/未来源。48h/watchdog仍暂停。
