@@ -136,8 +136,14 @@ class ParticipantProWorker:
                 control=self.transport('pro_guard',{'p_task':self.task_id,'p_lease':task['lease_token'],'p_action':'control','p_note':None,'p_installation_id':self.installation})
                 require(isinstance(control,dict) and control.get('allowed') is True and control.get('reason') is None and type(control.get('counts',{}).get('detail')) is int and control['counts']['detail']==recovery['expected_detail_count'],'participant_recovery_count_changed')
             p=mc_runner.validate(p)
-            server_known=claim.get('known_note_ids')
-            require(isinstance(server_known,list) and len(server_known)==len(set(server_known)) and all(isinstance(v,str) and re.fullmatch('[a-f0-9]{24}',v) for v in server_known) and set(self.known_ids)<=set(server_known),'participant_known_ids_invalid')
+            own_known=claim.get('known_note_ids');nested_known=task.get('known_note_ids')
+            for values in (own_known,nested_known):
+                require(isinstance(values,list) and len(values)<=500 and all(isinstance(v,str) and re.fullmatch('[a-f0-9]{24}',v) for v in values) and len(values)==len(set(values)),'participant_known_ids_invalid')
+            require(set(self.known_ids)<=set(own_known),'participant_known_ids_invalid')
+            # Reuse original node_claim's same-query exclusion contract, not a global lookup.
+            server_known=sorted(set(own_known)|set(nested_known))
+            if recovery is not None and recovery.get('scope_recovery') is True:
+                require(set(recovery['required_exclusions'])<=set(server_known),'participant_known_scope_not_fixed')
             require(p['start_page']==1,'participant_start_page_invalid')
             binding=getattr(self.transport,'binding',None);require(isinstance(binding,dict),'participant_transport_binding_required')
             context={'schema':'crowd-participant-pro-local-v1','binding':dict(binding),'node':self.transport.node,'task_id':self.task_id,'lease':task['lease_token'],'installation_id':self.installation,'known_ids':server_known,'search_sort':'time_descending','limit':grant['remaining'],'target':grant['target'],'request_sha256':digest(p)}
@@ -219,6 +225,40 @@ class ParticipantProWorker:
         return {'state':'recover_ready','previous_run_id':previous_run_id,'remaining_source_requests':inspected['total_limit']-expected_used_requests,'source_started':False}
 
 
+    def recover_known_note_scope_once(self,previous_run_id,*,expected_used_requests,expected_detail_count,expected_received,total_request_limit=20):
+        """Explicit one-off repair for the proven same-query exclusion-scope mismatch."""
+        import json
+        uuid_value(previous_run_id)
+        with self.outbox._db() as db:
+            old=db.execute('SELECT state,run_id,context FROM participant_runs WHERE task=?',(self.task_id,)).fetchone()
+            deliveries=db.execute('SELECT count(*) FROM participant_delivery WHERE task=?',(self.task_id,)).fetchone()[0]
+        require(old is not None and old[0]=='source_failed' and old[1]==previous_run_id and deliveries==0,'participant_scope_recovery_refused')
+        context=json.loads(old[2]);prior=context.get('recovery',{})
+        require(prior.get('scope_recovery') is not True and isinstance(prior.get('old_run_id'),str) and type(prior.get('used_requests')) is int and type(prior.get('total_limit')) is int,'participant_scope_recovery_refused')
+        binding=self.transport.binding;previous=context['binding']
+        require(all(binding.get(k)==previous.get(k) for k in ('profile','subject','installation_id')) and type(previous.get('generation')) is int and binding.get('generation') in (None,previous['generation']),'participant_scope_changed')
+        binding['generation']=previous['generation']
+        require(self.transport.scope()=={'subject':self.subject,'installation_id':self.installation},'participant_scope_changed')
+        inspected=self.runner('inspect',{'run_id':previous_run_id});failure=inspected.get('guard_failure',{})
+        require(inspected.get('state')=='failed' and inspected.get('observation_count')==0 and type(expected_used_requests) is int and inspected.get('used_requests')==expected_used_requests and expected_used_requests>0 and inspected.get('total_limit')==prior['total_limit']-prior['used_requests'] and failure=={'action':'detail','outcome':'denied','reason':'known_note'} and inspected.get('detail_admissions')==0,'participant_scope_recovery_refused')
+        selected=inspected.get('selected_note_ids')
+        require(isinstance(selected,list) and 1<=len(selected)<=context['limit'] and all(isinstance(v,str) and re.fullmatch('[a-f0-9]{24}',v) for v in selected) and not(set(selected)&set(context['known_ids'])),'participant_scope_recovery_refused')
+        require(type(expected_received) is int and expected_received>=0,'participant_scope_recovery_refused')
+        used=prior['used_requests']+expected_used_requests
+        require(type(total_request_limit) is int and total_request_limit in (prior['total_limit'],26) and (total_request_limit==prior['total_limit'] or prior['total_limit']==20 and used==12),'participant_request_limit_refused')
+        # Existing XHS path: credentials/pong/me4 + first search2 + 2 HTTP/sign calls per detail.
+        require(total_request_limit-used>=6+2*(context['target']-expected_received),'participant_remaining_request_budget_insufficient')
+        require(used<total_request_limit and type(expected_detail_count) is int and expected_detail_count==prior['expected_detail_count'] and type(expected_received) is int and expected_received==prior['expected_received'],'participant_scope_recovery_refused')
+        fresh=self.transport('pro_status',{'p_task':self.task_id,'p_installation_id':self.installation});task=fresh.get('task',{});g=fresh.get('acceptance_supplement',{})
+        require(task.get('id')==self.task_id and task.get('source_executor')=='mediacrawler_pro' and task.get('received')==expected_received and task.get('target')==context['target'] and g.get('installation_id')==self.installation and g.get('task_id')==self.task_id and g.get('remaining')==context['target']-expected_received and g.get('remaining')>0,'participant_scope_recovery_refused')
+        recovery={'scope_recovery':True,'required_exclusions':selected,'old_run_id':previous_run_id,'old_context':context,'old_context_sha256':digest(context),'inspection':inspected,'used_requests':used,'total_limit':total_request_limit,'previous_total_limit':prior['total_limit'],'limit_change_reason':'explicit_known_note_scope_repair' if total_request_limit!=prior['total_limit'] else 'unchanged','expected_detail_count':expected_detail_count,'expected_received':expected_received}
+        new={**context,'recovery':recovery}
+        with self.outbox._db() as db:
+            changed=db.execute('UPDATE participant_runs SET state=?,context=? WHERE task=? AND state=? AND run_id=? AND context=?',('recover_ready',mc_runner.canonical(new),self.task_id,old[0],previous_run_id,old[2])).rowcount
+            require(changed==1,'participant_recovery_changed')
+        return {'state':'recover_ready','previous_run_id':previous_run_id,'remaining_source_requests':total_request_limit-used,'source_started':False}
+
+
 def local_runner(root,mc):
     """Reuse established subprocess runner/import/export; never copy Pro source."""
     def call(action,payload):
@@ -228,7 +268,14 @@ def local_runner(root,mc):
             from pro_executor import observations
             run=mc_runner.run_dir(root,payload['run_id']);manifest=mc_runner.read(run/'manifest.json');status=mc_runner.read(run/'status.json');budget=mc_runner.read(run/'request-budget.json')
             require(manifest.get('source',{}).get('commit')==__import__('pro_executor').PINNED_COMMIT and manifest.get('participant_pro') is not None and budget.get('run_id')==payload['run_id'],'participant_recovery_refused')
-            return {'state':status.get('state'),'observation_count':len(observations(run,manifest)),'used_requests':budget.get('used'),'total_limit':budget.get('limit'),'saved_files_sha256':{name:hashlib.sha256((run/name).read_bytes()).hexdigest() for name in ('manifest.json','status.json','request-budget.json')}}
+            cp=__import__('pro_executor').checkpoint(run,manifest)
+            journal=mc_runner.read(run/'participant-pro-guard.json') if (run/'participant-pro-guard.json').exists() else {}
+            last=journal.get('events',[])[-1] if journal.get('events') else {}
+            failure={k:last.get(k) for k in ('action','outcome','reason')}
+            saved_names=['manifest.json','status.json','request-budget.json']
+            for name in ['participant-pro-guard.json','data/checkpoints/'+payload['run_id']+'.json','data/checkpoints/vox/'+payload['run_id']+'.json']:
+                if (run/name).is_file():saved_names.append(name)
+            return {'state':status.get('state'),'observation_count':len(observations(run,manifest)),'used_requests':budget.get('used'),'total_limit':budget.get('limit'),'guard_failure':failure,'detail_admissions':sum(e.get('action')=='detail' and e.get('outcome')=='admitted' for e in journal.get('events',[])),'selected_note_ids':[n['note_id'] for n in (cp or {}).get('crawled_note_list',[])],'saved_files_sha256':{name:hashlib.sha256((run/name).read_bytes()).hexdigest() for name in saved_names}}
         if action=='import':
             result=mc_runner.import_output(root,payload)
             result['manifest']=mc_runner.read(mc_runner.run_dir(root,payload['run_id'])/'manifest.json')
@@ -249,9 +296,11 @@ def main():
     ap.add_argument('--poll-seconds',type=int,default=2)
     ap.add_argument('--once',action='store_true')
     ap.add_argument('--recover-known-failed-once')
+    ap.add_argument('--recover-known-note-scope-once')
     ap.add_argument('--expected-used-requests',type=int)
     ap.add_argument('--expected-detail-count',type=int)
     ap.add_argument('--expected-received',type=int)
+    ap.add_argument('--total-request-limit',type=int,default=20)
     args=ap.parse_args()
     require(1<=args.poll_seconds<=60,'participant_poll_invalid')
     rpc=ParticipantProTransport(args.profile,args.subject,args.installation_id,node=args.node)
@@ -259,6 +308,11 @@ def main():
         installation_id=args.installation_id,subject=args.subject,session_id=args.session_id,
         known_ids=mc_runner.read(args.known_ids_file))
     request=mc_runner.read(args.request_file)
+    require(not (args.recover_known_failed_once and args.recover_known_note_scope_once),'participant_recovery_refused')
+    if args.recover_known_note_scope_once:
+        result=worker.recover_known_note_scope_once(args.recover_known_note_scope_once,expected_used_requests=args.expected_used_requests,expected_detail_count=args.expected_detail_count,expected_received=args.expected_received,total_request_limit=args.total_request_limit)
+        print(mc_runner.canonical(result),flush=True)
+        return
     if args.recover_known_failed_once:
         result=worker.recover_known_failed_once(args.recover_known_failed_once,expected_used_requests=args.expected_used_requests,expected_detail_count=args.expected_detail_count,expected_received=args.expected_received)
         print(mc_runner.canonical(result),flush=True)
@@ -267,7 +321,10 @@ def main():
         result=worker.tick(request)
         # Safe summary only: never record, target URL, principal, config or RPC error text.
         print(mc_runner.canonical({k:v for k,v in result.items() if k in ('state','run_id','receipt_count','coverage','source_started')}),flush=True)
-        if args.once or result['state']!='running':break
+        if args.once or result['state']!='running':
+            if result['state']=='source_failed':raise SystemExit(1)
+            if result['state']=='source_unknown':raise SystemExit(2)
+            break
         time.sleep(args.poll_seconds)
 
 if __name__=='__main__':

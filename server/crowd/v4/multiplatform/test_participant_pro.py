@@ -1,10 +1,14 @@
 import hashlib
+import os
+import importlib.util
 import tempfile
 import unittest
 import uuid
 from pathlib import Path
 import mc_runner
 from participant_pro import ParticipantOutbox, ParticipantError, ParticipantProWorker
+if os.environ.get('PARTICIPANT_WORKER_SOURCE'):
+    spec=importlib.util.spec_from_file_location('baseline_worker',os.environ['PARTICIPANT_WORKER_SOURCE']);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);ParticipantProWorker=module.ParticipantProWorker
 
 UID=lambda:str(uuid.uuid4())
 class RPC:
@@ -87,7 +91,7 @@ class WorkerWhole(unittest.TestCase):
                 binding=rpc.binding;node=rpc.node
                 def scope(self):return {'subject':uid,'installation_id':install}
                 def __call__(self,a,p):
-                    if a=='pro_claim':return {'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':['a'*24],'task':{'id':19,'lease_token':lease,'received':20,'target':22,'query':'fixture','comments_capture':False},'acceptance_supplement':{'schema':'crowd-acceptance-batch-v1','id':grant,'task_id':19,'installation_id':install,'baseline_received':2,'extra_limit':20,'remaining':2,'target':22}}
+                    if a=='pro_claim':return {'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':['a'*24],'task':{'id':19,'lease_token':lease,'received':20,'target':22,'query':'fixture','comments_capture':False,'known_note_ids':['a'*24,'d'*24]},'acceptance_supplement':{'schema':'crowd-acceptance-batch-v1','id':grant,'task_id':19,'installation_id':install,'baseline_received':2,'extra_limit':20,'remaining':2,'target':22}}
                     if a=='pro_finish':return {'status':'complete','received':22}
                     if a=='pro_status':return {'task':{'id':19,'received':22,'target':22,'status':'complete','source_executor':'mediacrawler_pro'}}
                     return base_call(a,p)
@@ -95,7 +99,7 @@ class WorkerWhole(unittest.TestCase):
             def runner(a,p):
                 calls.append(a)
                 if a=='start':
-                    self.assertEqual(p['request']['max_items'],2);self.assertEqual(p['participant_context']['known_ids'],['a'*24]);return {'run_id':run}
+                    self.assertEqual(p['request']['max_items'],2);self.assertEqual(p['participant_context']['known_ids'],['a'*24,'d'*24]);return {'run_id':run}
                 if a=='status':return {'state':'completed'}
                 if a=='import':return {'records':[record('b'*24),record('c'*24)],'manifest':{'source':{'commit':PINNED_COMMIT}},'summary':{'coverage':'unverified'}}
                 raise AssertionError(a)
@@ -123,7 +127,7 @@ class KnownFailureRecovery(unittest.TestCase):
                 def scope(self):return {'subject':subject,'installation_id':install}
                 def __call__(self,a,p):
                     trace.append(a)
-                    if a=='pro_claim':return {'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':['a'*24],'task':{'id':19,'lease_token':lease,'received':received[0],'target':22,'query':'fixture','comments_capture':False},'acceptance_supplement':batch()}
+                    if a=='pro_claim':return {'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':['a'*24],'task':{'id':19,'lease_token':lease,'received':received[0],'target':22,'query':'fixture','comments_capture':False,'known_note_ids':['a'*24]},'acceptance_supplement':batch()}
                     if a=='pro_status':return {'task':{'id':19,'received':received[0],'target':22,'status':'complete' if received[0]==22 else 'open','source_executor':'mediacrawler_pro'},'acceptance_supplement':batch()}
                     if a=='pro_guard':return {'allowed':True,'reason':None,'counts':{'detail':174}}
                     if a=='pro_receipt':return {'found':False,'request':p['p_request'],'receipt':None}
@@ -172,5 +176,88 @@ class RecoveryDenials(unittest.TestCase):
                 with w.outbox._db() as db:db.execute('INSERT INTO participant_runs VALUES(?,?,?,?)',(19,state,run,json.dumps(context)))
                 with self.assertRaises(ParticipantError):w.recover_known_failed_once(run,expected_used_requests=6,expected_detail_count=174,expected_received=20)
                 with w.outbox._db() as db:self.assertEqual(db.execute('SELECT state FROM participant_runs').fetchone()[0],state)
+
+
+class KnownScopeRecovery(unittest.TestCase):
+    def setup_case(self,path,*,reason='known_note',outcome='denied',observations=0):
+        import json
+        from pro_executor import PINNED_COMMIT
+        self.subject,self.install,self.sid,self.old1,self.old2,self.newrun,self.lease,self.grant=[UID() for _ in range(8)]
+        binding={'profile':'/original','subject':self.subject,'installation_id':self.install,'generation':10}
+        ctx={'binding':binding,'target':22,'limit':2,'known_ids':['a'*24],'recovery':{'old_run_id':self.old1,'old_context':{'binding':binding},'used_requests':6,'total_limit':20,'expected_detail_count':174,'expected_received':20}}
+        parent=self;self.calls=[];self.count=20;self.launches=[]
+        class Transport:
+            node='/node'
+            def __init__(self):self.binding=dict(binding)
+            def scope(self):return {'subject':parent.subject,'installation_id':parent.install}
+            def __call__(self,a,p):
+                parent.calls.append(a)
+                g={'schema':'crowd-acceptance-batch-v1','id':parent.grant,'task_id':19,'installation_id':parent.install,'baseline_received':2,'extra_limit':20,'remaining':22-parent.count,'target':22}
+                task={'id':19,'received':parent.count,'target':22,'source_executor':'mediacrawler_pro','status':'complete' if parent.count==22 else 'leased','lease_token':parent.lease,'query':'fixture','comments_capture':False,'known_note_ids':['d'*24,'e'*24]}
+                if a in ('pro_status','pro_claim'):return {'task':task,'acceptance_supplement':g,'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':['a'*24]}
+                if a=='pro_guard':return {'allowed':True,'reason':None,'counts':{'detail':174}}
+                if a=='pro_receipt':return {'found':False,'request':p['p_request'],'receipt':None}
+                if a=='pro_submit':
+                    parent.count+=1
+                    return {'request':p['p_request'],'gate':'received','inserted':True,'duplicate':False,'task_received':parent.count,'proof_id':parent.count,'source_kind':'mediacrawler_pro','reward_eligible':False,'record_hash':p['p_payload']['record']['record_hash']}
+                if a=='pro_finish':return {'status':'complete','received':22}
+                raise AssertionError(a)
+        def runner(a,p):
+            if a=='inspect':return {'state':'failed','observation_count':observations,'used_requests':6,'total_limit':14,'guard_failure':{'action':'detail','outcome':outcome,'reason':reason},'detail_admissions':0,'selected_note_ids':['d'*24,'e'*24],'saved_files_sha256':{'status.json':'f'*64}}
+            if a=='start':self.launches.append(p);return {'run_id':self.newrun}
+            if a=='status':return {'state':'completed'}
+            if a=='import':return {'records':[record('b'*24),record('c'*24)],'manifest':{'source':{'commit':PINNED_COMMIT}}}
+            raise AssertionError(a)
+        w=ParticipantProWorker(Path(path),Transport(),runner,task_id=19,installation_id=self.install,subject=self.subject,session_id=self.sid,known_ids=['a'*24])
+        with w.outbox._db() as db:db.execute('INSERT INTO participant_runs VALUES(?,?,?,?)',(19,'source_failed',self.old2,json.dumps(ctx)))
+        return w
+    def test_explicit26_preserves12_and_both_old_attempts_before_one_new14(self):
+        with tempfile.TemporaryDirectory() as temp:
+            w=self.setup_case(temp)
+            result=w.recover_known_note_scope_once(self.old2,expected_used_requests=6,expected_detail_count=174,expected_received=20,total_request_limit=26)
+            self.assertEqual(result['remaining_source_requests'],14);self.assertEqual(self.launches,[])
+            p={'platform':'xhs','source_executor':'pro','session_id':self.sid,'mode':'search','targets':['fixture'],'purpose':'noncommercial_research','comments':False,'replies':False}
+            self.assertEqual(w.tick(p)['state'],'complete');self.assertEqual(len(self.launches),1)
+            context=self.launches[0]['participant_context'];self.assertEqual(context['recovery']['used_requests'],12);self.assertEqual(context['recovery']['total_limit'],26);self.assertEqual(context['recovery']['old_run_id'],self.old2);self.assertEqual(context['recovery']['old_context']['recovery']['old_run_id'],self.old1)
+            self.assertEqual(self.launches[0]['request']['max_api_requests'],14);self.assertEqual(context['known_ids'],['a'*24,'d'*24,'e'*24])
+            with self.assertRaises(ParticipantError):w.recover_known_note_scope_once(self.newrun,expected_used_requests=6,expected_detail_count=174,expected_received=20,total_request_limit=26)
+    def test_default20_insufficient8_and_unknown_risk_observed_are_rejected(self):
+        for reason,outcome,observations,cap in [('known_note','denied',0,20),('captcha','denied',0,26),('known_note','rpc_unknown',0,26),('known_note','denied',1,26)]:
+            with tempfile.TemporaryDirectory() as temp:
+                w=self.setup_case(temp,reason=reason,outcome=outcome,observations=observations)
+                with self.assertRaises(ParticipantError):w.recover_known_note_scope_once(self.old2,expected_used_requests=6,expected_detail_count=174,expected_received=20,total_request_limit=cap)
+                self.assertEqual(self.launches,[]);self.assertNotIn('pro_claim',self.calls)
+
+class CLIExit(unittest.TestCase):
+    def test_source_failures_have_nonzero_exit_but_safe_states_keep_zero(self):
+        import contextlib,io,json
+        from unittest.mock import patch,Mock
+        import participant_pro
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp,'known.json').write_text('[]');Path(temp,'request.json').write_text('{}')
+            args=['participant_pro.py','--root',temp,'--mc-root',temp,'--profile',temp,'--subject',UID(),'--installation-id',UID(),'--session-id',UID(),'--task-id','19','--known-ids-file',str(Path(temp,'known.json')),'--request-file',str(Path(temp,'request.json')),'--node','/node','--once']
+            for state,code in [('source_failed',1),('source_unknown',2),('complete',0),('running',0)]:
+                worker=Mock();worker.tick.return_value={'state':state,'source_started':False}
+                with patch('sys.argv',args),patch('participant_pro_transport.ParticipantProTransport'),patch.object(participant_pro,'ParticipantProWorker',return_value=worker),contextlib.redirect_stdout(io.StringIO()):
+                    if code:
+                        with self.assertRaises(SystemExit) as caught:participant_pro.main()
+                        self.assertEqual(caught.exception.code,code)
+                    else:participant_pro.main()
+
+
+class StrictNestedKnown(unittest.TestCase):
+    def test_missing_malformed_or_duplicate_nested_exclusion_never_launches(self):
+        for nested in (None,'bad',{},['bad'],[{}],[True],['d'*24,'d'*24]):
+            with tempfile.TemporaryDirectory() as temp:
+                subject,install,sid,lease,grant=[UID() for _ in range(5)]
+                class Transport:
+                    binding={'profile':'/original','subject':subject,'installation_id':install,'generation':7};node='/node'
+                    def scope(self):return {'subject':subject,'installation_id':install}
+                    def __call__(self,a,p):
+                        if a!='pro_claim':raise AssertionError(a)
+                        return {'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':['a'*24],'task':{'id':19,'lease_token':lease,'received':20,'target':22,'query':'fixture','comments_capture':False,'known_note_ids':nested},'acceptance_supplement':{'schema':'crowd-acceptance-batch-v1','id':grant,'task_id':19,'installation_id':install,'baseline_received':2,'extra_limit':20,'remaining':2,'target':22}}
+                w=ParticipantProWorker(Path(temp),Transport(),lambda *a:self.fail('no launch'),task_id=19,installation_id=install,subject=subject,session_id=sid,known_ids=['a'*24])
+                p={'platform':'xhs','source_executor':'pro','session_id':sid,'mode':'search','targets':['fixture'],'purpose':'noncommercial_research','comments':False,'replies':False}
+                with self.assertRaises(ParticipantError):w.tick(p)
 
 if __name__=='__main__':unittest.main()
