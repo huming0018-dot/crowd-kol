@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-18 19:24 CST（原task19真实22/22；Pro最后2条已获回执；完整Pro参与者入口未交付）。Codex /root。
+更新：2026-10-18 21:02 CST（96源码与Pro通道已发；正式安装R2被内层重复预检拒绝，正在修完整链；未新采集）。Codex /root。
 
 ## 1. 接力规则
 
@@ -37,6 +37,17 @@ V6已采用：提交18c36862b151d09192725abb88f6e87ab96ddf81已推，对应不�
 下一步/产品缺口：普通参与者Start/Stop仍是旧DOM，本次通过固定CLI接原任务。现Mac host一次4KB OTA协议、无现成Mac connectNative双向RPC，不能称Pro已随傻瓜安装包自动接通；原安装不提供合法私有SDK/ProPy/Node/签名服务，普通安装也不保证CDP。先沿原入口/宿主把现Worker与原api.rpc接通，保Stop/OTA busy和原outbox，不另造任务队列/IAM，不把debugflag当正式方案。中央pro_scope当前仍19批次特例；通用派单、其余平台Pro原生接入、外部run主动Stop/OTA busy、两设备Pro登录恢复/连续OTA尚未完成或实证。不能以这次本机2ACK启动48h或扩大远端/重开完成任务。
 
 证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-integration；先读FINAL-DELIVERY.md，再读上述独审及root/NEXT-PRO-PRODUCT-WIRING.md、root/MAC-PRO-IPC-CONTRACT.md（正式宿主双向薄接线合同，尚未实现）。原20条逐ACK在review/final-ack-central/TEST20-ACKS.PRIVATE.csv，含旧18/新Pro2清晰来源；其他机器读不到本地证据须标缺失，不假装同步。旧09:27窗口移除责任未知，未因此宣布修好。
+
+
+## 本轮普通参与者 Pro 原生接线｜2026-10-18 21:02 CST（本节优先于上文旧缺口）
+
+- **代码/发布**：原 Start/Stop 已接 connectNative→固定 Python→Pro Worker，原JWT逆向白名单RPC保留。crowd-kol最新298cd586已推；EXT正式分支61999fc为96（原本地checkout94不采用）。Python V2、原生宿主及JS经独审；真实Chrome96 onboarding通过。旧agent评分/outbox数据保留，未知结果不重抓。
+- **中央已上线**：20261018122222有界批次、20261018122944新receipt live授权、20261018124413明确批次detail ceiling三迁移已部署。13:00:59Z只读：新batch0、proof55/receipt55、19complete22/22、20complete3/3。ratings/rewards/旧grant及旧task/proof/receipt hash已留存。未激活新任务、未arm48h或远端。
+- **正式发行/尚未安装**：pages 08171a1/925905e已发96 Pro独立通道，旧普通通道仍93。V5接续安装包R2在3d3866f公开，942176字节、SHA b984d948…；从公开URL下载回验一致。包不含私有SDK/凭据，缺本地合法依赖明确not_ready，不回退DOM。宿主/Python升级走接通包，不冒充扩展OTA升级了所有依赖。
+- **实际失败/根因**：正式V4入口先误查daily同ID3.5.3，打开help-browser-legacy.html并拒绝；原采集资料实际93。V5独审12新+20原JXA通过，外层target识别已正确，但R2实跑内层reconnect仍用旧2参数再次扫daily，exit1。没有覆盖原helper8198638…、扩展93，pro-config/state均未创建。两次失败日志保留，不能称安装通过或原生真实采集完成。
+- **当前修复**：central_steps正在检查所有browser-preflight caller及完整install/reconnect链，native_diagnostics_review独立复核。不得人工绕过预检/手拷插件来冒正式入口通过；日常3.5.3与原profile93都保留。用户看到的本地HTML是安装失败说明页，不是采集页，不需卸载/重新报名。
+- **下一步**：完整入口修复/独审后发布不可变新包、公开回验并实际安装；原93经Pro签名OTA到96，核原身份/历史/评分。再一次激活已独审的最多2条本机新任务（SQL b0d0d866…，现未执行），核原native来源、逐条真实云ACK、静默、自动停、OTA busy/停车恢复。旧19不重开，48h/watchdog仍暂停。
+- **证据根**：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。root/ACTUAL-INSTALL.log、ACTUAL-INSTALL-R2.log、ACTUAL-INSTALL-R2-LOCAL-UNCHANGED.json、ACTUAL-R2-CLOUD-UNCHANGED.json；native-installer-v5/FAILURE-AND-FIX.md及independent-native/FINAL.json（d591569d…，仅离线门）。中央三独审见review/central-batches。依赖的缺口：正式普通参与者目前只接XHS正文，不声称评论/媒体字节全产品；通用pause/resume与Windows原生仍未接。
 
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和原数据；2026-10-18本机20条范围已覆盖本机旧预算，远端不扩大；不外发Pro私码、重置凭据、arm试验或恢复看门狗。

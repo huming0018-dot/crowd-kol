@@ -763,3 +763,15 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **下一步**：沿原入口/宿主连接现Worker和原api.rpc；短协议MAC-PRO-IPC-CONTRACT.md已据现代码/Chrome官方协议形成，尚未实现。不增加平台请求/解析核心、新任务队列/IAM或JWT外传；本地协议缺口不冒Pro没能力。原完成任务不自行重开。
 - **证据**：RUN=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-integration；FINAL-DELIVERY.md；review/final-ack-central/DELIVERED-9F3-PASS.json SHAee4dfab5301047542a0f8f5eacf9fff2c0a715033459d788ee1aa18d337a6192、TEST20-ACKS.PRIVATE.csv；review/final-v5-actual/FINAL.json SHAca3a89e36e5cb9bee13569a7b9c9d4215b93b23a8501f893a952c2af3e6b1732；review/poll-v6/FINAL.json/FORMAL-PINS-FINAL.json；root/ADOPTED-RUNTIME-V6.json、V6-POST-BUSY-COMPLETE-READ.json。
 - **状态位置**：docs/HANDOFF.md当前块、AGENTS.md及本记录；未夹并行CTFS/ASR差异。
+
+
+## 2026-10-18 21:04 CST｜正式安装说明页误拦截诊断
+
+- 接力者Codex/root；central_steps修复；native_diagnostics_review非作者审查。目标为正式参与者入口接Pro，不重写平台采集核心。用户所发help-browser-legacy.html为V4安装失败说明，非采集页面。
+- 已推crowd-kol 298cd586、EXT正式61999fc（96）、pages08171a1/925905e（独立Pro通道）及3d3866f（R2安装）。原普通通道93不变，私有SDK未外发。
+- 中央三迁移20261018122222/20261018122944/20261018124413已部署，源SQL/回读/独审均在证据根；13:00:59Z只读新batch0、proof55/receipt55、task19complete22/22、20complete3/3，旧ratings/rewards/task/proof/receipt/grant MD5留存。没有新任务启动/48h。
+- V4公开下载并完整正式入口实跑：误扫daily同ID3.5.3，退出1。V5仅原注册profile约束获独审d591569d，12新+20原JXA过；公开R2下载SHA b984d948…一致。R2实跑外层通过，内部reconnect又调用旧2arg再次拒，exit1。0实际--reconnect；helper8198638…/disk93不变，pro-config/state不存在，本地agent SHA68b198aa…/原subject+installation/generation10/history20/outbox0均保持。
+- 根因为预检参数选择在两个caller重复，V5只修一个；目前统一只读预检入口，补主入口嵌套reconnect及内部reconnectZIP的真实JXA/临时HOME回归，拒绝路径helper必须0。修复尚未发布采用，不能称安装或原生正式采集完成。
+- 下一步完整链独审→不可变新包公开回验→原入口实装→原93经Pro签名OTA96→只一次新最多2条本机任务/原native逐ACK/静默/自动停。旧19不重开、不扩远端，48h/watchdog仍暂停。普通nativeXHS正文范围、通用resume/其他OS未接等限制保持。
+- 证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry；root/ACTUAL-INSTALL.log、ACTUAL-INSTALL-R2.log、ACTUAL-INSTALL-R2-LOCAL-UNCHANGED.json、ACTUAL-R2-CLOUD-UNCHANGED.json、actual-installer-r2-download.json；native-installer-v5/{FREEZE.json,FAILURE-AND-FIX.md,independent-native/FINAL.json}。
+
