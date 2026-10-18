@@ -74,9 +74,24 @@ class AutomaticMaterials:
                 r['thread']=thread;thread.start()
         # Retain the existing durable postprocessing_runs item until ready.
         return {'material_pending': True, 'state': 'processing'}
+    def pack_info(self,pointer,pack_path=None,pins=None):
+        from workbench_material_call import command
+        command(pointer,'read','json')
+        request=private_json(pointer['request']);cfg=private_json(self.root/'data-products/material-auto-runtime.json')
+        if pack_path is not None:request={**request,'pack_path':str(pack_path),'pack_sha256':pins}
+        with tempfile.TemporaryDirectory(prefix='material-pack-info-')as folder,tempfile.TemporaryFile()as output:
+            path=Path(folder).resolve()/'request.json';write(path,request)
+            control={'python':cfg['python'],'script':cfg['bridge_path'],'script_sha256':cfg['bridge_sha256'],'request':str(path),'request_sha256':_digest(path)}
+            try:result=subprocess.run(command(control,'pack-info','json'),stdout=output,stderr=subprocess.DEVNULL,env={'PATH':os.environ.get('PATH',''),'PYTHONDONTWRITEBYTECODE':'1'},timeout=25,close_fds=True)
+            except subprocess.TimeoutExpired:raise ValueError('material_pack_unavailable')from None
+            if result.returncode or os.fstat(output.fileno()).st_size>65536:raise ValueError('material_pack_unavailable')
+            output.seek(0);value=json.loads(output.read(65537))
+        if type(value)is not dict or set(value)!={'pack_id','version','hash'}:raise ValueError('material_pack_unavailable')
+        return value
+
     def prepare_recompute(self,key,expected_job,resolved):
         """Internal server resolver only; no browser filesystem paths or approval writes."""
-        import base64,yaml
+        import base64
         from participant_material_delivery import publication
         from workbench_material_call import command
         with self.lock:
@@ -85,16 +100,12 @@ class AutomaticMaterials:
             pointer=current['publication_pointer'];command(pointer,'read','json')
             request=private_json(pointer['request'])
             if sha(canonical(request))!=pointer['request_sha256']:raise ValueError('material_recompute_original_changed')
-            original_pack=yaml.safe_load(Path(request['pack_path'],'pack.yaml').read_bytes())['pack']['pack_id']
+            original_pack=self.pack_info(pointer)['pack_id']
             if type(resolved)is not dict or set(resolved)!={'release','files'}or resolved['release']['pack_id']!=original_pack:raise ValueError('material_recompute_pack_scope')
             release=resolved['release'];files=resolved['files'];names={'pack.yaml','fields.yaml','pointers.json','validation.yaml','rubric.yaml','expectations.yaml'}
             if type(files)is not dict or set(files)!=names:raise ValueError('material_recompute_pack_invalid')
             raw={name:base64.b64decode(files[name],validate=True)for name in names}
             if sum(map(len,raw.values()))>4*1024*1024:raise ValueError('material_recompute_pack_invalid')
-            parsed={name.split('.')[0]:json.loads(raw[name])if name=='pointers.json'else yaml.safe_load(raw[name])for name in names}
-            if sha(canonical(parsed))!=release['hash']:raise ValueError('material_recompute_pack_changed')
-            meta=yaml.safe_load(raw['pack.yaml'])['pack']
-            if meta['pack_id']!=release['pack_id']or meta['version']!=release['version']:raise ValueError('material_recompute_pack_invalid')
             cfg=private_json(self.root/'data-products/material-auto-runtime.json')
             # The original ready job supplies the exact source/tool pins. Only pack changes.
             for k in ('toolbox_root','toolbox_pins'):
@@ -113,6 +124,9 @@ class AutomaticMaterials:
                 else:
                     fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
                     with os.fdopen(fd,'wb')as stream:stream.write(blob);stream.flush();os.fsync(stream.fileno())
+            info=self.pack_info(pointer,pack,pins)
+            if info['hash']!=release['hash']:raise ValueError('material_recompute_pack_changed')
+            if info['pack_id']!=release['pack_id']or info['version']!=release['version']:raise ValueError('material_recompute_pack_invalid')
             cfg={**cfg,'pack_path':str(pack),'pack_sha256':pins}
             result={'schema':'crowd-material-recompute-v1','original':current['context'],'pro_key':key,'expected_job':expected_job,'target_release':release,'config':cfg}
             validate_context(result)

@@ -2,7 +2,8 @@ from pathlib import Path
 import copy,json,os,shutil,sys,tempfile,unittest,uuid
 from unittest.mock import patch
 HERE=Path(__file__).resolve().parent;MP=HERE
-if not os.environ.get('CROWD_MATERIAL_TEST_ROOT'):raise RuntimeError('CROWD_MATERIAL_TEST_ROOT required; saved Pro ACK/config inputs are not bundled; NOT verified')
+for required in ('CROWD_MATERIAL_TEST_ROOT','CROWD_OWNER_TEST_PYTHON'):
+ if not os.environ.get(required):raise RuntimeError(required+' required; private saved inputs/interpreter are not bundled; NOT verified')
 ACTUAL=Path(os.environ['CROWD_MATERIAL_TEST_ROOT']).resolve()
 if not(ACTUAL/'data-products/material-auto-runtime.json').is_file():raise RuntimeError('saved material config missing; NOT verified')
 sys.path.insert(0,str(MP))
@@ -118,5 +119,20 @@ class Recompute(unittest.TestCase):
   for change in ({'version':'9.9.9'},{'hash':'0'*64}):
    with self.assertRaises(BindingError):self.service.material_releases({**self.releases[1],**change},resolve=True)
   with self.assertRaisesRegex(ValueError,'current_changed'):self.auto.prepare_recompute(self.key,'f'*64,self.resolved())
+  self.assertEqual(self.exports(self.old['job_id']),self.oldbytes)
+ def owner_without_yaml(self,mode):
+  import subprocess
+  write(self.root/'owner-boundary.json',{'key':self.key,'old':self.old['job_id'],'resolved':self.resolved()})
+  python=os.environ['CROWD_OWNER_TEST_PYTHON']
+  result=subprocess.run([python,'-B',str(HERE.parent/'tests/fixtures/material_recompute_owner.py'),str(self.root),mode],env={'PATH':os.environ.get('PATH',''),'PYTHONDONTWRITEBYTECODE':'1'},capture_output=True,text=True)
+  (self.root/('OWNER-'+mode+'.log')).write_text(result.stdout+result.stderr)
+  self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(json.loads(result.stdout)['yaml_in_owner'],False)
+ def test_actual_owner_python_catalog_without_yaml(self):self.owner_without_yaml('catalog')
+ def test_actual_owner_python_prepare_without_yaml(self):self.owner_without_yaml('prepare')
+ def test_actual_owner_python_direct_prepare_without_yaml(self):self.owner_without_yaml('direct')
+ def test_pack_info_exact_six_files_and_no_queue_write(self):
+  info=self.auto.pack_info(self.old['publication_pointer']);self.assertEqual(info['pack_id'],self.releases[0]['pack_id']);self.assertEqual(info['version'],self.releases[0]['version'])
+  pins={**self.cfg['pack_sha256'],'rubric.yaml':'0'*64}
+  with self.assertRaisesRegex(ValueError,'material_pack_unavailable'):self.auto.pack_info(self.old['publication_pointer'],self.cfg['pack_path'],pins)
   self.assertEqual(self.exports(self.old['job_id']),self.oldbytes)
 if __name__=='__main__':unittest.main()

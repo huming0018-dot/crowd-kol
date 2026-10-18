@@ -18,7 +18,7 @@ def _digest(path,limit=1024*1024):
  finally:os.close(fd)
 
 def command(config,action='read',fmt='html'):
- if type(config)is not dict or set(config)!=KEYS or any(type(v)is not str for v in config.values())or action not in ('build','read')or fmt not in ('html','json','jsonl','csv'):raise ValueError('material_config_invalid')
+ if type(config)is not dict or set(config)!=KEYS or any(type(v)is not str for v in config.values())or action not in ('build','read','pack-info')or fmt not in ('html','json','jsonl','csv'):raise ValueError('material_config_invalid')
  if any(re.fullmatch('[a-f0-9]{64}',config[n])is None for n in ('script_sha256','request_sha256')):raise ValueError('material_config_invalid')
  # Normal venv interpreter symlinks retain their original invocation spelling.
  python=Path(config['python'])

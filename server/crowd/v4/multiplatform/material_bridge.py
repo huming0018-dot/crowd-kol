@@ -241,12 +241,28 @@ def read_publication(request,fmt='json'):
   return buffer.getvalue().encode()
  raise MaterialError('material_format_invalid')
 
+def pack_info(request):
+ # Read-only metadata is parsed only by the already configured toolbox Python.
+ root=pin_source(request['toolbox_root'],request['toolbox_pins'])
+ pack=Path(request['pack_path']).absolute();names={'pack.yaml','fields.yaml','pointers.json','validation.yaml','rubric.yaml','expectations.yaml'}
+ if set(p.name for p in pack.iterdir())!=names or type(request.get('pack_sha256'))is not dict or set(request['pack_sha256'])!=names:raise MaterialError('material_pack_invalid')
+ raw={name:read_bytes(pack/name,MAX_SNAPSHOT)for name in names}
+ if any(hashlib.sha256(blob).hexdigest()!=request['pack_sha256'][name]for name,blob in raw.items()):raise MaterialError('material_pack_changed')
+ if 'toolbox'in sys.modules:raise MaterialError('toolbox_already_imported')
+ sys.path.insert(0,str(root))
+ import toolbox,yaml
+ if toolbox.__version__!='0.5.1'or not Path(toolbox.__file__).resolve().is_relative_to(root.resolve()):raise MaterialError('toolbox_import_mismatch')
+ parsed={name.split('.')[0]:json.loads(blob)if name=='pointers.json'else yaml.safe_load(blob)for name,blob in raw.items()}
+ meta=parsed['pack']['pack']
+ return {'pack_id':meta['pack_id'],'version':meta['version'],'hash':hashlib.sha256(json.dumps(parsed,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()}
+
 def main():
- p=argparse.ArgumentParser();p.add_argument('--request',required=True);p.add_argument('--action',choices=['build','read','build-jobs'],default='build');p.add_argument('--format',choices=['html','json','jsonl','csv'],default='json');p.add_argument('--job-id');a=p.parse_args();req=read_json(a.request,65536)
+ p=argparse.ArgumentParser();p.add_argument('--request',required=True);p.add_argument('--action',choices=['build','read','build-jobs','pack-info'],default='build');p.add_argument('--format',choices=['html','json','jsonl','csv'],default='json');p.add_argument('--job-id');a=p.parse_args();req=read_json(a.request,65536)
  base={'snapshot_path','snapshot_sha256','toolbox_root','toolbox_pins','pack_path','pack_sha256','output','as_of','runtime_root','runtime_cloud_sha256'}
  if type(req)is not dict or set(req)not in (base,base|{'pro_snapshot_sha256'},base|{'pro_snapshot_sha256','pro_comments_sha256'}):raise MaterialError('material_request_invalid')
  if (a.action=='build-jobs')!=(a.job_id is not None):raise MaterialError('material_job_id_required')
- if a.action=='read':sys.stdout.buffer.write(read_publication(req,a.format))
+ if a.action=='pack-info':print(json.dumps(pack_info(req),sort_keys=True))
+ elif a.action=='read':sys.stdout.buffer.write(read_publication(req,a.format))
  else:
   result=run(**req,job_id=a.job_id);print(json.dumps({k:result[k]for k in ['state','items','coverage','source_calls','budget_debits','snapshot_sha256','html','json','jsonl','csv']},ensure_ascii=False))
 if __name__=='__main__':

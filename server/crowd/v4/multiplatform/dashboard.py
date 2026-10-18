@@ -196,12 +196,12 @@ class Application:
             from participant_material_delivery import publication
             from knowledge_review_call import call as knowledge_call
             from workbench_material_call import command
-            import yaml,hashlib
+            import hashlib
             if getattr(self,'automatic_materials',None)is None:self.automatic_materials=AutomaticMaterials(self.root)
             auto=self.automatic_materials
             if action=='material_versions':
                 if set(payload)!={'pro_key'}:raise ValueError('invalid_request')
-                current=publication(self.root,payload['pro_key']);pointer=current['publication_pointer'];command(pointer,'read','json');request=private_json(pointer['request']);pack_id=yaml.safe_load(Path(request['pack_path'],'pack.yaml').read_bytes())['pack']['pack_id']
+                current=publication(self.root,payload['pro_key']);pointer=current['publication_pointer'];command(pointer,'read','json');pack_id=auto.pack_info(pointer)['pack_id']
                 catalog=knowledge_call(self.root/'data-products/knowledge-runtime.json',self.root/'cloud-config.json',{'action':'material_releases','payload':{'pack_id':pack_id}})
                 versions=[];paths=list((self.root/'data-products/material-auto').glob('*/ready.json'))
                 if len(paths)>2000:raise ValueError('material_publication_index_limit')
