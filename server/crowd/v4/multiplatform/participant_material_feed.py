@@ -7,8 +7,14 @@ def fetch(client,root,after):
     from automatic_materials import canonical,sha,validate_context
     from pro_ack_snapshot import validate_group
     if after is not None:validate_cursor(after)
-    page=client.call('participant_pro_receipts',{'after':after,'limit':1})
-    if type(page) is not dict or set(page)!={'schema','groups','next_cursor','has_more'} or page['schema']!='crowd-participant-pro-receipt-feed-v1' or type(page['groups']) is not list or len(page['groups'])>1 or type(page['has_more']) is not bool:
+    from cloud_sync import CloudError
+    try:page=client.call('participant_pro_receipts',{'after':after,'limit':1})
+    except CloudError as error:
+        if str(error)!='comment_capture_pending':raise
+        # Server has an unsealed original body: retain the exact cursor and retry
+        # only this read on a later normal worker tick; no partial context is queued.
+        return {'contexts':[],'next_cursor':after,'rescan':False}
+    if type(page) is not dict or set(page)!={'schema','groups','next_cursor','has_more'} or page['schema']not in ('crowd-participant-pro-receipt-feed-v1','crowd-participant-pro-receipt-feed-v2') or type(page['groups']) is not list or len(page['groups'])>1 or type(page['has_more']) is not bool:
         raise ValueError('participant_pro_feed_invalid')
     groups=page['groups']; cursor=page['next_cursor']
     for group in groups:validate_group(group);validate_cursor(group['group_cursor'])

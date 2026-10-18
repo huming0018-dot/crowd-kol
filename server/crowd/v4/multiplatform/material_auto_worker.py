@@ -17,7 +17,7 @@ def main():
     try:process(Path(args.root),Path(args.context),private_json(args.config))
     finally:done.set()
 def process(root,path,cfg):
-    if type(cfg)is not dict or set(cfg)not in (KEYS,KEYS|{'pro_snapshot_sha256'}):raise ValueError('material_auto_config_invalid')
+    if type(cfg)is not dict or set(cfg)not in (KEYS,KEYS|{'pro_snapshot_sha256'},KEYS|{'pro_snapshot_sha256','pro_comments_sha256'}):raise ValueError('material_auto_config_invalid')
     state=private_json(path);c=validate_context(state['context'])
     if _digest(cfg['bridge_path'])!=cfg['bridge_sha256']:raise ValueError('material_auto_bridge_changed')
     if _digest(Path(cfg['runtime_root'])/'cloud_sync.py')!=cfg['runtime_cloud_sha256']:raise ValueError('material_auto_wire_changed')
@@ -33,6 +33,9 @@ def process(root,path,cfg):
         if sha(blob)!=c['group_sha256']:raise ValueError('material_auto_pro_input_changed')
         group=parse_json(blob)
         if canonical(group)!=blob:raise ValueError('material_auto_pro_input_changed')
+        if 'comment_receipts'in group:
+            from material_bridge import pro_comments_module
+            pro_comments_module(cfg['runtime_root'],cfg.get('pro_comments_sha256'))
         snapshot=extract(group)
         if snapshot['scope']!={k:c[k]for k in ['task_id','subject','installation_id','dispatch_id']}or snapshot['group_cursor']!=c['group_cursor']:raise ValueError('material_auto_pro_input_scope')
         fresh=len(snapshot['receipts'])
@@ -50,7 +53,8 @@ def process(root,path,cfg):
     # Same ACKs and pins give the same time basis and deterministic job ID.
     from datetime import datetime
     if pro:
-        asof=max((x['created_at']for x in snapshot['receipts']),key=lambda x:datetime.fromisoformat(x.replace('Z','+00:00')))
+        ack_rows=snapshot['receipts']+snapshot.get('comment_receipts',[])+snapshot.get('comment_captures',[])
+        asof=max((x['created_at']for x in ack_rows),key=lambda x:datetime.fromisoformat(x.replace('Z','+00:00')))
         key={'scope':snapshot['scope'],'snapshot_sha256':sha(canonical(snapshot)),'ack_set':[{'request':x['request'],'proof_id':x['proof_id'],'record_hash':x['receipt']['record_hash'],'receipt_sha256':sha(canonical(x['receipt']))}for x in snapshot['receipts']],
              'as_of':asof,'toolbox_source_pins_sha256':sourcepins,'pack_sha256':cfg['pack_sha256'],'bridge_sha256':cfg['bridge_sha256'],'runtime_cloud_sha256':cfg['runtime_cloud_sha256'],'pro_snapshot_sha256':cfg['pro_snapshot_sha256']}
     else:
@@ -59,6 +63,7 @@ def process(root,path,cfg):
              'ack_set':[{'id':x['capture_id'],'hash':x['envelope_hash'],'receipt_sha256':sha(x['receipt_canonical'].encode())}for x in snapshot['captures']],
              'as_of':asof,'toolbox_source_pins_sha256':sourcepins,'pack_sha256':cfg['pack_sha256'],
              'bridge_sha256':cfg['bridge_sha256'],'runtime_cloud_sha256':cfg['runtime_cloud_sha256']}
+    if pro and 'comment_receipts'in snapshot:key['pro_comments_sha256']=cfg['pro_comments_sha256']
     job_id=sha(canonical(key));project=root/'data-products/material-auto'/job_id
     if any(x.is_symlink()for x in (project,*project.parents)):raise ValueError('material_auto_path_invalid')
     project.mkdir(mode=0o700,exist_ok=True)
@@ -67,6 +72,7 @@ def process(root,path,cfg):
     request={'snapshot_path':str(snap_path),'snapshot_sha256':sha(snapraw),'toolbox_root':cfg['toolbox_root'],'toolbox_pins':cfg['toolbox_pins'],
              'pack_path':cfg['pack_path'],'pack_sha256':cfg['pack_sha256'],'output':str(output),'as_of':asof,'runtime_root':cfg['runtime_root'],'runtime_cloud_sha256':cfg['runtime_cloud_sha256']}
     if pro:request['pro_snapshot_sha256']=cfg['pro_snapshot_sha256']
+    if pro and 'comment_receipts'in snapshot:request['pro_comments_sha256']=cfg['pro_comments_sha256']
     if request_path.exists():
         prior=private_json(request_path)
         # Same deterministic job never gets its original input overwritten.

@@ -29,6 +29,14 @@ def parse_json(raw):
 def read_json(path,limit=MAX_SNAPSHOT):
  return parse_json(read_bytes(path,limit))
 
+def csv_records(text):
+ # Existing snapshot byte bound also bounds one embedded typed capture field.
+ previous=csv.field_size_limit()
+ try:
+  csv.field_size_limit(MAX_SNAPSHOT)
+  return [json.loads(v['record'])for v in csv.DictReader(io.StringIO(text))]
+ finally:csv.field_size_limit(previous)
+
 def pin_source(root,pins,expected_sha256=None):
  root=Path(root).absolute();blob=read_bytes(pins,MAX_SNAPSHOT)
  if expected_sha256 is not None and hashlib.sha256(blob).hexdigest()!=expected_sha256:raise MaterialError('toolbox_pin_changed')
@@ -45,6 +53,13 @@ def pro_snapshot_module(runtime_root,expected):
  import pro_ack_snapshot
  if Path(pro_ack_snapshot.__file__).absolute()!=path:raise MaterialError('material_pro_snapshot_changed')
  return pro_ack_snapshot
+
+def pro_comments_module(runtime_root,expected):
+ path=Path(runtime_root).absolute()/'participant_pro_comments.py'
+ if type(expected)is not str or hashlib.sha256(read_bytes(path,MAX_SNAPSHOT)).hexdigest()!=expected:raise MaterialError('material_pro_comments_changed')
+ import participant_pro_comments
+ if Path(participant_pro_comments.__file__).absolute()!=path:raise MaterialError('material_pro_comments_changed')
+ return participant_pro_comments
 
 def snapshot_bundle(snapshot,runtime_root):
  if type(snapshot)is dict and snapshot.get('schema')=='crowd-participant-pro-material-snapshot-v1':
@@ -94,7 +109,7 @@ def _same_or_create(path,raw):
  fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
  with os.fdopen(fd,'wb')as f:f.write(raw);f.flush();os.fsync(f.fileno())
 
-def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_sha256,output,as_of,runtime_root,runtime_cloud_sha256,job_id=None,pro_snapshot_sha256=None):
+def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_sha256,output,as_of,runtime_root,runtime_cloud_sha256,job_id=None,pro_snapshot_sha256=None,pro_comments_sha256=None):
  # Fixed admin configuration supplies roots/digests; browser callers supply only job scope.
  root=pin_source(toolbox_root,toolbox_pins);blob=read_bytes(snapshot_path,MAX_SNAPSHOT)
  if hashlib.sha256(blob).hexdigest()!=snapshot_sha256:raise MaterialError('material_snapshot_changed')
@@ -116,7 +131,9 @@ def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_s
  utc(as_of,'as_of')
  if toolbox.__version__!='0.5.1'or not Path(toolbox.__file__).resolve().is_relative_to(root.resolve()):raise MaterialError('toolbox_import_mismatch')
  snapshot=parse_json(blob)
- if snapshot.get('schema')=='crowd-participant-pro-material-snapshot-v1':pro_snapshot_module(runtime_root,pro_snapshot_sha256)
+ if snapshot.get('schema')=='crowd-participant-pro-material-snapshot-v1':
+  pro_snapshot_module(runtime_root,pro_snapshot_sha256)
+  if 'comment_receipts'in snapshot:pro_comments_module(runtime_root,pro_comments_sha256)
  bundle=snapshot_bundle(snapshot,runtime_root);raw=json.dumps(bundle,sort_keys=True,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode();digest=hashlib.sha256(raw).hexdigest()
  if job_id is not None and (type(job_id)is not str or len(job_id)!=64 or any(x not in '0123456789abcdef'for x in job_id)):raise MaterialError('material_job_id_invalid')
  output=Path(output).absolute()
@@ -174,7 +191,7 @@ def run(snapshot_path,snapshot_sha256,toolbox_root,toolbox_pins,pack_path,pack_s
  buffer=io.StringIO(newline='');w=csv.DictWriter(buffer,fieldnames=['source_record_id','score_domain','restaurant_taste_score','record']);w.writeheader()
  for row in data['items']:w.writerow({'source_record_id':row['identity']['source_record_id'],'score_domain':'material_traceability_only','restaurant_taste_score':'','record':json.dumps(row,ensure_ascii=False,sort_keys=True,separators=(',',':'))})
  _same_or_create(output/'materials.csv',buffer.getvalue().encode())
- if data['items']!=[json.loads(v)for v in (output/'materials.jsonl').read_text().splitlines()]or data['items']!=[json.loads(v['record'])for v in csv.DictReader(io.StringIO((output/'materials.csv').read_text()))]:raise MaterialError('material_export_mismatch')
+ if data['items']!=[json.loads(v)for v in (output/'materials.jsonl').read_text().splitlines()]or data['items']!=csv_records((output/'materials.csv').read_text()):raise MaterialError('material_export_mismatch')
  result={'state':'completed',**({'source_scope':snapshot['scope'],'source_kind':'participant_pro'}if snapshot.get('schema')=='crowd-participant-pro-material-snapshot-v1'else {'task_id':snapshot['task_id'],'child_id':snapshot['child_id']}),'snapshot_sha256':snapshot_sha256,'items':len(data['items']),'coverage':snapshot.get('coverage','unknown'),'source_calls':0,'budget_debits':0,'restaurant_taste_score':None,'score_domain':'material_traceability_only','as_of':as_of,'tool_version':toolbox.__version__,'publication':receipt,'html':receipt['directory']+'/index.html','json':receipt['directory']+'/report.json','jsonl':'materials.jsonl','csv':'materials.csv'}
  if job_id is not None:result.update(job_id=job_id,processing_driver='existing_toolbox_jobs_snapshot_file',source_calls=0,local_snapshot_reads=1)
  _same_or_create(output/'result.json',(json.dumps(result,ensure_ascii=False,indent=2)+'\n').encode());return result
@@ -184,7 +201,9 @@ def read_publication(request,fmt='json'):
  raw_snapshot=read_bytes(request['snapshot_path'],MAX_SNAPSHOT)
  if hashlib.sha256(raw_snapshot).hexdigest()!=request['snapshot_sha256']:raise MaterialError('material_snapshot_changed')
  snapshot=parse_json(raw_snapshot)
- if snapshot.get('schema')=='crowd-participant-pro-material-snapshot-v1':pro_snapshot_module(request['runtime_root'],request.get('pro_snapshot_sha256'))
+ if snapshot.get('schema')=='crowd-participant-pro-material-snapshot-v1':
+  pro_snapshot_module(request['runtime_root'],request.get('pro_snapshot_sha256'))
+  if 'comment_receipts'in snapshot:pro_comments_module(request['runtime_root'],request.get('pro_comments_sha256'))
  if 'toolbox'in sys.modules:raise MaterialError('toolbox_already_imported')
  sys.path.insert(0,str(root))
  import toolbox
@@ -225,7 +244,7 @@ def read_publication(request,fmt='json'):
 def main():
  p=argparse.ArgumentParser();p.add_argument('--request',required=True);p.add_argument('--action',choices=['build','read','build-jobs'],default='build');p.add_argument('--format',choices=['html','json','jsonl','csv'],default='json');p.add_argument('--job-id');a=p.parse_args();req=read_json(a.request,65536)
  base={'snapshot_path','snapshot_sha256','toolbox_root','toolbox_pins','pack_path','pack_sha256','output','as_of','runtime_root','runtime_cloud_sha256'}
- if type(req)is not dict or set(req)not in (base,base|{'pro_snapshot_sha256'}):raise MaterialError('material_request_invalid')
+ if type(req)is not dict or set(req)not in (base,base|{'pro_snapshot_sha256'},base|{'pro_snapshot_sha256','pro_comments_sha256'}):raise MaterialError('material_request_invalid')
  if (a.action=='build-jobs')!=(a.job_id is not None):raise MaterialError('material_job_id_required')
  if a.action=='read':sys.stdout.buffer.write(read_publication(req,a.format))
  else:

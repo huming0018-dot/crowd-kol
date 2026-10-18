@@ -195,3 +195,13 @@ python3 -m unittest test_mc_runner test_dashboard test_analysis test_owner_tasks
 真实 SDK 克隆回归脚本为 `../tests/knowledge-review-scope.py`，需显式提供 `CROWD_KNOWLEDGE_TARGET`、`CROWD_MP_ROOT` 和 `CROWD_KNOWLEDGE_FIXTURE`，并使用已装 toolbox 的 Python。fixture 为本地保存的 service 测试设置，仅克隆白名单数据库与知识包，不能指向在线工作区；缺失时明确报错，不冒通过。UI 行为回归为 `CROWD_KNOWLEDGE_UI="$PWD/knowledge-ui.js" node ../tests/knowledge-review-ui.cjs`。私人 fixture 不随源码发布。
 
 Owner 页面与 `data-products/knowledge-runtime.json` 指向的独立 Python 子进程分别采用；只更新主工作台源码不会更新原知识服务。切换时必须证实旧 Owner 和知识请求均退出，保留原绑定、知识工作区及意图，按原 SHA 对配置执行 CAS；未知请求不能通过热切或新编号重放。实际采用和剩余知识闭环缺口见固定 HANDOFF。
+
+## 原生参与者的 Pro 评论链路
+
+`participant_pro.py` 和 `participant_pro_hooks.py` 在原任务启用评论时调用 Pro 原生评论/回复分页与保存。新增 `participant_pro_comments.py` 只负责已保存对象的类型、父链、分页覆盖和哈希合同；来源仍经过原 guard，客户端、Swift、中央 RPC 和本地 outbox 分别校验交付。未知回传按原请求查回执，不重新访问平台；部分分页不能冒充完整停止。
+
+Owner 的 `pro_ack_snapshot.py` 把子回执和分页封存放在原正文的 `metadata.capture`；35条评论不会算成35条新正文或餐厅。原 Jobs/Consumer 的 HTML/JSON/JSONL/CSV 保留子对象、父链、覆盖和媒体引用。ACK 集变化沿原 context 哈希生成新处理版本，旧 ready 保留。`material-auto-runtime.json` 新增 `pro_comments_sha256` 固定共享校验模块，原 Python/toolbox/pack 不变；旧正文组和导出必须逐字节回归。
+
+当前普通参与者跟随本机固定 Pro 的实际原生配置。实查默认为评论开启、回复关闭、每笔记评论上限0（Pro原生不限，仍受本轮来源预算约束）；历史35评论/13页复现使用上限150及回复开启。中央目前只有 `comments_capture`，Owner尚不能逐任务选择回复与评论上限，不能把历史回复复现说成默认全开。后续应连接原Pro每次运行的配置及Owner已有选项，不要求参与者修改SDK。媒体本轮只验证引用，文件下载另验。
+
+纯合同回归运行 `python -m unittest test_participant_pro_comments`；原 Pro 真类、保存输入、原生帧、完整材料链和实际采用证据见固定 HANDOFF。本机采用、客户端包、中央部署、新来源ACK与OTA是独立门；离线通过不能合并报为全部上线。

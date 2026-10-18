@@ -56,7 +56,7 @@ def supports_bili_audio_request(request):
             and options.get('long_audio') is True)
 
 
-def explicit_unsupported(request, environ=None):
+def explicit_unsupported(request, environ=None, *, native_comments=None):
     """Explicit task engines never silently substitute a different collector."""
     if request.get('platform')=='dy' and request.get('mode') in ('homefeed','trending'):
         if not dy_scope_enabled(request,environ):return 'pro_dy_discovery_disabled'
@@ -73,7 +73,7 @@ def explicit_unsupported(request, environ=None):
         return 'pro_media_pipeline_unavailable'
     if request.get('wordcloud') or request.get('platform_options') and not audio_supported:
         return 'pro_options_unsupported'
-    if request.get('comments') and request.get('max_comments') == 0:
+    if request.get('comments') and request.get('max_comments') == 0 and native_comments is None:
         return 'pro_zero_comments_means_unlimited'
     return None
 
@@ -110,7 +110,20 @@ def task_installation(root, request):
     return value
 
 
-def selection(request, environ=None, installation=None):
+def resolved_comment_options(runtime_root):
+    """Read only the installed Pro config, with its own Python. No account/source call."""
+    installation=task_installation(runtime_root,{'source_executor':'pro'})
+    info=bridge().source_info(Path(installation['root']))
+    if info.get('commit')!=PINNED_COMMIT or info.get('dirty'):bridge().fail('pro_source_changed')
+    script="import sys,json;sys.path.insert(0,sys.argv[1]);import config;print(json.dumps({k:getattr(config,n)for k,n in [('comments','ENABLE_GET_COMMENTS'),('replies','ENABLE_GET_SUB_COMMENTS'),('max_comments','PER_NOTE_MAX_COMMENTS_COUNT')]}))"
+    result=subprocess.run([installation['python'],'-c',script,installation['root']],cwd=installation['root'],capture_output=True,text=True,timeout=15)
+    if result.returncode or len(result.stdout.encode())>4096:bridge().fail('pro_native_options_unavailable')
+    try:
+        from participant_pro_comments import options
+        return options(json.loads(result.stdout))
+    except (ValueError,TypeError):bridge().fail('pro_native_options_unavailable')
+
+def selection(request, environ=None, installation=None, *, native_comments=None):
     """Only fall back BEFORE creating a run; an uncertain Pro run never reruns MC."""
     env = os.environ if environ is None else environ
     explicit = 'source_executor' in request
@@ -120,7 +133,7 @@ def selection(request, environ=None, installation=None):
     if requested == 'mc':
         return {'backend': 'mc', 'requested_backend': 'mc'}
     if explicit:
-        reason=explicit_unsupported(request,env)
+        reason=explicit_unsupported(request,env,native_comments=native_comments)
         if reason:bridge().fail(reason)
         if not installation:bridge().fail('pro_task_installation_missing')
         return {'backend':'pro','requested_backend':'pro','root':str(Path(installation['root']).resolve()),'python':installation['python'],**({'session_identity_mode':'fixed_original_session_v1','dy_sign_mode':'installed_pure_js_v1'} if dy_scope_enabled(request,env) else {})}

@@ -42,7 +42,7 @@ def source_failure_error(status):
 class ParticipantOutbox(CloudOutbox):
     REJECTIONS=frozenset({'invalid_envelope','request_reused','invalid_pro_payload','invalid_pro_record',
         'record_hash_mismatch','invalid_timestamp','unrelated_note','pro_not_selected','task_full',
-        'detail_not_admitted','safety_pause','test_completed'})
+        'detail_not_admitted','safety_pause','test_completed','comment_parent_denied','invalid_pro_comment','comment_request_mismatch','comments_not_enabled','comment_capture_sealed','invalid_comment_capture','comment_capture_objects_mismatch','invalid_comment_pages','comment_capture_pages_mismatch','comment_capture_parent_mismatch','comment_capture_incomplete','lease_lost','approval_required','pro_scope_denied'})
     def __init__(self,root,rpc):
         super().__init__(root,rpc)
         with self._db() as db:
@@ -68,28 +68,51 @@ class ParticipantOutbox(CloudOutbox):
                 require(old==(request,encoded),'participant_payload_conflict');return request
             db.execute('INSERT INTO participant_delivery VALUES(?,?,?,?,?,NULL)',(request,lease['task_id'],record['content_id'],encoded,'pending'))
         return request
+    def stage_comment(self,record,lease,provenance,parent_request):
+        from participant_pro_comments import payload
+        return self.stage_comment_payload(payload(record,provenance),lease,parent_request)
+    def stage_comment_payload(self,payload,lease,parent_request):
+        from participant_pro_comments import validate_payload,request_id,COMMENT,canonical
+        record=validate_payload(payload,lease['task_id'],parent_request)
+        request=request_id(payload['provenance']['local_run_id'],lease['task_id'],record['content_id'],record['comment_id'] if payload['schema']==COMMENT else None)
+        params={'p_task':lease['task_id'],'p_lease':lease['lease'],'p_request':request,'p_parent_request':parent_request,'p_payload':payload,'p_installation_id':lease['installation_id']}
+        uuid_value(lease['lease']);uuid_value(lease['installation_id'])
+        # Existing durable table, separate typed key; never collide with old content_id/UUID.
+        key=('comment:' if payload['schema']==COMMENT else 'comment-capture:')+record['content_id']+(':'+record['comment_id'] if payload['schema']==COMMENT else '')
+        encoded=canonical(params)
+        with self._db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            old=db.execute('SELECT request,params FROM participant_delivery WHERE task=? AND content_id=?',(lease['task_id'],key)).fetchone()
+            if old:require(old==(request,encoded),'participant_payload_conflict');return request
+            db.execute('INSERT INTO participant_delivery VALUES(?,?,?,?,?,NULL)',(request,lease['task_id'],key,encoded,'pending'))
+        return request
     def flush(self,task_id=None):
         import json
         with self._db() as db:rows=db.execute("SELECT request,params FROM participant_delivery WHERE state='pending' AND (? IS NULL OR task=?) ORDER BY rowid",(task_id,task_id)).fetchall()
         for request,encoded in rows:
             params=json.loads(encoded)
+            child=params['p_payload'].get('schema') in ('crowd-participant-pro-comment-v1','crowd-participant-pro-comment-capture-v1')
             try:
-                lookup=self.client('pro_receipt',{'p_task':params['p_task'],'p_installation_id':params['p_installation_id'],'p_request':request})
+                lookup=self.client('pro_comment_receipt' if child else 'pro_receipt',{'p_task':params['p_task'],'p_installation_id':params['p_installation_id'],'p_request':request})
                 require(isinstance(lookup,dict) and type(lookup.get('found')) is bool and lookup.get('request')==request,'participant_receipt_invalid')
-                receipt=lookup.get('receipt') if lookup['found'] else self.client('pro_submit',params)
+                receipt=lookup.get('receipt') if lookup['found'] else self.client(('pro_comment_submit' if params['p_payload']['schema']=='crowd-participant-pro-comment-v1' else 'pro_comment_commit') if child else 'pro_submit',params)
                 if isinstance(receipt,dict) and set(receipt)=={'error'} and receipt.get('error') in self.REJECTIONS:
                     with self._db() as db:db.execute('UPDATE participant_delivery SET state=?,receipt=? WHERE request=? AND params=?',('rejected',mc_runner.canonical(receipt),request,encoded))
                     if receipt['error'] not in ('unrelated_note','task_full'):return 'rejected'
                     continue
-                require(isinstance(receipt,dict) and receipt.get('request')==request and receipt.get('gate')=='received' and receipt.get('source_kind')=='mediacrawler_pro' and receipt.get('reward_eligible') is False and receipt.get('record_hash')==params['p_payload']['record']['record_hash'],'participant_receipt_invalid')
-                require(type(receipt.get('inserted')) is bool and type(receipt.get('duplicate')) is bool and receipt['inserted']!=receipt['duplicate'] and type(receipt.get('task_received')) is int and ((receipt['inserted'] and type(receipt.get('proof_id')) is int and receipt['proof_id']>0) or (receipt['duplicate'] and (receipt.get('proof_id') is None or type(receipt.get('proof_id')) is int and receipt['proof_id']>0))),'participant_receipt_invalid')
+                if child:
+                    from participant_pro_comments import validate_receipt
+                    validate_receipt(receipt,request,params['p_payload'],params['p_parent_request'])
+                else:
+                    require(isinstance(receipt,dict) and receipt.get('request')==request and receipt.get('gate')=='received' and receipt.get('source_kind')=='mediacrawler_pro' and receipt.get('reward_eligible') is False and receipt.get('record_hash')==params['p_payload']['record']['record_hash'],'participant_receipt_invalid')
+                    require(type(receipt.get('inserted')) is bool and type(receipt.get('duplicate')) is bool and receipt['inserted']!=receipt['duplicate'] and type(receipt.get('task_received')) is int and ((receipt['inserted'] and type(receipt.get('proof_id')) is int and receipt['proof_id']>0) or (receipt['duplicate'] and (receipt.get('proof_id') is None or type(receipt.get('proof_id')) is int and receipt['proof_id']>0))),'participant_receipt_invalid')
             except Exception:return 'unknown'  # Preserve exact durable UUID/payload; never re-source.
             with self._db() as db:db.execute('UPDATE participant_delivery SET state=?,receipt=? WHERE request=? AND params=?',('delivered',mc_runner.canonical(receipt),request,encoded))
         with self._db() as db:rejected=db.execute("SELECT count(*) FROM participant_delivery WHERE state='rejected' AND (? IS NULL OR task=?)",(task_id,task_id)).fetchone()[0]
         return 'rejected' if rejected else 'delivered'
     def receipts(self,task_id=None):
         import json
-        with self._db() as db:return [json.loads(r[0]) for r in db.execute("SELECT receipt FROM participant_delivery WHERE state='delivered' AND (? IS NULL OR task=?) ORDER BY rowid",(task_id,task_id))]
+        with self._db() as db:return [v for r in db.execute("SELECT receipt FROM participant_delivery WHERE state='delivered' AND (? IS NULL OR task=?) ORDER BY rowid",(task_id,task_id)) if (v:=json.loads(r[0])).get('gate')=='received']
 
 class ParticipantProWorker:
     """One original-task acquisition run; resume never launches a second source run.
@@ -139,10 +162,13 @@ class ParticipantProWorker:
             if request is None:
                 options=self.request_options
                 require(isinstance(options,dict) and set(options)=={'purpose','max_api_requests'},'participant_request_invalid')
-                require(task.get('comments_capture') is not True,'participant_native_comments_unsupported')
+                resolved=None
+                if task.get('comments_capture') is True:
+                    from participant_pro_comments import options as native_options
+                    resolved=native_options(self.runner('comment_options',{}));require(resolved['comments'] is True,'participant_native_comments_disabled')
                 query=task['anchor_terms'][0] if isinstance(task.get('anchor_terms'),list) and len(task['anchor_terms'])==1 else task.get('query')
                 request={'platform':'xhs','mode':'search','source_executor':'pro','session_id':self.session,'targets':[query],
-                         'comments':False,'replies':False,'media':False,**options}
+                         'comments':bool(resolved),'replies':resolved['replies'] if resolved else False,'media':False,**options,**({'max_comments':resolved['max_comments']} if resolved else {})}
             require(request.get('platform')=='xhs' and request.get('source_executor')=='pro' and request.get('session_id')==self.session and request.get('mode') in ('search','detail'),'participant_request_invalid')
             if task.get('comments_capture') is not True:
                 require(request.get('comments') is False and request.get('replies') is False,'participant_comments_not_authorized')
@@ -155,7 +181,11 @@ class ParticipantProWorker:
                 p['max_api_requests']=recovery['total_limit']-recovery['used_requests']
                 control=self.transport('pro_guard',{'p_task':self.task_id,'p_lease':task['lease_token'],'p_action':'control','p_note':None,'p_installation_id':self.installation})
                 require(isinstance(control,dict) and control.get('allowed') is True and control.get('reason') is None and type(control.get('counts',{}).get('detail')) is int and control['counts']['detail']==recovery['expected_detail_count'],'participant_recovery_count_changed')
-            p=mc_runner.validate(p)
+            resolved=None
+            if task.get('comments_capture') is True:
+                from participant_pro_comments import options as native_options
+                resolved=native_options(self.runner('comment_options',{}));require(resolved['comments'] is True and all(p.get(k)==resolved[k] for k in ('comments','replies','max_comments')),'participant_native_comments_changed')
+            p=mc_runner.validate(p,native_comments=resolved)
             own_known=claim.get('known_note_ids');nested_known=task.get('known_note_ids')
             for values in (own_known,nested_known):
                 require(isinstance(values,list) and len(values)<=500 and all(isinstance(v,str) and re.fullmatch('[a-f0-9]{24}',v) for v in values) and len(values)==len(set(values)),'participant_known_ids_invalid')
@@ -167,6 +197,7 @@ class ParticipantProWorker:
             require(p['start_page']==1,'participant_start_page_invalid')
             binding=getattr(self.transport,'binding',None);require(isinstance(binding,dict),'participant_transport_binding_required')
             context={'schema':'crowd-participant-pro-local-v1','binding':dict(binding),'node':self.transport.node,'task_id':self.task_id,'lease':task['lease_token'],'installation_id':self.installation,'known_ids':server_known,'search_sort':'time_descending','limit':grant['remaining'],'target':grant['target'],'request_sha256':digest(p)}
+            if resolved is not None:context['comment_options']=resolved
             if recovery is not None:context['recovery']=recovery
             if recovering and 'native_start' in json.loads(encoded_context):context['native_start']=json.loads(encoded_context)['native_start']
             with self.outbox._db() as db:
@@ -193,9 +224,26 @@ class ParticipantProWorker:
             with self.outbox._db() as db:db.execute('UPDATE participant_runs SET context=? WHERE task=?',(mc_runner.canonical(context),self.task_id))
         content=[r for r in records if r.get('kind')=='content'];require(len(content)<=context['limit'],'participant_source_limit_exceeded')
         self.phase='stage'
+        comment_plans=[]
+        if context.get('comment_options') is not None:
+            from participant_pro_comments import capture_payload,payload,validate_payload,body_request
+            meta=imported.get('participant_comment_capture');require(isinstance(meta,dict),'participant_comment_evidence_missing')
+            comments=[r for r in records if r.get('kind')=='comment']
+            require(all(r.get('content_id') in {n['content_id'] for n in content} for r in comments),'participant_comment_parent_missing')
+            prov={'local_run_id':run_id,'upstream_commit':PINNED_COMMIT,'request_sha256':context['request_sha256'],'captured_at':context['captured_at']}
+            for note in content:
+                children=[r for r in comments if r['content_id']==note['content_id']];parent=body_request(run_id,self.task_id,note['content_id'])
+                pages=[r for r in meta['pages'] if r.get('content_id')==note['content_id']]
+                cap=capture_payload(note['content_id'],children,pages,meta['sha256'],meta['coverage'],prov,self.task_id,context['comment_options'])
+                for child in children:validate_payload(payload(child,prov),self.task_id,parent)
+                comment_plans.append((parent,children,cap,prov))
         for r in content:
             require(r.get('content_id') not in context['known_ids'],'participant_known_content_returned')
             self.outbox.stage(r,{'task_id':self.task_id,'lease':context['lease'],'installation_id':self.installation},{'local_run_id':run_id,'upstream_commit':PINNED_COMMIT,'request_sha256':context['request_sha256'],'captured_at':context['captured_at']})
+        for parent,children,cap,prov in comment_plans:
+            lease={'task_id':self.task_id,'lease':context['lease'],'installation_id':self.installation}
+            for child in children:self.outbox.stage_comment(child,lease,prov,parent)
+            self.outbox.stage_comment_payload(cap,lease,parent)
         self.phase='delivery'
         delivered=self.outbox.flush(self.task_id)
         if delivered!='delivered':
@@ -211,10 +259,16 @@ class ParticipantProWorker:
         if not any(r.get('inserted') is True for r in self.outbox.receipts(self.task_id)):
             with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('partial',self.task_id))
             return {'state':'partial','reason':'no_new_received','run_id':run_id,'source_started':False}
+        if any(cap['record']['coverage']['coverage'] != 'exhausted' for _,_,cap,_ in comment_plans):
+            with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('partial',self.task_id))
+            return {'state':'partial','reason':'comments_incomplete','run_id':run_id,'source_started':False}
         # Not enough relevant native records is partial; never open another source run implicitly.
         with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('finish_unknown',self.task_id))
         self.phase='finish'
         receipt=self.transport('pro_finish',{'p_task':self.task_id,'p_lease':context['lease'],'p_installation_id':self.installation})
+        if isinstance(receipt,dict) and receipt.get('error')=='comments_incomplete':
+            with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('partial',self.task_id))
+            return {'state':'partial','reason':'comments_incomplete','run_id':run_id,'source_started':False}
         fresh=self.transport('pro_status',{'p_task':self.task_id,'p_installation_id':self.installation})
         task=fresh.get('task') if isinstance(fresh,dict) else None
         complete=isinstance(task,dict) and task.get('id')==self.task_id and task.get('source_executor')=='mediacrawler_pro' and type(task.get('received')) is int and task.get('target')==context['target'] and task['received']==task['target'] and task.get('status')=='complete'
@@ -347,6 +401,9 @@ def local_runner(root,mc,*,participant_channel=None):
                     return mc_runner.start(root,mc,payload['request'],participant_context=payload['participant_context'],participant_rpc_fd=fd)
             return mc_runner.start(root,mc,payload['request'],participant_context=payload['participant_context'])
         if action=='status':return mc_runner.status(root,payload)
+        if action=='comment_options':
+            from pro_executor import resolved_comment_options
+            return resolved_comment_options(root)
         if action=='inspect':
             from pro_executor import observations
             run=mc_runner.run_dir(root,payload['run_id']);manifest=mc_runner.read(run/'manifest.json');status=mc_runner.read(run/'status.json');budget=mc_runner.read(run/'request-budget.json')
@@ -374,7 +431,11 @@ def local_runner(root,mc,*,participant_channel=None):
             return {'participant_context_sha256':digest(manifest.get('participant_pro')),'session_idle':session_idle,'budget_binding_valid':budget_binding_valid,'checkpoint_seed':checkpoint_seed,'state':status.get('state'),'exit_code':status.get('exit_code'),'checkpoint_created':status.get('checkpoint_created'),'checkpoint_present':cp is not None,'participant_binding':manifest.get('participant_pro',{}).get('binding'),'task_id':manifest.get('participant_pro',{}).get('task_id'),'installation_id':manifest.get('participant_pro',{}).get('installation_id'),'session_id':manifest.get('request',{}).get('session_id'),'observation_count':len(observations(run,manifest)),'used_requests':budget.get('used'),'total_limit':budget.get('limit'),'guard_failure':failure,'detail_admissions':sum(e.get('action')=='detail' and e.get('outcome')=='admitted' for e in journal.get('events',[])),'selected_note_ids':[n['note_id'] for n in (cp or {}).get('crawled_note_list',[])],'saved_files_sha256':{name:hashlib.sha256((run/name).read_bytes()).hexdigest() for name in saved_names}}
         if action=='import':
             result=mc_runner.import_output(root,payload)
-            result['manifest']=mc_runner.read(mc_runner.run_dir(root,payload['run_id'])/'manifest.json')
+            run=mc_runner.run_dir(root,payload['run_id']);result['manifest']=mc_runner.read(run/'manifest.json')
+            if result['manifest'].get('participant_pro',{}).get('comment_options') is not None:
+                path=run/'pro-pagination.json';blob=path.read_bytes() if path.is_file() else None
+                value=__import__('json').loads(blob) if blob is not None else {'pages':[]}
+                result['participant_comment_capture']={'pages':value['pages'],'sha256':hashlib.sha256(blob).hexdigest() if blob is not None else None,'coverage':result.get('pro_acquisition',{}).get('pagination',{'coverage':'unknown','reason':'pagination_evidence_missing'})}
             return result
         raise ParticipantError('participant_runner_action_invalid')
     return call

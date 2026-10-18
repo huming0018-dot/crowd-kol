@@ -57,7 +57,7 @@ class AutomaticMaterials:
             else:write(path,{'state':'waiting','context':c})
             if local not in self.running and not self.running:
                 config=private_json(self.root/'data-products/material-auto-runtime.json')
-                if type(config)is not dict or set(config)not in (KEYS,KEYS|{'pro_snapshot_sha256'}):raise ValueError('material_auto_config_invalid')
+                if type(config)is not dict or set(config)not in (KEYS,KEYS|{'pro_snapshot_sha256'},KEYS|{'pro_snapshot_sha256','pro_comments_sha256'}):raise ValueError('material_auto_config_invalid')
                 if _digest(config['worker_script'])!=config['worker_sha256']:raise ValueError('material_auto_worker_changed')
                 r={'process':None,'thread':None};self.running[local]=r
                 thread=threading.Thread(target=self._work,args=(local,path,config,r),daemon=True)

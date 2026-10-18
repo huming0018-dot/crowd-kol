@@ -11,7 +11,7 @@ from participant_pro_transport import ParticipantTransportError
 
 SCHEMA='crowd-participant-native-v1'
 LIMIT=262144
-METHODS=frozenset({'scope','verify_platform_principal','pro_claim','pro_guard','pro_submit','pro_status','pro_receipt','pro_finish'})
+METHODS=frozenset({'scope','verify_platform_principal','pro_claim','pro_guard','pro_submit','pro_status','pro_receipt','pro_finish','pro_comment_submit','pro_comment_commit','pro_comment_receipt'})
 BASE={'schema','type','id','session','epoch'}
 EXTRA={'pro_hello':{'version'},'pro_start':{'subject','installation_id','task_id','intent'},
        'pro_status':{'run_id'},'pro_stop':{'run_id'},'rpc_request':{'method','params'},

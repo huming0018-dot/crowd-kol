@@ -178,7 +178,7 @@ def validate_options(p):
             if p.get(field,False): fail('bilibili_dynamics_'+field+'_unavailable')
             p.setdefault(field,False)
 
-def validate(payload):
+def validate(payload, *, native_comments=None):
     allowed = {'platform','mode','targets','max_items','comments','replies','media','purpose','authorization_ref','session_id','max_api_requests','timeout_seconds','max_comments','headless','start_page','interval_seconds','platform_options','wordcloud','source_executor'}
     if not isinstance(payload, dict) or set(payload) - allowed:
         fail('invalid_request')
@@ -222,9 +222,13 @@ def validate(payload):
             fail('invalid_target_id')
     for target in targets: execution_target(p['platform'],p['mode'],target)
     validate_options(p)
+    if native_comments is not None:
+        from participant_pro_comments import options
+        resolved=options(native_comments)
+        if p.get('source_executor')!='pro' or p.get('platform')!='xhs' or not resolved['comments'] or any(p.get(k)!=resolved[k] for k in ('comments','replies','max_comments')):fail('participant_native_comments_changed')
     for field, default, low, high in [('max_items',20,1,100),('max_comments',20,0,200),('max_api_requests',20,1,500),('timeout_seconds',600,30,1800),('start_page',1,1,10000)]:
         v = p.setdefault(field,default)
-        if type(v) is not int or not low <= v <= high:
+        if type(v) is not int or not (v>=0 if native_comments is not None and field=='max_comments' else low <= v <= high):
             fail('invalid_' + field)
     if 'interval_seconds' in p and (type(p['interval_seconds']) not in (int,float) or not 0 <= p['interval_seconds'] <= 300): fail('invalid_interval_seconds')
     if p['mode'] == 'search' and p['max_items'] < 20 and p.get('source_executor') != 'pro':
@@ -241,7 +245,7 @@ def validate(payload):
     p['session_id'] = uid(p['session_id']) if p.get('session_id') else str(uuid.uuid4())
     if p.get('source_executor') == 'pro':
         from pro_executor import explicit_unsupported
-        reason = explicit_unsupported(p)
+        reason = explicit_unsupported(p,native_comments=native_comments)
         if reason: fail(reason)
     return p
 
@@ -457,9 +461,10 @@ def run_dir(root, run_id):
 
 def start(root, mc, payload, continuation=None, *, participant_context=None, participant_rpc_fd=None):
     rpc_env, rpc_fds = participant_fd_environment(participant_context, participant_rpc_fd)
-    p = validate(payload)
+    native_comments=participant_context.get('comment_options') if isinstance(participant_context,dict) else None
+    p = validate(payload,native_comments=native_comments)
     from pro_executor import selection, prepare, task_installation
-    executor, info, python = prepare(root, mc, p, selection(p, installation=task_installation(root,p)))
+    executor, info, python = prepare(root, mc, p, selection(p, installation=task_installation(root,p),native_comments=native_comments))
     root = Path(root).resolve()
     mc = Path(mc).resolve()
     if not python.is_file():
@@ -506,7 +511,7 @@ def start(root, mc, payload, continuation=None, *, participant_context=None, par
         manifest['source_continuation'] = initialize_run(run, continuation)
         manifest['source_continuation_lease'] = continuation['_lease']
     if participant_context is not None:
-        if p.get('source_executor')!='pro' or p['platform']!='xhs' or p['comments'] or p['replies'] or continuation is not None:
+        if p.get('source_executor')!='pro' or p['platform']!='xhs' or (p['comments'] or p['replies']) and native_comments is None or continuation is not None:
             fail('participant_context_invalid')
         from participant_pro_hooks import ParticipantNativeHooks
         ParticipantNativeHooks(participant_context, None)  # Validate before any child starts.

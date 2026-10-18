@@ -5,7 +5,7 @@ import cp from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 const EXTENSION='licijehcpohikchlnkbpjdjdfkcocndg';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
-const ACTIONS=new Set(['scope','verify_platform_principal','pro_claim','pro_guard','pro_submit','pro_status','pro_finish','pro_receipt']);
+const ACTIONS=new Set(['scope','verify_platform_principal','pro_claim','pro_guard','pro_submit','pro_status','pro_finish','pro_receipt','pro_comment_submit','pro_comment_commit','pro_comment_receipt']);
 const SAFE=new Set(['invalid_participant_transport','invalid_participant_scope','invalid_participant_action','invalid_participant_params','invalid_platform_principal','participant_profile_invalid','participant_port_invalid','participant_listener_invalid','participant_profile_changed','participant_worker_missing','participant_worker_invalid','participant_scope_changed','participant_writer_busy']);
 export function safeFailure(error){return SAFE.has(error?.message)?error.message:'participant_rpc_outcome_unknown';}
 function requireValue(value,code){if(!value)throw Error(code);}

@@ -33,7 +33,7 @@ def validate_context(c):
  need(type(c['group_sha256'])is str and re.fullmatch('[a-f0-9]{64}',c['group_sha256']) is not None)
  need(type(c['group_path'])is str and Path(c['group_path']).is_absolute());return c
 def extract(group):
- need(type(group)is dict and set(group)==GROUP);need(len(canonical(group).encode())<=MAX_BYTES)
+ need(type(group)is dict and set(group)in (GROUP,GROUP|{'comment_receipts','comment_captures'}));need(len(canonical(group).encode())<=MAX_BYTES)
  s=scope({k:group[k]for k in SCOPE});cursor(group['group_cursor'],s)
  need(group['task_status']in ('open','leased','complete','paused','cancelled'))
  need(type(group['target'])is int and type(group['received'])is int and 0<=group['received']<=group['target']<=100000)
@@ -55,19 +55,30 @@ def extract(group):
   n=receipt['task_received'];need(receipt['request']==request and type(receipt['proof_id'])is int and receipt['proof_id']==pid and receipt['gate']=='received'and receipt['inserted']is True and receipt['duplicate']is False and receipt['source_kind']=='mediacrawler_pro'and receipt['reward_eligible']is False and receipt['record_hash']==sha and type(n)is int and 1<=n<=group['received']and n not in counts)
   seen.add(request);proofs.add(pid);notes.add(note);counts.add(n)
  ordered=sorted(rows,key=lambda x:(timestamp(x['created_at']),x['request']))
- last=ordered[-1];need(group['group_cursor']['created_at']==last['created_at']and group['group_cursor']['request']==last['request'])
- return {'schema':SCHEMA,'scope':s,'task_status':group['task_status'],'target':group['target'],'received':group['received'],'group_cursor':group['group_cursor'],'receipts':ordered,'coverage':'unknown'if group['task_status']=='complete'else'partial','source_kind':'durable_participant_pro_receipt_not_original_http','reward_eligible':False}
+ children={}
+ if 'comment_receipts'in group:
+  from participant_pro_comments import validate_children
+  validate_children(rows,group['comment_receipts'],group['comment_captures'],s['task_id'])
+  children={'comment_receipts':group['comment_receipts'],'comment_captures':group['comment_captures']}
+ all_rows=ordered+children.get('comment_receipts',[])+children.get('comment_captures',[])
+ last=max(all_rows,key=lambda x:(timestamp(x['created_at']),x['request']));need(group['group_cursor']['created_at']==last['created_at']and group['group_cursor']['request']==last['request'])
+ return {'schema':SCHEMA,'scope':s,'task_status':group['task_status'],'target':group['target'],'received':group['received'],'group_cursor':group['group_cursor'],'receipts':ordered,'coverage':'unknown'if group['task_status']=='complete'else'partial','source_kind':'durable_participant_pro_receipt_not_original_http','reward_eligible':False,**children}
 def original_group(snapshot):
- need(type(snapshot)is dict and set(snapshot)=={'schema','scope','task_status','target','received','group_cursor','receipts','coverage','source_kind','reward_eligible'}and snapshot['schema']==SCHEMA)
+ need(type(snapshot)is dict and set(snapshot)in ({'schema','scope','task_status','target','received','group_cursor','receipts','coverage','source_kind','reward_eligible'},{'schema','scope','task_status','target','received','group_cursor','receipts','coverage','source_kind','reward_eligible','comment_receipts','comment_captures'})and snapshot['schema']==SCHEMA)
  s=snapshot['scope'];scope(s);group={**s,**{k:snapshot[k]for k in ['task_status','target','received','group_cursor','receipts']}}
+ if 'comment_receipts'in snapshot:group.update({k:snapshot[k]for k in ['comment_receipts','comment_captures']})
  need(extract(group)==snapshot);return group
 def project_id(snapshot):
  original_group(snapshot);return 'confirmed-pro-'+digest(snapshot['scope'])[:24]
 def records(snapshot):
- original_group(snapshot);return {row['request']:row for row in snapshot['receipts']}
+ original_group(snapshot)
+ if 'comment_receipts'not in snapshot:return {row['request']:row for row in snapshot['receipts']}
+ from participant_pro_comments import validate_children
+ attached=validate_children(snapshot['receipts'],snapshot['comment_receipts'],snapshot['comment_captures'],snapshot['scope']['task_id'])
+ return {row['request']:{**row,**attached[row['request']]}for row in snapshot['receipts']}
 def bundle(snapshot):
  original_group(snapshot);sources=[];candidates=[]
- for row in snapshot['receipts']:
+ for row in records(snapshot).values():
   rec=row['pro_payload']['record'];text=rec['body'];rid=row['request'];title=text[:80]
   sources.append({'version_id':rid,'source_id':rec['platform']+'-ugc','source_kind':'ugc','canonical_body':text,'canonical_body_sha256':hashlib.sha256(text.encode()).hexdigest(),'retrieved_at':row['created_at']})
   evidence=[{'source_version_id':rid,'start':0,'end':len(title),'quote':title,'field':'title'}]+[{'source_version_id':rid,'start':start,'end':min(start+5000,len(text)),'quote':text[start:start+5000],'field':'text'}for start in range(0,len(text),5000)]

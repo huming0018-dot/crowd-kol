@@ -83,6 +83,19 @@ class ParticipantNativeHooks:
             return await original_detail(client,note_id,*args,**kwargs)
         self.originals=[(client_class,'get_note_by_keyword',original_search),(client_class,'get_note_by_id',original_detail)]
         client_class.get_note_by_keyword,client_class.get_note_by_id=search,detail
+        if self.context.get('comment_options') is not None:
+            from participant_pro_comments import options
+            resolved=options(self.context['comment_options'])
+            for method in ['get_note_comments','get_note_sub_comments']:
+                original=getattr(client_class,method)
+                def wrap(original=original,method=method):
+                    async def call(client,note_id,*args,**kwargs):
+                        if not resolved['comments'] or method=='get_note_sub_comments' and not resolved['replies'] or note_id not in hook.details:
+                            hook.record('comment','principal_unverified');raise SystemExit(78)
+                        await hook.guard('comment',note_id)
+                        return await original(client,note_id,*args,**kwargs)
+                    return call
+                self.originals.append((client_class,method,original));setattr(client_class,method,wrap())
         return self
     def restore(self):
         for cls,name,original in reversed(self.originals):setattr(cls,name,original)
