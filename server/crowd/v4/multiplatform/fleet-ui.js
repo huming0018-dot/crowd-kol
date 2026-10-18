@@ -64,6 +64,19 @@
     }catch(_error){heading.textContent='云端任务与终端 · 查询失败，状态待核对';body.replaceChildren(node('p','无法读取最新状态；不会据此判定终端正常或重新发送任务。'));}
     finally{pending=false;}
   }
+  function controlDiagnosticText(value){
+    if(!value||typeof value!=='object'||Array.isArray(value)||value.schema!=='crowd-control-diagnostic-v1')return null;
+    const names={timeout:'控制请求超时',cancelled:'控制检查已取消',network_unknown:'控制请求连接异常，具体原因未知',http_4xx:'控制接口拒绝请求',http_5xx:'控制接口服务异常',invalid_json:'控制响应格式无法解析',backend_error:'控制响应报告业务错误',policy_schema_invalid:'控制合同字段不合法',policy_version_regression:'控制合同版本倒退',response_slow:'控制响应超过时限',clock_regression:'本机时钟倒退',local_gate_failure:'本机准入检查未通过',ok:'控制检查已通过',terminal_response:'控制检查到达正常停止边界'};
+    const causes={cancelled:'检查已取消',task_reconciliation_required:'本机页面元数据待对账',admission_rejected:'受限许可未准入',local_unknown:'本机准入原因待核对'};
+    const integer=(v,lo,hi)=>Number.isSafeInteger(v)&&v>=lo&&v<=hi;
+    const keys=['schema','kind','http_status','elapsed_ms','at_ms'];if(!keys.every(k=>Object.hasOwn(value,k))||Object.keys(value).some(k=>!keys.includes(k)&&k!=='cause')||typeof value.kind!=='string'||!Object.hasOwn(names,value.kind))return null;
+    if(value.http_status!==null&&!integer(value.http_status,100,599)||value.elapsed_ms!==null&&!integer(value.elapsed_ms,0,300000)||value.at_ms!==null&&!integer(value.at_ms,0,4102444800000))return null;
+    if(value.kind==='http_4xx'&&!integer(value.http_status,400,499)||value.kind==='http_5xx'&&!integer(value.http_status,500,599))return null;
+    if(Object.hasOwn(value,'cause')&&(value.kind!=='local_gate_failure'||typeof value.cause!=='string'||!Object.hasOwn(causes,value.cause)))return null;
+    let text='控制诊断（客户端观测）：'+names[value.kind];if(Object.hasOwn(value,'cause'))text+=' · '+causes[value.cause];
+    if(value.http_status!==null)text+=' · HTTP '+value.http_status;if(value.elapsed_ms!==null)text+=' · '+value.elapsed_ms+' 毫秒';
+    if(value.at_ms!==null)text+=' · 发生 '+new Date(value.at_ms).toLocaleString();return text;
+  }
   function renderEvents(more){
     timelineBody.replaceChildren(node('p','云端更新时间：'+when(checkedAt)+' · 参与者保留最近7天；机器面板显示最近60条，云端保留范围另行核验。'+(more?'正在继续读取后续记录；当前尚未追平。':'')));
     if(gaps.size)timelineBody.append(node('p','有 '+gaps.size+' 个终端的步骤序号曾有跳跃或更早记录未保留，需核对补传完整性。'));
@@ -71,6 +84,7 @@
       const item=node('p');item.textContent=when(row.occurred_at||row.received_at)+' · 终端 '+short(row.installation_id)+' · 任务 '+short(row.logical_task_id)+' · '+(steps[row.step]||'未识别步骤')+'：'+(statuses[row.status]||'状态待核对');
       if(row.error_code)item.textContent+=' · '+(reasons[row.error_code]||'异常代码待核对');
       if(Number.isFinite(row.duration_ms)&&row.duration_ms>=0)item.textContent+=' · '+(row.duration_ms/1000).toFixed(2)+' 秒';
+      const control=controlDiagnosticText(row.control_diagnostic);if(control)item.append(node('small',' · '+control));
       timelineBody.append(item);
     }
     for(const row of machineRows.slice(-60).reverse()){
