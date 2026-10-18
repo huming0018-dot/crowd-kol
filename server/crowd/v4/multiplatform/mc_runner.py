@@ -227,7 +227,7 @@ def validate(payload):
         if type(v) is not int or not low <= v <= high:
             fail('invalid_' + field)
     if 'interval_seconds' in p and (type(p['interval_seconds']) not in (int,float) or not 0 <= p['interval_seconds'] <= 300): fail('invalid_interval_seconds')
-    if p['mode'] == 'search' and p['max_items'] < 20:
+    if p['mode'] == 'search' and p['max_items'] < 20 and p.get('source_executor') != 'pro':
         fail('upstream_search_minimum_20')
     for field, default in [('comments',True),('replies',False),('media',False),('headless',False),('wordcloud',False)]:
         if type(p.setdefault(field, default)) is not bool:
@@ -455,7 +455,7 @@ def run_dir(root, run_id):
         fail('run_not_found')
     return folder
 
-def start(root, mc, payload, continuation=None):
+def start(root, mc, payload, continuation=None, *, participant_context=None):
     p = validate(payload)
     from pro_executor import selection, prepare, task_installation
     executor, info, python = prepare(root, mc, p, selection(p, installation=task_installation(root,p)))
@@ -504,6 +504,12 @@ def start(root, mc, payload, continuation=None):
         from source_continuation import initialize_run
         manifest['source_continuation'] = initialize_run(run, continuation)
         manifest['source_continuation_lease'] = continuation['_lease']
+    if participant_context is not None:
+        if p.get('source_executor')!='pro' or p['platform']!='xhs' or p['comments'] or p['replies'] or continuation is not None:
+            fail('participant_context_invalid')
+        from participant_pro_hooks import ParticipantNativeHooks
+        ParticipantNativeHooks(participant_context, None)  # Validate before any child starts.
+        manifest['participant_pro'] = participant_context
     write(run/'manifest.json',manifest)
     write(run/'status.json',{'run_id':run_id,'state':'starting','phase':'starting','session_id':p['session_id'],'platform':p['platform'],'mode':p['mode'],'executor':executor['backend'],'executor_fallback_reason':executor.get('fallback_reason'),'source_kind':'mediacrawler_api','reward_eligible':False,'updated_at':time.time()})
     proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_worker','--run-id',run_id,'--lock-fd',str(lock.fileno())],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock.fileno(),))

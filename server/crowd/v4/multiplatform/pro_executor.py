@@ -1023,6 +1023,7 @@ def execute(run, manifest, *, mc_root=None):
     native_steps = NativeSteps(run, manifest['run_id'], request['platform'])
     parent = int(os.environ['CROWD_MC_SUPERVISOR_PID'])
     account_hook=None
+    participant_hook=None
     tieba_curl=None
     bili_wbi=None
     seed_hook=None
@@ -1053,6 +1054,9 @@ def execute(run, manifest, *, mc_root=None):
             config.ENABLE_IP_PROXY, config.ENABLE_LOG_FILE = False, False
             config.MAX_CONCURRENCY_NUM, config.START_PAGE = 1, request['start_page']
             config.SPECIFIED_CHECKPOINT_ID = manifest['run_id']
+            if manifest.get('participant_pro') is not None:
+                if manifest['participant_pro'].get('search_sort')!='time_descending':raise SystemExit(78)
+                config.SORT_TYPE='time_descending'  # Original XHS SearchSortType.LATEST.
             if 'interval_seconds' in request: config.CRAWLER_TIME_SLEEP = request['interval_seconds']
             if not native_provider:
                 sign = urlsplit(selected['binding']['sign_url'])
@@ -1172,6 +1176,11 @@ def execute(run, manifest, *, mc_root=None):
             else:
                 account_hook=install_pro_account_hooks(run.parent.parent,request['session_id'],request['platform'],
                     manifest['run_id'],account_event,httpx,client_type)
+            if manifest.get('participant_pro') is not None:
+                if request['platform']!='xhs':raise SystemExit(78)
+                from participant_pro_hooks import from_context
+                participant_hook=from_context(manifest['participant_pro'],client_type)
+                account_hook.principal_validator=participant_hook.identity
             if manifest.get('source_continuation') is not None:
                 if request['platform']!='wb':raise SystemExit(78)
                 from pro_weibo_seed import install_seed
@@ -1256,5 +1265,6 @@ def execute(run, manifest, *, mc_root=None):
         if bili_wbi is not None:bili_wbi.restore()
         if seed_hook is not None:seed_hook.restore()
         if pagination_hook is not None:pagination_hook.restore()
+        if participant_hook is not None:participant_hook.restore()
         if account_hook is not None:account_hook.restore()
         finished.set()

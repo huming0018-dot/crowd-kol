@@ -63,6 +63,7 @@ class ProAccountHooks:
         self.event, self.httpx, self.client_class = event, httpx_module, client_class
         self.capture = ContextVar('pro_self_check', default=None)
         self.original_send, self.original_pong = httpx_module.AsyncClient.send, client_class.pong
+        self.principal_validator = None
 
     def emit(self, value):
         fields = ('state', 'session_id', 'platform', 'generation', 'identity_status', 'account_ref',
@@ -129,6 +130,8 @@ class ProAccountHooks:
                 if value is not None:hook.emit(value)
                 # An unavailable/invalid self check is not evidence of logout.
                 raise SystemExit(77 if proof == 'logged_out' else 86)
+            if hook.principal_validator is not None:
+                await hook.principal_validator(hook.platform,uid)
             different=expected_context is not None and safe_account_ref(hook.platform,uid)!=expected_context['account_ref']
             try:
                 value=hook.store.observe(hook.session_id,hook.platform,'authenticated',hook.run_id,uid,
