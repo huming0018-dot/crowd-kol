@@ -89,8 +89,8 @@ class ParticipantNativeHooks:
         self.originals=[]
 
 def from_context(context,client_class,*,run=None,timeout_seconds=600):
-    from participant_pro_transport import ParticipantProTransport
-    rpc=ParticipantProTransport(**context['binding'],node=context['node'])
+    from participant_native_rpc import from_context as transport_from_context
+    rpc=transport_from_context(context)
     journal=None
     if run is not None:
         from pathlib import Path

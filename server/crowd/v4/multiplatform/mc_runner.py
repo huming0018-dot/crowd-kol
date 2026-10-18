@@ -455,7 +455,8 @@ def run_dir(root, run_id):
         fail('run_not_found')
     return folder
 
-def start(root, mc, payload, continuation=None, *, participant_context=None):
+def start(root, mc, payload, continuation=None, *, participant_context=None, participant_rpc_fd=None):
+    rpc_env, rpc_fds = participant_fd_environment(participant_context, participant_rpc_fd)
     p = validate(payload)
     from pro_executor import selection, prepare, task_installation
     executor, info, python = prepare(root, mc, p, selection(p, installation=task_installation(root,p)))
@@ -512,7 +513,7 @@ def start(root, mc, payload, continuation=None, *, participant_context=None):
         manifest['participant_pro'] = participant_context
     write(run/'manifest.json',manifest)
     write(run/'status.json',{'run_id':run_id,'state':'starting','phase':'starting','session_id':p['session_id'],'platform':p['platform'],'mode':p['mode'],'executor':executor['backend'],'executor_fallback_reason':executor.get('fallback_reason'),'source_kind':'mediacrawler_api','reward_eligible':False,'updated_at':time.time()})
-    proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_worker','--run-id',run_id,'--lock-fd',str(lock.fileno())],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock.fileno(),))
+    proc = subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_worker','--run-id',run_id,'--lock-fd',str(lock.fileno())],env=rpc_env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock.fileno(),)+rpc_fds)
     lock.close()
     return {'run_id':run_id,'state':'starting','session_id':p['session_id'],'supervisor_pid':proc.pid,'executor':executor['backend'],'executor_fallback_reason':executor.get('fallback_reason'),'source_kind':'mediacrawler_api','reward_eligible':False}
 
@@ -657,6 +658,23 @@ def safe_phase_progress(run):
         pass
     return {'phase_observation_error':'phase_unreadable'}
 
+def participant_fd_environment(context, fd=None, *, inherited=False):
+    # Capability stays only in the controlled Popen chain, never in durable manifests.
+    env=dict(os.environ)
+    native=isinstance(context,dict) and context.get('binding',{}).get('transport')=='native'
+    raw=env.pop('CROWD_PARTICIPANT_RPC_FD',None)
+    if native:
+        if inherited:
+            try:fd=int(raw)
+            except (TypeError,ValueError):fail('participant_rpc_fd_invalid')
+        try:valid=type(fd) is int and fd>2 and stat.S_ISSOCK(os.fstat(fd).st_mode)
+        except OSError:valid=False
+        if not valid:fail('participant_rpc_fd_invalid')
+        env['CROWD_PARTICIPANT_RPC_FD']=str(fd)
+        return env,(fd,)
+    if fd is not None:fail('participant_rpc_fd_invalid')
+    return env,()
+
 def worker(root, mc, run_id, lock_fd):
     run = run_dir(root,run_id)
     manifest = read(run/'manifest.json')
@@ -668,7 +686,11 @@ def worker(root, mc, run_id, lock_fd):
     borrowed=existing_browser_session(root,p['session_id']) if 'session_id' in p and selected.get('backend')!='pro' else False
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUNBUFFERED='1', MPLCONFIGDIR=str(run/'cache/matplotlib'), XDG_CACHE_HOME=str(run/'cache'),CROWD_MC_SUPERVISOR_PID=str(os.getpid()))
     python=selected['python'] if selected.get('backend')=='pro' else str(Path(mc)/'.venv/bin/python')
-    child = subprocess.Popen([python,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_execute','--run-id',run_id],cwd=run,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock_fd,))
+    rpc_env,rpc_fds=participant_fd_environment(manifest.get('participant_pro'),inherited=True)
+    env.pop('CROWD_PARTICIPANT_RPC_FD',None)
+    if rpc_fds:env['CROWD_PARTICIPANT_RPC_FD']=rpc_env['CROWD_PARTICIPANT_RPC_FD']
+    child = subprocess.Popen([python,str(Path(__file__).resolve()),'--root',str(root),'--mc-root',str(mc),'_execute','--run-id',run_id],cwd=run,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,pass_fds=(lock_fd,)+rpc_fds)
+    for fd in rpc_fds:os.close(fd)  # Only _execute owns the source endpoint after spawn.
     started = time.monotonic()
     reason = None
     from native_media_scope import output_byte_usage

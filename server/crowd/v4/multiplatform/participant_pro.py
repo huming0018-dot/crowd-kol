@@ -93,12 +93,12 @@ class ParticipantProWorker:
     runner(action,payload) is the existing mc_runner start/status/import contract.
     Native source hooks receive only the safe participant context, never credentials.
     """
-    def __init__(self,root,transport,runner,*,task_id,installation_id,subject,session_id,known_ids):
+    def __init__(self,root,transport,runner,*,task_id,installation_id,subject,session_id,known_ids,request_options=None):
         for v in (installation_id,subject,session_id):uuid_value(v)
         require(type(task_id) is int and task_id>0,'participant_task_invalid')
         require(isinstance(known_ids,list) and len(known_ids)==len(set(known_ids)) and all(isinstance(v,str) and re.fullmatch('[a-f0-9]{24}',v) for v in known_ids),'participant_known_ids_invalid')
         self.transport,self.runner=transport,runner;self.task_id,self.installation,self.subject,self.session=task_id,installation_id,subject,session_id
-        self.known_ids=known_ids;self.outbox=ParticipantOutbox(root,transport)
+        self.known_ids=known_ids;self.request_options=request_options;self.outbox=ParticipantOutbox(root,transport)
     def tick(self,request):
         import json
         self.phase='local_status'
@@ -125,13 +125,20 @@ class ParticipantProWorker:
             if old:
                 with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('partial',self.task_id))
             return {'state':'partial','reason':'known_delivery_rejected','source_started':False}
-        recovering=bool(old and state=='recover_ready')
+        recovering=bool(old and state in ('recover_ready','native_ready'))
         if old and not recovering:
             if state=='launching':return {'state':'source_launch_unknown','source_started':False}
         else:
             claim=self.transport('pro_claim',{'p_task':self.task_id,'p_installation_id':self.installation})
             task,grant=claim_scope(claim,self.task_id,self.installation)
             if grant['remaining']==0:return {'state':'stopped','source_started':False}
+            if request is None:
+                options=self.request_options
+                require(isinstance(options,dict) and set(options)=={'purpose','max_api_requests'},'participant_request_invalid')
+                require(task.get('comments_capture') is not True,'participant_native_comments_unsupported')
+                query=task['anchor_terms'][0] if isinstance(task.get('anchor_terms'),list) and len(task['anchor_terms'])==1 else task.get('query')
+                request={'platform':'xhs','mode':'search','source_executor':'pro','session_id':self.session,'targets':[query],
+                         'comments':False,'replies':False,'media':False,**options}
             require(request.get('platform')=='xhs' and request.get('source_executor')=='pro' and request.get('session_id')==self.session and request.get('mode') in ('search','detail'),'participant_request_invalid')
             if task.get('comments_capture') is not True:
                 require(request.get('comments') is False and request.get('replies') is False,'participant_comments_not_authorized')
@@ -157,9 +164,10 @@ class ParticipantProWorker:
             binding=getattr(self.transport,'binding',None);require(isinstance(binding,dict),'participant_transport_binding_required')
             context={'schema':'crowd-participant-pro-local-v1','binding':dict(binding),'node':self.transport.node,'task_id':self.task_id,'lease':task['lease_token'],'installation_id':self.installation,'known_ids':server_known,'search_sort':'time_descending','limit':grant['remaining'],'target':grant['target'],'request_sha256':digest(p)}
             if recovery is not None:context['recovery']=recovery
+            if recovering and 'native_start' in json.loads(encoded_context):context['native_start']=json.loads(encoded_context)['native_start']
             with self.outbox._db() as db:
                 if recovering:
-                    changed=db.execute('UPDATE participant_runs SET state=?,run_id=NULL,context=? WHERE task=? AND state=?',('launching',mc_runner.canonical(context),self.task_id,'recover_ready')).rowcount
+                    changed=db.execute('UPDATE participant_runs SET state=?,run_id=NULL,context=? WHERE task=? AND state=?',('launching',mc_runner.canonical(context),self.task_id,state)).rowcount
                     require(changed==1,'participant_recovery_changed')
                 else:db.execute('INSERT INTO participant_runs VALUES(?,?,NULL,?)',(self.task_id,'launching',mc_runner.canonical(context)))
             # A crash/unknown launch leaves launching durable; it is never automatically retried.
@@ -273,10 +281,14 @@ class ParticipantProWorker:
         return {'state':'recover_ready','previous_run_id':previous_run_id,'remaining_source_requests':total_request_limit-used,'source_started':False}
 
 
-def local_runner(root,mc):
+def local_runner(root,mc,*,participant_channel=None):
     """Reuse established subprocess runner/import/export; never copy Pro source."""
     def call(action,payload):
-        if action=='start':return mc_runner.start(root,mc,payload['request'],participant_context=payload['participant_context'])
+        if action=='start':
+            if participant_channel is not None:
+                with participant_channel() as fd:
+                    return mc_runner.start(root,mc,payload['request'],participant_context=payload['participant_context'],participant_rpc_fd=fd)
+            return mc_runner.start(root,mc,payload['request'],participant_context=payload['participant_context'])
         if action=='status':return mc_runner.status(root,payload)
         if action=='inspect':
             from pro_executor import observations
