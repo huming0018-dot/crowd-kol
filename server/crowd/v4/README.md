@@ -17,3 +17,5 @@ Edge函数源码仍需要可信配置渲染，不得直接部署包含占位符�
 单对象 131072 字节、原 native 帧及 Owner 8MiB 读取限制保留，不截断正文或评论。Python canonical JSON 与 PostgreSQL jsonb 文本编码不同，中央有效对象上限可能略严；边界拒绝保留原保存记录及错误，不冒完成。Pro 原生评论上限和回复开关须在请求/封存中明示，不能暗加采集数量限制；媒体引用和媒体文件字节分别验收。
 
 隔离回归：设置现成 PGlite 依赖目录 `CROWD_TEST_TOOLS`，并将 `CROWD_COMMENT_MIGRATION` 指向本次正式迁移，再运行 `supabase/tests/pro-comments/test_pro_comments.mjs`；设置 `CROWD_COMMENT_EDGE` 指向 `supabase/functions/crowd-machine/participant_pro_receipts.mjs` 后运行同目录 `test_pro_comment_feed.mjs`。默认 fixture 为合成35评论/13页，无网络或生产回退；真实保存输入和生产回执另列证据。正式采用顺序为支持两协议的 Owner、中央迁移/Edge、匹配的参与者 Python/扩展/原生助手；本节不代表已部署或已取得新来源回执。
+
+Owner评论回执查询会在原排序/分页前跳过尚未封存的组，避免一个中断的任务挡住后面的已完成批次；这些组没有被标记已处理，原完整遍历后的重扫会在封存到达后重新读到。已封存但父链/哈希不合法的数据仍明确报错，不吞异常。公平性回归在同目录 test_pro_comment_fairness.mjs，同时设置 CROWD_COMMENT_MIGRATION 为原评论迁移及 CROWD_FAIRNESS_MIGRATION 为后续公平性迁移；默认合成输入91项，真实来源及线上回读另记HANDOFF。
