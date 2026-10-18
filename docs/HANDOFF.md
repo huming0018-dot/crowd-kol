@@ -1,5 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
+## 当前追加｜2026-10-19 03:24 CST｜Pro批次分享已接入本机正式运行，远程消费仍有两项门
+
+- **源码与实现**：正式源码`fb47cd9`新增原publication_share的显式Pro `publish/verify/links`分支和资料库批次选择；`5fee8a9`修复实际UI范围说明被动态状态覆盖。复用原Consumer、PublicationClient、私桶、900秒签链与Next消费页，无新队列/数据库/权限/SDK。原六店单request_id协议不变。所选context绑定原ACK group、scope、project及逐条receipt后才允许put；未知put由包级intent阻止重复上传，显式verify只读核对四格式，确认后再显式签链。未修改Pro请求/解析/评论/媒体核心。
+- **本机实际采用**：原45937现在唯一PID **91236**，不可变`owner-pro-share-ui-b258791623011de0`，481源文件逐hash核对，实际UI SHA`6bc108b2f11e5bceb5c1ae49b935633bcb3570d04f480ad0d631a82c52b162ee`；auto配置SHA`b49e7c6f2a436fb61c06b94f7e92a8ac5b90d478ba7050f1963e5f803b99a093`。五锁、五库备份/schema业务行、原native task29 complete2/2/pending0、343原资产、原评分和进度均保。root正常UI实点资料库→分享参与者素材，task29/19各2条可选；切换、关闭重开后范围说明持续显示，未点生成或复制。正常UI截图在G04-owner-ui-adoption/ACTUAL-OWNER-SHARE.png。
+- **真实结果与独审**：非作者对采用后481文件/五库/native/原Jobs及12 HTTP复核通过；前一已采用版本自然扫描85.255秒，两个原job各1行/5阶段，队列[]/contexts为空，没有重算。另一独审76.49秒两读中，8个Pro实际HTTP导出逐字节等G03原件，原31素材及六店内容/指针同原hash。最终静态UI修复后再核全部8格式同hash。**本轮没有新采集、新来源ACK或模型调用**；这是task19/29已有4条Pro材料交付能力接线，不冒新任务验收或评论/媒体字节完成。只验证空闲Owner进程重启，不称在途崩溃恢复。
+- **发现/修复**：独审曾以29状态错指19合法发布指针复现错误批次put，V1拒采用；V2新增原ACK逐条绑定后同反例0云调用。采用器第一次在备份RO查询报unable-to-open，未退出原86092/未改配置/未建新runtime；失败INTENT和5份备份全保，不能重放。备份与原库后来读取业务一致；新真实WAL fixture复现机制，改为目的备份DELETE并显式关闭连接后通过，未忽略源WAL。历史报错唯一触发时序仍未知。修正采用后90265成功，再以唯一静态UI新版本采用为91236。
+- **Next状态**：原china-travel-food/app仅`lib/publication-capability.ts`及新回归测试已修改；接受Pro项目名不构成权限，原签名GET/字节数/SHA/实际JSON项目绑定及UID/六店保留。源码SHA`8b2a030167a1109ffcaa84b95fbec772c835aac49393cee655066010895a3f35`，完整Next14.1.0构建exit0；首次依赖树缺已锁qrcode，后复用同lock现成完整依赖，未安装新依赖。63文件为构建输入；PWA替换旧workbox并生成sw/next-env，BUILD-OUTPUT单列。**未部署**：连接与本机现有凭据对原Vercel项目均403，已停止尝试；当前线上部署/sourceSHA未验证，不另建项目绕开。
+- **云分享边界/下一步**：本轮新增Pro包和意图目录仍不存在，真实上传/签链=0。原task19/29四格式分别212042/101374B，分两包不扩250k上限。已向用户发出一次具体范围确认：原Supabase私桶crowd-publication-snapshots保存及回取这两批，并各签15分钟免登录只读链接；此前六店批准不自动覆盖新scope。待答复，不把默认选项当许可；若仅允私存，不签匿名链接。另需恢复原Vercel项目访问，已有部署授权无需重复询问。访问恢复后先核原项目当前版本、部署已审单文件改动，再按批准范围真实云保存/四格式回取/匿名消费；未知写先只读对账。
+- **未完成主线**：G04异机真实消费仍未验；G03采用后全新来源ACK、在途恢复，G05真人知识决定/领域评分与撤回、同context换pack显式重算、第二设备Pro依赖/登录恢复/无人值守runtime OTA及原生参与者评论媒体仍待推进。48小时实验和watchdog仍暂停。证据索引见下列G04条目；整体目标保持进行中，不能标完整产品完成。
+
 ## 当前追加｜2026-10-19 02:54 CST｜Pro ACK自动素材链已正式运行
 
 - **实现/源码**：已将中央参与者Pro回执接到现有postprocessing耐久列表、AutomaticMaterials单子进程、原051 Jobs/Stages.clean/score/audit和Consumer；没有重写Pro平台核心、另建队列或评分器。正式源码a33ecb4、迁移账本对齐4b673e7已推crowd-kol/codex/v4.0.6-handoff；9个Owner运行文件来自已审冻结，不把整个HEAD冒实际运行。

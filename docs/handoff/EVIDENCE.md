@@ -818,3 +818,23 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 | review/g03-g04-current/ACTUAL-MATERIALS-FINAL.json（f8b93125…）、actual/{FIRST-FORMATS-VERIFIED,SECOND-STABLE-READ}.json及其实际文件 | 非作者核两job各1/5stage、自然95.303秒job ledger/145.534秒HTTP同、8文件hash/mtime不变，无重复Jobs、source/model0；不冒真实重启或新ACK-afteradopt |
 | review/g03-g04-current/{A2-FINAL,ABC-FINAL,ADOPTER-FINAL,FORMAL-AND-ACTUAL-A2-FINAL}.json | A2 09269b0b/ABC8822bbba/采用bba8b3f6/源码线上c90fcde4；各范围与未验项保留；RED晚提交/跨时钟/float等原反例可追 |
 | G03/OPTIMIZATION_PLAN.md；G04-readonly-contract/{CONTRACT.md,FACTS.json} | 双路线采用理由和剩余G04最小复用点；两scope101374/212042B分别可入现250k合同，合并不行；未新上传或匿名外发 |
+
+## 2026-10-19 03:24 CST｜G04实现、正式运行与尚未通过的云门
+
+证据根：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`（下称RUN18）。本地原件不含于公开仓；无法读取时标未验证。
+
+| 证据 | 用途与结果 |
+|---|---|
+| G04-backend-candidate-v2/FREEZE.json；review/g04-contract/BACKEND-V2-FINAL.json | 后端V2 freeze6a51425d；独审SHA27bcef3e1859723d151441494927326a8c06b82dc3920ec5f4ed8c1d38743466。旧错scope反例保存，V2拒且0云调用；旧六店保。 |
+| G04-ui-candidate-v2/FREEZE.json；review/g04-ui-central/FINAL-V2.json | UI freezee6e1361a；实际提示覆盖RED/永久说明GREEN；独审SHA8083492d640f0ecfe877ab8f6f839c9ec9604d4771ec1125713fac28c7643722。 |
+| G04-next-candidate/FREEZE.json；review/g04-contract/NEXT-FINAL.json | 单生产文件Pro项目格式兼容；原GET/SHA/project/expiry/UID/六店保。独审SHA74753525d0ea1e3c7cdcb96e061757dea0040d579ab45f448b77fd18bf29bb37。 |
+| G04-formal-adoption；G04-next-adoption；G04-next-release/{SOURCE,BUILD-OUTPUT}.json、BUILD-COMPLETE-DEPS.log | 正式文件CAS与回归；Next完整build成功。SOURCE63为输入，PWA生成另列，未上传Vercel。独审review/g04-formal-release-central/FINAL.json SHAb73403af2fc73cfca4ab8f171acb7db80caff8ef38b439d69c7ae3c9ac921e80。 |
+| G04-adoption-preparation/APPLY.log、runtime-adoption/INTENT.json及5backup；review/g04-contract/FAILED-ADOPTION-CURRENT-READ.json | 首采用在备份查询失败、原runtime未替换；源与备份业务一致，历史原件保留，禁止重放。保护独审SHA11ab2443982db9606c876ee3c07ae8a5ef76ee9ac3e76be5f3c2211ec13b5846。 |
+| G04-adoption-preparation-v2/FREEZE.json及runtime-adoption/ADOPTED.json | WAL真实fixture与备份修正；新采用90265成功，独审ADOPTER-V2-FINAL SHAffaa745de69e3e7f5d3f4a66ee8d446c4555037d06c71dca2a58e9301d93dbd4。 |
+| G04-owner-ui-adoption/PLAN.json、runtime-adoption/ADOPTED.json、ACTUAL-OWNER-SHARE.png | 最终91236实际静态修复采用；plan7f020696；正常UI显示两scope，切换与重开固定说明仍可见，未点生成。 |
+| review/g04-contract/ACTUAL-ADOPTION-FINAL.json；review/g04-actual-http-central/FINAL.json | 85.255秒自然重扫账本不变；76.49秒两次13GET/8Pro格式与原件一致。独审SHA46335faf8cfaeca7746ee82896ea74928dda9f53b66940bc74ff19a0305d5bc1 / 735b46bfb6d82352db69f0a7365e4adf6ae0840d1a49178a3a4a2d2bbd56d7a9。 |
+| review/g04-contract/ACTUAL-UI-FINAL.json | 最终91236、481源、五库/native/343文件、8Pro实际HTTP及31/六店等值，share目录不存在。独审SHAfebb1ecd54eafb402f631edd8ac583bb9646ecbc6b25f569de513210c1acb2d6。 |
+| G04-adoption-preparation/VERCEL-READONLY.json | 原project/team限定访问403；未部署、未查询Secret值、未换项目。线上sourceSHA未验证。 |
+
+真实分享授权尚待用户答复：两批共4条公开正文、来源引用和追踪编号的8格式共313416B及清单；原私桶保存/回验与各900秒匿名只读链接分开服从答复。链接尚不存在；不把内存Storage测试当云回执。全部本轮改动均不等于新来源ACK、媒体字节、评论分页、内容质量、真人奖励或完整产品验收。
+

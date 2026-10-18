@@ -812,3 +812,12 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 审查发现并修复尾页游标、晚commit漏ACK、8MiB读取/JSON节点、跨时钟误拒、整数类型；26PG/17Edge/7工具柜/10HTTP队列及7采用器fixture；独审ABC8822bbba、采用bba8b3f6、实际f8b93125。原始失败反例和修复记录保留。
 - 证据根：爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry/G03、owner-pro-materials-adoption、review/g03-g04-current。PRIVATE原件不上传。在线handoff读不到本地原件须标未核验。
 - 下一步：上线后新ACK/重启幂等、G04两个Pro快照分scope远端消费；G05真实知识决定/同数据重算及撤回；D1其他设备/登录/连续runtime OTA和评论媒体。48h/watchdog暂停保持，整个目标未完成。
+
+## 2026-10-19 03:24 CST｜G04正式Owner批次分享接线与真实采用
+
+- **接力者/审查**：Codex /root实现UI与集成；central_steps实现后端且独审UI/HTTP；knowledge_reuse_probe实现Next/采用器；native_diagnostics_review非作者审后端、Next、采用器及实际DB/runtime。作者自检与独审分开。
+- **目标/实际改动**：复用原发布/消费组件接入ready Pro批次，增加显式publish/verify/links及耐久未知写保护；修复独审的跨批次指针绑定和实机UI说明消失。正式6文件提交fb47cd9，UI两文件修复5fee8a9；未夹带他人dirty改动。Next工作树仅一生产文件/一新测试，未新增提交或部署。
+- **验证**：正式后端12、UI最终10及非作者12受控用例；原六店回归、2scope真实Consumer四格式与原Edge内存2put/8get；Next原React两scope/8格式与403、SHA、项目、过期、迟到响应/下载用例及完整构建通过。采用器原8及真实WAL2通过；第一次实际采用失败保留，修正后正式采用成功。最终独审481源、五库/native/343资产、原8导出及31/六店未变。无新来源/模型/上传/签链。
+- **部署/生效**：本机45937 PID91236，owner-pro-share-ui-b258791623011de0，UI6bc108b2，cfgb49e7c6f已回读；中央46原样。Next仅源码和完整构建通过，原Vercel项目403未部署，线上未知。待新增两批分享范围与原项目访问恢复；不重复旧INTENT、不重开已完任务、不启动实验。
+- **证据/下一步**：RUN18/G04-*及review/g04-contract、g04-ui-central、g04-actual-http-central、g04-formal-release-central；详见EVIDENCE本轮索引。用户答复后仅按精确scope动作，恢复访问后再做远程消费；继续PRODUCT-PLAN1.3完整目标，非G04全部完成。
+
