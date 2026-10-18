@@ -108,4 +108,69 @@ class WorkerWhole(unittest.TestCase):
             self.assertEqual(calls.count('start'),1);self.assertEqual(rpc.received,22);self.assertEqual(len(worker.outbox.receipts()),2)
             self.assertEqual(len({r['request'] for r in worker.outbox.receipts()}),2)
 
+
+class KnownFailureRecovery(unittest.TestCase):
+    def test_failed_zero_does_not_finish_and_explicit_retry_keeps_budget_and_uuid_ancestry(self):
+        from pro_executor import PINNED_COMMIT
+        with tempfile.TemporaryDirectory() as temp:
+            subject,install,sid,lease,grant,oldrun,newrun=[UID() for _ in range(7)]
+            trace=[];received=[20];attempt=[0]
+            binding={'profile':'/original','subject':subject,'installation_id':install,'generation':7}
+            def batch():return {'schema':'crowd-acceptance-batch-v1','id':grant,'task_id':19,'installation_id':install,'baseline_received':2,'extra_limit':20,'remaining':22-received[0],'target':22}
+            class Transport:
+                node='/node'
+                def __init__(self):self.binding=dict(binding)
+                def scope(self):return {'subject':subject,'installation_id':install}
+                def __call__(self,a,p):
+                    trace.append(a)
+                    if a=='pro_claim':return {'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':['a'*24],'task':{'id':19,'lease_token':lease,'received':received[0],'target':22,'query':'fixture','comments_capture':False},'acceptance_supplement':batch()}
+                    if a=='pro_status':return {'task':{'id':19,'received':received[0],'target':22,'status':'complete' if received[0]==22 else 'open','source_executor':'mediacrawler_pro'},'acceptance_supplement':batch()}
+                    if a=='pro_guard':return {'allowed':True,'reason':None,'counts':{'detail':174}}
+                    if a=='pro_receipt':return {'found':False,'request':p['p_request'],'receipt':None}
+                    if a=='pro_submit':
+                        received[0]+=1
+                        return {'request':p['p_request'],'gate':'received','inserted':True,'duplicate':False,'task_received':received[0],'proof_id':received[0],'source_kind':'mediacrawler_pro','reward_eligible':False,'record_hash':p['p_payload']['record']['record_hash']}
+                    if a=='pro_finish':return {'status':'complete','received':22}
+                    raise AssertionError(a)
+            def runner(a,p):
+                if a=='start':
+                    attempt[0]+=1
+                    if attempt[0]==2:
+                        self.assertEqual(p['request']['max_api_requests'],14)
+                        self.assertEqual(p['participant_context']['recovery']['old_run_id'],oldrun)
+                    return {'run_id':oldrun if attempt[0]==1 else newrun}
+                if a=='inspect':return {'state':'failed','observation_count':0,'used_requests':6,'total_limit':20,'saved_files_sha256':{}}
+                if a=='status':return {'state':'failed' if p['run_id']==oldrun else 'completed'}
+                if a=='import':return {'records':[] if p['run_id']==oldrun else [record('b'*24),record('c'*24)],'manifest':{'source':{'commit':PINNED_COMMIT}}}
+                raise AssertionError(a)
+            worker=ParticipantProWorker(Path(temp),Transport(),runner,task_id=19,installation_id=install,subject=subject,session_id=sid,known_ids=['a'*24])
+            request={'platform':'xhs','source_executor':'pro','session_id':sid,'mode':'search','targets':['fixture'],'purpose':'noncommercial_research','comments':False,'replies':False,'max_api_requests':20}
+            self.assertEqual(worker.tick(request)['state'],'source_failed');self.assertNotIn('pro_finish',trace)
+            self.assertEqual(worker.tick(request)['state'],'source_failed');self.assertEqual(attempt[0],1)
+            result=worker.recover_known_failed_once(oldrun,expected_used_requests=6,expected_detail_count=174,expected_received=20)
+            self.assertEqual(result['remaining_source_requests'],14);self.assertEqual(attempt[0],1)
+            with self.assertRaises(ParticipantError):worker.recover_known_failed_once(oldrun,expected_used_requests=6,expected_detail_count=174,expected_received=20)
+            self.assertEqual(worker.tick(request)['state'],'complete');self.assertEqual(received[0],22)
+            self.assertEqual(worker.tick(request)['state'],'complete');self.assertEqual(attempt[0],2)
+
+
+class RecoveryDenials(unittest.TestCase):
+    def test_unknown_observed_or_budget_mismatch_never_prepares_retry(self):
+        import json
+        for state,observations,used in [('source_unknown',0,6),('source_failed',1,6),('source_failed',0,7)]:
+            with tempfile.TemporaryDirectory() as temp:
+                subject,install,sid,run=UID(),UID(),UID(),UID()
+                binding={'profile':'/original','subject':subject,'installation_id':install,'generation':7}
+                class Transport:
+                    node='/node'
+                    def __init__(self):self.binding=dict(binding)
+                    def scope(self):return {'subject':subject,'installation_id':install}
+                    def __call__(self,*a):raise AssertionError('no write/RPC after rejected saved evidence')
+                def runner(a,p):return {'state':'failed','observation_count':observations,'used_requests':used,'total_limit':20}
+                w=ParticipantProWorker(Path(temp),Transport(),runner,task_id=19,installation_id=install,subject=subject,session_id=sid,known_ids=[])
+                context={'binding':binding,'target':22}
+                with w.outbox._db() as db:db.execute('INSERT INTO participant_runs VALUES(?,?,?,?)',(19,state,run,json.dumps(context)))
+                with self.assertRaises(ParticipantError):w.recover_known_failed_once(run,expected_used_requests=6,expected_detail_count=174,expected_received=20)
+                with w.outbox._db() as db:self.assertEqual(db.execute('SELECT state FROM participant_runs').fetchone()[0],state)
+
 if __name__=='__main__':unittest.main()

@@ -63,9 +63,9 @@ class ParticipantOutbox(CloudOutbox):
                 require(old==(request,encoded),'participant_payload_conflict');return request
             db.execute('INSERT INTO participant_delivery VALUES(?,?,?,?,?,NULL)',(request,lease['task_id'],record['content_id'],encoded,'pending'))
         return request
-    def flush(self):
+    def flush(self,task_id=None):
         import json
-        with self._db() as db:rows=db.execute("SELECT request,params FROM participant_delivery WHERE state='pending' ORDER BY rowid").fetchall()
+        with self._db() as db:rows=db.execute("SELECT request,params FROM participant_delivery WHERE state='pending' AND (? IS NULL OR task=?) ORDER BY rowid",(task_id,task_id)).fetchall()
         for request,encoded in rows:
             params=json.loads(encoded)
             try:
@@ -80,11 +80,11 @@ class ParticipantOutbox(CloudOutbox):
                 require(type(receipt.get('inserted')) is bool and type(receipt.get('duplicate')) is bool and receipt['inserted']!=receipt['duplicate'] and type(receipt.get('task_received')) is int and ((receipt['inserted'] and type(receipt.get('proof_id')) is int and receipt['proof_id']>0) or (receipt['duplicate'] and (receipt.get('proof_id') is None or type(receipt.get('proof_id')) is int and receipt['proof_id']>0))),'participant_receipt_invalid')
             except Exception:return 'unknown'  # Preserve exact durable UUID/payload; never re-source.
             with self._db() as db:db.execute('UPDATE participant_delivery SET state=?,receipt=? WHERE request=? AND params=?',('delivered',mc_runner.canonical(receipt),request,encoded))
-        with self._db() as db:rejected=db.execute("SELECT count(*) FROM participant_delivery WHERE state='rejected'").fetchone()[0]
+        with self._db() as db:rejected=db.execute("SELECT count(*) FROM participant_delivery WHERE state='rejected' AND (? IS NULL OR task=?)",(task_id,task_id)).fetchone()[0]
         return 'rejected' if rejected else 'delivered'
-    def receipts(self):
+    def receipts(self,task_id=None):
         import json
-        with self._db() as db:return [json.loads(r[0]) for r in db.execute("SELECT receipt FROM participant_delivery WHERE state='delivered' ORDER BY rowid")]
+        with self._db() as db:return [json.loads(r[0]) for r in db.execute("SELECT receipt FROM participant_delivery WHERE state='delivered' AND (? IS NULL OR task=?) ORDER BY rowid",(task_id,task_id))]
 
 class ParticipantProWorker:
     """One original-task acquisition run; resume never launches a second source run.
@@ -108,15 +108,16 @@ class ParticipantProWorker:
             require(type(previous.get('generation')) is int and previous['generation']>=0 and binding.get('generation') in (None,previous['generation']),'participant_scope_changed')
             binding['generation']=previous['generation']  # BEFORE scope/RPC; Stop cannot mint new authority.
         require(self.transport.scope()=={'subject':self.subject,'installation_id':self.installation},'participant_scope_changed')
-        if old and state in ('partial','complete','finish_unknown'):
+        if old and state in ('partial','complete','finish_unknown','source_failed','source_unknown'):
             return {'state':state,'run_id':run_id,'source_started':False}
-        delivery=self.outbox.flush()
+        delivery=self.outbox.flush(self.task_id)
         if delivery=='unknown':return {'state':'delivery_unknown','source_started':False}
         if delivery=='rejected':
             if old:
                 with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('partial',self.task_id))
             return {'state':'partial','reason':'known_delivery_rejected','source_started':False}
-        if old:
+        recovering=bool(old and state=='recover_ready')
+        if old and not recovering:
             if state=='launching':return {'state':'source_launch_unknown','source_started':False}
         else:
             claim=self.transport('pro_claim',{'p_task':self.task_id,'p_installation_id':self.installation})
@@ -127,13 +128,25 @@ class ParticipantProWorker:
                 require(request.get('comments') is False and request.get('replies') is False,'participant_comments_not_authorized')
             require(task.get('query') in request.get('targets',[]) or (isinstance(task.get('anchor_terms'),list) and len(task['anchor_terms'])==1 and request.get('targets')==task['anchor_terms']),'participant_query_scope_invalid')
             require(len(request.get('targets',[]))==1,'participant_query_scope_invalid')
-            p={**request,'max_items':grant['remaining']};p=mc_runner.validate(p)
+            p={**request,'max_items':grant['remaining']}
+            recovery=context.get('recovery') if recovering else None
+            if recovery is not None:
+                require(task['received']==recovery['expected_received'],'participant_recovery_count_changed')
+                p['max_api_requests']=recovery['total_limit']-recovery['used_requests']
+                control=self.transport('pro_guard',{'p_task':self.task_id,'p_lease':task['lease_token'],'p_action':'control','p_note':None,'p_installation_id':self.installation})
+                require(isinstance(control,dict) and control.get('allowed') is True and control.get('reason') is None and type(control.get('counts',{}).get('detail')) is int and control['counts']['detail']==recovery['expected_detail_count'],'participant_recovery_count_changed')
+            p=mc_runner.validate(p)
             server_known=claim.get('known_note_ids')
             require(isinstance(server_known,list) and len(server_known)==len(set(server_known)) and all(isinstance(v,str) and re.fullmatch('[a-f0-9]{24}',v) for v in server_known) and set(self.known_ids)<=set(server_known),'participant_known_ids_invalid')
             require(p['start_page']==1,'participant_start_page_invalid')
             binding=getattr(self.transport,'binding',None);require(isinstance(binding,dict),'participant_transport_binding_required')
             context={'schema':'crowd-participant-pro-local-v1','binding':dict(binding),'node':self.transport.node,'task_id':self.task_id,'lease':task['lease_token'],'installation_id':self.installation,'known_ids':server_known,'search_sort':'time_descending','limit':grant['remaining'],'target':grant['target'],'request_sha256':digest(p)}
-            with self.outbox._db() as db:db.execute('INSERT INTO participant_runs VALUES(?,?,NULL,?)',(self.task_id,'launching',mc_runner.canonical(context)))
+            if recovery is not None:context['recovery']=recovery
+            with self.outbox._db() as db:
+                if recovering:
+                    changed=db.execute('UPDATE participant_runs SET state=?,run_id=NULL,context=? WHERE task=? AND state=?',('launching',mc_runner.canonical(context),self.task_id,'recover_ready')).rowcount
+                    require(changed==1,'participant_recovery_changed')
+                else:db.execute('INSERT INTO participant_runs VALUES(?,?,NULL,?)',(self.task_id,'launching',mc_runner.canonical(context)))
             # A crash/unknown launch leaves launching durable; it is never automatically retried.
             started=self.runner('start',{'request':p,'participant_context':context});run_id=uuid_value(started.get('run_id'))
             with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=?,run_id=? WHERE task=?',('running',run_id,self.task_id))
@@ -153,11 +166,18 @@ class ParticipantProWorker:
         for r in content:
             require(r.get('content_id') not in context['known_ids'],'participant_known_content_returned')
             self.outbox.stage(r,{'task_id':self.task_id,'lease':context['lease'],'installation_id':self.installation},{'local_run_id':run_id,'upstream_commit':PINNED_COMMIT,'request_sha256':context['request_sha256'],'captured_at':context['captured_at']})
-        delivered=self.outbox.flush()
+        delivered=self.outbox.flush(self.task_id)
         if delivered!='delivered':
             if delivered=='rejected':
                 with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('partial',self.task_id))
             return {'state':'partial' if delivered=='rejected' else 'delivery_unknown','run_id':run_id,'source_started':False}
+        if status.get('state')!='completed':
+            final='source_unknown' if status.get('state')=='interrupted_unknown' else 'source_failed'
+            with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',(final,self.task_id))
+            return {'state':final,'run_id':run_id,'source_started':False}
+        if not any(r.get('inserted') is True for r in self.outbox.receipts(self.task_id)):
+            with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('partial',self.task_id))
+            return {'state':'partial','reason':'no_new_received','run_id':run_id,'source_started':False}
         # Not enough relevant native records is partial; never open another source run implicitly.
         with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('finish_unknown',self.task_id))
         receipt=self.transport('pro_finish',{'p_task':self.task_id,'p_lease':context['lease'],'p_installation_id':self.installation})
@@ -166,7 +186,37 @@ class ParticipantProWorker:
         complete=isinstance(task,dict) and task.get('id')==self.task_id and task.get('source_executor')=='mediacrawler_pro' and type(task.get('received')) is int and task.get('target')==context['target'] and task['received']==task['target'] and task.get('status')=='complete'
         final='complete' if complete else 'partial'
         with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',(final,self.task_id))
-        return {'state':final,'run_id':run_id,'receipt_count':len(self.outbox.receipts()),'finish':receipt,'coverage':imported.get('summary',{}).get('coverage','unverified'),'comments_and_media':'preserved_in_original_run_exports','source_started':False}
+        return {'state':final,'run_id':run_id,'receipt_count':len(self.outbox.receipts(self.task_id)),'finish':receipt,'coverage':imported.get('summary',{}).get('coverage','unverified'),'comments_and_media':'preserved_in_original_run_exports','source_started':False}
+
+    def recover_known_failed_once(self,previous_run_id,*,expected_used_requests,expected_detail_count,expected_received):
+        """Explicit operator recovery of known failed-before-detail, never UNKNOWN replay.
+
+        Checks are local reads + authenticated status only. The next normal tick claims
+        the original task, verifies unchanged central detail count, then launches once.
+        """
+        import json
+        uuid_value(previous_run_id)
+        with self.outbox._db() as db:
+            old=db.execute('SELECT state,run_id,context FROM participant_runs WHERE task=?',(self.task_id,)).fetchone()
+            deliveries=db.execute('SELECT count(*) FROM participant_delivery WHERE task=?',(self.task_id,)).fetchone()[0]
+        require(old is not None and old[0] in ('partial','source_failed') and old[1]==previous_run_id and deliveries==0,'participant_recovery_refused')
+        context=json.loads(old[2]);require('recovery' not in context,'participant_recovery_already_used')
+        binding=self.transport.binding;previous=context['binding']
+        require(all(binding.get(k)==previous.get(k) for k in ('profile','subject','installation_id')) and type(previous.get('generation')) is int and binding.get('generation') in (None,previous['generation']),'participant_scope_changed')
+        binding['generation']=previous['generation']
+        require(self.transport.scope()=={'subject':self.subject,'installation_id':self.installation},'participant_scope_changed')
+        inspected=self.runner('inspect',{'run_id':previous_run_id})
+        require(inspected.get('state')=='failed' and inspected.get('observation_count')==0 and inspected.get('used_requests')==expected_used_requests and type(expected_used_requests) is int and expected_used_requests>=0 and type(inspected.get('total_limit')) is int and 1<=inspected['total_limit']-expected_used_requests<=500,'participant_recovery_refused')
+        require(type(expected_detail_count) is int and expected_detail_count>=0 and type(expected_received) is int and expected_received>=0,'participant_recovery_refused')
+        fresh=self.transport('pro_status',{'p_task':self.task_id,'p_installation_id':self.installation})
+        task=fresh.get('task',{});g=fresh.get('acceptance_supplement',{})
+        require(task.get('id')==self.task_id and task.get('source_executor')=='mediacrawler_pro' and task.get('received')==expected_received and task.get('target')==context['target'] and g.get('installation_id')==self.installation and g.get('task_id')==self.task_id and g.get('remaining')==context['target']-expected_received and g.get('remaining')>0,'participant_recovery_refused')
+        archive={'old_run_id':previous_run_id,'old_context':context,'old_context_sha256':digest(context),'inspection':inspected,'used_requests':expected_used_requests,'total_limit':inspected['total_limit'],'expected_detail_count':expected_detail_count,'expected_received':expected_received}
+        new={**context,'recovery':archive}
+        with self.outbox._db() as db:
+            changed=db.execute('UPDATE participant_runs SET state=?,context=? WHERE task=? AND state=? AND run_id=? AND context=?',('recover_ready',mc_runner.canonical(new),self.task_id,old[0],previous_run_id,old[2])).rowcount
+            require(changed==1,'participant_recovery_changed')
+        return {'state':'recover_ready','previous_run_id':previous_run_id,'remaining_source_requests':inspected['total_limit']-expected_used_requests,'source_started':False}
 
 
 def local_runner(root,mc):
@@ -174,6 +224,11 @@ def local_runner(root,mc):
     def call(action,payload):
         if action=='start':return mc_runner.start(root,mc,payload['request'],participant_context=payload['participant_context'])
         if action=='status':return mc_runner.status(root,payload)
+        if action=='inspect':
+            from pro_executor import observations
+            run=mc_runner.run_dir(root,payload['run_id']);manifest=mc_runner.read(run/'manifest.json');status=mc_runner.read(run/'status.json');budget=mc_runner.read(run/'request-budget.json')
+            require(manifest.get('source',{}).get('commit')==__import__('pro_executor').PINNED_COMMIT and manifest.get('participant_pro') is not None and budget.get('run_id')==payload['run_id'],'participant_recovery_refused')
+            return {'state':status.get('state'),'observation_count':len(observations(run,manifest)),'used_requests':budget.get('used'),'total_limit':budget.get('limit'),'saved_files_sha256':{name:hashlib.sha256((run/name).read_bytes()).hexdigest() for name in ('manifest.json','status.json','request-budget.json')}}
         if action=='import':
             result=mc_runner.import_output(root,payload)
             result['manifest']=mc_runner.read(mc_runner.run_dir(root,payload['run_id'])/'manifest.json')
@@ -193,6 +248,10 @@ def main():
     ap.add_argument('--task-id',type=int,required=True)
     ap.add_argument('--poll-seconds',type=int,default=2)
     ap.add_argument('--once',action='store_true')
+    ap.add_argument('--recover-known-failed-once')
+    ap.add_argument('--expected-used-requests',type=int)
+    ap.add_argument('--expected-detail-count',type=int)
+    ap.add_argument('--expected-received',type=int)
     args=ap.parse_args()
     require(1<=args.poll_seconds<=60,'participant_poll_invalid')
     rpc=ParticipantProTransport(args.profile,args.subject,args.installation_id,node=args.node)
@@ -200,6 +259,10 @@ def main():
         installation_id=args.installation_id,subject=args.subject,session_id=args.session_id,
         known_ids=mc_runner.read(args.known_ids_file))
     request=mc_runner.read(args.request_file)
+    if args.recover_known_failed_once:
+        result=worker.recover_known_failed_once(args.recover_known_failed_once,expected_used_requests=args.expected_used_requests,expected_detail_count=args.expected_detail_count,expected_received=args.expected_received)
+        print(mc_runner.canonical(result),flush=True)
+        return  # Explicit preparation only; separate normal invocation launches once.
     while True:
         result=worker.tick(request)
         # Safe summary only: never record, target URL, principal, config or RPC error text.

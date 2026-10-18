@@ -1179,7 +1179,7 @@ def execute(run, manifest, *, mc_root=None):
             if manifest.get('participant_pro') is not None:
                 if request['platform']!='xhs':raise SystemExit(78)
                 from participant_pro_hooks import from_context
-                participant_hook=from_context(manifest['participant_pro'],client_type)
+                participant_hook=from_context(manifest['participant_pro'],client_type,run=run,timeout_seconds=request['timeout_seconds'])
                 account_hook.principal_validator=participant_hook.identity
             if manifest.get('source_continuation') is not None:
                 if request['platform']!='wb':raise SystemExit(78)
@@ -1250,6 +1250,10 @@ def execute(run, manifest, *, mc_root=None):
         sink.update(phase='failed', failure_reason='dependency_missing')
         raise SystemExit(72)
     except SystemExit as error:
+        if participant_hook is not None and participant_hook.events:
+            last=participant_hook.events[-1]
+            if last['outcome'] in ('denied','rpc_unknown','deadline','principal_unverified'):
+                sink.update(phase='failed',failure_reason='participant_'+last['outcome'],participant_guard_reason=last.get('reason'))
         if error.code==77:
             progress=m.safe_phase_progress(run)
             if isinstance(progress,dict) and progress.get('account_identity_status')=='pro_self_check_unsupported':
