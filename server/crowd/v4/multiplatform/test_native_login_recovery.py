@@ -29,7 +29,7 @@ class LoginRecovery(unittest.TestCase):
   self.calls.append((method,p))
   if method=='scope':return {'subject':self.m.subject,'installation_id':self.m.install,'generation':self.m.epoch}
   task={'id':29,'received':self.received,'target':2,'status':'complete' if self.received==2 else 'leased','source_executor':'mediacrawler_pro','lease_token':self.m.lease,'query':'品牌','anchor_terms':['品牌'],'comments_capture':False,'known_note_ids':[]}
-  if method=='pro_status':return {'task':task,'acceptance_supplement':self.grant()}
+  if method=='pro_status':return {'task':{k:task[k] for k in ('id','received','source_executor','status','target')},'acceptance_supplement':self.grant()}
   if method=='pro_claim':self.m.lease=U();task['lease_token']=self.m.lease;return {'source_executor':'mediacrawler_pro','reward_eligible':False,'known_note_ids':[],'task':task,'acceptance_supplement':self.grant()}
   if method=='pro_guard':
    value=self.detail

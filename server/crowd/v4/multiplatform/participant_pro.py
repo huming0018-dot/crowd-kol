@@ -257,7 +257,8 @@ class ParticipantProWorker:
         task=fresh.get('task',{});g=fresh.get('acceptance_supplement',{})
         require(task.get('id')==self.task_id and task.get('source_executor')=='mediacrawler_pro' and task.get('received')==expected_received and task.get('target')==context['target'] and g.get('installation_id')==self.installation and g.get('task_id')==self.task_id and g.get('remaining')==context['target']-expected_received and g.get('remaining')>0,'participant_recovery_refused')
         if native_start is not None:
-            control=self.transport('pro_guard',{'p_task':self.task_id,'p_lease':task.get('lease_token'),'p_action':'control','p_note':None,'p_installation_id':self.installation})
+            lease=context.get('lease');uuid_value(lease)
+            control=self.transport('pro_guard',{'p_task':self.task_id,'p_lease':lease,'p_action':'control','p_note':None,'p_installation_id':self.installation})
             require(isinstance(control,dict) and control.get('allowed') is True and control.get('reason') is None and type(control.get('counts',{}).get('detail')) is int,'participant_recovery_refused')
             expected_detail_count=control['counts']['detail']
         require(type(expected_detail_count) is int and expected_detail_count>=0,'participant_recovery_refused')
