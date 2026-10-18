@@ -5,12 +5,19 @@ from automatic_materials import private_json,validate_context,material_context_k
 
 KEY=re.compile(r'pro-[a-f0-9]{64}')
 
-def publication(root,key):
+def publication(root,key,job_id=None):
     if type(key) is not str or KEY.fullmatch(key) is None:raise ValueError('material_delivery_unavailable')
     state=private_json(Path(root)/'data-products/material-auto'/(key+'.json'))
     context=validate_context(state['context'])
     if context['schema']!='crowd-participant-pro-material-context-v1' or material_context_key(context)!=key:
         raise ValueError('material_delivery_unavailable')
+    if job_id is not None:
+        if type(job_id)is not str or re.fullmatch('[a-f0-9]{64}',job_id)is None:raise ValueError('material_delivery_unavailable')
+        try:value=private_json(Path(root)/'data-products/material-auto'/job_id/'ready.json')
+        except OSError:raise ValueError('material_delivery_unavailable')from None
+        ctx=validate_context(value['context']);original=ctx['original']if ctx.get('schema')=='crowd-material-recompute-v1'else ctx
+        if original!=context or value.get('job_id')!=job_id or value.get('state')!='ready':raise ValueError('material_delivery_unavailable')
+        state=value
     if state.get('state') not in ('waiting','processing','ready','blocked'):raise ValueError('material_delivery_unavailable')
     return state
 

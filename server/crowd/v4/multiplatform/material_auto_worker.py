@@ -18,7 +18,12 @@ def main():
     finally:done.set()
 def process(root,path,cfg):
     if type(cfg)is not dict or set(cfg)not in (KEYS,KEYS|{'pro_snapshot_sha256'},KEYS|{'pro_snapshot_sha256','pro_comments_sha256'}):raise ValueError('material_auto_config_invalid')
-    state=private_json(path);c=validate_context(state['context'])
+    state=private_json(path);c=validate_context(state['context']);version_request=c if c.get('schema')=='crowd-material-recompute-v1'else None
+    if version_request:
+        if cfg!=version_request['config']:raise ValueError('material_recompute_config_changed')
+        c=version_request['original']
+        from participant_material_delivery import publication
+        if publication(root,version_request['pro_key']).get('job_id')!=version_request['expected_job']:raise ValueError('material_recompute_current_changed')
     if _digest(cfg['bridge_path'])!=cfg['bridge_sha256']:raise ValueError('material_auto_bridge_changed')
     if _digest(Path(cfg['runtime_root'])/'cloud_sync.py')!=cfg['runtime_cloud_sha256']:raise ValueError('material_auto_wire_changed')
     pro=c.get('schema')=='crowd-participant-pro-material-context-v1'
@@ -97,8 +102,10 @@ def process(root,path,cfg):
              'request':str(request_path),'request_sha256':sha(canonical(request))}
     # Only materials pointer changes, after ready; domain-runtime stays intact.
     if not pro:write(root/'data-products/material-runtime.json',pointer)
-    write(path,{**state,'state':'ready','job_id':job_id,'items':len(delivered['items']),'coverage':snapshot['coverage'],
-                'fresh_acknowledged':fresh,'snapshot_sha256':sha(snapraw),'source_requests':0,'model_calls':0,**({'source_scope':snapshot['scope'],'publication_pointer':pointer}if pro else {})})
+    ready={**state,'state':'ready','job_id':job_id,'items':len(delivered['items']),'coverage':snapshot['coverage'],
+                'fresh_acknowledged':fresh,'snapshot_sha256':sha(snapraw),'source_requests':0,'model_calls':0,**({'source_scope':snapshot['scope'],'publication_pointer':pointer}if pro else {})}
+    write(path,ready)
+    if pro:write(project/'ready.json',ready)
 if __name__=='__main__':
     try:main()
     except Exception:

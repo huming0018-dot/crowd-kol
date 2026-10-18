@@ -581,6 +581,7 @@ class CloudWorker:
             if 'session_bindings' not in state:state['session_bindings']=prior.get('session_bindings',{})
             if 'waiting_logins' not in state:state['waiting_logins']=prior.get('waiting_logins',[])
             if 'postprocessing_runs' not in state:state['postprocessing_runs']=prior.get('postprocessing_runs',[])
+            if 'material_recompute_requests'not in state and 'material_recompute_requests'in prior:state['material_recompute_requests']=prior['material_recompute_requests']
             if 'postprocessing_contexts' not in state:state['postprocessing_contexts']=prior.get('postprocessing_contexts',{})
             if 'participant_pro_cursor' not in state and 'participant_pro_cursor' in prior:state['participant_pro_cursor']=prior['participant_pro_cursor']
             if 'pending_deliveries' not in state:state['pending_deliveries']=prior.get('pending_deliveries',[])
@@ -745,6 +746,31 @@ class CloudWorker:
         if not result.get('error') and not result.get('errors') and not self.postprocessing_error and result.get('state') != 'controller_busy':
             self.last_success_at = time.time()
         return result
+
+    def enqueue_material_recompute(self,request_id,context_factory,fingerprint):
+        """Same existing state/lock/save transaction; no second scheduler or source call."""
+        if type(request_id)is not str or str(uuid.UUID(request_id))!=request_id:raise CloudError('invalid_request')
+        with open(self.lock_path,'r+')as lock:
+            try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:raise CloudError('controller_busy')from None
+            latest=mc_runner.read(self.path)if self.path.exists()else {'phase':'idle'}
+            requests=latest.setdefault('material_recompute_requests',{})
+            if request_id in requests:
+                if requests[request_id].get('fingerprint')!=fingerprint:raise CloudError('material_recompute_request_conflict')
+                return dict(requests[request_id])
+            if len(requests)>=2000:raise CloudError('material_recompute_request_limit')
+            from automatic_materials import material_context_key,validate_context
+            context=validate_context(context_factory());key=material_context_key(context)
+            for old in latest.get('postprocessing_contexts',{}).values():
+                if old.get('schema')=='crowd-material-recompute-v1'and old['pro_key']==context['pro_key']:raise CloudError('material_recompute_pending')
+            prior=latest.setdefault('postprocessing_contexts',{}).get(key)
+            if prior is not None and prior!=context:raise CloudError('material_recompute_changed')
+            latest['postprocessing_contexts'][key]=context
+            latest['postprocessing_runs']=list(dict.fromkeys([*latest.get('postprocessing_runs',[]),key]))
+            result={'state':'queued','request_id':request_id,'key':key,'pro_key':context['pro_key'],'target_release':context['target_release'],'fingerprint':fingerprint}
+            requests[request_id]=result
+            self._save(latest)
+            return dict(result)
 
     def _locked_tick(self):
         if self.lock_path.is_symlink():

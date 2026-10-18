@@ -5,6 +5,7 @@ from owner_knowledge_binding import BindingError,canonical,protected_bytes
 from owner_knowledge_service import OwnerKnowledgeService
 from owner_knowledge_publication import OwnerKnowledgePublication,PublicationError,parse
 from toolbox.knowledge import KnowledgeError
+from material_bridge import read_bytes
 
 KEYS={'review_config','review_sha256','publication_config','publication_sha256'}
 WRITES={'publication_release':'release','publication_pin':'pin','publication_rollback':'rollback'}
@@ -53,10 +54,36 @@ class OwnerKnowledgePublicationService:
    'message':'知识发布与knowledge pin单独操作；当前素材/领域消费者及云指针不会自动切换。',
    'rollback_notice':None if rollback else '旧版尚无本知识库的已完成发布记录，不能回滚；现有051消费者旧版不等于知识发布记录。',
    'consumer_pointer_changed':False,'cloud_pointer_changed':False,'human_uid':None}
+ def material_releases(self,payload,resolve=False):
+  """Read existing COMMITTED releases in the bound knowledge scope; never grant/release/pin."""
+  import base64,re
+  self._check();p=self.publication;p._check()
+  if type(payload)is not dict or set(payload)!=({'pack_id','version','hash'}if resolve else {'pack_id'})or type(payload.get('pack_id'))is not str or not re.fullmatch('[a-z0-9][a-z0-9-]{0,63}',payload['pack_id']):raise BindingError('knowledge_request_invalid')
+  if p.intents.exists():p._require_settled_scope()
+  store=p._store(True)
+  try:
+   rows=store._conn.execute("SELECT version,hash FROM package_releases WHERE pack_id=? AND status='committed'ORDER BY created_at,version",(payload['pack_id'],)).fetchall()
+   if len(rows)>200:raise BindingError('knowledge_release_limit')
+   choices=[]
+   for version,hash_ in rows:
+    package=store.get_package(payload['pack_id'],p.packs,version=version,hash_=hash_)
+    choices.append({'pack_id':package['pack_id'],'version':package['version'],'hash':package['pin_hash']})
+   if not resolve:return {'state':'release_catalog','releases':choices,'knowledge_pin_changed':False}
+   if payload not in choices:raise BindingError('knowledge_release_not_committed')
+   folder=p.packs/'packs'/payload['pack_id']/payload['version']
+   raw={name:read_bytes(folder/name,1024*1024)for name in ('pack.yaml','fields.yaml','pointers.json','validation.yaml','rubric.yaml','expectations.yaml')}
+   import yaml
+   parsed={name.split('.')[0]:json.loads(blob)if name=='pointers.json'else yaml.safe_load(blob)for name,blob in raw.items()}
+   if hashlib.sha256(canonical(parsed)).hexdigest()!=payload['hash']:raise BindingError('knowledge_release_changed')
+   files={name:base64.b64encode(blob).decode()for name,blob in raw.items()}
+   return {'release':payload,'files':files}
+  finally:store.close()
+
  def request(self,body):
   self._check()
   if type(body)is not dict or set(body)!={'action','payload'}or type(body['action'])is not str or type(body['payload'])is not dict:raise BindingError('knowledge_request_invalid')
   action=body['action']
+  if action in ('material_releases','material_release_resolve'):return self.material_releases(body['payload'],resolve=action=='material_release_resolve')
   if action in ('preview','decide','status'):
    value=self.review.request(body)
    if action=='preview':value={**value,'preview_expires_at':self.review.previews[value['preview_token']]['created']+300}

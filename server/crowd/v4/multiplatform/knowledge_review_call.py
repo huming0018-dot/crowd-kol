@@ -6,7 +6,7 @@ from workbench_material_call import command as material_command
 
 
 def call(config_path, cloud_config, body):
-    if type(body)is not dict or set(body)!={'action','payload'} or body['action'] not in ('preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read') or type(body['payload'])is not dict:
+    if type(body)is not dict or set(body)!={'action','payload'} or body['action'] not in ('preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read','material_releases','material_release_resolve') or type(body['payload'])is not dict:
         raise ValueError('knowledge_request_invalid')
     raw=json.dumps(body,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()
     if len(raw)>32768:raise ValueError('knowledge_request_too_large')

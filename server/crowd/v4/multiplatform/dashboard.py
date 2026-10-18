@@ -190,6 +190,42 @@ class Application:
     def cloud(self, action, payload):
         if not isinstance(payload, dict):
             raise ValueError('invalid_cloud_request')
+        if action in ('material_versions','material_recompute','material_recompute_status','material_select_version'):
+            if self.cloud_client is None or getattr(self.cloud_client,'role',None)!='owner'or self.cloud_worker is None:raise ValueError('owner_authorization_required')
+            from automatic_materials import AutomaticMaterials,private_json
+            from participant_material_delivery import publication
+            from knowledge_review_call import call as knowledge_call
+            from workbench_material_call import command
+            import yaml,hashlib
+            if getattr(self,'automatic_materials',None)is None:self.automatic_materials=AutomaticMaterials(self.root)
+            auto=self.automatic_materials
+            if action=='material_versions':
+                if set(payload)!={'pro_key'}:raise ValueError('invalid_request')
+                current=publication(self.root,payload['pro_key']);pointer=current['publication_pointer'];command(pointer,'read','json');request=private_json(pointer['request']);pack_id=yaml.safe_load(Path(request['pack_path'],'pack.yaml').read_bytes())['pack']['pack_id']
+                catalog=knowledge_call(self.root/'data-products/knowledge-runtime.json',self.root/'cloud-config.json',{'action':'material_releases','payload':{'pack_id':pack_id}})
+                versions=[];paths=list((self.root/'data-products/material-auto').glob('*/ready.json'))
+                if len(paths)>2000:raise ValueError('material_publication_index_limit')
+                for path in paths:
+                    try:
+                        row=publication(self.root,payload['pro_key'],job_id=path.parent.name);versions.append({'job_id':row['job_id'],'selected':row['job_id']==current['job_id'],'target_release':row.get('context',{}).get('target_release')})
+                    except (ValueError,KeyError,OSError):continue
+                if not any(v['job_id']==current['job_id']for v in versions):versions.append({'job_id':current['job_id'],'selected':True,'target_release':None})
+                return {'ok':True,'pro_key':payload['pro_key'],'current_job':current['job_id'],'pack_id':pack_id,'releases':catalog['releases'],'versions':versions,'automatic_approval':False}
+            if action=='material_recompute':
+                if set(payload)!={'request_id','pro_key','expected_job','release'}:raise ValueError('invalid_request')
+                try:result=self.cloud_worker.enqueue_material_recompute(payload['request_id'],lambda:auto.prepare_recompute(payload['pro_key'],payload['expected_job'],knowledge_call(self.root/'data-products/knowledge-runtime.json',self.root/'cloud-config.json',{'action':'material_release_resolve','payload':payload['release']})),hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(',',':')).encode()).hexdigest())
+                except ValueError as error:
+                    if str(error)in ('knowledge_release_not_committed','material_recompute_pack_scope','material_recompute_current_changed','material_recompute_pending','material_recompute_request_limit','controller_busy'):return {'ok':True,'state':'not_submitted','error_code':str(error),'request_id':payload['request_id']}
+                    raise
+                return {'ok':True,**result}
+            if action=='material_select_version':
+                if set(payload)!={'pro_key','expected_job','job_id'}:raise ValueError('invalid_request')
+                return {'ok':True,**auto.select_version(payload['pro_key'],payload['expected_job'],payload['job_id'])}
+            if set(payload)!={'request_id'}:raise ValueError('invalid_request')
+            value=private_json(self.cloud_worker.path).get('material_recompute_requests',{}).get(payload['request_id'])
+            if value is None:return {'ok':True,'state':'not_found'}
+            state=private_json(auto.directory/(value['key']+'.json'))if (auto.directory/(value['key']+'.json')).exists()else {'state':'queued'}
+            return {'ok':True,**value,'state':state['state'],'job_id':state.get('job_id')}
         if action == 'publication_share':
             from publication_share import generate
             return generate(self, payload)
@@ -321,7 +357,7 @@ class Application:
         return call(self.root / 'data-products/knowledge-runtime.json',
                     self.root / 'cloud-config.json', body)
 
-    def material_delivery(self, fmt='html', *, domain=False, pro_key=None):
+    def material_delivery(self, fmt='html', *, domain=False, pro_key=None,job_id=None):
         """Read the existing toolbox publication; this endpoint never builds or collects."""
         from workbench_material_call import command
         if type(domain) is not bool:
@@ -333,7 +369,7 @@ class Application:
             import stat
             if pro_key is not None:
                 from participant_material_delivery import publication
-                state=publication(self.root,pro_key)
+                state=publication(self.root,pro_key,job_id=job_id)
                 if domain or state.get('state')!='ready':raise ValueError('material_delivery_unavailable')
                 config=state['publication_pointer']
             else:
@@ -1204,7 +1240,10 @@ def make_server(app, port=45937):
                     if path.endswith('.json'):return self.send({'ok':True,'publications':summaries(app.root)})
                     return self.send(index_html(app.root).decode(),html=True)
                 except (OSError,ValueError,KeyError,TypeError):return self.send({'ok':False,'error':'material_delivery_unavailable'},409)
-            pro_key=None
+            pro_key=None;job_id=None
+            version_match=re.fullmatch(r'/materials/pro/(pro-[a-f0-9]{64})/versions/([a-f0-9]{64})(?:/(report.json|materials.jsonl|materials.csv))?',path)
+            if version_match:
+                pro_key,job_id=version_match[1],version_match[2];path='/materials/pro/'+pro_key+(('/'+version_match[3])if version_match[3]else'')
             pro_match=re.fullmatch(r'/materials/pro/(pro-[a-f0-9]{64})(?:/(report.json|materials.jsonl|materials.csv))?',path)
             if pro_match:
                 pro_key=pro_match[1]
@@ -1221,7 +1260,7 @@ def make_server(app, port=45937):
                 domain = path.startswith('/data-product')
                 fmt, mime = material_routes[path]
                 try:
-                    data = app.material_delivery(fmt, domain=domain, **({'pro_key':pro_key} if pro_key is not None else {}))
+                    data = app.material_delivery(fmt, domain=domain, **({'pro_key':pro_key,**({'job_id':job_id}if job_id is not None else {})} if pro_key is not None else {}))
                 except ValueError:
                     return self.send({'ok': False, 'error': 'material_delivery_unavailable',
                                       'message': '领域发现尚未就绪或核验未通过；原资料与任务保留。' if domain else '素材处理尚未就绪或核验未通过；原资料与任务保留。'}, 409)

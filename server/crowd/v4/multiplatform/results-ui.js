@@ -97,6 +97,41 @@ const resultsView = (() => {
     }catch{if(ticket===shareGeneration&&dialog.open)scopeSelect.replaceChildren(new Option('批次读取失败，请重新打开资料库',''));}
     if(ticket===shareGeneration&&dialog.open)proShare.selectionChanged();
   }
+  const recompute=node('details');recompute.append(node('summary','同一批回执重新处理与版本选择'),node('p','只读取原ACK；仅可选本知识作用域已完成发布的同类包。不自动审核、采集或切换云端发布。'));
+  const releaseSelect=node('select'),versionSelect=node('select'),recomputeStatus=node('p');releaseSelect.setAttribute('aria-label','已发布知识版本');versionSelect.setAttribute('aria-label','已处理素材版本');
+  let materialView=null,materialTicket=0;const materialCall=(action,payload)=>api('/api/cloud',{action,payload});
+  const pendingKey=key=>'crowd:material-recompute:'+key;
+  const pending=key=>{try{return localStorage.getItem(pendingKey(key));}catch{return null;}};
+  const create=button('按选中版本重新处理',async()=>{
+    const scope=shareScopes.get(scopeSelect.value),view=materialView;if(!scope||!view||!releaseSelect.value||pending(scope.pro_key))return;
+    const ticket=materialTicket,id=crypto.randomUUID();try{localStorage.setItem(pendingKey(scope.pro_key),id);}catch{recomputeStatus.textContent='无法保存原请求，请先恢复本地存储；未提交。';return;}
+    create.disabled=true;recomputeStatus.textContent='已保留原请求，等待处理；旧四格式仍可读。';
+    try{const result=await materialCall('material_recompute',{request_id:id,pro_key:scope.pro_key,expected_job:view.current_job,release:JSON.parse(releaseSelect.value)});if(result.state==='not_submitted'){localStorage.removeItem(pendingKey(scope.pro_key));if(ticket===materialTicket&&dialog.open){recomputeStatus.textContent='本次未排队，请刷新版本记录；原产物保留。';create.disabled=false;}return;}if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='已排入原处理队列；请核对原请求，不会自动切换版本。';}
+    catch{if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='结果待核对；保留原请求，不自动重发。';}
+  });
+  const check=button('核对原重算请求',async()=>{
+    const scope=shareScopes.get(scopeSelect.value);if(!scope)return;const id=pending(scope.pro_key),ticket=materialTicket;if(!id)return;
+    try{const value=await materialCall('material_recompute_status',{request_id:id});if(ticket!==materialTicket||!dialog.open)return;recomputeStatus.textContent='原请求状态：'+value.state;
+      if(value.state==='ready'){localStorage.removeItem(pendingKey(scope.pro_key));await loadMaterialVersions();}
+    }catch{if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='核对尚不可用；原请求保留。';}
+  });
+  const select=button('选择此素材版本（或切回旧版）',async()=>{
+    if(select.disabled)return;
+    const scope=shareScopes.get(scopeSelect.value),view=materialView,ticket=materialTicket;if(!scope||!view||!versionSelect.value)return;select.disabled=true;
+    try{await materialCall('material_select_version',{pro_key:scope.pro_key,expected_job:view.current_job,job_id:versionSelect.value});if(ticket!==materialTicket||!dialog.open)return;recomputeStatus.textContent='素材版本已选择；knowledge pin和云端发布保持不变。';await loadMaterialVersions();}
+    catch{if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='选择结果待核对，请刷新版本记录；不自动再发。';}
+  });
+  const versionLinks=node('div');
+  async function loadMaterialVersions(){
+    const ticket=++materialTicket,scope=shareScopes.get(scopeSelect.value);materialView=null;releaseSelect.replaceChildren();versionSelect.replaceChildren();versionLinks.replaceChildren();create.disabled=select.disabled=true;if(!scope)return;
+    try{const value=await materialCall('material_versions',{pro_key:scope.pro_key});if(ticket!==materialTicket||!dialog.open)return;
+      materialView=value;for(const r of value.releases||[])releaseSelect.append(new Option(r.pack_id+' '+r.version,JSON.stringify(r)));
+      for(const v of value.versions||[]){versionSelect.append(new Option((v.selected?'当前 · ':'')+v.job_id.slice(0,12),v.job_id));for(const [label,suffix]of [['HTML',''],['JSON','/report.json'],['JSONL','/materials.jsonl'],['CSV','/materials.csv']]){const link=node('a',v.job_id.slice(0,8)+' '+label);link.href='/materials/pro/'+scope.pro_key+'/versions/'+v.job_id+suffix;versionLinks.append(link,document.createTextNode(' '));}}
+      recomputeStatus.textContent=value.releases?.length?'新处理不会覆盖旧产物；完成后需要单独选择。':'该知识作用域暂无同类已发布包；不会把候选或其他领域包当成已批准版本。';create.disabled=!value.releases?.length||!!pending(scope.pro_key);select.disabled=!value.versions?.length;
+    }catch{if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='版本前置未接通；原素材保持可读。';}
+  }
+  const refresh=button('刷新版本记录',()=>loadMaterialVersions());recompute.append(releaseSelect,create,check,refresh,versionSelect,select,recomputeStatus,versionLinks);participantShare.append(recompute);
+  const originalSelection=scopeSelect.onchange;scopeSelect.onchange=()=>{originalSelection();void loadMaterialVersions();};dialog.addEventListener('close',()=>{materialTicket++;materialView=null;});
   $('library_export').after(materialLink,materialExports,participantMaterialLink,participantShare);
   let revision=null,offset=0,filters={},total=0,generation=0,loading=false;
   $('library_close').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{generation++;loading=false;launch.focus();});
@@ -106,7 +141,7 @@ const resultsView = (() => {
       for(const item of rows){const row=item.record||item.data||item;const card=node('article');card.className='record';card.append(node('h3',(row.platform==='zhihu'?({answer:'回答 · ',article:'文章 · ',zvideo:'视频 · '}[row.content_type]||''):'')+(row.title||row.author?.nickname||'已保存记录')),node('p',row.body||row.text||'没有可展示文字'),node('small',(platformNames[row.platform]||sourceNames[row.platform]||row.platform||'')+' · '+(recordNames[row.kind]||row.kind||'')+' · '+(row.published_at_utc?dateText(row.published_at_utc):'未报告发布时间')));card.querySelector('p').className='body';card.append(node('small','采集入口：'+entryText(row)));if(['content','dynamic'].includes(row.kind))card.append(button('查看版本、评论与评价',()=>detail(row)));$('library_records').append(card);}
       if(!rows.length)$('library_records').append(node('p','暂无匹配资料。先在任务中读取结果，资料会保存到本机。'));$('library_previous').disabled=offset===0;$('library_next').disabled=offset+rows.length>=total;
     }catch(e){$('library_error').textContent=errorNames[e.message]||e.message;}finally{if(ticket===generation)loading=false;}}
-  async function open(){dialog.showModal();$('library_platform').focus();await Promise.all([load(true),loadShareScopes()]);}
+  async function open(){dialog.showModal();$('library_platform').focus();await Promise.all([load(true),loadShareScopes()]);if(dialog.open)await loadMaterialVersions();}
   async function detail(row){const ticket=++generation,selector=row.entity_ref?{entity_ref:row.entity_ref}:{};const value=await call('detail',{platform:row.platform,content_id:row.content_id,revision,...selector});if(ticket!==generation||!dialog.open)return;$('library_records').classList.add('detail');$('library_records').replaceChildren();const back=button('返回列表',()=>load());$('library_records').append(back,node('h3',row.title||'内容详情'));
     const ambiguous=value.content_identity_status==='ambiguous_types'||value.contents?.length!==1;if(ambiguous)$('library_records').append(node('p','同一标识包含多种正文，暂不能评价。请返回列表选择具体回答或文章。'));const score=node('select');score.setAttribute('aria-label','内容质量评分');for(let i=0;i<=5;i++)score.append(new Option(i+' 分',i));const savedEvaluation=(value.contents?.[0]?.owner_evaluations||[]).filter(e=>e.evaluator_ref==='local-owner').at(-1);score.value=String(savedEvaluation?.value??3);const tags=node('input');tags.type='text';tags.placeholder='业务标签，逗号分隔';tags.maxLength=400;tags.setAttribute('aria-label','业务标签');tags.value=(savedEvaluation?.tags||[]).join('，');const note=node('p','这是 Owner 对内容的业务评价，不改变原参与者评分或奖励。');note.className='hint';
     const save=button('保存业务评价',async()=>{if(ambiguous||ticket!==generation||!dialog.open)return;save.disabled=true;try{const saved=await call('evaluate',{platform:row.platform,content_id:row.content_id,revision,...selector,value:Number(score.value),tags:tags.value.split(/[,，]/).map(x=>x.trim()).filter(Boolean)});if(ticket!==generation||!dialog.open)return;revision=saved.results_revision;$('library_summary').textContent='保存后资料版本 '+revision+' · 内容质量评价已更新';$('library_error').textContent='评价已保存：'+saved.value+' 分'+(saved.tags.length?' · '+saved.tags.join('，'):'');}finally{save.disabled=ambiguous;}});score.disabled=tags.disabled=save.disabled=ambiguous;$('library_records').append(note,score,tags,save);
