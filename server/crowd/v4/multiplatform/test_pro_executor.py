@@ -1,0 +1,729 @@
+"""Offline protocol/import tests. No credential read, browser or source request."""
+import asyncio
+import ast
+from contextvars import ContextVar
+from copy import deepcopy
+import json
+import os
+from pathlib import Path
+import sqlite3
+import tempfile
+import time
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch, Mock
+import uuid
+
+import mc_runner as m
+import pro_executor as pro
+from results_store import ResultsStore
+from cloud_sync import CloudOutbox
+
+
+class WeiboSelectionTest(unittest.TestCase):
+    def test_weibo_requires_explicit_feature_flag(self):
+        request={'platform':'wb','mode':'detail','media':False,'comments':True,'max_comments':20}
+        self.assertEqual(pro.selection(request,{'CROWD_EXECUTOR':'pro'})['backend'],'mc')
+        chosen=pro.selection(request,{'CROWD_EXECUTOR':'pro','CROWD_PRO_WEIBO_ENABLED':'1','CROWD_PRO_ROOT':'/synthetic'})
+        self.assertEqual(chosen['backend'],'pro')
+    def test_native_probe_does_not_require_upstream_weibo_advertisement(self):
+        response=SimpleNamespace(returncode=0,stdout=json.dumps({'schema_version':pro.PROTOCOL,'platforms':['bili','xhs','dy','reddit']}))
+        with patch.object(m,'source_info',return_value={'commit':pro.PINNED_COMMIT,'dirty':False}),patch.object(pro.subprocess,'run',return_value=response):
+            value=pro.probe('/synthetic')
+        self.assertEqual(value['local_adapter_platforms'],['wb'])
+        self.assertNotIn('wb',value['native_protocol_platforms'])
+    def test_native_protocol_missing_platform_still_rejected(self):
+        response=SimpleNamespace(returncode=0,stdout=json.dumps({'schema_version':pro.PROTOCOL,'platforms':['bili','xhs']}))
+        with patch.object(m,'source_info',return_value={'commit':pro.PINNED_COMMIT,'dirty':False}),patch.object(pro.subprocess,'run',return_value=response):
+            with self.assertRaisesRegex(m.BridgeError,'pro_protocol_incompatible'):pro.probe('/synthetic')
+    def test_weibo_unsupported_mode_and_media_still_use_original(self):
+        for values in ({'mode':'homefeed'},{'media':True}):
+            request={'platform':'wb','mode':'detail','media':False,'comments':True,'max_comments':20,**values}
+            self.assertEqual(pro.selection(request,{'CROWD_EXECUTOR':'pro','CROWD_PRO_WEIBO_ENABLED':'1'})['backend'],'mc')
+
+
+class ProTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.rid = str(uuid.uuid4())
+        self.run = self.root/'runs'/self.rid
+        (self.run/'output').mkdir(parents=True)
+        self.request = m.validate({'platform':'bili','mode':'detail','targets':['BV1ocaW6rETo'],
+                                  'max_items':1,'max_comments':20,'comments':True,'replies':True,
+                                  'purpose':'noncommercial_research'})
+        self.manifest = {'run_id':self.rid,'request':self.request,'source':{'executor':'mediacrawler_pro'},
+                         'executor':{'backend':'pro'},'discovery_contract_version':1}
+        m.write(self.run/'manifest.json', self.manifest)
+        m.write(self.run/'status.json', {'state':'completed','updated_at':time.time()})
+        self.db = sqlite3.connect(self.run/pro.DB_NAME)
+        self.db.execute('CREATE TABLE vox_crawl_observation(operation_id TEXT,platform TEXT,kind TEXT,entity_id TEXT,payload TEXT,PRIMARY KEY(operation_id,kind,entity_id))')
+        self.body = {'video_id':'123','bvid':'BV1ocaW6rETo','title':'离线样本','desc':'全文' * 501,
+                     'video_url':'https://www.bilibili.com/video/BV1ocaW6rETo',
+                     'video_cover_url':'https://i0.hdslb.com/cover.jpg','duration':'431',
+                     'creator_hash':'abc123','nickname':'甲*'}
+        self.row('topic','123',self.body)
+        self.row('comment','10',{'video_id':'123','comment_id':'10','parent_comment_id':'',
+                                'content':'第一页根评论','sub_comment_count':'2','pictures':'https://i0.hdslb.com/comment.jpg'})
+        self.row('comment','11',{'video_id':'123','comment_id':'11','parent_comment_id':'10',
+                                'content':'第二页回复','sub_comment_count':'0'})
+        self.row('comment','12',{'video_id':'123','comment_id':'12','parent_comment_id':'10','content':'第三页回复'})
+        self.cp = {'id':self.rid,'platform':'bili','mode':'detail','acquisition_committed':True,'is_completed':True,
+                   'failed_search_pages':[],'crawled_note_list':[{'note_id':'BV1ocaW6rETo','is_success_crawled':True,
+                   'is_success_crawled_comments':True,'current_note_comment_cursor':'page-3','saved_comment_count':3}]}
+        (self.run/'data/checkpoints/vox').mkdir(parents=True)
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'), self.cp)
+
+    def tearDown(self):
+        self.db.close()
+        self.temp.cleanup()
+
+    def row(self, kind, entity, value, operation=None, platform='bili'):
+        self.db.execute('INSERT OR REPLACE INTO vox_crawl_observation VALUES(?,?,?,?,?)',
+                        (operation or self.rid,platform,kind,entity,m.canonical(value)))
+        self.db.commit()
+
+    def summary(self):
+        return {'operation_id':self.rid,'platform':'bili','crawler_type':'detail','status':'completed'}
+
+    def pagination_fixture(self, end=True, count=2):
+        observer = pro.BiliPagination(self.run, self.manifest)
+        observer.response('root', '123', [SimpleNamespace(comment_id='10', sub_comment_count='2')],
+                          {'cursor':{'next':1,'is_end':end}})
+        observer.pages[-1].update(saved=True, checkpoint_committed=True)
+        observer.response('reply', '123', [SimpleNamespace(comment_id='11'),SimpleNamespace(comment_id='12')],
+                          {'page':{'count':count}},parent='10',pn=1,ps=10)
+        observer.pages[-1]['saved']=True
+        self.cp['crawled_note_list'][0].update(note_id='BV1ocaW6rETo',current_note_comment_cursor='1',saved_comment_count=20)
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),self.cp)
+        observer.persist()
+        return observer
+
+    def test_pagination_exhausted_is_separate_from_cloud_ack(self):
+        self.pagination_fixture()
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'exhausted')
+        self.assertFalse(pro.completion(self.run,self.manifest,self.summary())['cloud_ack'])
+
+    def test_pagination_batch_limit_is_not_exhausted(self):
+        self.pagination_fixture(end=False)
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'limit_reached')
+
+    def test_pagination_reply_missing_or_unsaved_is_partial(self):
+        for delta in ({'saved':False},{'has_more':True},{'pn':2}):
+            observer=self.pagination_fixture();observer.pages[-1].update(delta);observer.persist()
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'partial')
+
+    def test_pagination_invalid_fields_pinned_gap_and_digest_are_unknown(self):
+        for delta in ({'invalid':True},{'pinned_gap':True},{'cursor_in':2}):
+            observer=self.pagination_fixture();observer.pages[0].update(delta);observer.persist()
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+        value=m.read(self.run/'pro-pagination.json');value['operation_id']='other';m.write(self.run/'pro-pagination.json',value)
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_wrong_observation_parent_never_exhausted(self):
+        self.pagination_fixture()
+        self.row('comment','11',{'video_id':'123','comment_id':'11','parent_comment_id':'99'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_old_run_has_unknown_coverage(self):
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pinned_parent_loop_stops_after_complete_first_batch(self):
+        source=Path('/Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/MediaCrawlerPro-Python/media_platform/bilibili/processors/comment_processor.py')
+        if not source.is_file():self.skipTest('Pinned private source not installed')
+        tree=ast.parse(source.read_text())
+        original_class=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='CommentProcessor')
+        methods=[n for n in original_class.body if isinstance(n,ast.AsyncFunctionDef) and n.name in ('get_video_all_comments','get_comments_all_sub_comments')]
+        captured=next(n for n in tree.body if isinstance(n,ast.ImportFrom) and n.module=='config' and any(a.name=='PER_NOTE_MAX_COMMENTS_COUNT' for a in n.names))
+        config=SimpleNamespace(PER_NOTE_MAX_COMMENTS_COUNT=0,CRAWLER_TIME_SLEEP=0,ENABLE_GET_SUB_COMMENTS=True)
+        execute_tree=ast.parse(Path(pro.__file__).read_text())
+        execute=next(n for n in execute_tree.body if isinstance(n,ast.FunctionDef) and n.name=='execute')
+        seed=next(n for n in ast.walk(execute) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Attribute) and t.attr=='PER_NOTE_MAX_COMMENTS_COUNT' for t in n.targets))
+        main_import=next(n for n in ast.walk(execute) if isinstance(n,ast.Import) and any(a.name=='main' for a in n.names))
+        self.assertLess(seed.lineno,main_import.lineno)
+        namespace={'config':config,'request':self.request}
+        exec(compile(ast.Module(body=[seed],type_ignores=[]),'<actual bridge seed>','exec'),namespace)
+        namespace.update(asyncio=asyncio,Optional=object,Callable=object,List=list,Dict=dict,
+                         BilibiliComment=SimpleNamespace,CommentOrderType=SimpleNamespace(DEFAULT=1),utils=SimpleNamespace(logger=Mock()))
+        with patch.dict('sys.modules',{'config':config}):
+            exec(compile(ast.Module(body=[captured],type_ignores=[]),'<pinned config capture>','exec'),namespace)
+        for method in methods:
+            for arg in method.args.args:arg.annotation=None
+            method.returns=None
+        holder=ast.ClassDef(name='Processor',bases=[],keywords=[],body=methods,decorator_list=[])
+        ast.fix_missing_locations(holder)
+        exec(compile(ast.Module(body=[holder],type_ignores=[]),'<pinned original loops>','exec'),namespace)
+        counts=[0]*4+[3]*3+[1]*2+[19,9,8]+[7]*2+[5]*2+[2]*2+[10]
+        self.assertEqual((len(counts),sum(counts)),(19,85))
+        roots=[SimpleNamespace(comment_id=str(100+i),sub_comment_count=str(count)) for i,count in enumerate(counts)]
+        calls=[];saved=[];updates=[]
+        class Client:
+            async def get_video_comments(client,aid,order,next_page):
+                calls.append(next_page)
+                if next_page:raise AssertionError('Second parent page must not be fetched')
+                return roots,{'cursor':{'next':1,'is_end':False}}
+            async def get_video_sub_comments(client,video_id,root_comment_id,pn,ps,order_mode):
+                count=counts[int(root_comment_id)-100]
+                return [SimpleNamespace(comment_id=f'{root_comment_id}{j+100}') for j in range((pn-1)*ps,min(pn*ps,count))],{'page':{'count':count}}
+        class Manager:
+            async def get_note_comment_cursor(manager,**kwargs):return None
+            async def get_note_info_from_checkpont(manager,*args):return SimpleNamespace(saved_comment_count=0)
+            async def update_note_comment_cursor(manager,**kwargs):updates.append(kwargs);return True
+        async def callback(aid,comments):saved.extend(comments)
+        processor=namespace['Processor']();processor.bili_client=Client();processor.checkpoint_manager=Manager()
+        result=asyncio.run(processor.get_video_all_comments('123','BV1ocaW6rETo',callback,self.rid))
+        self.assertEqual(calls,[0]);self.assertEqual(len(saved),104);self.assertEqual(len(result),104)
+        self.assertEqual(updates[-1]['saved_comment_count'],104)
+        self.assertTrue(updates[-1]['is_success_crawled_comments'])
+
+    def test_real_vox_checkpoint_legacy_compatibility_and_conflict(self):
+        vox=self.run/'data/checkpoints/vox'/(self.rid+'.json')
+        legacy=vox.parent.parent/vox.name
+        self.assertEqual(pro.checkpoint(self.run,self.manifest),self.cp)
+        m.write(legacy,self.cp);vox.unlink()
+        self.assertEqual(pro.checkpoint(self.run,self.manifest),self.cp)
+        m.write(vox,self.cp)
+        self.assertEqual(pro.checkpoint(self.run,self.manifest),self.cp)
+        m.write(legacy,{**self.cp,'acquisition_committed':False})
+        with self.assertRaisesRegex(m.BridgeError,'path_conflict'):
+            pro.checkpoint(self.run,self.manifest)
+
+    def test_checkpoint_symlink_directory_rejected(self):
+        vox=self.run/'data/checkpoints/vox'
+        moved=vox.parent/'moved';vox.rename(moved);vox.symlink_to(moved,target_is_directory=True)
+        with self.assertRaisesRegex(m.BridgeError,'unsafe_pro_checkpoint'):
+            pro.checkpoint(self.run,self.manifest)
+
+    def test_dual_checkpoint_boolean_integer_float_are_distinct(self):
+        legacy=self.run/'data/checkpoints'/(self.rid+'.json')
+        for value in (1,1.0):
+            m.write(legacy,{**self.cp,'is_completed':value})
+            with self.assertRaisesRegex(m.BridgeError,'path_conflict'):
+                pro.checkpoint(self.run,self.manifest)
+
+    def test_real_empty_root_parent_and_zero_valid_but_missing_none_invalid(self):
+        for value in ('','0'):
+            self.pagination_fixture()
+            self.row('comment','10',{'video_id':'123','comment_id':'10','parent_comment_id':value})
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'exhausted')
+        for row in ({'video_id':'123','comment_id':'10'},
+                    {'video_id':'123','comment_id':'10','parent_comment_id':None}):
+            self.row('comment','10',row)
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_bili_completion_uses_real_bvid_checkpoint_and_aid_observation(self):
+        self.assertEqual(pro.completion(self.run,self.manifest,self.summary())['content_count'],1)
+        self.cp['crawled_note_list'][0]['note_id']='123'
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),self.cp)
+        with self.assertRaisesRegex(m.BridgeError,'observation_mismatch'):
+            pro.completion(self.run,self.manifest,self.summary())
+
+    def test_bili_completion_rejects_missing_or_duplicate_bvid_mapping(self):
+        for bvid in (None,'not-a-bvid'):
+            self.row('topic','123',{**self.body,'bvid':bvid})
+            with self.assertRaisesRegex(m.BridgeError,'mapping_invalid'):
+                pro.completion(self.run,self.manifest,self.summary())
+        self.row('topic','123',self.body)
+        self.row('topic','124',{**self.body,'video_id':'124'})
+        with self.assertRaisesRegex(m.BridgeError,'mapping_invalid'):
+            pro.completion(self.run,self.manifest,self.summary())
+
+    def test_bili_completion_rejects_wrong_entity_and_duplicate_checkpoint(self):
+        self.row('topic','123',{**self.body,'video_id':'124'})
+        with self.assertRaisesRegex(m.BridgeError,'observation_identity_mismatch'):
+            pro.completion(self.run,self.manifest,self.summary())
+        self.row('topic','123',self.body)
+        self.cp['crawled_note_list']*=2
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),self.cp)
+        with self.assertRaisesRegex(m.BridgeError,'observation_mismatch'):
+            pro.completion(self.run,self.manifest,self.summary())
+
+    def test_nested_reply_keeps_original_parent_and_rejects_cycles(self):
+        self.pagination_fixture()
+        self.row('comment','12',{'video_id':'123','comment_id':'12','parent_comment_id':'11'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'exhausted')
+        self.row('comment','11',{'video_id':'123','comment_id':'11','parent_comment_id':'12'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_independent_counterexamples_cannot_exhaust(self):
+        cases = [({'ids':['11']},'partial'),({'ids':['11','11']},'unknown'),
+                 ({'declared_count':1},'unknown')]
+        for delta, expected in cases:
+            observer=self.pagination_fixture();observer.pages[-1].update(delta);observer.persist()
+            self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],expected)
+        observer=pro.BiliPagination(self.run,self.manifest)
+        observer.response('root','123',[],{'cursor':{'is_end':True,'next':1},'top_replies':'dirty'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_returned_page_coordinates_must_match_request(self):
+        for fields in ({'pn':2},{'ps':20},{'num':2},{'size':20}):
+            observer=pro.BiliPagination(self.run,self.manifest)
+            observer.response('reply','123',[],{'page':{'count':0,**fields}},parent='10',pn=1,ps=10)
+            self.assertTrue(observer.pages[-1]['invalid'])
+
+    def test_pinned_nested_empty_slots_real_roots_and_dirty_shapes(self):
+        empty={'admin':None,'upper':None,'vote':None}
+        self.assertEqual(pro.pinned_ids(empty),(set(),True))
+        self.assertEqual(pro.pinned_ids({'admin':None,'upper':{'rpid':10},'vote':None}),({'10'},True))
+        for value in ('dirty',{'admin':None},{'admin':None,'upper':'dirty','vote':None},{'rpid':None}):
+            self.assertFalse(pro.pinned_ids(value)[1])
+        for top,gap in ((empty,False),({'admin':None,'upper':{'rpid':99},'vote':None},True)):
+            observer=pro.BiliPagination(self.run,self.manifest)
+            observer.response('root','123',[SimpleNamespace(comment_id='10',sub_comment_count='0')],
+                              {'cursor':{'next':1,'is_end':True},'top':top})
+            self.assertEqual(observer.pages[0]['pinned_gap'],gap)
+
+    def pinned_extractor_fixture(self):
+        from pydantic import BaseModel, Field
+        from typing import Dict, List, Optional
+        private=Path('/Users/hubowen/Desktop/爬虫/references/mediacrawler-pro-2026-10-14/MediaCrawlerPro-Python')
+        model=private/'model/m_bilibili.py';extractor=private/'media_platform/bilibili/extractor.py'
+        if not model.is_file() or not extractor.is_file():self.skipTest('Pinned private source not installed')
+        model_node=next(n for n in ast.parse(model.read_text()).body if isinstance(n,ast.ClassDef) and n.name=='BilibiliComment')
+        # Original model fields; privacy helper uses offline fixed pseudonyms.
+        namespace={'PrivacyBaseModel':BaseModel,'Field':Field,'Optional':Optional,'List':List,'Dict':Dict,
+                   'anonymize_user_id':lambda value:'offline-anonymous','mask_nickname':lambda value:'测试*'}
+        exec(compile(ast.Module(body=[model_node],type_ignores=[]),'<pinned comment model fields>','exec'),namespace)
+        original_class=next(n for n in ast.parse(extractor.read_text()).body if isinstance(n,ast.ClassDef))
+        methods=[n for n in original_class.body if isinstance(n,ast.FunctionDef) and n.name in
+                 ('extract_comments_from_dict','_extract_comment_from_dict','_extract_comment_image_list')]
+        holder=ast.ClassDef(name='Extractor',bases=[],keywords=[],body=methods,decorator_list=[]);ast.fix_missing_locations(holder)
+        exec(compile(ast.Module(body=[holder],type_ignores=[]),'<pinned original comment extractor>','exec'),namespace)
+        return namespace['Extractor']()
+
+    def pinned_payload(self, entity='99', parent=0, message='置顶完整正文', replies=2):
+        return {'rpid':entity,'parent':parent,'rcount':replies,'ctime':1,'like':5,
+                'content':{'message':message,'pictures':[{'img_src':'http://i0.hdslb.com/pin.jpg'}]},
+                'member':{'mid':'offline','uname':'offline'}}
+
+    def test_pinned_reuses_original_extractor_fields_and_preserves_regular_order(self):
+        extractor=self.pinned_extractor_fixture();raw=self.pinned_payload()
+        regular=extractor.extract_comments_from_dict('123',[self.pinned_payload('10',message='普通正文')])
+        data={'top':{'admin':None,'upper':raw,'vote':None},'cursor':{'next':1,'is_end':False}}
+        observer=pro.BiliPagination(self.run,self.manifest)
+        merged=observer.merge_pinned(SimpleNamespace(_extractor=extractor),'123',(regular,data))
+        self.assertEqual([c.comment_id for c in merged[0]],['10','99']);self.assertIs(merged[1],data)
+        pin=merged[0][-1]
+        self.assertEqual((pin.content,pin.parent_comment_id,pin.sub_comment_count,pin.pictures),
+                         ('置顶完整正文','','2','https://i0.hdslb.com/pin.jpg'))
+        observer.response('root','123',*merged)
+        self.assertEqual(observer.pages[-1]['reply_roots']['99'],2)
+        self.assertFalse(observer.pages[-1]['pinned_gap'])
+
+    def test_no_pinned_and_same_duplicate_keep_original_return(self):
+        extractor=self.pinned_extractor_fixture();raw=self.pinned_payload()
+        regular=extractor.extract_comments_from_dict('123',[raw]);client=SimpleNamespace(_extractor=extractor)
+        for data in ({'top':{'admin':None,'upper':None,'vote':None}}, {'top_replies':[raw,raw]}):
+            value=(regular,data);observer=pro.BiliPagination(self.run,self.manifest)
+            self.assertIs(observer.merge_pinned(client,'123',value),value)
+            self.assertFalse(observer.invalid)
+
+    def test_pinned_conflicting_content_or_parent_is_unknown_without_overwrite(self):
+        extractor=self.pinned_extractor_fixture();raw=self.pinned_payload()
+        regular=extractor.extract_comments_from_dict('123',[raw]);client=SimpleNamespace(_extractor=extractor)
+        for conflicting in (self.pinned_payload(message='不同正文'),self.pinned_payload(parent='77')):
+            value=(regular,{'top_replies':[conflicting]});observer=pro.BiliPagination(self.run,self.manifest)
+            self.assertIs(observer.merge_pinned(client,'123',value),value)
+            self.assertTrue(observer.invalid);self.assertEqual(regular[0].content,'置顶完整正文')
+
+    def test_dirty_pinned_keeps_original_data_and_observer_unknown(self):
+        extractor=self.pinned_extractor_fixture();value=([],{'top':{'admin':None,'upper':'dirty','vote':None},'cursor':{'next':1,'is_end':True}})
+        observer=pro.BiliPagination(self.run,self.manifest)
+        self.assertIs(observer.merge_pinned(SimpleNamespace(_extractor=extractor),'123',value),value)
+        observer.response('root','123',*value)
+        self.assertTrue(observer.pages[-1]['pinned_gap'])
+
+    def test_pagination_root_observation_must_be_root(self):
+        self.pagination_fixture()
+        self.row('comment','10',{'video_id':'123','comment_id':'10','parent_comment_id':'99'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_all_reply_ancestors_must_match_content(self):
+        self.pagination_fixture()
+        self.row('comment','13',{'video_id':'999','comment_id':'13','parent_comment_id':'10'})
+        self.row('comment','12',{'video_id':'123','comment_id':'12','parent_comment_id':'13'})
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_hooks_preserve_arguments_objects_and_saved_callback(self):
+        comment=SimpleNamespace(comment_id='10',sub_comment_count='0')
+        value=([comment],{'cursor':{'next':1,'is_end':True}})
+        calls=[]
+        class Client:
+            async def get_video_comments(client,video_id,order_mode='original',next_page=0):
+                calls.append((video_id,order_mode,next_page));return value
+            async def get_video_sub_comments(client,video_id,root_comment_id,pn,ps,order_mode):
+                raise RuntimeError('original failure')
+        async def callback(video_id,comments):return 'original-result'
+        async def commit(manager,checkpoint_id,note_id,comment_cursor,is_success_crawled_comments=False,saved_comment_count=None):return True
+        store=SimpleNamespace(batch_update_bilibili_video_comments=callback)
+        manager=type('Manager',(),{'update_note_comment_cursor':commit})
+        observer=pro.BiliPagination(self.run,self.manifest);observer.install(Client,store,manager)
+        async def exercise():
+            self.assertIs(await Client().get_video_comments('123'),value)
+            self.assertEqual(await store.batch_update_bilibili_video_comments('123',[comment]),'original-result')
+            with self.assertRaisesRegex(RuntimeError,'original failure'):
+                await Client().get_video_sub_comments('123','10',1,10,'original')
+        asyncio.run(exercise())
+        self.assertEqual(calls,[('123','original',0)])
+        self.assertTrue(observer.pages[0]['saved'])
+        self.assertNotIn('content',m.canonical(m.read(self.run/'pro-pagination.json')).replace('content_id',''))
+
+    def test_pagination_context_is_per_async_task(self):
+        observer=pro.BiliPagination(self.run,self.manifest)
+        async def task(entity):
+            observer.response('root','123',[SimpleNamespace(comment_id=entity,sub_comment_count='0')],
+                              {'cursor':{'next':1,'is_end':True}})
+            await asyncio.sleep(0)
+            return observer.current.get()['ids']
+        async def exercise():return await asyncio.gather(task('10'),task('11'))
+        self.assertEqual(asyncio.run(exercise()),[['10'],['11']])
+
+    def test_pagination_empty_valid_page_and_missing_fields(self):
+        observer=pro.BiliPagination(self.run,self.manifest)
+        observer.response('root','123',[],{'cursor':None})
+        self.assertTrue(observer.pages[0]['invalid'])
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'unknown')
+
+    def test_pagination_callback_failure_preserves_partial_rows(self):
+        async def callback(video_id,comments):raise RuntimeError('callback failure')
+        class Client:
+            async def get_video_comments(client,video_id,order_mode=0,next_page=0):return [],{'cursor':{'next':1,'is_end':True}}
+            async def get_video_sub_comments(client,video_id,root_comment_id,pn,ps,order_mode):return [],{}
+        async def commit(*args,**kwargs):return True
+        store=SimpleNamespace(batch_update_bilibili_video_comments=callback)
+        observer=pro.BiliPagination(self.run,self.manifest)
+        observer.install(Client,store,type('Manager',(),{'update_note_comment_cursor':commit}))
+        async def exercise():
+            await Client().get_video_comments('123')
+            with self.assertRaisesRegex(RuntimeError,'callback failure'):
+                await store.batch_update_bilibili_video_comments('123',[])
+        asyncio.run(exercise())
+        self.assertEqual(pro.pagination_summary(self.run,self.manifest)['coverage'],'partial')
+
+    def test_optional_selection_preserves_all_existing_features(self):
+        self.assertEqual(pro.selection(self.request,{})['backend'],'mc')
+        env = {'CROWD_EXECUTOR':'pro','CROWD_PRO_ROOT':str(self.root)}
+        self.assertEqual(pro.selection(self.request,env)['backend'],'pro')
+        for changes in ({'platform':'zhihu'},{'platform':'ks'},{'platform':'wb'},{'platform':'tieba'},
+                        {'mode':'homefeed'},{'mode':'trending'},{'media':True},{'wordcloud':True},
+                        {'platform_options':{'transcript_only':True}}, {'max_comments':0}):
+            result=pro.selection({**self.request,**changes},env)
+            self.assertEqual(result['backend'],'mc');self.assertIn('fallback_reason',result)
+        with self.assertRaisesRegex(m.BridgeError,'pro_root_missing'):
+            pro.selection(self.request,{'CROWD_EXECUTOR':'pro'})
+
+    def test_binding_never_uses_first_available_or_remote_service(self):
+        folder=self.root/'sessions'/self.request['session_id'];folder.mkdir(parents=True)
+        with self.assertRaisesRegex(m.BridgeError,'binding_required'):pro.binding_for(self.root,self.request)
+        good={'platform':'bili','client_id':'fixture-client','cookiebridge_url':'http://127.0.0.1:8274','sign_url':'http://127.0.0.1:8989'}
+        for delta in ({'platform':'xhs'},{'client_id':''},{'cookiebridge_url':'https://example.com'},
+                      {'cookiebridge_url':'http://name:password@localhost:80'}, {'sign_url':'http://localhost:8989/sign'},
+                      {'cookies':'must-not-import'}):
+            m.write(folder/'pro-binding.json',{**good,**delta})
+            with self.assertRaises(m.BridgeError):pro.binding_for(self.root,self.request)
+        m.write(folder/'pro-binding.json',good)
+        self.assertEqual(pro.binding_for(self.root,self.request),good)
+        m.write(folder/'pro-binding.json',{**good,'sign_url':'http://[::1]:8989'})
+        with self.assertRaisesRegex(m.BridgeError,'pro_sign_ipv6_unsupported'):
+            pro.binding_for(self.root,self.request)
+        # CookieBridge consumes the complete URL and retains valid loopback IPv6.
+        m.write(folder/'pro-binding.json',{**good,'cookiebridge_url':'http://[::1]:8274'})
+        self.assertEqual(pro.binding_for(self.root,self.request)['cookiebridge_url'],'http://[::1]:8274')
+
+    def test_checkpoint_and_operation_completion_not_cloud_ack(self):
+        committed=pro.completion(self.run,self.manifest,self.summary())
+        self.assertTrue(committed['local_committed']);self.assertFalse(committed['cloud_ack'])
+        self.assertEqual((committed['content_count'],committed['comment_count']),(1,3))
+        for delta in ({'operation_id':str(uuid.uuid4())},{'status':'failed'},{'platform':'xhs'},{}):
+            if not delta:continue
+            with self.assertRaises(m.BridgeError):pro.completion(self.run,self.manifest,{**self.summary(),**delta})
+        for delta in ({'acquisition_committed':False},{'is_completed':False},{'failed_search_pages':[1]},
+                      {'crawled_note_list':[]},{'id':'other'},
+                      {'crawled_note_list':[{'note_id':'BV1ocaW6rETo','is_success_crawled':True,'is_success_crawled_comments':False}]}):
+            m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),{**self.cp,**delta})
+            with self.assertRaises(m.BridgeError):pro.completion(self.run,self.manifest,self.summary())
+
+    def test_observation_scope_and_source_identity_rejects_cross_platform(self):
+        self.row('topic','other',{'video_id':'other'},operation='another-operation')
+        self.assertEqual(len(pro.observations(self.run,self.manifest)),4)
+        self.row('comment','99',{'comment_id':'99','video_id':'123'},platform='xhs')
+        with self.assertRaisesRegex(m.BridgeError,'identity_mismatch'):pro.observations(self.run,self.manifest)
+
+    def test_import_export_and_pending_outbox_keep_reply_media_contract(self):
+        imported=m.import_output(self.root,{'run_id':self.rid})
+        records=imported['records']
+        self.assertEqual(len(records),4)
+        content=next(r for r in records if r['kind']=='content')
+        self.assertEqual(content['body'],self.body['desc']);self.assertEqual(content['platform_fields']['bvid'],'BV1ocaW6rETo')
+        self.assertNotIn('upstream_truncation_risk',content)
+        replies={r['comment_id']:r['parent_comment_id'] for r in records if r['kind']=='comment'}
+        self.assertEqual(replies,{'10':None,'11':'10','12':'10'})
+        self.assertEqual(len(imported['media']),2)
+        self.assertTrue(all(i['status']=='reference_only' and 'sha256' not in i and 'bytes' not in i for i in imported['media']))
+        self.assertFalse(imported['pro_acquisition']['raw_response_pages_available'])
+        store=ResultsStore(self.root)
+        first=store.ingest(imported);self.assertEqual(first['added_versions'],6)
+        self.assertTrue(store.ingest(imported)['duplicate_import'])
+        exported={}
+        for fmt in ('json','jsonl','csv'):
+            exported[fmt]=store.export(fmt)
+            self.assertTrue(exported[fmt]['data'])
+        class NoNetwork:
+            def call(self,*_):raise AssertionError('No cloud call authorized')
+        outbox=CloudOutbox(self.root,NoNetwork())
+        lease={key:str(uuid.uuid4()) for key in ('task_id','child_id','run_id')}
+        lease.update(lease_epoch=1,platform='bili',delivery_basis='live_capture')
+        ids=outbox.stage_imported(records,lease)
+        self.assertEqual(len(ids),4);self.assertEqual(ids,outbox.stage_imported(records,lease))
+        self.assertEqual(outbox.stats()['pending'],4)
+        self.assertEqual(outbox.stats()['acknowledged'],0)
+
+    def test_public_reference_secret_never_exports(self):
+        self.body['video_cover_url']='https://example.com/a?access_token=private'
+        self.row('topic','123',self.body)
+        records,media,_=pro.import_records(self.run,self.manifest)
+        self.assertNotIn('private',m.canonical(records));self.assertEqual(len(media),1)
+
+    def test_duplicate_page_observations_are_upserted_and_partial_stays_partial(self):
+        self.row('comment','11',{'video_id':'123','comment_id':'11','parent_comment_id':'10','content':'同页重访新观测'})
+        rows,_,_=pro.import_records(self.run,self.manifest)
+        self.assertEqual(sum(r['kind']=='comment' for r in rows),3)
+        self.assertEqual(next(r for r in rows if r.get('comment_id')=='11')['text'],'同页重访新观测')
+        cp=deepcopy(self.cp);cp['acquisition_committed']=False;cp['crawled_note_list'][0]['is_success_crawled_comments']=False
+        m.write(self.run/'data/checkpoints/vox'/(self.rid+'.json'),cp)
+        imported=m.import_output(self.root,{'run_id':self.rid})
+        self.assertFalse(imported['pro_acquisition']['local_committed'])
+
+    def test_protocol_progress_ignores_other_ops_and_logs(self):
+        sink=pro.ProgressSink(self.run,self.manifest)
+        sink.write('Cookie: never saved\n@@MCPRO_EVENT@@'+json.dumps({'operation_id':'other','schema_version':pro.PROTOCOL,'platform':'bili','item_count':900})+'\n')
+        self.assertFalse((self.run/'phase.json').exists())
+        event={'operation_id':self.rid,'schema_version':pro.PROTOCOL,'platform':'bili','status':'running','item_count':1,'comment_count':3,'cookies':'secret'}
+        sink.write('@@MCPRO_EVENT@@'+json.dumps(event)+'\n')
+        state=m.read(self.run/'phase.json');self.assertEqual(state['comment_count'],3);self.assertNotIn('secret',m.canonical(state))
+        sink.write('---CRAWL_SUMMARY: '+json.dumps({**self.summary(),'error':'private payload'})+'---\n')
+        self.assertEqual(sink.summary,self.summary())
+
+    def test_exact_pro_cli_does_not_use_legacy_flags(self):
+        args=pro.argv_for(self.request)
+        self.assertIn('--urls',args);self.assertIn('--enable_sub_comments',args)
+        self.assertNotIn('--lt',args);self.assertNotIn('--get_media',args)
+        self.assertEqual(args[-1],'BV1ocaW6rETo')
+
+    def test_transport_hard_budget_and_auth_stop_before_retry(self):
+        class AsyncClient:
+            async def send(self,*a,**kw):return SimpleNamespace(status_code=200)
+        class SyncClient:
+            def send(self,*a,**kw):return SimpleNamespace(status_code=401)
+        class Response:
+            async def aiter_bytes(self):yield b'a'
+        http=SimpleNamespace(AsyncClient=AsyncClient,Client=SyncClient,Response=Response)
+        sink=pro.ProgressSink(self.run,self.manifest)
+        pro.install_transport_limits(http,{'max_api_requests':2},sink)
+        asyncio.run(AsyncClient().send())
+        with self.assertRaises(SystemExit) as rejected:SyncClient().send()
+        self.assertEqual(rejected.exception.code,77)
+        with self.assertRaises(SystemExit) as limited:asyncio.run(AsyncClient().send())
+        self.assertEqual(limited.exception.code,73);self.assertEqual(sink.attempts,2)
+        self.assertEqual(m.read(self.run/'phase.json')['failure_reason'],'api_request_limit')
+
+    def test_bound_cookiebridge_exact_client_validation_no_enumeration(self):
+        calls=[]
+        payload={'isok':True,'data':{'client_id':'chosen','platform':'bili','cookies':'synthetic_fixture_only'}}
+        class HTTP:
+            def __init__(self,**kw):pass
+            async def __aenter__(self):return self
+            async def __aexit__(self,*a):pass
+            async def get(self,url,params):
+                calls.append((url,params))
+                return SimpleNamespace(status_code=200,raise_for_status=lambda:None,json=lambda:payload)
+        class Pool:
+            _platform_name='bili'
+            def __init__(self):self.accounts=[]
+            def add_account(self,a):self.accounts.append(a)
+        bound={'client_id':'chosen','cookiebridge_url':'http://127.0.0.1:8274'}
+        model=SimpleNamespace(AccountInfoModel=lambda **kw:kw,AccountStatusEnum=SimpleNamespace(NORMAL=SimpleNamespace(value=0)))
+        with patch.dict('sys.modules',{'pkg.account_pool.pool':model}):
+            pro.install_bound_account(Pool,bound,'bili',SimpleNamespace(AsyncClient=HTTP))
+            pool=Pool();asyncio.run(pool.load_accounts_from_cookie_bridge())
+            self.assertEqual(len(pool.accounts),1)
+            self.assertEqual(calls,[('http://127.0.0.1:8274/api/cookies/bili',{'client_id':'chosen'})])
+            payload['data']['client_id']='another'
+            with self.assertRaises(SystemExit) as changed:asyncio.run(Pool().load_accounts_from_cookie_bridge())
+            self.assertEqual(changed.exception.code,78)
+            payload['data']['client_id']='chosen';payload['data']['valid']=False
+            with self.assertRaises(SystemExit) as invalid:asyncio.run(Pool().load_accounts_from_cookie_bridge())
+            self.assertEqual(invalid.exception.code,86)
+
+    def test_supervisor_pro_failure_never_launches_mc_fallback(self):
+        manifest={**self.manifest,'executor':{'backend':'pro','python':'/fixture/pro/python'}}
+        m.write(self.run/'manifest.json',manifest)
+        child=Mock();child.poll.return_value=74;child.wait.return_value=74
+        with patch.object(m.subprocess,'Popen',return_value=child) as launched,patch.object(m.os,'close'):
+            m.worker(self.root,Path('/fixture/mc'),self.rid,99)
+        self.assertEqual(launched.call_count,1)
+        self.assertEqual(launched.call_args.args[0][0],'/fixture/pro/python')
+        self.assertEqual(m.status(self.root,{'run_id':self.rid})['state'],'failed')
+
+    def test_known_challenge_and_frequency_exit_cannot_be_caught_by_retry_exception(self):
+        m.write(self.run/'manifest.json',{**self.manifest,'executor':{'backend':'pro','python':'/fixture/pro/python'}})
+        for status,code,expected in [(461,None,80),(471,None,80),(429,None,79),(200,300013,79),
+                                      (200,-100,77),(200,300012,81),(200,300015,82)]:
+            calls=[]
+            class Client:
+                async def send(self,*a,**kw):
+                    calls.append('source')
+                    return SimpleNamespace(status_code=status,json=lambda:{'code':code})
+            class Response:
+                async def aiter_bytes(self):yield b'a'
+            http=SimpleNamespace(AsyncClient=Client,Client=type('Sync',(),{'send':lambda *_:None}),Response=Response)
+            pro.install_transport_limits(http,{'max_api_requests':20,'platform':'xhs'},pro.ProgressSink(self.run,self.manifest))
+            async def upstream_retry():
+                for _ in range(5):
+                    try:return await Client().send()
+                    except Exception:continue
+            with self.assertRaises(SystemExit) as stopped:asyncio.run(upstream_retry())
+            self.assertEqual(stopped.exception.code,expected);self.assertEqual(calls,['source'])
+            child=Mock();child.poll.return_value=expected;child.wait.return_value=expected
+            with patch.object(m.subprocess,'Popen',return_value=child),patch.object(m.os,'close'):
+                m.worker(self.root,Path('/fixture/mc'),self.rid,99)
+            self.assertIn(m.status(self.root,{'run_id':self.rid})['reason'],
+                          ('captcha_required','rate_limited','login_required','platform_blocked','platform_signature_rejected'))
+
+
+class UpstreamLifecycleTest(unittest.IsolatedAsyncioTestCase):
+    async def probe(self, main, close_error=None):
+        self.context = ContextVar('fixture_database', default=None)
+        self.closed = 0
+        self.database = SimpleNamespace(_conn=object())
+        async def close():
+            self.closed += 1
+            if close_error:
+                raise close_error
+            self.context.get()._conn = None
+        async def entry():
+            self.context.set(self.database)
+            return await main(close)
+        with patch.dict('sys.modules', {'var':SimpleNamespace(media_crawler_db_var=self.context),
+                                      'db':SimpleNamespace(close=close)}):
+            return await pro.run_upstream(SimpleNamespace(main=entry))
+
+    async def test_successful_upstream_close_is_not_repeated(self):
+        async def main(close):
+            await close()
+            return 'committed'
+        self.assertEqual(await self.probe(main),'committed')
+        self.assertEqual(self.closed,1)
+
+    async def test_budget_baseexception_is_preserved_and_connection_closed(self):
+        error=SystemExit(73)
+        async def main(close):raise error
+        with self.assertRaises(SystemExit) as caught:await self.probe(main)
+        self.assertIs(caught.exception,error)
+        self.assertEqual(self.closed,1);self.assertIsNone(self.database._conn)
+
+    async def test_cancellation_preserves_cause_and_closes_in_original_context(self):
+        async def main(close):raise asyncio.CancelledError()
+        with self.assertRaises(asyncio.CancelledError):await self.probe(main)
+        self.assertEqual(self.closed,1);self.assertIsNone(self.database._conn)
+
+    async def test_wait_for_timeout_closes_before_return(self):
+        async def main(close):await asyncio.sleep(60)
+        with self.assertRaises(TimeoutError):
+            await asyncio.wait_for(self.probe(main),timeout=.02)
+        self.assertEqual(self.closed,1);self.assertIsNone(self.database._conn)
+
+    async def test_cleanup_failure_does_not_replace_original_exit(self):
+        error=SystemExit(73)
+        async def main(close):raise error
+        with self.assertRaises(SystemExit) as caught:
+            await self.probe(main,close_error=OSError('fixture close failure'))
+        self.assertIs(caught.exception,error);self.assertEqual(self.closed,1)
+
+    async def test_cleanup_failure_on_success_is_not_false_completion(self):
+        async def main(close):return 'not-yet-closed'
+        with self.assertRaises(OSError):
+            await self.probe(main,close_error=OSError('fixture close failure'))
+        self.assertEqual(self.closed,1)
+
+
+
+class CursorPageContracts(unittest.TestCase):
+    def setUp(self):
+        from pro_cursor_pages import CursorPagination
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.run=Path(self.temp.name)
+        self.manifest={'run_id':str(uuid.uuid4()),'request':{'platform':'xhs','replies':True,'max_comments':20}}
+        self.observer=CursorPagination(self.run,self.manifest,pro)
+    def test_xhs_hex_identity_and_uncommitted_empty_terminal(self):
+        page=self.observer.record('root','note',[],{'cursor':'end','has_more':False},'')
+        self.assertTrue(page['saved']);self.assertFalse(page['checkpoint_committed']);self.assertFalse(page['invalid'])
+        model=SimpleNamespace(comment_id='6ac45853000000000d028c01',sub_comment_count='0')
+        page=self.observer.record('root','note',[model],{'cursor':'next','has_more':False},'')
+        self.assertEqual(page['ids'],[model.comment_id]);self.assertFalse(page['invalid'])
+    def test_stalled_page_is_precise_partial_not_byte_exit(self):
+        from pro_cursor_pages import CursorStalled
+        with self.assertRaises(CursorStalled):self.observer.record('root','note',[],{'cursor':'','has_more':True},'')
+        self.assertTrue(m.read(self.run/'pro-pagination.json')['pages'][0]['stalled'])
+        self.assertFalse(m.read(self.run/'pro-pagination.json')['pages'][0]['checkpoint_committed'])
+        self.assertNotIsInstance(CursorStalled(),SystemExit)
+    def test_native_integer_cursor_does_not_accept_boolean(self):
+        from pro_cursor_pages import cursor,more
+        self.assertIsNone(cursor(True,'dy'));self.assertIsNone(cursor('1','dy'))
+        self.assertEqual(cursor(0,'dy'),0);self.assertFalse(more(0));self.assertTrue(more(1));self.assertIsNone(more('1'))
+    def test_budget_and_cancel_propagate_without_observed_page(self):
+        from pro_cursor_pages import CursorPagination
+        async def store(comments):pass
+        async def commit(*args,**kwargs):return True
+        for exception in (SystemExit(73),asyncio.CancelledError()):
+            class Client:
+                async def get_note_comments(self,note_id,cursor='',xsec_token=''):raise exception
+                async def get_note_sub_comments(self,note_id,root_comment_id,num=10,cursor='',xsec_token=''):raise exception
+            observer=CursorPagination(self.run,self.manifest,pro)
+            observer.install(Client,SimpleNamespace(batch_update_xhs_note_comments=store),type('Manager',(),{'update_note_comment_cursor':commit}))
+            with self.assertRaises(type(exception)):asyncio.run(Client().get_note_comments('note'))
+            self.assertFalse(observer.pages)
+    def test_save_failure_keeps_original_page_unsaved(self):
+        from pro_cursor_pages import CursorPagination
+        model=SimpleNamespace(comment_id='6ac45853000000000d028c01',sub_comment_count='0')
+        class Client:
+            async def get_note_comments(self,note_id,cursor='',xsec_token=''):return [model],{'comments':[],'cursor':'end','has_more':False}
+            async def get_note_sub_comments(self,*args,**kwargs):raise AssertionError('unused')
+        async def save(comments):raise RuntimeError('write_failed')
+        async def commit(*args,**kwargs):raise AssertionError('must not commit')
+        observer=CursorPagination(self.run,self.manifest,pro);store=SimpleNamespace(batch_update_xhs_note_comments=save)
+        observer.install(Client,store,type('Manager',(),{'update_note_comment_cursor':commit}))
+        async def check():
+            await Client().get_note_comments('note')
+            with self.assertRaisesRegex(RuntimeError,'write_failed'):await store.batch_update_xhs_note_comments([model])
+        asyncio.run(check());self.assertFalse(m.read(self.run/'pro-pagination.json')['pages'][0]['saved'])
+
+
+class BoundedExitContracts(unittest.IsolatedAsyncioTestCase):
+    async def test_deliberate_source_exits_preserve_original_object(self):
+        from pro_cursor_pages import CursorStalled
+        for error in (SystemExit(73),SystemExit(77),CursorStalled()):
+            async def source(*args):raise error
+            with patch.object(pro,'run_upstream',source),self.assertRaises(type(error)) as caught:
+                await pro.run_upstream_bounded(SimpleNamespace(),1)
+            self.assertIs(caught.exception,error)
+    async def test_timeout_cancels_same_source_and_closes(self):
+        closed=[]
+        async def source(*args):
+            try:await asyncio.sleep(60)
+            finally:closed.append(True)
+        with patch.object(pro,'run_upstream',source),self.assertRaises(TimeoutError):
+            await pro.run_upstream_bounded(SimpleNamespace(),.01)
+        self.assertEqual(closed,[True])
+    async def test_cancellation_is_not_relabelled_as_process_exit(self):
+        closed=[]
+        async def source(*args):
+            try:await asyncio.sleep(60)
+            finally:closed.append(True)
+        with patch.object(pro,'run_upstream',source):
+            task=asyncio.create_task(pro.run_upstream_bounded(SimpleNamespace(),10))
+            await asyncio.sleep(.01);task.cancel()
+            with self.assertRaises(asyncio.CancelledError):await task
+        self.assertEqual(closed,[True])
+
+if __name__ == '__main__': unittest.main()

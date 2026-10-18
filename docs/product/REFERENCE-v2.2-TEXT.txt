@@ -1,0 +1,312 @@
+CTFS 模块级开发方案 PRD v2.2
+MODULE-LEVEL DEVELOPMENT PRD
+CTFS 模块级开发方案 · 产品需求文档 v2.2
+回答两个问题：① 每个模块怎么开发，才既高效、又能持续承接不断升级的需求；② 有哪些成熟开源项目可以直接借鉴。本 PRD 是 v2.1 主 PRD 的配套详设——主 PRD 定架构（工具柜 + 插槽），本文定每个工具的"建造方式"。
+版本 v2.2
+配套 v2.1 主 PRD
+日期 2026-10-11
+状态 评审稿
+含 GitHub 开源调研
+目录
+1 开发方法论：一套通用建造方式
+2 M1 采集器 Crawler
+3 M2 清洗器 Cleaner
+4 M3 评分器 Scorer
+5 M4 本体库 Ontology
+6 M5 编排器 Orchestrator
+7 M6 审计器 Auditor
+8 M7 交付器 Deliverer
+9 M0 存储层 Storage
+10 开源借鉴总表与落地顺序
+1开发方法论：一套通用建造方式
+8 个模块共享同一种"建造方式"，保证高效开发 + 持续可演进。核心：最小内核 → 插件适配 → 契约演进 → 复用证明。
+原则 A · 最小内核 + 插件
+每个模块拆成core（确定性内核，通用） + adapters（插件，领域/平台差异）。内核一旦稳定几乎不改；新需求 = 加插件，不动内核。采集器加平台=加连接器，清洗器加规则=加校验器，评分器加维度=加 rubric。
+原则 B · 契约先行 + semver
+模块对外的输入输出以 JSON Schema 契约定义，版本走 semver。新增字段走可选扩展，禁止破坏性变更。契约是模块之间唯一的握手方式，契约稳定 = 模块可独立演进。
+原则 C · 配置驱动
+一切领域知识（词根/权重/阈值/抽样框）来自 Manifest 与本体包。升级需求 = 改配置 + 加插件，永远不需要重写内核。代码里 grep 不到业务词。
+原则 D · 确定性 + 可复跑
+机械环节（清洗/去重/校验/门控/写库）全部确定性代码，幂等、可重跑、有回读断言。模型只做发现与语义判断。这保证"升级后重跑"成本极低。
+原则 E · 测试金字塔
+契约测试（schema 校验）> 单元测试（内核逻辑）> 回归集（点名店 100% 命中）。每次改动跑全套，全绿才算完成。回归集是"不断升级但不出错"的保险丝。
+原则 F · 复用证明
+每个模块必须至少被两个项目消费（eat our own dog food）。单一消费者说明抽象过度或还没通用化——写进验收，不做口头承诺。
+通用演进路径（每个模块都走这条）：
+v1 立内核（把现有脚本能力抽成最小可用的 core，先跑通上海项目）→
+v2 插件化（差异全部插件化，换城市/换领域只换配置与插件）→
+v3 平台化（提供 CLI/SDK/DAG 三入口，接第二个项目证明复用）。每一级都必须 audit 全绿才进下一级。
+2M1 采集器 Crawler
+目标：一个「按 Manifest 采任何领域数据」的通用采集引擎。开发重点是连接器插件体系 + 反爬服务 + 召回引擎，三者彼此独立。
+M1
+采集器 Crawler
+数据获取 · 领域无关采集引擎
+独立工具 · 插件体系
+开发方式（高效且可演进）
+STEP 1 · v1 立内核
+采集调度内核
+把现有 discovery_engine / 抽样框 F1–F6 抽成 core：网格解析、配额管理、去重调度、结果落 raw/。先复用现有 xhs / michelin / tencent_sig 脚本跑通上海。
+STEP 2 · v2 插件化
+连接器 + 反爬服务
+每个平台一个 connector 插件（entry_points 注册）；反爬独立成服务（代理池/账号池/限速/风控语义）。新平台 = 新插件，内核零改动。
+STEP 3 · v3 平台化
+召回引擎 + 复用证明
+权威全量召回（sitemap 对账）、集团/主厨树、LLM 舰队等作为可选引擎插件。接 Livehouse / 房源项目证明采集与领域无关。
+技术栈
+组件 | 选型 | 说明 |
+HTTP 层 | httpx（异步） | 轻量、连接复用、支持代理；配合签名 SDK（tencent_sig / xhs 签名） |
+渲染兜底 | Playwright | JS 重页面 / 风控页渲染；独立于 HTTP 通道，按源路由 |
+通用爬取 | crawl4ai（借鉴） | 78k★，LLM 就绪输出（markdown）、sitemap 挖掘、自适应抗验证码——适合"内容型"源 |
+反爬服务 | proxy_pool 模式 | 借鉴 jhao104/proxy_pool：Redis 存储 + 可用性排序 + API 取用；或 haipproxy 分布式版 |
+插件注册 | entry_points / 插件目录 | connectors/ 下每平台一个包，配置注册，新增平台不重启平台 |
+存储对接 | raw_place.schema.json | 所有连接器统一输出该契约，契约即插拔边界 |
+可借鉴的开源项目
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+crawl4ai | 78k★ | LLM 就绪内容提取、sitemap 挖掘、自适应反检测、Common Crawl 历史 URL | sitemap 挖掘直接复用到权威全量召回；markdown 化输出用于解析阶段 |
+Scrapy | 63.8k★ | Item Pipeline 架构、中间件、分布式（scrapy-redis） | Item Pipeline 分层思路 → 采集器输出层设计参考 |
+MediaCrawler | 高星 | 小红书/抖音/B 站等 7 平台、签名机制 | 多平台签名与登录态管理 → 连接器模板参考 |
+Spider_XHS | 3k+★ | 小红书全域采集、笔记/用户/评论、Excel/多媒体导出 | 小红书连接器直接参考其端点与字段 |
+jhao104/proxy_pool | 高星 | 免费代理抓取 → Redis 校验 → Flask API，MIT | 反爬服务代理池直接按此模式自建 |
+Scrapfly Antibot-Detector | 592★ | 实时检测站点部署的 anti-bot / CAPTCHA / 指纹 | 风控语义识别：软限流 vs 真封禁的判据参考 |
+演进的关键约束：连接器只认 raw_place.schema 契约；反爬服务以独立进程/服务存在，采集内核通过配置引用；新增平台永远不改内核。升级需求（新平台/新字段/新配额逻辑）全部落在插件与配置层。
+3M2 清洗器 Cleaner
+目标：raw → 标准实体（canonical entity）。开发重点是schema 硬校验 + 实体解析 + 事实核验，全部确定性、可复跑。
+M2
+清洗器 Cleaner
+数据中台 · 清洗与标准化
+中台模块 · 确定性内核
+开发方式（高效且可演进）
+STEP 1 · v1 立内核
+校验 + 实体解析
+把 stage1_validate / entity_align / merge_duplicates 抽成 core：schema 硬门、名称归一、同址合并。Pydantic 定义契约即校验器。
+STEP 2 · v2 插件化
+校验器 + 地理编码 + 事实核验
+领域校验规则（如菜品名≠餐厅名）做成 validator 插件；地理编码（地址→GCJ02）独立服务；事实核验走搜索引擎+权威通报（不等 UGC）。
+STEP 3 · v3 平台化
+字段保鲜 + 血缘
+字段级 last_verified / stale（30/90/180 天）、变更留 history。任一"实体型"领域（房源/POI/商品）换 schema 即用。
+技术栈
+组件 | 选型 | 说明 |
+Schema 契约 | Pydantic v2 + JSON Schema | 契约即校验器；导出 JSON Schema 供全链路与 datacontract 使用 |
+数据处理 | polars | 批量清洗快且省内存；大规模去重/合并性能好 |
+实体解析 | 自研 entity_align（迁移） | 多信号三桶 AUTO/REVIEW/PHONE；裁决持久化 |
+地理编码 | 高德/腾讯 API 服务化 | 地址→GCJ02，配额门 + 多 key 池化 |
+事实核验 | 搜索 + 权威通报 | fact_verify 迁移；规模/工艺/出品/安全四轴独立 |
+数据质量参考 | Pandera（借鉴） | DataFrame schema 校验；需要统计型校验时引入 |
+可借鉴的开源项目
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+Great Expectations | GX Core | 声明式 expectation、profiling、数据质量套件（Apache 2.0） | 字段级质量断言思路 → stage1 校验门设计（注意 2026 所有权变更，用 GX Core 社区版） |
+Soda Core | 2.3k★ | YAML/SodaCL 声明式校验 + 监控 | YAML 配置校验规则 → 校验规则外置为配置（原则 C） |
+Pandera | 高星 | pandas/dask/polars 的 DataFrame schema 与统计断言 | 批量 DataFrame 级校验；polars 生态直接匹配 |
+datacontract-cli | PyPI | Data Contract YAML → lint / 执行 schema 与质量测试 / 检测破坏性变更 | 契约版本化与 breaking change 检测 → 契约演进自动化 |
+dbt Core | 12.6k★ | SQL 转换 + 分层测试（singular/generic） | SQL 型清洗需求出现时引入；当前 Python 栈暂不强依赖 |
+演进的关键约束：校验规则必须外置（YAML/本体包），代码内无"地址必须到门牌"之外的领域逻辑；新增领域 = 换 schema + 换 validator 插件。清洗器永远不知道自己在洗餐厅还是房源。
+4M3 评分器 Scorer
+目标：标准实体 → 多维评分 + 污染检测 + 准入决策。开发重点是rubric 配置化评分引擎 + 软广多信号模型 + 贝叶斯置信。
+M3
+评分器 Scorer
+数据中台 · 评分与准入
+中台模块 · 维度可配置
+开发方式（高效且可演进）
+STEP 1 · v1 立内核
+rubric 评分引擎
+把现有四项评分（客观/食客/口味/背书）重写为「维度 × 权重 × 归一化」的配置驱动引擎；准入闸门（≥2 独立声音 + 阈值）独立成判定器。
+STEP 2 · v2 插件化
+污染检测 + 置信
+软广/硬广/工业化三类独立建模为 detector 插件；评论级 p_softad 用 scikit-learn 经典 ML（可解释特征）；贝叶斯置信与时间衰减作为 score 后处理。
+STEP 3 · v3 平台化
+跨领域 rubric + 复用证明
+housing 本体包自带 rubric（笋盘度/租售比），同引擎零改动跑通；污染检测迁移到"假房源/虚假在售"场景验证复用。
+技术栈
+组件 | 选型 | 说明 |
+评分引擎 | 自研 rubric 引擎（配置驱动） | 维度/权重/阈值/先验全来自本体包 scoring_rules.yaml |
+污染检测 | scikit-learn + numpy | p_softad 分类：词频/行为/网络特征，输出概率+依据，可解释 |
+贝叶斯置信 | 贝叶斯平均公式 | 借鉴 IMDb/Algolia 方法：BR=(Cm+navg)/(C+n)，小样本不虚高 |
+时间衰减 | 衰减权重配置 | 近期证据权重略高；参数在 rubric 里可调 |
+AI 文本检测参考 | GLTR（借鉴） | AI 生成文本检测 → 软广"模板套话"信号特征参考 |
+可借鉴的开源项目
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+openskill | 高星 | 贝叶斯 TrueSkill 类评级（Weng-Lin / Plackett-Luce） | 多维相对排序思路 → 评分聚合的可选进阶算法 |
+贝叶斯平均（Algolia/LobeHub skill） | 成熟算法 | BR=(Cm+navg)/(C+n)，置信数 C 常用中位数评论数 | 直接落地为 score 置信模块；LobeHub 已有现成 skill 可抄 |
+GLTR | 开源 | AI 文本可预测性检测 | 软广"AI 模板文"识别特征参考（仅作信号之一） |
+思通舆情 | 开源 | 全网舆情采集 + 交叉分析 + 报告 | 评论/舆论信号聚合思路 → 软广店铺级信号聚合参考 |
+scikit-learn | 行业标准 | 分类/聚类/特征工程 | p_softad 模型训练与评估（可解释模型优先：逻辑回归/树） |
+演进的关键约束：评分引擎零领域假设——"口味"与"笋盘度"只是两个不同 rubric 的维度名。软广模型训练数据打标与回归集绑定，新增污染类型 = 新增 detector 插件，不动引擎。
+5M4 本体库 Ontology
+目标：领域知识打包成可安装、可版本化、可回滚的本体包。这是"换领域不换工具"的钥匙，也是整个平台最容易做好的部分——因为本质是结构化配置 + 校验 + 版本管理。
+M4
+本体库 Ontology
+领域知识插件 · 换领域的钥匙
+配置包 · 唯一领域入口
+开发方式（高效且可演进）
+STEP 1 · v1 立内核
+包结构 + 校验器
+定义本体包目录规范（taxonomy / keywords / scoring_rules / regression_set / source_plan / schema）；Pydantic 校验器保证包合法才可安装。现有 templates/ 7 模板直接演化。
+STEP 2 · v2 版本化
+semver + 安装/回滚
+本体包版本号 semver；toolbox ontology install / verify / rollback；包注册表（ledger）记录每个项目引用哪个版本。
+STEP 3 · v3 生态化
+包市场 + 跨领域
+housing / livehouse 本体包随项目沉淀；冷启动流程 = 半自动填包（LLM 起草 + 人工审）。包与包之间可继承（food-cn-v2 继承 food-cn-v1）。
+技术栈
+组件 | 选型 | 说明 |
+包格式 | YAML + JSON 目录包 | 人类可读、可 diff、可回滚；JSON Schema 描述包结构 |
+合法性校验 | Pydantic v2 | 包 install 前强校验，非法包拒绝安装 |
+版本管理 | semver + 包注册表 ledger | Confluent Schema Registry 的兼容性检查思路借鉴 |
+契约规范 | JSON Schema（draft-07） | 事实标准；Pydantic 可导出 JSON Schema，双端一致 |
+Skill 写法参考 | anthropics/skills | SKILL.md 渐进式披露结构 → 本体包文档结构参考 |
+可借鉴的开源项目 / 生态
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+JSON Schema | 事实标准 | draft-07 工具链最成熟；版本化 + 校验生态完整 | 本体包与数据契约的骨架语言 |
+Confluent Schema Registry | 企业标准 | schema 版本化、backward/forward/full 兼容性检查、REST API | 兼容性检查思路 → 本体包升级不破坏下游 |
+datacontract-cli | PyPI | Data Contract YAML：lint / test / breaking change / export | 本体包内 schema 的 lint 与兼容性检测直接可用 |
+anthropics/skills | 官方 | SKILL.md 渐进式披露（metadata → instruction → resources） | 本体包使用文档的写法规范 |
+templates/（自有） | 7 模板 | 冷启动模板：本体/分类/词根/打分/源/回归/schema | 直接演化为本体包骨架，零重写 |
+演进的关键约束：本体包是唯一允许出现业务词的地方。CI 强制检查：本体包目录之外 grep "菜系/商圈/人均"不得命中。新需求（新菜系叶子/新评分维度/新词根）= 改本体包，不是改工具。
+6M5 编排器 Orchestrator
+目标：把 crawl → clean → score → audit → deliver 编排成可定时、可续跑、可告警的 DAG。开发重点是轻量起步（cron + CLI）→ 渐进到 DAG 引擎，避免一上来就背 Airflow 的运维成本。
+M5
+编排器 Orchestrator
+编排调度 · 工作流引擎
+平台服务
+开发方式（高效且可演进）
+STEP 1 · v1 立内核
+pipeline.yaml + CLI 串行
+每项目一份 pipeline.yaml（阶段顺序/参数/重试）；toolbox orch run 按序串行执行各工具 CLI。先满足"能自动跑"，不引入重型引擎。
+STEP 2 · v2 调度化
+cron 定时 + 看门狗
+cron/rrule 定时触发；看门狗 20min 巡检、断线自愈、告警路由（飞书/TG）。云端常驻（v2.1 云上运行约束）。
+STEP 3 · v3 DAG 化
+Prefect 编排
+多阶段并行、断点续跑、失败重试开箱即用。仅当并行任务与续跑需求明确后引入，避免提前背上运维成本。
+技术栈
+组件 | 选型 | 说明 |
+起步调度 | cron / at / rrule | 云端 deuce 常驻 crontab，零额外依赖 |
+DAG 引擎 | Prefect 2.x（23k★，Apache-2.0） | Python 原生 decorator、重试/续跑内置；比 Airflow 轻 |
+备选引擎 | Dagster / Dagu | Dagster 资产中心化+lineage 更强；Dagu 单 VM 零基础设施 |
+看门狗 | 自研 watchdog（迁移） | 信号-模块匹配、告警精简、二维码经 TG+飞书 |
+状态持久 | SQLite/PG 任务表 | 任务状态、日志、断点信息落库，云端随时可回读续跑 |
+可借鉴的开源项目
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+Prefect | 23k★ | decorator 即流程、重试/缓存/续跑、可选托管控制面 | v3 DAG 化的首选引擎，Python 原生契合 |
+Dagster | 高星 | 资产中心化、内置 lineage 与 dbt 集成 | 若需要更强调数据血缘时升级选择 |
+Airflow | 行业标准 | 大规模 DAG、丰富 Operator | 参考但不首选：单体批调度偏重，初创期不值 |
+Dagu | 轻量 | 单 VM 零基础设施 DAG 调度 | deuce 单机场景的轻量备选，值得跟踪 |
+Temporal | 通用引擎 | 原生语言函数 + 自动状态 | 后续若出现复杂长任务状态需求再评估 |
+演进的关键约束：先 cron + CLI 跑通，再上 Prefect——调度器永远不写业务逻辑，只编排工具调用。升级需求（新频率/新依赖/新重试策略）= 改 pipeline.yaml，不写新调度代码。
+7M6 审计器 Auditor
+目标：只读体检 + 覆盖审计 + 发布闸门。开发重点是把现有 release_audit A–H 八类扫描沉淀为可配置的 gate 套件，全绿才放行发布。
+M6
+审计器 Auditor
+质量与发布门 · 只读体检
+发布闸门 · 全绿才上线
+开发方式（高效且可演进）
+STEP 1 · v1 立内核
+gate 套件骨架
+把 release_audit / regression_check / duplicate_audit / stage6_coverage / fact_evidence_gap 抽成统一 gate 框架：每类扫描 = 一个 gate 插件，输出结构化报告 + pass/fail。
+STEP 2 · v2 配置化
+阈值配置 + 报告
+覆盖目标（无空格/薄格率<20%/薄证据<10%）从本体包读取；报告标准化（audit schema），供发布流水线消费。
+STEP 3 · v3 平台化
+CI 集成 + 跨项目
+接入 GitHub Action / 发布流水线：push 前自动跑 gate，fail 即拦截；第二项目复用同一套 gate（回归集不同而已）。
+技术栈
+组件 | 选型 | 说明 |
+Gate 框架 | 自研插件式 gate runner | 每类扫描一个插件，报告 JSON 标准化 |
+数据质量参考 | Soda Core / GX（借鉴） | YAML 声明式质量检查 → gate 规则配置化 |
+回归执行 | pytest 或自研 runner | 回归集 100% 命中作为硬 gate |
+发布集成 | GitHub Actions | push 前跑 auditor，fail 拦截；云端 deuce 执行 |
+可借鉴的开源项目
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+Soda Core | 2.3k★ | SodaCL 声明式数据质量规则 + 监控 | 审计规则 YAML 化 → gate 规则与阈值外置 |
+Great Expectations | GX Core | expectation suite、profiling、文档化 | 期望断言套件思路 → 字段质量 gate |
+datacontract-cli | PyPI | breaking change 检测、契约测试 | 契约演进 gate → 防止破坏性升级上线 |
+alibaba/open-code-review | Apache-2.0 | AI 代码评审（Git diff → 结构化意见） | 可选：AI 辅助发现"领域外溢"等评审问题 |
+演进的关键约束：审计器永远只读（不修数据）；gate 全绿是发布唯一门槛；新增检查类型 = 新增 gate 插件。审计器与本体包绑定（回归集/覆盖目标来自包），换项目自动换验收口径。
+8M7 交付器 Deliverer
+目标：把评分数据交付给消费者（查询 API / PWA 前端 / 飞书报表）。开发重点是数据源与展示解耦——交付只读 DW 层，前端永远不知道数据怎么来的。
+M7
+交付器 Deliverer
+API / 前端 / 报表
+应用接入
+开发方式（高效且可演进）
+STEP 1 · v1 立内核
+API + 飞书导出
+FastAPI 查询层（按表指定排序、枚举以库为准）+ 飞书三表导出（01推荐/02候选池/03执行）。交付配置来自 Manifest delivery 段。
+STEP 2 · v2 前端化
+PWA + 动态树
+Next.js PWA：菜系树从库动态构建（禁止硬编码）、8 虚拟根、标签筛选、详情地图。数据源全切 DW/API。
+STEP 3 · v3 平台化
+模板化 + 复用
+报表模板/前端主题随本体包切换（美食三表 vs 房源看板）；第二项目复用同一套交付器。
+技术栈
+组件 | 选型 | 说明 |
+API | FastAPI | 自动 OpenAPI、Pydantic 同生态、轻量 |
+前端 | Next.js PWA + Vercel | 沿用现有 app/ 资产；Root Directory=app |
+报表 | 飞书 API（sheets/docs） | 三表模板 + 保鲜周期标注（90/180/30 天） |
+数据访问 | Supabase client / PG 视图 | 只读 DW/APP 层视图，不直连底层表 |
+可借鉴的开源项目
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+FastAPI | 行业标准 | 类型驱动 API、自动文档、校验 | 交付 API 直接采用，契约用 Pydantic 同源 |
+Next.js + Vercel | 行业标准 | SSR/ISR、PWA、一键部署 | 前端沿用现有链路，零迁移成本 |
+Supabase | 开源后端 | PG + Auth + Storage + Realtime + RLS | 数据层与交付视图直接承载 |
+tablefacts（npm） | 新兴 | 餐厅数据提取 → Supabase，key-free 优先 | 交付层"餐厅数据 → Supabase"的参考实现 |
+演进的关键约束：交付器只读 DW/APP 层；前端导航树动态构建（禁止硬编码常量）；新交付形态（房源看板/酒店黄页）= 新模板，不改内核。
+9M0 存储层 Storage
+目标：RAW/ODS/DW/APP 四层数据仓 + 血缘 + 变更历史。开发重点是契约版本化 + 血缘贯穿 + 表前缀隔离，它不"开发"而更多是"规范 + 基建"。
+M0
+存储层 Storage
+分层数据仓
+平台底座
+开发方式（高效且可演进）
+STEP 1 · v1 立规范
+四层 schema + 迁移体系
+定义 raw/clean/scored/audit 四类契约；迁移版本化管理（沿用 005_scoring_v3 的 001–005 模式）；表前缀隔离（sh_/nj_）。
+STEP 2 · v2 血缘与保鲜
+lineage + 变更历史
+每行记 lineage（来源 URL/批次/步骤/版本）；变更留 history 不覆盖（治搬家/改名）；字段级 last_verified + stale。
+STEP 3 · v3 扩展
+对象存储 + 分析扩展
+原始文件/图片入对象存储；量大后分析层可加 ClickHouse。契约兼容性由 datacontract 检测兜底。
+技术栈
+组件 | 选型 | 说明 |
+主存储 | PostgreSQL（Supabase） | 四层表 + 视图 + 触发器（score_total 由 DB 触发器算） |
+对象存储 | S3 兼容（R2/腾讯 COS） | 原始文件/图片；URL 持久化不失效 |
+契约管理 | datacontract-cli + semver | schema 版本化 + breaking change 检测 |
+迁移 | SQL 迁移文件（001–N） | 幂等可重跑；沿用现有 005 模式 |
+可借鉴的开源项目
+项目 | 热度 | 成熟能力 | 借鉴点 → 用到哪里 |
+Supabase | 开源后端 | PG + RLS + Realtime + Storage，云端托管 | 主数据库直接沿用（v2.1 已定） |
+Confluent Schema Registry | 企业标准 | schema 版本化与兼容性检查 | 契约演进机制的参考范式 |
+datacontract-cli | PyPI | Data Contract lint/test/breaking change | 契约合法性 + 兼容性自动化检测 |
+dbt Core | 12.6k★ | SQL 转换层 + 测试（模型版本化） | 后续 DW 层 SQL 转换需求时引入 |
+演进的关键约束：存储层唯一真理是契约 + 迁移；禁止绕过 schema 直接改表；血缘字段强制非空；任何破坏性变更必须先过 datacontract 检测。
+10开源借鉴总表与落地顺序
+把所有调研结论汇总成一张"借鉴地图"，并给出分模块落地顺序（与主 PRD Phase 0–3 对齐）。
+10.1 借鉴总表
+目标模块 | 借鉴项目 | 热度 | 用途 |
+M1 采集器 | crawl4ai · Scrapy · MediaCrawler · Spider_XHS | 78k / 63.8k / 高星 / 3k+ | LLM 就绪提取与 sitemap 挖掘；Pipeline 分层；多平台签名；小红书端点 |
+M1 反爬 | proxy_pool · haipproxy · Antibot-Detector | 高星 / 高星 / 592 | 代理池自建模板；分布式高可用代理池；风控语义识别 |
+M2 清洗器 | Pandera · Soda Core · datacontract-cli | 高星 / 2.3k / PyPI | DataFrame schema 校验；YAML 校验规则外置；契约 lint 与兼容检测 |
+M3 评分器 | 贝叶斯平均（Algolia/LobeHub skill）· openskill · GLTR | 成熟 / 高星 / 开源 | 小样本置信评分；相对排序进阶；AI 模板文检测信号 |
+M4 本体库 | JSON Schema · Confluent Schema Registry · anthropics/skills | 标准 / 企业 / 官方 | 包与契约语言；版本兼容检查；SKILL.md 披露结构 |
+M5 编排器 | Prefect · Dagu · Dagster | 23k / 轻量 / 高星 | v3 DAG 首选；单机轻量备选；资产中心化升级路径 |
+M6 审计器 | Soda Core · GX Core · datacontract-cli | 2.3k / 社区 / PyPI | 声明式质量 gate；expectation 套件；契约演进 gate |
+M7 交付器 | FastAPI · Next.js · Supabase · tablefacts | 标准 / 标准 / 开源 / 新兴 | API；PWA；数据底座；餐厅数据交付参考实现 |
+M0 存储 | Supabase · Schema Registry · datacontract-cli | 开源 / 企业 / PyPI | 主数据库；契约版本范式；兼容性自动化 |
+技能生态（整体） | anthropics/skills · addyosmani/agent-skills · antigravity-awesome-skills | 官方 / 48k / 37k | Skill 书写规范；可借鉴的 agent 工具实现；安装分发方式 |
+10.2 关键借鉴结论（值得立即抄的 3 个）
+① crawl4ai 的 sitemap 挖掘
+解决权威全量召回的最高性价比方案：解析 robots.txt + 全量 sitemap + Common Crawl 历史 URL——直接替代手工对账米其林/黑珍珠索引。
+② 贝叶斯平均评分（有现成 skill）
+LobeHub 的 algo-rank-bayesian 就是一个可直接借鉴的评分 Skill：BR=(Cm+navg)/(C+n)，解决小样本评分虚高——正好是我们的"食客证据不足"痛点。
+③ datacontract-cli 契约治理
+数据契约 lint / 测试 / 破坏性变更检测一键化——把"契约先行 + semver"从口头变成 CI 里的硬检查。
+10.3 落地顺序（与主 PRD Phase 对齐）
+阶段 | 优先开发 | 说明 |
+Phase 0 | M0 规范 + M4 包结构 + 契约骨架 | datacontract-cli 先行接入，契约治理从第一天开始 |
+Phase 1 | M1 采集器（最高收益） | crawl4ai sitemap 挖掘 + proxy_pool 模式 + 连接器插件化；迁移现有 xhs/michelin/tencent_sig |
+Phase 2 | M2 清洗器 + M3 评分器 + M6 审计器 | Pandera/Soda 借鉴校验外置；贝叶斯平均落地置信；gate 插件化 |
+Phase 3 | M5 编排器 + M7 交付器 + 跨项目验证 | cron 起步 → Prefect；FastAPI/Next.js 交付；房源项目证明复用 |
+本 PRD 的验收：每个模块满足 ①独立安装 ②换领域零改内核 ③数据可溯 ④至少两个项目消费；借鉴项目必须"吸收思路并沉淀进我们的插件"，不整包依赖（避免被上游绑架）。
+CTFS 模块级开发方案 PRD v2.2 · 评审稿 · 2026-10-11 · 配套 v2.1 主 PRD；调研热度数据为搜索时点估计，落地前以仓库实际状态为准。

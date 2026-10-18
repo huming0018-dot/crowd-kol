@@ -1,0 +1,14 @@
+[
+  {
+    "nspname": "crowd_v4",
+    "proname": "dispatch_candidate_allowed",
+    "oid": 38228,
+    "definition": "CREATE OR REPLACE FUNCTION crowd_v4.dispatch_candidate_allowed(task bigint, participant uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n select not exists(\n  select 1 from crowd_v4.enrollments e join crowd_machine.unified_dispatches d on d.pilot_invite_hash=e.invite_hash\n   where e.user_id=participant and e.completed_at is not null\n ) or exists(\n  select 1 from crowd_machine.unified_participant_tasks m join crowd_machine.unified_dispatches d using(dispatch_id)\n   join crowd_v4.enrollments e on e.invite_hash=d.pilot_invite_hash\n   where m.task_id=task and e.user_id=participant and e.completed_at is not null\n );\n$function$\n",
+    "definition_md5": "ac2402f3a7701e1b470ba148c171df4f",
+    "acl": "{postgres=X/postgres}",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=\"\""
+    ]
+  }
+]

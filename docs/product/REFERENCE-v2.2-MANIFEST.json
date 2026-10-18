@@ -1,0 +1,8 @@
+{
+  "source": "/Users/hubowen/Doubao/chats/2026-10-09/new-chat-1/toolbox-prd/CTFS\u6a21\u5757\u5f00\u53d1\u65b9\u6848PRD-v2.2.html",
+  "bytes": 54110,
+  "sha256": "aee488f21b14637a805f38ba4686b31bc5ce4be459acac950f8b2603863a6c5b",
+  "extraction": "HTMLParser excluding style/script; original unchanged",
+  "text_sha256": "2d8dc4db8ada8ad2cf091b4518b319221555155fce8daaad72712cf763d57912",
+  "lines": 312
+}

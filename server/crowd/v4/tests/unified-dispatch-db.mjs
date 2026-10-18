@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {unifiedPlan} from '../supabase/functions/crowd-machine/unified_dispatch.mjs';
+import {sha} from '../supabase/functions/crowd-machine/contract.mjs';
+import {handleMachine} from '../supabase/functions/crowd-machine/core.mjs';
+process.on('uncaughtException',error=>{console.error(error.message,error.where||'',error.position||'');process.exit(1)});
+const original=new URL('./pilot-cohort-db.mjs',import.meta.url);
+const prefix=fs.readFileSync(original,'utf8').split('const otherMembers=[];')[0].replaceAll('import.meta.url',JSON.stringify(original.href));
+const {db,member,outsider,migrations,hash}=await import('data:text/javascript;base64,'+Buffer.from(prefix+'\nexport {db,member,outsider,migrations,hash};').toString('base64'));
+const before=(await db.query("select proname,md5(prosrc) hash from pg_proc join pg_namespace n on n.oid=pronamespace where n.nspname='public' and proname in ('crowd_v4_guard','crowd_v4_submit') order by proname")).rows;
+const claimBefore=(await db.query("select pg_get_functiondef('public.crowd_v4_claim(bigint)'::regprocedure) d")).rows[0].d;
+for(const file of ['20261007051154_crowd_v4_diagnostics.sql','20261013135950_crowd_v4_participant_health_history.sql','20261011033423_crowd_machine.sql','20261013165118_crowd_distributed_nodes.sql','20261013171145_crowd_unified_dispatch.sql'])await db.exec(fs.readFileSync(path.join(migrations,file),'utf8'));
+const after=(await db.query("select proname,md5(prosrc) hash from pg_proc join pg_namespace n on n.oid=pronamespace where n.nspname='public' and proname in ('crowd_v4_guard','crowd_v4_submit') order by proname")).rows;
+assert.deepEqual(after,before,'guard and submit unchanged');
+const claimAfter=(await db.query("select pg_get_functiondef('public.crowd_v4_claim(bigint)'::regprocedure) d")).rows[0].d;
+assert.equal(claimAfter.replace(' crowd_v4.dispatch_candidate_allowed(crowd_v4.tasks.id,u) and',''),claimBefore,'only new-candidate predicate modified');
+const ownerKey='c'.repeat(64),ownerHash=await sha(ownerKey);let rpcCalls=0;
+const backend={async rpc(name,args){rpcCalls++;try {assert.equal(name,'crowd_unified_dispatch_rpc');return {data:(await db.query('select public.crowd_unified_dispatch_rpc($1,$2,$3,$4::jsonb) result',[args.p_owner_scope,args.p_actor_kind,args.p_action,JSON.stringify(args.p_payload)])).rows[0].result};}catch(error){if(error.message!=='idempotency_conflict')console.error('RPC',args.p_action,error.message,error.where||'');return {error:{message:error.message}};}}};
+async function edge(action,payload={},role='Owner'){const response=await handleMachine(new Request('https://test.supabase.co/functions/v1/crowd-machine',{method:'POST',headers:{'Content-Type':'application/json',['X-Crowd-'+role+'-Key']:ownerKey},body:JSON.stringify({action,payload})}),backend,ownerHash);return {status:response.status,...await response.json()};}
+async function good(action,payload={}){const out=await edge(action,payload);assert.equal(out.ok,true,JSON.stringify(out));return out.result;}
+const request=(changes={})=>({platforms:['xhs'],mode:'search',targets:['晴川sushi'],desired_items:2,max_api_requests:10,comments:false,purpose:'noncommercial_research',idempotency_key:randomUUID(),...changes});
+const count=async table=>(await db.query(`select count(*)::int n from ${table}`)).rows[0].n;
+async function claim(id,task=null){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.query('select public.crowd_v4_node_register($1,$2::jsonb)',[id,JSON.stringify({version:'4.2.60',enabled:true,login_state:'ready'})]);return (await db.query('select public.crowd_v4_node_claim($1,$2) result',[id,task])).rows[0].result;}
+let tests=0;
+assert.equal((await edge('unified_create',request(),'Worker')).status,403);assert.equal(rpcCalls,0);
+assert.equal((await edge('unified_create',{...request(),cookie:'bad'})).status,400);assert.equal(rpcCalls,0);tests++;
+assert.equal((await good('unified_dispatches')).dispatches.length,0);
+for(const changes of [{targets:['not in pilot']},{targets:['晴川sushi','not in pilot']},{desired_items:1},{desired_items:22}]){const plan=request(changes);const preview=await good('unified_preview',plan);assert.equal(preview.ready,false);assert.equal((await good('unified_create',plan)).created,false);}
+assert.equal(await count('crowd_machine.tasks'),0);assert.equal(await count('crowd_machine.unified_dispatches'),0);tests++;
+for(const rich of [{comments:true},{media:true},{comments:true,replies:true},{start_page:2},{session_by_platform:{xhs:randomUUID()}}]){const preview=await good('unified_preview',request({...rich,desired_items:20}));assert.equal(preview.ready,true);assert.equal(preview.routes[0].execution_kind,'machine_worker');assert.equal(preview.routes[0].state,'queued');}tests++;
+// Existing lease before Owner dispatch must continue, even if it is not selected by that dispatch.
+const legacy=(await claim(member)).task;assert.equal(legacy.id,13);
+const wanted=request({platforms:['xhs','bili'],desired_items:4,max_api_requests:40});
+const preview=await good('unified_preview',wanted);assert.equal(preview.ready,true);assert.equal(preview.routes[0].state,'queued');assert.equal(preview.routes[0].item_quota,2);assert.equal(preview.routes[1].reason_code,'upstream_search_minimum_20');assert.equal(await count('crowd_machine.tasks'),0);
+const created=await good('unified_create',wanted);assert.equal(created.created,true);assert.equal(created.routes.length,2);assert.equal(created.source_actions_started,0);assert(!created.routes[0].task_ids.includes(legacy.id));
+assert.equal(await count('crowd_machine.tasks'),1);assert.equal(await count('crowd_machine.children'),1);assert.equal((await db.query('select platform from crowd_machine.children')).rows[0].platform,'bili');
+const again=await good('unified_create',wanted);assert.equal(again.dispatch_id,created.dispatch_id);assert.equal(again.replayed,true);assert.equal(again.created,false);assert.equal(await count('crowd_machine.tasks'),1);
+assert.equal((await edge('unified_create',{...wanted,desired_items:6})).error,'idempotency_conflict');
+const found=await good('unified_dispatches',{idempotency_key:wanted.idempotency_key});assert.equal(found.dispatches[0].dispatch_id,created.dispatch_id);assert.equal(found.dispatches[0].idempotency_key,wanted.idempotency_key);assert.equal((await good('unified_dispatches',{idempotency_key:randomUUID()})).dispatches.length,0);tests++;
+const resumed=(await claim(member,legacy.id)).task;assert.equal(resumed.id,legacy.id);assert.equal(resumed.lease_token,legacy.lease_token);
+const d2='1'.repeat(64);const reserved=(await db.query("select public.crowd_v4_invite('reserve',$1::jsonb) result",[JSON.stringify({token_hash:hash,device_hash:d2,platform:'macos'})])).rows[0].result;await db.query('insert into auth.users values($1)',[reserved.user_id]);await db.query("select public.crowd_v4_invite('complete',$1::jsonb)",[JSON.stringify({token_hash:hash,device_hash:d2,consent:'crowd-public-v4'})]);
+const routed=(await claim(reserved.user_id)).task;assert.equal(routed.id,created.routes[0].task_ids[0]);assert.equal(routed.remaining_today,2);assert.equal((await claim(outsider)).task.id,12,'ordinary task scope unchanged');tests++;
+await db.query("update crowd_v4.tasks set status='exhausted' where id=$1",[routed.id]);assert.equal((await good('unified_dispatches',{idempotency_key:wanted.idempotency_key})).dispatches[0].routes[0].state,'exhausted','terminal below quota is not success');await db.query("update crowd_v4.tasks set status='complete',received=target where id=$1",[routed.id]);assert.equal((await claim(reserved.user_id)).task,null,'no unselected pilot task is allocated once mapped task ends');
+const receipts={inserted:true,immutable:true};await db.query('insert into crowd_v4.receipts(user_id,request,payload,result) values($1,$2,$3,$4)',[member,'00000000-0000-4000-8000-000000000011',JSON.stringify({task:legacy.id,record:{}}),JSON.stringify(receipts)]);await db.query("select set_config('request.jwt.claim.sub',$1,false)",[member]);assert.deepEqual((await db.query('select public.crowd_v4_submit($1,$2,$3,$4) result',['00000000-0000-4000-8000-000000000011',legacy.id,legacy.lease_token,'{}'])).rows[0].result,receipts);tests++;
+// SQL error after machine creation must roll the entire statement back, including newly inserted machine task.
+const broken=await unifiedPlan(request({platforms:['xhs','bili'],desired_items:4,targets:['上海 浦东新区 鮨水月']}));broken.machine_proposal.children[0].child_id='not-uuid';
+const beforeCount=await count('crowd_machine.tasks');await assert.rejects(db.query("select public.crowd_unified_dispatch_rpc('crowd-owner-main','owner','unified_create',$1)",[JSON.stringify(broken)]),/invalid input syntax/);assert.equal(await count('crowd_machine.tasks'),beforeCount);assert.equal(await count('crowd_machine.unified_dispatches'),1);tests++;
+// Machine-only dispatch reuses original worker allocator and original per-item receipt ledger.
+const machineOnly=request({platforms:['bili'],desired_items:20,max_api_requests:40});const machine=await good('unified_create',machineOnly);const taskId=machine.routes[0].task_id;assert(taskId);assert.equal(machine.routes[0].state,'queued');
+const worker='e'.repeat(64);const direct=async(actor,action,payload,workerHash=null)=>(await db.query('select public.crowd_machine_rpc($1,$2,$3,$4,$5) result',['crowd-owner-main',actor,workerHash,action,JSON.stringify(payload)])).rows[0].result;
+await direct('owner','worker_pair',{worker_id:randomUUID(),token_hash:worker,name:'isolated-worker',platforms:['bili'],expires_at:new Date(Date.now()+86400000).toISOString()});const claimId=randomUUID();const lease=(await direct('worker','claim',{claim_id:claimId},worker)).lease;assert.equal(lease.task_id,taskId);assert.equal((await direct('worker','claim',{claim_id:claimId},worker)).lease.run_id,lease.run_id);
+await db.query("update crowd_machine.children set lease_until=now()-interval '1 second' where task_id=$1",[taskId]);assert.equal((await good('unified_dispatches',{idempotency_key:machineOnly.idempotency_key})).dispatches[0].routes[0].state,'interrupted_unknown');assert.equal((await db.query('select state from crowd_machine.children where task_id=$1',[taskId])).rows[0].state,'running','projection does not mutate lease');tests++;
+const permissions=(await db.query("select has_table_privilege('authenticated','crowd_machine.unified_dispatches','SELECT') table_access,has_function_privilege('authenticated','public.crowd_unified_dispatch_rpc(text,text,text,jsonb)','EXECUTE') rpc_access,has_function_privilege('service_role','public.crowd_unified_dispatch_rpc(text,text,text,jsonb)','EXECUTE') service_access")).rows[0];assert.deepEqual(permissions,{table_access:false,rpc_access:false,service_access:true});
+await assert.rejects(db.query("select public.crowd_unified_dispatch_rpc('other','owner','unified_dispatches','{}')"),/principal_denied/);await assert.rejects(db.query("select public.crowd_unified_dispatch_rpc('crowd-owner-main','worker','unified_dispatches','{}')"),/principal_denied/);tests++;
+assert.equal(await count('crowd_observation.guard_calls'),0,'creation does not call source action guard');
+await db.close();console.log(`PASS unified dispatch ${tests} groups: actual production pilot definitions, atomic mixed routes, original quotas/leases/receipt replay, candidate restriction, machine-only worker claim, idempotency/exact lookup, unknown lease projection, ACL. Isolated fixture only; no physical devices or source actions.`);

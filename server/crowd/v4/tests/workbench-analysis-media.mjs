@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+class Element{constructor(tag,text=''){this.tag=tag;this.textContent=String(text);this.children=[];this.hidden=false;}append(...v){this.children.push(...v);}prepend(...v){this.children.unshift(...v);}replaceChildren(...v){this.children=v;}get lastChild(){return this.children.at(-1);}scrollIntoView(){}}
+const panel=new Element('section'),calls=[],buttons=[];let handler;
+const option={job_id:'00000000-0000-4000-8000-000000000009',kind:'asr',asset_sha256:'a'.repeat(64),result_sha256:'b'.repeat(64),processor:'faster_whisper_local_segmented',model_manifest_sha256:'c'.repeat(64),segments:[{start:53,end:56,text:'<script>candidate</script>'}]};
+const preview=(options=[option])=>({state:'not_started',snapshot_hash:'with-selection',input_summary:{comments:0,coverage:{roots:0,replies:0,unknown_parent:0}},derived_options:options});
+const ctx=vm.createContext({api:async(_,body)=>{calls.push(JSON.parse(JSON.stringify(body)));return handler(body);},selectedRun:{run_id:'run'},idOf:r=>r.run_id,$:()=>panel,node:(tag,text)=>new Element(tag,text),button:(text,fn)=>{const b=new Element('button',text);b.onclick=fn;buttons.push(b);return b;},clearTimeout:()=>{},setTimeout:()=>1,guarded:f=>f(),download:()=>{}});
+vm.runInContext(fs.readFileSync(new URL('../multiplatform/analysis-ui.js',import.meta.url),'utf8'),ctx);const view=vm.runInContext('analysisView',ctx);
+handler=({action})=>action==='lookup'?preview():{state:'queued',job_id:'fake-no-provider'};
+await view.open({platform:'douyin',content_id:'123',kind:'content'});assert.equal('derived_refs' in calls.at(-1).payload,false);
+const flatten=e=>[e,...e.children.flatMap(flatten)];let check=flatten(panel).find(e=>e.tag==='input');assert.ok(check);assert.equal(check.checked,false);
+assert.ok(flatten(panel).some(e=>e.tag==='pre'&&e.textContent==='[53–56秒] <script>candidate</script>'));
+check.checked=true;await check.onchange();assert.deepEqual(calls.at(-1).payload.derived_refs,[{job_id:option.job_id,result_sha256:option.result_sha256,asset_sha256:option.asset_sha256}]);
+await buttons.findLast(b=>b.textContent==='发送所选文字并分析').onclick();assert.equal(calls.at(-1).action,'start');assert.equal(calls.at(-1).payload.allow_model_transfer,true);assert.equal(calls.at(-1).payload.derived_refs[0].job_id,option.job_id);
+await view.open({platform:'douyin',content_id:'123',kind:'content'});check=flatten(panel).find(e=>e.tag==='input');check.checked=true;await check.onchange();check=flatten(panel).find(e=>e.tag==='input');check.checked=false;await check.onchange();assert.equal('derived_refs' in calls.at(-1).payload,false);
+check=flatten(panel).find(e=>e.tag==='input');let resolve;handler=()=>new Promise(r=>resolve=r);check.checked=true;const stale=check.onchange();handler=()=>preview([]);await view.open({platform:'weibo',content_id:'456',kind:'content'});resolve(preview());await stale;assert.equal(flatten(panel).some(e=>e.tag==='input'),false);assert.equal(calls.at(-1).payload.content_id,'456');
+console.log(JSON.stringify({ok:true,cases:5,explicit_selected_lookup_start:true,legacy_omitted:true,uncheck_returns_legacy:true,absolute_time_preview:true,textContent_only:true,late_selection_reply_ignored:true,source_requests:0,model_calls:0}));

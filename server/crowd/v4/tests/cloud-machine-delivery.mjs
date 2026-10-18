@@ -1,0 +1,80 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {randomUUID} from 'node:crypto';
+import {handleMachine} from '../supabase/functions/crowd-machine/core.mjs';
+import {canonical,sha} from '../supabase/functions/crowd-machine/contract.mjs';
+const {PGlite}=createRequire(import.meta.url)(path.join(process.env.CROWD_TEST_TOOLS,'node_modules/@electric-sql/pglite'));
+const db=new PGlite();let cases=0;
+const owner='a'.repeat(64), worker='b'.repeat(64), other='c'.repeat(64), ownerHash=await sha(owner);
+const workerId=randomUUID(),otherId=randomUUID();
+const backend={async rpc(name,args){assert.equal(name,'crowd_machine_rpc');try{return {data:(await db.query('select public.crowd_machine_rpc($1,$2,$3,$4,$5) result',[args.p_owner_scope,args.p_actor_kind,args.p_worker_hash,args.p_action,JSON.stringify(args.p_payload)])).rows[0].result};}catch(e){return {error:{message:e.message}};}}};
+async function call(action,payload={},role='worker',key=worker){const response=await handleMachine(new Request('https://isolated.supabase.co/functions/v1/crowd-machine',{method:'POST',headers:{'Content-Type':'application/json',['X-Crowd-'+(role==='worker'?'Worker':'Owner')+'-Key']:key},body:JSON.stringify({action,payload})}),backend,ownerHash);return response.json();}
+async function good(action,payload={},role='worker',key=worker){const result=await call(action,payload,role,key);assert.equal(result.ok,true,JSON.stringify(result));cases++;return result.result;}
+async function bad(action,payload,code,role='worker',key=worker){const result=await call(action,payload,role,key);assert.equal(result.ok,false);assert.equal(result.error,code);cases++;}
+const own=(action,payload)=>good(action,payload,'owner',owner);
+const create=async platform=>(await own('task_create',{platforms:[platform],mode:'detail',targets_by_platform:{[platform]:[platform==='xhs'?'0123456789abcdef01234567':'https://www.kuaishou.com/short-video/3xvzf4jsvsv46ty']},desired_items:1,max_api_requests:12,purpose:'noncommercial_research',idempotency_key:randomUUID()})).task;
+const snapshot=async run=>(await db.query('select * from crowd_machine.children where run_id=$1',[run])).rows[0];
+const finish=async(lease,ids,outcome='completed',spent=3)=>{const payload={run_id:lease.run_id,lease_epoch:lease.lease_epoch,capture_ids:ids,outcome,api_attempts:spent};return {...payload,finish_hash:await sha('crowd-machine-finish-v1\n'+canonical(payload))};};
+const deferred=async(payload)=>({...payload,manifest_hash:await sha('crowd-machine-delivery-v1\n'+canonical(payload))});
+try{
+ await db.exec('create role anon;create role authenticated;create role service_role bypassrls;');
+ await db.exec(fs.readFileSync(new URL('../cloud_machine.sql',import.meta.url),'utf8'));
+ const migration=fs.readFileSync(new URL('../supabase/migrations/20261014054925_crowd_machine_delivery_pending.sql',import.meta.url),'utf8');await db.exec(migration);await db.exec(migration);cases++;
+ for(const[id,key]of[[workerId,worker],[otherId,other]])await own('worker_pair',{worker_id:id,worker_key:key,name:'isolated-worker',platforms:['xhs','ks'],expires_at:new Date(Date.now()+86400000).toISOString()});
+ const first=await create('xhs'),claimId=randomUUID(),lease=(await good('claim',{claim_id:claimId})).lease,local=randomUUID();
+ await good('heartbeat',{run_id:lease.run_id,lease_epoch:lease.lease_epoch,sequence:1,local_run_id:local});
+ const envelope={schema:'crowd-machine-capture-v1',capture_id:randomUUID(),task_id:lease.task_id,child_id:lease.child_id,run_id:lease.run_id,lease_epoch:lease.lease_epoch,platform:'xiaohongshu',delivery_basis:'live_capture',source_kind:'machine_api',adapter_version:'cloud-machine-v1',normalizer_version:'mc-normalized-v2',packaged_at:'2026-10-14T00:00:00+00:00',record:{platform:'xiaohongshu',kind:'content',content_id:'0123456789abcdef01234567',body:'isolated fixture',source_kind:'mediacrawler_api',reward_eligible:false}};
+ const hash=await sha('crowd-machine-capture-v1\n'+canonical(envelope)), pendingId=randomUUID();
+ const pendingEnvelope={...envelope,capture_id:pendingId,record:{...envelope.record,kind:'comment',comment_id:'original-comment',text:'fixture'}};
+ const pendingHash=await sha('crowd-machine-capture-v1\n'+canonical(pendingEnvelope));
+ await good('capture',{run_id:lease.run_id,lease_epoch:1,envelope,envelope_hash:hash});
+ const before=(await db.query('select * from crowd_machine.captures')).rows;
+ const p=await deferred({run_id:lease.run_id,lease_epoch:1,defer_id:randomUUID(),local_run_id:local,outcome:'completed',api_attempts:3,capture_refs:{[envelope.capture_id]:hash,[pendingId]:pendingHash}});
+ await bad('delivery_defer',{...p,outcome:'unknown'},'invalid_delivery_manifest');
+ await bad('delivery_defer',{...p,lease_epoch:true},'invalid_delivery_manifest');
+ await bad('delivery_defer',await deferred({...Object.fromEntries(Object.entries(p).filter(([k])=>k!=='manifest_hash')),local_run_id:randomUUID()}),'delivery_defer_denied');
+ const released=await good('delivery_defer',p);assert.equal(released.deferred,true);assert.equal(released.lease.may_dispatch,false);
+ const after=await snapshot(lease.run_id);assert.equal(after.state,'delivery_pending');assert.equal(after.requests_spent,3);assert.equal(after.requests_reserved,0);assert.equal(after.finish_hash,null);assert.equal(after.finished_at,null);cases++;
+ assert.equal((await good('delivery_defer',p)).manifest_hash,p.manifest_hash);assert.equal((await snapshot(lease.run_id)).requests_spent,3);cases++;
+ await bad('delivery_defer',await deferred({...Object.fromEntries(Object.entries(p).filter(([k])=>k!=='manifest_hash')),api_attempts:4}),'delivery_manifest_conflict');
+ await bad('delivery_resume',{run_id:lease.run_id,lease_epoch:2,manifest_hash:p.manifest_hash},'lease_binding_denied');
+ await bad('delivery_resume',{run_id:lease.run_id,lease_epoch:1,manifest_hash:p.manifest_hash},'lease_binding_denied','worker',other);
+ const next=await create('ks');const second=(await good('claim',{claim_id:randomUUID()})).lease;assert.equal(second.task_id,next.task_id);assert.notEqual(second.run_id,lease.run_id);cases++;
+ assert.equal((await good('claim',{claim_id:randomUUID()})).lease,null);cases++;
+ const oldClaim=(await good('claim',{claim_id:claimId})).lease;assert.equal(oldClaim.run_id,lease.run_id);assert.equal(oldClaim.may_dispatch,false);assert.equal(oldClaim.lease_epoch,1);cases++;
+ const publicTask=(await own('task_status',{task_id:first.task_id})).task;assert.equal(publicTask.state,'delivery_pending');assert.equal(publicTask.children[0].delivery_state,'delivery_pending');assert.equal(publicTask.children[0].delivery_manifest.expected_captures,2);cases++;
+ assert.deepEqual((await db.query('select * from crowd_machine.captures')).rows,before);cases++;
+ const resume={run_id:lease.run_id,lease_epoch:1,manifest_hash:p.manifest_hash};
+ assert.equal((await good('delivery_resume',resume)).may_deliver,true);
+ await bad('finish',await finish(lease,[envelope.capture_id]),'unacknowledged_capture');
+ const fake={...pendingEnvelope,record:{...pendingEnvelope.record,text:'different bytes'}};
+ // An unfrozen body/hash cannot use this cached delivery permit.
+ await bad('capture',{run_id:lease.run_id,lease_epoch:1,envelope:fake,envelope_hash:await sha('crowd-machine-capture-v1\n'+canonical(fake))},'delivery_resume_denied');
+ await own('task_control',{task_id:first.task_id,desired_state:'paused',expected_revision:publicTask.revision});
+ assert.equal((await good('delivery_resume',resume)).may_deliver,false);assert.equal((await snapshot(lease.run_id)).state,'delivery_pending');cases++;
+ await bad('finish',await finish(lease,[envelope.capture_id,pendingId]),'unacknowledged_capture');
+ await own('task_control',{task_id:first.task_id,desired_state:'running',expected_revision:publicTask.revision+1});
+ assert.equal((await snapshot(lease.run_id)).state,'delivery_pending');cases++;
+ // Repair uses the exact frozen bytes/hash; no second source claim or epoch is created.
+ await db.query("update crowd_machine.children set lease_until=clock_timestamp()-interval '30 hours' where run_id=$1",[lease.run_id]);
+ await good('delivery_resume',resume);
+ await good('capture',{run_id:lease.run_id,lease_epoch:1,envelope:pendingEnvelope,envelope_hash:pendingHash});
+ const actualAck=await good('receipt',{run_id:lease.run_id,lease_epoch:1,capture_id:pendingId,envelope_hash:pendingHash});assert.equal(actualAck.receipt.envelope_hash,pendingHash);cases++;
+ await bad('finish',await finish(lease,[envelope.capture_id,pendingId],'failed'),'unacknowledged_capture');
+ const final=await finish(lease,[envelope.capture_id,pendingId]);await good('finish',final);assert.equal((await snapshot(lease.run_id)).requests_spent,3);assert.equal((await snapshot(lease.run_id)).state,'completed');cases++;
+ await good('finish',final);assert.equal((await snapshot(lease.run_id)).requests_spent,3);cases++;
+ assert.equal((await good('delivery_resume',resume)).may_deliver,false);
+ await bad('delivery_resume',resume,'principal_denied','owner',owner);
+ assert.equal((await db.query("select has_table_privilege('service_role','crowd_machine.deliveries','UPDATE') allowed")).rows[0].allowed,false);cases++;
+ assert.equal((await db.query("select has_table_privilege('anon','crowd_machine.deliveries','SELECT') allowed")).rows[0].allowed,false);cases++;
+ const unknownLocal=randomUUID();await good('heartbeat',{run_id:second.run_id,lease_epoch:second.lease_epoch,sequence:1,local_run_id:unknownLocal});
+ await db.query("update crowd_machine.children set lease_until=clock_timestamp()-interval '1 second' where run_id=$1",[second.run_id]);
+ await good('heartbeat',{run_id:second.run_id,lease_epoch:second.lease_epoch,sequence:2});
+ const unknownBefore=await snapshot(second.run_id);assert.equal(unknownBefore.state,'unknown');cases++;
+ const denyPayload=await deferred({run_id:second.run_id,lease_epoch:second.lease_epoch,defer_id:randomUUID(),local_run_id:unknownLocal,outcome:'completed',api_attempts:0,capture_refs:{[randomUUID()]:'e'.repeat(64)}});
+ await bad('delivery_defer',denyPayload,'delivery_defer_denied');assert.deepEqual(await snapshot(second.run_id),unknownBefore);cases++;
+ assert.equal((await db.query('select count(*)::int n from crowd_machine.deliveries where run_id=$1',[second.run_id])).rows[0].n,0);cases++;
+ console.log(JSON.stringify({ok:true,cases,source_requests:0,model_requests:0,production_writes:0}));
+}finally{await db.close();}
