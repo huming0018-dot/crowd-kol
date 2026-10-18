@@ -726,3 +726,14 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - 候选：admitted-null-claim91 FREEZE942f6010/独审FINAL60b2d034，strict matching null正常等5分钟、无第二claim和source；HOLD未合入/发布。Pro LATEST原生存在但正式options拒绝透传，缺Pro URL候选→participant任务adapter，机器ACK不能计入真人评分。
 - 证据：runtime-2026-10-18/window-lifecycle-audit/ACTUAL90-REASSESSMENT.md；automatic90-observation/AFTER-SECOND-ROUND-{METADATA,HOME,LIFECYCLE}.json；PARTIAL18-ACK-065747-RAW.json；independent-native/HOME-REMOVAL-CONSULTATION.json(e9055b6c…)；release90-readback/independent-native/ACTUAL-RECOVERY-FINAL.json(5b58e0ce…，截点有限)；task19-scoped-scroll-budget/；task19-detail-cap200-ready90/。PRIVATE正文/原件仅本地，不外发凭据/Pro私码。
 - 下一步：窗口关闭/移除固定因果观测候选独审后合入；再沿原身份/任务完成最后2 ACK及20全文/逐条耗时/整体墙钟、至少10秒两读稳定自动停止、终审和handoff。48h/watchdog继续暂停，旧UNKNOWN不重发，不变原任务target/identity/风险/奖励。
+
+
+## 2026-10-18 15:16 CST｜91窗口诊断正式发布、原本机采用与云回读
+
+- root集成/唯一实际执行；knowledge窗口诊断/维护作者，central nullclaim作者，native非作者审查；不新开工作页、不Continue、不新增源动作，原批次仍新18/20。
+- 代码/用途：EXT33817ffeee491516f25e1a72f25f424b81dd29c3，null合法等待+V2关闭观测3源，manifest/core91、README合同及2回归。源30inputs仅6变/24保持，32文件ZIP163408B/SHA6ff9804b20965068327b4dd0862549e4ab4e87842e4526cd14e2ca1139cf3077。日志首版三真实类反例BLOCK保原件，V2不await诊断、pending仅在途、remove前metadata CAS；不改原云trace合同/权限/60min更新周期。组合7组通过，根初错cwd/不存在Python别名保日志后仅纠命令，未修改断言造绿。
+- 发布/实际：固定包a6d742374892f48e8dd892e4188b54b93402773e；PAGES签通道a2f5483fd2fbbd8340f7fc1cf588b6ed5cf8e2ca/seq2026101891/rawcf555209ef734fee77adf00c83ab16694d38f04fdedcfc83080a0ab14f22222c，原公钥/固定URL/公开GET精确。唯一原90knownmissing维护check在OEXCL INTENT后重载断响应UNKNOWN，未重发；独立32文件/helper91 applied/pendingfalse与原profile登记另证实际采用，不称自然OTA。
+- 实际云/身份：07:14Z原worker91/原owner-session-generation-install/ref equal真、原20/22余2/visits172/reject153/outbox0/unsafe0/actors0保持。中央node91/release75ad993d76e95051165f94b275cb584e3a93dc67638d4ebb0835a45370387c1f，OTA5616 completed4890，随后started/skipped不遮完成；远端仍88/task20complete3/3。
+- 独审：组合FINAL24e8ebb7…、签门e2018a31…、维护43VM c2b7ca4f…、实际软件62a76027…、实际运行/云d4b59de9bc26bdea5402ee78ee940d709214521428c774dbd9d36e2807b16ceb；均有限，不冒20完成/窗口原因已明/整程quiet。原HOME仍missing oldmarker，window_events空仅表示尚无新日志，不回填历史。
+- 证据：runtime-2026-10-18/release91-{root-build,signing,maintenance-knownmissing90,readback}/；automatic91-observation/AFTER91-WINDOW-EVENTS.json SHA0f23f5fb9815574f85822faab37a606885c13c09736250815d576ee50fc8c810；ACTUAL-CLOUD-OTA-RAW.json SHAdbdb49129607c05d1d04ac32a3aef7911bcff7284c565a4f824599b8121cec64。quiet-window-reuse-review/REVIEW.md为只读方案，非实现。
+- 下一步：后台恢复原核验页并用新日志查真正移除链，再完成受控窗复用/最后2真ACK/完整20与稳定自动停止；保原身份/进度/风险，48h与watchdog暂停。此entry取代前15:00“91候选HOLD/未采用”状态，历史失败与限界保留。

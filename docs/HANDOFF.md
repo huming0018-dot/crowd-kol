@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-18 15:00 CST（正式90/新增18条，窗口移除原因未明），Asia/Shanghai。维护Codex /root。
+更新：2026-10-18 15:16 CST（91已实际采用；新18/20，静默根因与整批门未过），Asia/Shanghai。维护Codex /root。
 
 ## 1. 接力规则
 
@@ -16,17 +16,19 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：E87原本机20条新增仍未整批验收（2026-10-18 14:59 CST）。task19当前累计20/22=原2+新18（proof36–53），余2；远端task20保持3/3。18条PRIVATE正文逐UUID/MD5/inserted=true/duplicate=false/累计计数已核，旧31–35/评分/原grant投影保持；不能报新增20完成，received不等于人工verified/奖励。整批墙钟从01:56Z起已近5小时，明显未达效率目标，不能用2.78秒单条准入→DB中位数掩盖维护等待。
+当前阶段：E87原本机新增20条仍未验收（2026-10-18 15:16 CST）。原task19累计20/22=旧2+新18（proof36–53），余2；远端task20complete3/3。18条全文、UUID/MD5/inserted=true/duplicate=false及累计3..20已核，旧proof31–49投影/评分/奖励保持；received不等于人工verified或奖励。整批从01:56Z起已超过5小时，不能用2.78秒单条准入→DB中位数掩盖整批低效。
 
-正式本机90：EXT8d299d3787aa38474b4c36311238a4c993947c83；89自动恢复focus:false/新建实际最小化确认/停车不补窗，90普通finish仅closeSlot(search)，显式Stop仍全槽。固定ZIP68915df3cdedf110622a9fc46654ebf1941b7b9d/162438B/SHAfee5799aff727b5e5504b7ab6cbc73de3a8dd62b0dba35709e64f46fc10405f9；PAGESdba3451签通道seq2026101890/channelSHA289115ccc90cf3f7e1aa6769726156863e0e19876b6484e09f8683fddbaa4e40。公开回取、公钥验签、32安装文件/helperloaded90/applied/pendingfalse、原worker90与云OTA5422 completed4696/release661d6c341b7c4e9b84a1358dfb718de62dbdcd174ed368d8e9647e950cc48dc8已核。受控维护check重载断响应UNKNOWN保留不重发，不能称本机自然OTA；远端仅88云版本，未验90文件。所有版本保原身份/安装/进度，不重置。
+正式源码/签通道/本机实际已91：EXT33817ffeee491516f25e1a72f25f424b81dd29c3；固定ZIP a6d742374892f48e8dd892e4188b54b93402773e，163408B/SHA6ff9804b20965068327b4dd0862549e4ab4e87842e4526cd14e2ca1139cf3077；PAGES a2f5483fd2fbbd8340f7fc1cf588b6ed5cf8e2ca，seq2026101891，通道SHAcf555209ef734fee77adf00c83ab16694d38f04fdedcfc83080a0ab14f22222c。公开回取/验签、32安装文件/helper91/applied/pendingfalse/原worker91已核；云OTA5616 completed4890/release75ad993d76e95051165f94b275cb584e3a93dc67638d4ebb0835a45370387c1f，07:14Z同原身份/安装/绑定、累计20/余2/outbox0/unsafe0/actors0保持。维护check重载断响应UNKNOWN/INTENT保留未重发，不称自然OTA；本次维护没有新开/关闭工作页、Continue或新增采集。远端仍仅88云版本，未验91。
 
-中央scoped scroll预算已正式采用：REPO3b003ccefac76cbf76269b43e2d5312ab8251dbc，migration20261018062441，仅原task19批次正剩余+原设备+自有任务/源租约时scrollcap跟随已配置detailcap最高200；actual guard MD5 5a8cbeeca0f70419b01e233a7fc5cbbc，OID28702/definer/search_path/ACL保持，非作者6组通过。task19自然available<=now后唯一Owner配置detail180→200已按独审合同执行，target22/received20/session160/计数/风险/评分保持；没有改availability或重置休息/风险。旧两份未执行cap200候选不可重用。
+本轮实际改动：89自动恢复focus:false、新建实际最小化确认、停车不补窗；90普通finish仅关闭search，保独立核验页，明确Stop仍全槽。91新增原opt-in有界本地关闭/移除日志（每类最多24条/24h、固定枚举，不含ID/URL/Cookie/ref/正文，不污染原云snapshot），合法完全匹配的task:null沿原5分钟等待、不二次claim。诊断首版因挂起阻关闭/旧关联误归因/诊断等待时proof变化三独立反例被拒；V2已修并复核，真实组合7组0、30输入6变24保持。91日志只是观测能力，不是窗口根因修复证明。
 
-静默与恢复真实证据：90 quiet-home v2一次returned后，06:46:22Z原HOME实际独占1tab/minimized/当前doc-token-session一致/同原账号，系统自动续领原task19，detail/scroll200，root没有再Continue。但06:52:35Z下一空轮后HOME再次missing，06:53:57Z原tabs.get明确NoTab、平台tabcount0，manual仍confirmed，累计20/22/visits172/detail174/scroll147/outbox0、tasknull、identitypendingtrue，未整批停车。**因此不能称90全程静默/自动恢复验收完成**。源码/实包及独立真实onRemoved VM均证明普通finish只search且保distinct HOME，现缺移除因果，不能归平台登出或finish全关。历史31条核验代际记录不等于31活窗口。root未再开窗/Continue，未批量关闭历史/用户窗口。
+静默实机尚未通过：90在06:46Z原HOME实际最小化/独占tab/当前doc-token-session/同原账号，系统自动续领过原任务；06:52–06:53Z核验页再次明确NoTab/missing。正常source-only finish带真实onRemoved的独立原类测试仍保distinct HOME，移除发起者未知；不能认平台登出、用户关闭或finish全关。当前91仍是旧HOME missing/oldmarker、tasknull、identitypending；window_events为空，不能回填历史原因。历史31条核验代际记录不等于31活窗口。窗口复用只完成官方API/代码只读方案，尚未实现。见window-lifecycle-audit/ACTUAL90-REASSESSMENT.md及quiet-window-reuse-review/REVIEW.md。
 
-本轮会诊与下一步：actual90窗口消失仍未知，按两轮失败重置方法，先补复用原opt-in bounded Trace的固定关闭/移除角色因果观测，再决定业务修复；候选window-close-observation91开发/独审中，未采用。另admitted-null-claim91/FREEZE942f6010为合法null队列等待真实类RED→GREEN候选，HOLD未正式合入/发布，当前正式仍90。源召回不足独立确认，九条最近reject正文均无鮨水月同店证据，不能放宽相关性补数；Pro原生LATEST存在但正式options未透传、缺Pro候选→原participant adapter，不能拿机器ACK填真人评分。先完成窗口观测独审，再沿原任务取得最后2真实ACK、20全文/每条receipt/整体耗时、至少10秒两读稳定自动停止、非作者终审。
+中央原task19预算已采用：REPO源码3b003ccefac76cbf76269b43e2d5312ab8251dbc/migration20261018062441，guardMD5 5a8cbeeca0f70419b01e233a7fc5cbbc，只有原批次/设备/自有任务/源租约的正剩余scroll跟随已配置detail最高200；task19自然可用时唯一Owner配置detail180→200，target22/received20/session160及风险/计数/评分保持，无availability或休息重置。主要源码之外的并行ASR/CTFS/全局规则未夹带。
 
-证据：runtime-2026-10-18/window-lifecycle-audit/ACTUAL90-REASSESSMENT.md；automatic90-observation/AFTER-SECOND-ROUND-{METADATA,HOME,LIFECYCLE}.json；automatic90-observation/independent-native/HOME-REMOVAL-CONSULTATION.json（e9055b6c…）；release90-readback/independent-native/ACTUAL-RECOVERY-FINAL.json（5b58e0ce…，仅当时恢复成功截点，不覆盖后续失败）；task19-scoped-scroll-budget/ACTUAL-*；task19-detail-cap200-ready90/RESULT-RAW.json。48h实验/watchdog仍暂停，不重发旧UNKNOWN、不重置身份/计数/旧任务、不扩远端。已读全局新AGENTS SHA9c7182dc7fed35ae06bacfcf4d6a5750fbe927efa0ab999b4a65f129eb0c74b8，与本轮边界无冲突。
+独审证据根runtime-2026-10-18：release91-root-build/independent-native/FINAL.json(24e8ebb7…)；release91-signing/independent-native/SIGNED-FINAL.json(e2018a31…)；release91-readback/independent-native/ACTUAL-RUNTIME-FINAL.json(d4b59de9…)；automatic91-observation/AFTER91-WINDOW-EVENTS.json；release91-signing/ACTUAL-CLOUD-OTA-RAW.json；原18正文PRIVATE及oldbaseline仅本地。固定交接文档前轮检查点REPO12f83ae，当前本段按实际91更新。
+
+下一步：先沿原身份用后台核验入口恢复当前页、确认原主体并读取新关闭因果日志，不能反复开窗假装修好；落实已审思路的受控最小化采集窗复用并实测数量/焦点/页存活。源召回不足另行处理：九条近期reject确无鮨水月同店证据，不能放宽相关性凑数；Pro原生LATEST成熟但正式options未透传、缺Pro候选→原participant adapter，不能拿机器ACK填真人评分。最后2条/20全文逐条receipt与整体耗时/至少10秒两读稳定自动停止/终审仍待过门。48h实验/watchdog仍暂停，不重发UNKNOWN，不重置身份/进度/旧任务/风险，不扩远端，不外发Pro私码或凭据。已读全局新AGENTS SHA9c7182dc7fed35ae06bacfcf4d6a5750fbe927efa0ab999b4a65f129eb0c74b8，与本轮边界无冲突。
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和原数据；2026-10-18本机20条范围已覆盖本机旧预算，远端不扩大；不外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
