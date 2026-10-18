@@ -249,7 +249,6 @@ class Application:
                     **self.cloud_worker.workflow_events.status()}
         if action == 'unified_cancel':
             from cloud_sync import CloudError
-            import uuid
             if set(payload) != {'dispatch_id'} or not isinstance(payload['dispatch_id'], str):
                 raise ValueError('invalid_cloud_request')
             try:
