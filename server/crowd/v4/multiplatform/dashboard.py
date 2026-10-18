@@ -247,6 +247,22 @@ class Application:
                 return {'ok': True, 'storage_scope': 'local', 'events': [], 'coverage': 'not_connected'}
             return {'ok': True, 'storage_scope': 'local', 'coverage': 'machine_lifecycle_phases',
                     **self.cloud_worker.workflow_events.status()}
+        if action == 'unified_cancel':
+            from cloud_sync import CloudError
+            import uuid
+            if set(payload) != {'dispatch_id'} or not isinstance(payload['dispatch_id'], str):
+                raise ValueError('invalid_cloud_request')
+            try:
+                if str(uuid.UUID(payload['dispatch_id'])) != payload['dispatch_id']:
+                    raise ValueError('invalid_cloud_request')
+            except (ValueError, AttributeError):
+                raise ValueError('invalid_cloud_request') from None
+            if self.cloud_client is None:
+                return {'ok': True, 'storage_scope': 'local', 'available': False, 'reason': 'not_connected'}
+            value = self.cloud_client.call(action, payload)
+            if value.get('schema') != 'crowd-unified-dispatch-v1':
+                raise CloudError('cloud_outcome_unknown')
+            return {**value, 'ok': True, 'storage_scope': 'cloud', 'available': True}
         if action in ('unified_preview', 'unified_create', 'unified_dispatches'):
             from owner_tasks import FIELDS
             from cloud_sync import CloudError

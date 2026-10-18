@@ -24,9 +24,9 @@ export async function handleMachine(request,backend,ownerHash){
     const ownerKey=request.headers.get('X-Crowd-Owner-Key'),workerKey=request.headers.get('X-Crowd-Worker-Key');assert(!(ownerKey&&workerKey),'principal_denied');
     let actor,workerHash=null;if(ownerKey){assert(hex(ownerKey)&&hex(ownerHash)&&await sha(ownerKey)===ownerHash,'principal_denied');actor='owner';}else{assert(hex(workerKey),'principal_denied');actor='worker';workerHash=await sha(workerKey);}
     const input=await read(request);only(input,['action','payload']);let {action,payload={}}=input;
-    assert((actor==='owner'?[...owners,'unified_status','node_events','unified_preview','unified_create','unified_dispatches']:workers).includes(action),'principal_denied');
+    assert((actor==='owner'?[...owners,'unified_status','node_events','unified_preview','unified_create','unified_dispatches','unified_cancel']:workers).includes(action),'principal_denied');
     if(['step_events','machine_events'].includes(action))return json({ok:true,result:await machineSteps(action,payload,backend,actor,workerHash)});
-    if(['unified_preview','unified_create','unified_dispatches'].includes(action))return json({ok:true,result:await unifiedDispatch(action,payload,backend,actor)});
+    if(['unified_preview','unified_create','unified_dispatches','unified_cancel'].includes(action))return json({ok:true,result:await unifiedDispatch(action,payload,backend,actor)});
     if(['unified_status','node_events'].includes(action))return json({ok:true,result:await unifiedMonitor(action,payload,backend,actor)});
     if(action==='participant_pro_receipts')return json({ok:true,result:await participantProReceipts(payload,backend,actor)});
     if(action==='participant_health')return json({ok:true,result:await participantHealth(payload,backend,actor)});

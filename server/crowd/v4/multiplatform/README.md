@@ -1,6 +1,6 @@
 # 本机多平台采集工作台
 
-这是 Crowd 自有本地桥和工作台。它调用用户另外安装的 MediaCrawler，不包含、复制或修改 MediaCrawler 源码，不接 Crowd 真人奖励、旧采集任务或生产数据库。
+这是 Crowd 自有桥和工作台，优先调用用户另行安装的已购 Pro 平台核心，保留已有 MediaCrawler 媒体等能力。参与者身份、任务、评分和云回执沿用中央原模型；具体接通、部署和实机验收状态见固定 HANDOFF。本仓发行物不包含第三方私仓源码或登录凭据。
 
 当前核对的外部项目：`/Users/hubowen/WorkBuddy/2026-10-08-22-53-19/MediaCrawler`，HEAD `098cae5a00023ad55f00ca9665d22d0f260e2ab2`，本地有 5 个修改文件。不是可无条件再发行的普通宽松许可依赖：其 LICENSE 为 **NON-COMMERCIAL LEARNING LICENSE 1.1**，商业使用须版权所有者书面许可。桥不会自动取得该许可；选择 `licensed_use` 和填写授权依据只是用户声明，未独立核验。
 
@@ -214,4 +214,10 @@ Owner 沿用评论、回复、评论上限三个控件，系统自动选择执�
 
 没有合适终端时，旧有1–200上限请求在同一次原子派发中保留原 Owner Pro 机器路径，不重复建任务；新0或大于200的原生选项若无匹配终端，明确显示不支持，不裁剪参数或假称机器可执行。未知写只查原幂等编号，来源启动后不改派。评论不增加正文计数或奖励。
 
-当前切片仅匹配已有授权任务。普通 Owner 新关键词自动创建参与者授权批次仍待接入，不能用预置批次证明该功能完成。新宿主、113文件运行包、客户端、中央和 Owner 控件须配套核验；仅升级扩展版本不能认定具备能力。测试入口见新增 `test_participant_comment_options.py`、`test_participant_capability.py`、`test_participant_owner_fallback.py` 及 `tests/pro-comment-options/`；依赖受限证据的 PG 测试缺输入会明确失败，不上传私有原件。
+G07 能力协商切片只匹配已有授权任务；正常 Owner 新目标建批次另见下节，不能用预置批次替代验证。新宿主、113文件运行包、客户端、中央和 Owner 控件须配套核验；仅升级扩展版本不能认定具备能力。测试入口见 `test_participant_comment_options.py`、`test_participant_capability.py`、`test_participant_owner_fallback.py` 及 `tests/pro-comment-options/`；依赖受限证据的 PG 测试缺输入会明确失败，不上传私有原件。
+
+## Owner授权参与者批次与取消
+
+正常 Owner `unified_create` 在已启用、同意且能力/日额匹配的参与节点上，为单个小红书搜索目标原子建立原任务和 Pro 批次；保留旧 pilot，使用独立的 Owner-dispatch 授权模式，不伪造邀请或验收阶段。正文数量1–100且不超过原日额，评论/回复/根评论上限和 API 预算沿权威 claim 传至 Pro；媒体、多目标和其他平台仍走已支持的原路径，不以此分支冒称覆盖。能力包未采用或节点不匹配时保留既有有效 Owner Pro 回退，原生专有选项明确不可用。
+
+原任务列表的停止入口使用 Owner-only `unified_cancel` 撤销这个新批次的来源权限。取消不等于在途进程已经停止；原回执、严格范围内已保存评论和恢复读取保留，不能启动新请求。未知取消结果只核对原列表，不自动重发。实现与部署状态、原始输入/评论分页/媒体引用或字节/四格式/云回执验收分别记在固定 HANDOFF；迁移和源码存在不等于安装或新来源已验收。

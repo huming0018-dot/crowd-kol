@@ -31,7 +31,10 @@ export async function unifiedPlan(input){
 
 export async function unifiedDispatch(action,payload,backend,actor){
   assert(actor==='owner','principal_denied');
-  if(action==='unified_dispatches'){
+  if(action==='unified_cancel'){
+    assert(payload&&typeof payload==='object'&&!Array.isArray(payload)&&Object.keys(payload).length===1&&typeof payload.dispatch_id==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(payload.dispatch_id),'invalid_request');
+  }
+  else if(action==='unified_dispatches'){
     assert(payload&&typeof payload==='object'&&!Array.isArray(payload)&&Object.keys(payload).every(key=>key==='idempotency_key'));
     if(Object.hasOwn(payload,'idempotency_key'))assert(typeof payload.idempotency_key==='string'&&payload.idempotency_key.length>=1&&payload.idempotency_key.length<=160&&!/[\x00-\x1f]/.test(payload.idempotency_key));
   }
