@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-17 21:34 CST，Asia/Shanghai。维护Codex /root；当前事实只在本文件，每轮更新，历史保留日志。
+更新：2026-10-18 15:00 CST（正式90/新增18条，窗口移除原因未明），Asia/Shanghai。维护Codex /root。
 
 ## 1. 接力规则
 
@@ -16,9 +16,19 @@
 
 必须保留：Kimi/现有参与者流程、身份、评分、暂停继续、outbox、回执、OTA；吸收 MC/已购 Pro 的平台、评论回复、媒体、推荐、账号、断点与分析能力。PC/Mac/VM/手机均在长期目标中；手机控制与手机本机执行分别验收。有效会话尽量长期复用，不能承诺 Cookie 永不过期。
 
-当前阶段：E85两项修复已独审、正式发布74，中央诊断函数已部署回读；两原节点各一次73→74自然周期更新及新OTA云回执已有限独审通过。远端诊断从unexpected_error正确保留identity_verification_required；登录仍unknown。原本机Chrome已找回并打开原小红书核验页，平台明确“电脑设备登录超限，请重新登录”，本人重登待答。一次只读页面连接探测返回UNKNOWN，原意图保留、不重试、不推断接收器缺失。原两条预算用尽，各追加最多1条验收请求待答；没有清旧记录、新采集或提前启动48h，watchdog仍暂停。
+当前阶段：E87原本机20条新增仍未整批验收（2026-10-18 14:59 CST）。task19当前累计20/22=原2+新18（proof36–53），余2；远端task20保持3/3。18条PRIVATE正文逐UUID/MD5/inserted=true/duplicate=false/累计计数已核，旧31–35/评分/原grant投影保持；不能报新增20完成，received不等于人工verified/奖励。整批墙钟从01:56Z起已近5小时，明显未达效率目标，不能用2.78秒单条准入→DB中位数掩盖维护等待。
 
-2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和每台两条预算；不自动扩额度、外发Pro私码、重置凭据、arm试验或恢复看门狗。
+正式本机90：EXT8d299d3787aa38474b4c36311238a4c993947c83；89自动恢复focus:false/新建实际最小化确认/停车不补窗，90普通finish仅closeSlot(search)，显式Stop仍全槽。固定ZIP68915df3cdedf110622a9fc46654ebf1941b7b9d/162438B/SHAfee5799aff727b5e5504b7ab6cbc73de3a8dd62b0dba35709e64f46fc10405f9；PAGESdba3451签通道seq2026101890/channelSHA289115ccc90cf3f7e1aa6769726156863e0e19876b6484e09f8683fddbaa4e40。公开回取、公钥验签、32安装文件/helperloaded90/applied/pendingfalse、原worker90与云OTA5422 completed4696/release661d6c341b7c4e9b84a1358dfb718de62dbdcd174ed368d8e9647e950cc48dc8已核。受控维护check重载断响应UNKNOWN保留不重发，不能称本机自然OTA；远端仅88云版本，未验90文件。所有版本保原身份/安装/进度，不重置。
+
+中央scoped scroll预算已正式采用：REPO3b003ccefac76cbf76269b43e2d5312ab8251dbc，migration20261018062441，仅原task19批次正剩余+原设备+自有任务/源租约时scrollcap跟随已配置detailcap最高200；actual guard MD5 5a8cbeeca0f70419b01e233a7fc5cbbc，OID28702/definer/search_path/ACL保持，非作者6组通过。task19自然available<=now后唯一Owner配置detail180→200已按独审合同执行，target22/received20/session160/计数/风险/评分保持；没有改availability或重置休息/风险。旧两份未执行cap200候选不可重用。
+
+静默与恢复真实证据：90 quiet-home v2一次returned后，06:46:22Z原HOME实际独占1tab/minimized/当前doc-token-session一致/同原账号，系统自动续领原task19，detail/scroll200，root没有再Continue。但06:52:35Z下一空轮后HOME再次missing，06:53:57Z原tabs.get明确NoTab、平台tabcount0，manual仍confirmed，累计20/22/visits172/detail174/scroll147/outbox0、tasknull、identitypendingtrue，未整批停车。**因此不能称90全程静默/自动恢复验收完成**。源码/实包及独立真实onRemoved VM均证明普通finish只search且保distinct HOME，现缺移除因果，不能归平台登出或finish全关。历史31条核验代际记录不等于31活窗口。root未再开窗/Continue，未批量关闭历史/用户窗口。
+
+本轮会诊与下一步：actual90窗口消失仍未知，按两轮失败重置方法，先补复用原opt-in bounded Trace的固定关闭/移除角色因果观测，再决定业务修复；候选window-close-observation91开发/独审中，未采用。另admitted-null-claim91/FREEZE942f6010为合法null队列等待真实类RED→GREEN候选，HOLD未正式合入/发布，当前正式仍90。源召回不足独立确认，九条最近reject正文均无鮨水月同店证据，不能放宽相关性补数；Pro原生LATEST存在但正式options未透传、缺Pro候选→原participant adapter，不能拿机器ACK填真人评分。先完成窗口观测独审，再沿原任务取得最后2真实ACK、20全文/每条receipt/整体耗时、至少10秒两读稳定自动停止、非作者终审。
+
+证据：runtime-2026-10-18/window-lifecycle-audit/ACTUAL90-REASSESSMENT.md；automatic90-observation/AFTER-SECOND-ROUND-{METADATA,HOME,LIFECYCLE}.json；automatic90-observation/independent-native/HOME-REMOVAL-CONSULTATION.json（e9055b6c…）；release90-readback/independent-native/ACTUAL-RECOVERY-FINAL.json（5b58e0ce…，仅当时恢复成功截点，不覆盖后续失败）；task19-scoped-scroll-budget/ACTUAL-*；task19-detail-cap200-ready90/RESULT-RAW.json。48h实验/watchdog仍暂停，不重发旧UNKNOWN、不重置身份/计数/旧任务、不扩远端。已读全局新AGENTS SHA9c7182dc7fed35ae06bacfcf4d6a5750fbe927efa0ab999b4a65f129eb0c74b8，与本轮边界无冲突。
+
+2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和原数据；2026-10-18本机20条范围已覆盖本机旧预算，远端不扩大；不外发Pro私码、重置凭据、arm试验或恢复看门狗。
 
 ## 3. 当前状态
 

@@ -713,3 +713,16 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **业务/风险/下一步**：同账号真实恢复、换号拒绝、新来源逐条ACK及连续自然OTA第二段尚缺。原task19/20预算2已满，保原进度；各追加最多1条验收待本人答，不预开48h绕门、不重放旧proof、不改人工评分。本人登录后原绑定鲜活核验，预算授权后独审有限验证合同并收新ACK；门齐才真实开始48h。watchdog继续暂停。固定HANDOFF日期/状态/下一步与EVIDENCE同步，本轮文档发布另看E85-PUBLISH-RECEIPT.json。
 
 - E85诊断补结：21:33独审范围内仅GET当前page位置布尔，唯一XHS页/explore而非严格/，说明该探针当前首页前置不满足；不回填旧UNKNOWN或据此宣产品故障。无WS/消息/导航。
+
+
+## 2026-10-18 15:00 CST｜E87静默窗口90实装、后续失页反例与诊断收束
+
+- 接力者/root；非作者native_diagnostics_review及central_steps独立追踪；knowledge_reuse_probe只读Pro候选链后开发窗口诊断候选。
+- 代码/版本：EXT正式8d299d3787aa38474b4c36311238a4c993947c83=90（含89 focus:false/实际min确认、90 ordinaryfinish仅search）；PAGES签通道dba3451/seq2026101890；REPO3b003ccefac76cbf76269b43e2d5312ab8251dbc，migration20261018062441已正式采用。未夹带其他AGENTS/ASR/CTFS改动。
+- 实际采用：公开固定ZIP162438B/SHAfee5799a…、公钥签名/40位URL/32安装文件及helper90/applied/pendingfalse/原worker90；云OTA5422 completed4696/release661d6c…已核。89/90维护check重载断响应INTENT保留不重试，不声称自然OTA。远端88仅云版本/原task20三条保持，未验90。
+- 实际恢复：原HOME API一次returned；06:46:22Z核验HOME独占1tab/实际min/currentdoc-token-session/原账号，系统自动续领原task19（cap200），没有再Continue。其后06:52:35Z–06:53:57Z HOME当前manualconfirmed映射missing、NoTab/原profile平台tab0，源未再抓新条，tasknull/identitypending。这反证“完整生命周期已通过”，不掩盖。
+- 验证：真实普通Agent+WorkTabs+Session带onRemoved独立VM保持distinctHOME；正式包源closeSlot存在，非漏包。实机移除因果未知，不能据missing认程序close、外部close或平台登出；未再开窗/Continue/批关用户或旧代际窗口。根因方法改为复用原opt-in有界固定字段Trace，候选开发/独审中，无新行为补丁采用。
+- 业务验收：06:57:47Z只读原数据库ACK确认task19open20/22、新18/20、18条freshUUIDreceipt、foreign0；task20complete3/3。18正文质量/MD5原件独审保留，不报20通过/业务完成；人工verified/奖励未改变。全部20/稳定停止/两设备自然连续OTA/48h实验未通过或未启动。
+- 候选：admitted-null-claim91 FREEZE942f6010/独审FINAL60b2d034，strict matching null正常等5分钟、无第二claim和source；HOLD未合入/发布。Pro LATEST原生存在但正式options拒绝透传，缺Pro URL候选→participant任务adapter，机器ACK不能计入真人评分。
+- 证据：runtime-2026-10-18/window-lifecycle-audit/ACTUAL90-REASSESSMENT.md；automatic90-observation/AFTER-SECOND-ROUND-{METADATA,HOME,LIFECYCLE}.json；PARTIAL18-ACK-065747-RAW.json；independent-native/HOME-REMOVAL-CONSULTATION.json(e9055b6c…)；release90-readback/independent-native/ACTUAL-RECOVERY-FINAL.json(5b58e0ce…，截点有限)；task19-scoped-scroll-budget/；task19-detail-cap200-ready90/。PRIVATE正文/原件仅本地，不外发凭据/Pro私码。
+- 下一步：窗口关闭/移除固定因果观测候选独审后合入；再沿原身份/任务完成最后2 ACK及20全文/逐条耗时/整体墙钟、至少10秒两读稳定自动停止、终审和handoff。48h/watchdog继续暂停，旧UNKNOWN不重发，不变原任务target/identity/风险/奖励。
