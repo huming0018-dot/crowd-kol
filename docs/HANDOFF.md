@@ -1,6 +1,6 @@
 # 分布式采集系统｜固定交接入口
 
-更新：2026-10-18 21:02 CST（96源码与Pro通道已发；正式安装R2被内层重复预检拒绝，正在修完整链；未新采集）。Codex /root。
+更新：2026-10-18 23:25 CST（R4正式实装/独审；原Start仍0来源，已定位Python初始化被macOS桌面权限请求挡住；原Stop/gen12保进度）。Codex /root。
 
 ## 1. 接力规则
 
@@ -39,15 +39,16 @@ V6已采用：提交18c36862b151d09192725abb88f6e87ab96ddf81已推，对应不�
 证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-integration；先读FINAL-DELIVERY.md，再读上述独审及root/NEXT-PRO-PRODUCT-WIRING.md、root/MAC-PRO-IPC-CONTRACT.md（正式宿主双向薄接线合同，尚未实现）。原20条逐ACK在review/final-ack-central/TEST20-ACKS.PRIVATE.csv，含旧18/新Pro2清晰来源；其他机器读不到本地证据须标缺失，不假装同步。旧09:27窗口移除责任未知，未因此宣布修好。
 
 
-## 本轮普通参与者 Pro 原生接线｜2026-10-18 21:02 CST（本节优先于上文旧缺口）
+## 本轮普通参与者 Pro 原生接线｜2026-10-18 23:25 CST（本节优先于上文历史状态）
 
-- **代码/发布**：原 Start/Stop 已接 connectNative→固定 Python→Pro Worker，原JWT逆向白名单RPC保留。crowd-kol最新298cd586已推；EXT正式分支61999fc为96（原本地checkout94不采用）。Python V2、原生宿主及JS经独审；真实Chrome96 onboarding通过。旧agent评分/outbox数据保留，未知结果不重抓。
-- **中央已上线**：20261018122222有界批次、20261018122944新receipt live授权、20261018124413明确批次detail ceiling三迁移已部署。13:00:59Z只读：新batch0、proof55/receipt55、19complete22/22、20complete3/3。ratings/rewards/旧grant及旧task/proof/receipt hash已留存。未激活新任务、未arm48h或远端。
-- **正式发行/尚未安装**：pages 08171a1/925905e已发96 Pro独立通道，旧普通通道仍93。V5接续安装包R2在3d3866f公开，942176字节、SHA b984d948…；从公开URL下载回验一致。包不含私有SDK/凭据，缺本地合法依赖明确not_ready，不回退DOM。宿主/Python升级走接通包，不冒充扩展OTA升级了所有依赖。
-- **实际失败/根因**：正式V4入口先误查daily同ID3.5.3，打开help-browser-legacy.html并拒绝；原采集资料实际93。V5独审12新+20原JXA通过，外层target识别已正确，但R2实跑内层reconnect仍用旧2参数再次扫daily，exit1。没有覆盖原helper8198638…、扩展93，pro-config/state均未创建。两次失败日志保留，不能称安装通过或原生真实采集完成。
-- **当前修复**：central_steps正在检查所有browser-preflight caller及完整install/reconnect链，native_diagnostics_review独立复核。不得人工绕过预检/手拷插件来冒正式入口通过；日常3.5.3与原profile93都保留。用户看到的本地HTML是安装失败说明页，不是采集页，不需卸载/重新报名。
-- **下一步**：完整入口修复/独审后发布不可变新包、公开回验并实际安装；原93经Pro签名OTA到96，核原身份/历史/评分。再一次激活已独审的最多2条本机新任务（SQL b0d0d866…，现未执行），核原native来源、逐条真实云ACK、静默、自动停、OTA busy/停车恢复。旧19不重开，48h/watchdog仍暂停。
-- **证据根**：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。root/ACTUAL-INSTALL.log、ACTUAL-INSTALL-R2.log、ACTUAL-INSTALL-R2-LOCAL-UNCHANGED.json、ACTUAL-R2-CLOUD-UNCHANGED.json；native-installer-v5/FAILURE-AND-FIX.md及independent-native/FINAL.json（d591569d…，仅离线门）。中央三独审见review/central-batches。依赖的缺口：正式普通参与者目前只接XHS正文，不声称评论/媒体字节全产品；通用pause/resume与Windows原生仍未接。
+- **正式采用/实装**：EXT源码ac71d9d已推原分支，Swift7行最小收尾修复。pages f083df08e516e5d5ad4c8bea12ec0332f0ae62ca 的不可变R4公开下载944689B/SHA977c60de…一致，完整开始安装.command exit0。实际helper ed059c46…；config e3cec0e9…/entry75d34789…/108runtime manifest176257c0…保持。独审源码66e14c91、组合e5b066af、实际安装9797a62a。版本仍96；旧普通通道93不变。R3已真实签名OTA93→96，R4只升级helper，不冒新增一段扩展OTA。
+- **已修收尾/保持边界**：真实Python收到stopped0立刻断管道，旧host重复Stop/EPIPE会误覆busyunknown；修掉重复Stop并保typed终态。非作者另抓late-ready-after-Start可误清busy的P1，增加命令屏障后原反例及5保守边界通过。实际采集终态尚未到达，不能称生产自动停止已验。V1被拒版本与初败保留。
+- **中央真实状态**：三迁移20261018122222/122944/124413已上线。唯一新task29限2条/14来源请求，独占原installation；原grant到15:21:46Z，不能误重建或无条件重发。先前遗漏统一派单mapping已经独审上线dispatch27b7bb92…，15:12:58Z实际allowed=true，task29open0/无lease；原19complete22/22、20complete3/3。旧55proof/receipt完整行hash、原task19/20、旧grant与评分奖励投影均与15:00preStart完全一致。
+- **R4实际失败及根因**：15:03:06Z原参与者Start已唯一调用，10秒后native_unavailable；无intent/run、未claim、无task29本地run/delivery/中央proof或receipt。PID57363成为PPID1未退出的Python，独立88/88及作者816样本均停Py_InitializeFromConfig→getpath_readlines→fopen/open，尚未进入适配器main。tccd同accessing57363/responsible57362的msg56632.16明确DesktopFolder AUTHREQ_PROMPTING；同次启动助手重编后的code requirement不匹配原权限。当前握手未到可归于解释器启动等待桌面访问，不把这条回填最初旧HELLO细因；具体fopen参数路径仍未知。已请本人确认/处理系统权限；未代理点击、改TCC或结束该待授权进程。
+- **安装设计缺口**：原ProPython venv配置及原collector根在Desktop开发目录，uv base实际在~/.local/share。只改Python symlink或搬venv仍访问原Desktop账本/SDK/签名服务，不是完整无权限修复。候选依赖布局说明在appsupport-install-plan/PLAN.md；没有悄悄改六绑定、搬旧outbox/run/浏览器资料或打包Pro私码。当前通用新参与者依赖安装/无Desktop布局尚未完成。正式718d1a7已追加两项便携回归并修一条未就绪提示，独审062721f8/c86c6e13；正式test_pro_host.py实跑原suite及2新case全部通过。文案只在源码，未发布新客户端或伪称当前UI已生效。
+- **原身份/停车**：15:13:21Z走原Stop，当前gen12、desiredfalse、Prostopped/runnull/intentnull/pending0；history20/outbox0/原owner+node保持，正常Stop导致完整agentSHA变为5dd5ac5a…已记录，不伪称全字节未变。当前helper durable busytrue/connected与待权限PID残留须先对账，不直接清busy或重复Start。此前只对已证无来源HELLO残留的一次独审CAS已记录，不能复用旧SHA脚本清新状态。
+- **下一步**：本人授权系统访问后先确认原Python/端口自然退出和原账本无source，再按fresh绑定处理HELLO残留；仅在原29授权仍有效时走原Start跑2条。若grant已过期，不绕过RPC/改旧任务/清计数；保留2条预算，先独审有界恢复合同。逐条ACK、实际静默来源、自动停止/hostbusyfalse及原OTA空闲须独立验。并行补可维护收尾回归与避免反复重装的错误提示。两设备Pro/评论原生接线/通用依赖/长稳实验仍未验，48h及watchdog继续暂停。
+- **证据根**：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。R4/{FREEZE.json,independent-native/FINAL.json,independent-native/ACTUAL-INSTALL-FINAL.json}；native-clean-disconnect-fix-v2/independent-native/FINAL.json；root/ACTUAL-{R4-DOWNLOAD,R4-INSTALLED-HASHES,R4-PRESTART-LOCAL,INSTALL-R4.log}（实际文件以目录为准）；root/ACTUAL29-{IMMEDIATE-PRESTART-PROTECTION,R4-START-HELD,R4-FAILED-CLOUD-PROTECTION,R4-PARK-LOCAL,TCC-DIAGNOSIS}.json；review/start-real-relay、review/hello-first-start/PID57363-*。失败初始化90秒focus861/窗口87均0仅覆盖无来源，不冒真实采集静默。
 
 
 2026-10-14新轮授权：并行实现中央槽释放、Owner恢复入口、Pro成熟能力桥；独审后正式采用并做原范围真实云回执、登录恢复与连续OTA验收。上轮只读交接限制已结束。保留原身份、原任务和原数据；2026-10-18本机20条范围已覆盖本机旧预算，远端不扩大；不外发Pro私码、重置凭据、arm试验或恢复看门狗。

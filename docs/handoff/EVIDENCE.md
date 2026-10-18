@@ -775,3 +775,15 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - 下一步完整链独审→不可变新包公开回验→原入口实装→原93经Pro签名OTA96→只一次新最多2条本机任务/原native逐ACK/静默/自动停。旧19不重开、不扩远端，48h/watchdog仍暂停。普通nativeXHS正文范围、通用resume/其他OS未接等限制保持。
 - 证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry；root/ACTUAL-INSTALL.log、ACTUAL-INSTALL-R2.log、ACTUAL-INSTALL-R2-LOCAL-UNCHANGED.json、ACTUAL-R2-CLOUD-UNCHANGED.json、actual-installer-r2-download.json；native-installer-v5/{FREEZE.json,FAILURE-AND-FIX.md,independent-native/FINAL.json}。
 
+## 2026-10-18 23:25 CST｜R4正式安装与真实启动权限阻塞定位
+
+- **接力者 / 独审**：Codex/root正式采用、公开回取、唯一安装/Start/Stop、只读云回读；central_steps宿主实现/根因定位；knowledge_reuse_probe组包；native_diagnostics_review非作者host/包/实际安装/进程栈与TCC关联复核。
+- **实际代码 / 版本**：EXT正式ac71d9d只改Swift7行，Pro采集核心不动；pages正式f083df08e516e5d5ad4c8bea12ec0332f0ae62ca发布新不可变R4。原96客户端ZIP36a2和Python runtime108/176257保持，旧普通通道93保持；没有新建97冒连续OTA。
+- **部署 / 验证**：公开R4下载944689B/SHA977c60de一致；完整开始安装.command exit0。实际helper ed059c46、confige3cec0e9、entry75d34789、manifest176257均exact；原owner/node/gen11/旧agentSHA/history20/outbox0实装前后保持。host原late-ready P1修复、5保守边界、原Pro/OTA回归独审66e14c91；包组合e5b066af、实际安装9797a62a。原初始短SHA URL在push完成前404，完整SHA已成功回验，不删失败。
+- **真实失败 / 定位**：15:03:06Z唯一原Start，10秒HELLO失败，无intent/run/claim/source/新ACK；原task29open0/unleased。PID57363孤儿Python尚未main，作者816/非作者88样本均初始化getpath/fopen阻塞；同PID/parent57362的tccd msg56632.16明确DesktopFolder AUTHREQ_PROMPTING。此次宿主重编code requirement与旧桌面权限不匹配；具体fopen路径仍未知，旧首HELLO不可回填本因。没有延长超时、重发未知来源、改TCC或代理授权。
+- **保护 / 当前停车**：15:00preStart与15:12postfailure原task19/20及55proof/receipt完整行hash、旧grants、评分奖励投影一致。原Stop后gen12/desiredfalse/runnull/intentnull/pending0/history20/outbox0；正常Stop更改agentSHA为5dd5ac5a已说明。helper残留busyconnected与待权限孤儿仍需对账；未重复旧CAS或强清。focus861/窗口87均0仅失败初始化范围，不作来源静默通过。
+- **业务验收**：未通过本轮新2条。没有新正文/评论/媒体/导出/云ACK；既有Pro原任务2条与R3签名93→96证据仍保留，不能混作新native成功。通用新参与者依赖安装、两设备Pro、连续OTA/长期实验均未完成。
+- **下一步**：已向本人申请系统桌面访问操作；其他安装路径/持久回归与错误提示独审并行。权限完成先确认旧子进程/原账本/端口与grant；原29到15:21:46Z。过期不绕过来源准入，先独审同2条/14请求有界恢复，不重开19/20。依赖不能只换symlink绕路径；原collector账本仍Desktop，方案在appsupport-install-plan。48h/watchdog不恢复。
+- **证据**：outputs/runtime-2026-10-18/pro-participant-native-entry/root/R4-ACTUAL-CHECKPOINT.json SHA64efec9c4e60aa546b607952c8094fad5f1d3473e7022bb88adc08a91e8df46d；其索引10个实际文件及R4/independent-native、native-clean-disconnect-fix-v2、review/start-real-relay、review/hello-first-start。
+- **状态位置**：固定docs/HANDOFF.md本轮原生接线段优先；没有复制完整聊天。
+- **收尾追加**：718d1a7正式源码已推：只追加两个便携host回归与一条非就绪提示，独审062721f8/c86c6e13；正式原suite+两新例实跑exit0，root/FORMAL-HOST-REGRESSIONS.log。未为单文案发97，当前96界面仍旧文字。15:22:09Z原grant实际过期但29open0/无lease；同2条/14请求恢复窗口合同在独审准备，未执行。额外TCC直接mismatch摘录root/ACTUAL29-TCC-CODE-REQUIREMENT.json已保留，精确fopen路径仍未知。
