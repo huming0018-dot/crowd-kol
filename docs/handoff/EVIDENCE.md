@@ -837,3 +837,8 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 | G04-adoption-preparation/VERCEL-READONLY.json | 原project/team限定访问403；未部署、未查询Secret值、未换项目。线上sourceSHA未验证。 |
 
 真实分享授权尚待用户答复：两批共4条公开正文、来源引用和追踪编号的8格式共313416B及清单；原私桶保存/回验与各900秒匿名只读链接分开服从答复。链接尚不存在；不把内存Storage测试当云回执。全部本轮改动均不等于新来源ACK、媒体字节、评论分页、内容质量、真人奖励或完整产品验收。
+
+## 2026-10-19 03:58 CST｜G05 unknown审核修复与双runtime实际采用
+
+- 根目录：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`。`G05-review-guard/FREEZE.json` e79b04c7、非作者`review/g05-review-guard/FINAL.json` ebf75f07；`G05-knowledge-adoption/FREEZE-V2.json` 958bc02a、采用器独审ADOPTER-V2-FINAL adcb94da；V1/CLI RED保留，不采用。
+- 实际：`G05-knowledge-adoption/runtime-adoption/ADOPTED.json`、`ACTUAL-READBACK.json`、`ACTUAL-KNOWLEDGE-UI.png`、`STATUS.json`。非作者`review/g05-review-guard/ACTUAL-FINAL.json`全SHA925cc5f34c4d18164c936ddd49bb8cee46656971f6ccb9a3b8ebf8f0ed0d6a1d，原始实际读取PRIVATE仅本地。源码d70c27c；本机Owner95651/481、知识223采用，十HTTP旧hash保持，原知识业务0写。不是新采集、真人批准或G05全闭环验收。

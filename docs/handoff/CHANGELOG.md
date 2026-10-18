@@ -820,3 +820,11 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **验证**：正式后端12、UI最终10及非作者12受控用例；原六店回归、2scope真实Consumer四格式与原Edge内存2put/8get；Next原React两scope/8格式与403、SHA、项目、过期、迟到响应/下载用例及完整构建通过。采用器原8及真实WAL2通过；第一次实际采用失败保留，修正后正式采用成功。最终独审481源、五库/native/343资产、原8导出及31/六店未变。无新来源/模型/上传/签链。
 - **部署/生效**：本机45937 PID91236，owner-pro-share-ui-b258791623011de0，UI6bc108b2，cfgb49e7c6f已回读；中央46原样。Next仅源码和完整构建通过，原Vercel项目403未部署，线上未知。待新增两批分享范围与原项目访问恢复；不重复旧INTENT、不重开已完任务、不启动实验。
 - **证据/下一步**：RUN18/G04-*及review/g04-contract、g04-ui-central、g04-actual-http-central、g04-formal-release-central；详见EVIDENCE本轮索引。用户答复后仅按精确scope动作，恢复访问后再做远程消费；继续PRODUCT-PLAN1.3完整目标，非G04全部完成。
+
+## 2026-10-19 03:58 CST｜G05审核未知意图修复正式采用
+
+- **接力者/独审者**：root实现；native_diagnostics_review独立复现、代码/采用器/实际运行复核。
+- **目标/改动/版本**：阻止新preview/UUID绕过未结知识审核；6源码文件提交d70c27c并推原分支。仅原Binding、Service、knowledge UI及回归/README；不动Pro核心或真人决定。
+- **验证/定位/修复**：独立原脚本先RED后GREEN，6 SDK scope＋10旧例＋UI；采用器8旧fixture＋5独立双CAS通过。首轮CLI路径含空格漏检P1修为完整已知script边界匹配，保V1/RED，V2才采用。实际Owner481/知识223、两cfg、五库＋知识表、340资产、10HTTP、原native任务/host全复读exact。没有把作者检查冒独审。
+- **部署/线上**：本机正式Owner95651及独立知识runtime生效；未中央部署/新扩展发布/新采集/新分享。提案034仍proposed、知识四类业务计数0，非业务批准；原task29仍complete2/pending0。
+- **证据/风险/下一步**：证据根`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`，`G05-knowledge-adoption/STATUS.json`、`runtime-adoption/ADOPTED.json`和`review/g05-review-guard/ACTUAL-FINAL.json`。继续G06评论全链独审与正式接入；领域重算、人审发布、异机消费/第二设备/runtime OTA仍有缺口；48h/watchdog暂停。

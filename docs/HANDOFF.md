@@ -1,5 +1,13 @@
 # 分布式采集系统｜固定交接入口
 
+## 当前追加｜2026-10-19 03:58 CST｜审核未知结果修复已正式采用，Pro评论接线继续
+
+- **原登录与参与者**：用户已回复原账号登录完成；本轮只读原native数据库仍为task29/run a379f72a complete、delivered2/pending0，helper stopped/busyfalse。没有重开已完成任务、追加额度或据此声称登录永久有效；正文真实云ACK56/57继续见下方原件。
+- **源码/修复**：正式源码`d70c27c`已推crowd-kol/codex/v4.0.6-handoff。复现审核首次grant前/后异常留下started后，新preview＋newUUID绕过未知结果的P1；原Binding新增共同scope锁及未结意图扫描，服务/页面禁新决定并只查原编号，completed精确重放保留。未改变平台请求、评分、审核授权或自动批准。三产品文件和两回归脚本、README已纳源码。
+- **正式采用/独审**：唯一45937已由原91236切为**95651**，Owner不可变`owner-knowledge-guard-ui-72b80e22f7fdfbfa`，481文件仅knowledge-ui一overlay；独立知识子进程另用`knowledge-review-guard-19e00a34e06455aa`，223文件仅binding/service两overlay，入口原bytes不变。原Python及host/review/publication/binding/candidate/workspace/intents/packs全保。auto配置SHA`5be19e2c1483d179b52ab48d1622c084613dec4e9573951760456c4b99ad66cf`，knowledge配置SHA`60cf9c9cbd76460971d01fde9b60a9b2f1bbe6741ccfb18b9298de99149f302d`。旧Owner与exact旧知识CLI证退后才双CAS；未知新进程或配置漂移不强行回旧。采用器首轮独审抓出macOS ps未转义空格导致CLI漏检，已修并保原RED，V1不采用。
+- **实际证据**：非作者重跑6真实SDK scope、10旧负例、UI VM，采用器8＋独立5双CAS反例通过；实际复读两runtime全hash/mode、五原库＋知识业务全表、340原资产/12依赖、native全库/host均保。340较旧343少的是独立CAS指针和两个过期预览缓存，非业务删除。十个原HTTP导出逐SHA保持。正常UI实点知识更新/API preview及publication_preview均成功，034仍proposed，grants/decisions/releases/pins全0；没冒真人审核或知识闭环完成。独审`review/g05-review-guard/ACTUAL-FINAL.json` SHA`925cc5f34c4d18164c936ddd49bb8cee46656971f6ccb9a3b8ebf8f0ed0d6a1d`；采用器和实际UI/回读见`G05-knowledge-adoption/`。
+- **主线下一步/门**：G06原生参与者评论/回复由central_steps和knowledge_reuse_probe并行隔离实现，原849同输入35评论13页已测，尚未正式采用/中央部署/新来源验收；需typed child ACK、seal、源预算、partial、四格式、EXT/Swift全链独审。新ACKset已有原context hash版本化，不为假设另建队列。G05同context换pack显式重算/真人发布仍未做，cuisines领域包与social-observations Pro素材包不是同一包。G04新分享范围确认和原Vercel403仍待解决，不重试403/不新签链；原第二设备/通用依赖/连续runtime OTA及评论媒体字节仍未验。48h实验和watchdog保持暂停，整体目标进行中。
+
 ## 当前追加｜2026-10-19 03:24 CST｜Pro批次分享已接入本机正式运行，远程消费仍有两项门
 
 - **源码与实现**：正式源码`fb47cd9`新增原publication_share的显式Pro `publish/verify/links`分支和资料库批次选择；`5fee8a9`修复实际UI范围说明被动态状态覆盖。复用原Consumer、PublicationClient、私桶、900秒签链与Next消费页，无新队列/数据库/权限/SDK。原六店单request_id协议不变。所选context绑定原ACK group、scope、project及逐条receipt后才允许put；未知put由包级intent阻止重复上传，显式verify只读核对四格式，确认后再显式签链。未修改Pro请求/解析/评论/媒体核心。
