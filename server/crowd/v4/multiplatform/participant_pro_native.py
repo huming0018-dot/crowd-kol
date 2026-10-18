@@ -53,7 +53,7 @@ def installation_ready(config):
 class NativeService:
     def __init__(self,config,mux,runner_factory=local_runner,worker_class=ParticipantProWorker):
         self.config,self.mux,self.runner_factory,self.worker_class=config,mux,runner_factory,worker_class
-        self.worker=None;self.thread=None;self.start_message=None;self.last={'state':'ready','source_started':False};self.reconnected=False;self.lock=threading.Lock()
+        self.worker=None;self.thread=None;self.start_message=None;self.last={'state':'ready','source_started':False};self.reconnected=False;self.explicit_stop_run=None;self.lock=threading.Lock()
     @contextlib.contextmanager
     def child_channel(self):
         if self.mux.stopped.is_set():raise ProtocolError('participant_stopped')
@@ -145,16 +145,37 @@ class NativeService:
             local=self.worker.runner('status',{'run_id':run}).get('state')
             if local in mc_runner.FINAL:state='partial' if local=='completed' else 'source_unknown' if local=='interrupted_unknown' else 'source_failed'
         self.reconnected=True;self.last={'state':state if state in STATES else 'unknown'}
-    def stop_owned(self):
+    def stop_owned(self,*,explicit=True):
         self.mux.stop();unresolved=False
         if self.worker is not None:
             with self.worker.outbox._db() as db:row=db.execute('SELECT run_id FROM participant_runs WHERE task=?',(self.worker.task_id,)).fetchone()
             if row and row[0]:
                 state=mc_runner.stop(self.config['root'],{'run_id':row[0],'origin':'user','reason':'user_stop'})
+                evidence=state.get('stop_context',{})
+                if explicit and evidence.get('origin')=='user' and evidence.get('reason')=='user_stop' and (state.get('stop_requested') is True or state.get('state')=='stopped'):
+                    self.explicit_stop_run=row[0]
                 unresolved=state.get('state') not in mc_runner.FINAL or state.get('state')=='interrupted_unknown'
             with self.worker.outbox._db() as db:unresolved=unresolved or bool(db.execute("SELECT count(*) FROM participant_delivery WHERE task=? AND state='pending'",(self.worker.task_id,)).fetchone()[0])
         with self.mux.lock:unresolved=unresolved or bool(self.mux.pending)
         self.last={'state':'unknown' if unresolved or self.thread and self.thread.is_alive() else 'stopped','error':None}
+    def reconcile_stopped(self):
+        # Presentation-only status reconciliation. Never repeat Stop or clear durable UNKNOWN.
+        if not self.worker or not self.explicit_stop_run or not self.mux.stopped.is_set() or self.thread and self.thread.is_alive():return
+        with self.mux.lock:
+            if self.mux.pending:return
+        def unchanged():
+            with self.worker.outbox._db() as db:
+                row=db.execute('SELECT run_id FROM participant_runs WHERE task=?',(self.worker.task_id,)).fetchone()
+                pending=db.execute("SELECT count(*) FROM participant_delivery WHERE task=? AND state='pending'",(self.worker.task_id,)).fetchone()[0]
+            return bool(row and row[0]==self.explicit_stop_run and pending==0)
+        if not unchanged():return
+        try:state=mc_runner.status(self.config['root'],{'run_id':self.explicit_stop_run})
+        except Exception:return
+        evidence=state.get('stop_context',{})
+        if state.get('state')!='stopped' or evidence.get('origin')!='user' or evidence.get('reason')!='user_stop' or not unchanged() or self.thread and self.thread.is_alive():return
+        with self.mux.lock:
+            if self.mux.pending:return
+        self.last={'state':'stopped','error':None}
     def handle(self,message):
         kind=message['type']
         if kind=='pro_start':self.start(message)
@@ -162,7 +183,7 @@ class NativeService:
         elif kind=='pro_status':
             if self.worker is None:self.restore_status(message['run_id'])
             if message['run_id'] is not None and message['run_id']!=self.snapshot()['run_id']:raise ProtocolError('participant_scope_changed')
-            self.emit(message)
+            self.reconcile_stopped();self.emit(message)
         elif kind=='pro_stop':
             if self.worker is None and message['run_id'] is not None:self.restore_status(message['run_id'])
             if message['run_id'] is not None and message['run_id']!=self.snapshot()['run_id']:raise ProtocolError('participant_scope_changed')
@@ -178,7 +199,7 @@ class NativeService:
                 code=str(e);self.last={'state':'blocked','error':code if code in ERRORS else 'participant_contract_refused'}
                 self.emit(message)
         # EOF closes child authority immediately and requests the existing owned-run stop.
-        self.stop_owned()
+        self.stop_owned(explicit=False)
         if self.thread:self.thread.join(3)
 
 def main():

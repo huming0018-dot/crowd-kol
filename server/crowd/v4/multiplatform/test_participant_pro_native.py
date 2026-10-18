@@ -110,6 +110,45 @@ class Tests(unittest.TestCase):
   result=subprocess.run([sys.executable,'-B',participant_pro_native.__file__,'--config',str(self.root/'absent.json')],input=out.getvalue(),capture_output=True,timeout=5)
   self.assertEqual(result.returncode,0);self.assertEqual(result.stderr,b'')
   answer=FrameIO(io.BytesIO(result.stdout),io.BytesIO()).read();self.assertEqual(answer['state'],'not_ready');self.assertEqual(answer['error'],'participant_installation_invalid');self.assertNotIn(str(self.root),result.stdout.decode('utf8',errors='ignore'))
+ def test_explicit_stop_status_readonly_final_gate_and_unknown_negatives(self):
+  from participant_pro import ParticipantProWorker
+  from participant_native_rpc import NativeTransport
+  service=NativeService(self.config,self.m,self.factory);rpc=NativeTransport(self.m,self.m.subject,self.m.install,201)
+  service.worker=ParticipantProWorker(self.root,rpc,lambda *a:self.fail('no source'),task_id=201,installation_id=self.m.install,subject=self.m.subject,session_id=self.config['session_id'],known_ids=[])
+  context={'binding':rpc.binding,'target':2,'limit':2}
+  with service.worker.outbox._db() as db:db.execute('insert into participant_runs values(?,?,?,?)',(201,'running',self.run,json.dumps(context)))
+  class Ended:
+   def is_alive(self):return False
+  service.thread=Ended();evidence={'origin':'user','reason':'user_stop'}
+  with patch('participant_pro_native.mc_runner.stop',return_value={'state':'running','stop_requested':True,'stop_context':evidence}) as stop:
+   service.handle(frame('pro_stop',self.m.session,7,run_id=self.run));self.assertEqual(service.last['state'],'unknown')
+   before=None
+   with service.worker.outbox._db() as db:before=db.execute('select * from participant_runs').fetchall()
+   cases=[({'state':'stopped','stop_context':evidence},'stopped'),({'state':'interrupted_unknown','stop_context':evidence},'unknown'),({'state':'running','stop_context':evidence},'unknown'),({'state':'completed','stop_context':evidence},'unknown'),({'state':'stopped'},'unknown'),({'state':'stopped','stop_context':{'origin':'cloud_worker','reason':'lease_lost'}},'unknown')]
+   for source,expected in cases:
+    service.last={'state':'unknown'}
+    with patch('participant_pro_native.mc_runner.status',return_value=source):service.handle(frame('pro_status',self.m.session,7,run_id=self.run))
+    self.assertEqual(service.last['state'],expected)
+   with service.worker.outbox._db() as db:self.assertEqual(db.execute('select * from participant_runs').fetchall(),before)
+   stop.assert_called_once()
+   # Native RPC outstanding, running parent, durable delivery, changed owned run all hold UNKNOWN.
+   for barrier in ('rpc','thread','delivery','run'):
+    service.last={'state':'unknown'}
+    if barrier=='rpc':self.m.pending['outstanding']=object()
+    if barrier=='thread':service.thread=type('Active',(),{'is_alive':lambda s:True})()
+    if barrier=='delivery':service.worker.outbox.stage(record('d'*24),{'task_id':201,'lease':self.m.lease,'installation_id':self.m.install},{'local_run_id':self.run,'upstream_commit':PINNED_COMMIT,'request_sha256':'e'*64,'captured_at':'2026-10-18T10:00:00Z'})
+    if barrier=='run':
+     with service.worker.outbox._db() as db:db.execute('update participant_runs set run_id=?',(U(),))
+    with patch('participant_pro_native.mc_runner.status',return_value={'state':'stopped','stop_context':evidence}):service.reconcile_stopped()
+    self.assertEqual(service.last['state'],'unknown')
+    self.m.pending.clear();service.thread=Ended()
+    with service.worker.outbox._db() as db:
+     if barrier=='delivery':db.execute('delete from participant_delivery')
+     if barrier=='run':db.execute('update participant_runs set run_id=?',(self.run,))
+   # Implicit EOF is not promoted by this explicit-stop reconciliation.
+   service.explicit_stop_run=None;service.last={'state':'unknown'}
+   with patch('participant_pro_native.mc_runner.status',return_value={'state':'stopped','stop_context':evidence}):service.reconcile_stopped()
+   self.assertEqual(service.last['state'],'unknown');stop.assert_called_once()
  def test_config_hash_permissions_no_browser_paths(self):
   import participant_pro_native as entry
   cfg={'schema':'crowd-participant-pro-install-v1','python':__import__('sys').executable,'entry':str(Path(entry.__file__).resolve()),'entry_sha256':hashlib.sha256(Path(entry.__file__).read_bytes()).hexdigest(),**self.config}
