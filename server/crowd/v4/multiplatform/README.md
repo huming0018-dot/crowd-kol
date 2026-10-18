@@ -177,3 +177,13 @@ python3 -m unittest test_mc_runner test_dashboard test_analysis test_owner_tasks
 有私有真实fixture时运行`test_participant_material_*.py`，设置`CROWD_PRO_ACK_FIXTURE`和`CROWD_TEST_MATERIAL_AUTO_CONFIG`；缺fixture时集成用例会明确skip，不能称真实验收。SQL/Edge回归入口是`tests/participant-pro-owner-feed-{db,api}.mjs`，DB测试需已有`CROWD_TEST_TOOLS`中的PGlite。不得提交fixture、浏览器资料、Pro私码或凭据。
 
 已知边界：同context已ready后不会因换pack/config自动重算；需要明确的重新处理/采用流程。重启恢复、上线后新ACK、异机Pro素材消费及通用人审撤回应单独验收；旧六店匿名分享授权不能推定为新Pro素材的匿名分享授权。
+
+## 分享参与者已处理素材
+
+资料库中的“分享参与者素材”只列出已就绪的任务批次。Owner 选择批次后，显式生成链接：先把同一 Consumer 的 HTML/JSON/JSONL/CSV 保存到原私有发布桶，再逐格式回取核对，最后签发原有15分钟免登录链接。原六店领域入口和账号授权消费路径保留。正文、来源引用和跟踪编号会进入分享文件；媒体仅保留原引用，不包含媒体文件。
+
+`publication_share` 原 `{request_id}` 协议不变。Pro 请求严格为 `{request_id,pro_key,operation}`，操作为 `publish`、`verify` 或 `links`。后端从原 ready context 和 ACK group 计算项目，并逐条匹配 receipt；客户端不能指定路径、项目或哈希。一个批次一个不可变包，沿用250000字节总限额。未知发布由包级 intent 阻止重传；“核对云保存”只读回取，确认后需再次显式生成链接。关闭或切换批次不会继续签链，链接不会自动续签。
+
+实现入口：`publication_share.py`、`publication_pro_share.py` 和 `results-ui.js`。私有 intent 与包在运行根目录 `publication-pro-intents/`、`publication-pro-bundles/`；其中不保存签名链接。消费页为原 `china-travel-food/app/pages/materials.tsx`，仍通过私桶签名 GET、字节数、SHA256 和实际报告项目绑定后展示。接受 Pro 项目格式本身不是授权。
+
+回归：在本目录运行 `CROWD_MP_ROOT="$PWD" python3 -m unittest test_publication_pro_share`；在仓库根运行 `node server/crowd/v4/tests/publication-pro-share-ui.mjs server/crowd/v4/multiplatform/results-ui.js`。Next 真实保存文件回归需要明确 `CROWD_SAVED_EXPORTS` 或测试第四参数，不将私有报告捆入源码。代码采用、服务运行、云保存、签链和异机业务验收分别记录在固定 HANDOFF；不要凭本节认定已经上线。

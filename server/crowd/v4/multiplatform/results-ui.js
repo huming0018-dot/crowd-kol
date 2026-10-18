@@ -12,25 +12,55 @@ const resultsView = (() => {
   for(const [format,path]of [['JSON','report.json'],['JSONL','items.jsonl'],['CSV','items.csv']]){const link=node('a',format);link.href='/data-product/'+path;link.download='data-product.'+format.toLowerCase();domainExports.append(link,document.createTextNode(' '));}
   dialog.querySelector('#library_export').after(domainLink,domainExports);
   // Explicit Owner action; the bearer URL exists only in this dialog's memory until expiry/close.
-  function attachPublicationShare(parent, ownerDialog) {
-    const generate=node('button','生成15分钟查看链接'),copy=node('button','复制查看链接'),status=node('p','仅分享当前领域发现快照；点击才签发，持有人15分钟内免登录查看。不会自动续签。');
+  function attachPublicationShare(parent, ownerDialog, selectedSource=null) {
+    const generate=node('button','生成15分钟查看链接'),copy=node('button','复制查看链接'),status=node('p',selectedSource?'点击会把所选批次的正文、来源引用和跟踪编号保存到本项目私有云，并签发15分钟链接。持有人可免登录查看和下载；不含媒体文件。':'仅分享当前领域发现快照；点击才签发，持有人15分钟内免登录查看。不会自动续签。');
     generate.type=copy.type='button';copy.disabled=true;status.setAttribute('role','status');
     parent.append(generate,copy,status);
-    let epoch=0,link=null,timer=null;
-    const clear=()=>{++epoch;link=null;clearTimeout(timer);copy.disabled=true;generate.disabled=false;};
+    const verify=node('button','核对云保存');verify.type='button';verify.hidden=true;if(selectedSource)parent.append(verify);
+    let epoch=0,link=null,timer=null;const saved=new Map(),unknown=new Map();
+    const current=()=>selectedSource?selectedSource():null;
+    const clear=()=>{++epoch;link=null;clearTimeout(timer);copy.disabled=true;generate.disabled=Boolean(unknown.get(current()?.pro_key));verify.hidden=!unknown.get(current()?.pro_key);verify.disabled=false;};
+    const validSaved=(value,scope)=>value?.schema==='crowd-owner-pro-publication-v1'&&value.status==='verified'&&value.verified===true&&value.pro_key===scope.pro_key&&value.items===scope.items&&value.media_bytes_included===false&&/^confirmed-pro-[a-f0-9]{24}$/.test(value.project_id)&&/^[a-f0-9]{64}$/.test(value.report_hash)&&Object.keys(value.formats||{}).sort().join(',')==='csv,html,json,jsonl';
+    const request=(scope,operation)=>api('/api/cloud',{action:'publication_share',payload:{request_id:crypto.randomUUID(),pro_key:scope.pro_key,operation}});
+    const still=(ticket,scope)=>ticket===epoch&&ownerDialog.open&&(!selectedSource||current()?.pro_key===scope?.pro_key);
     ownerDialog.addEventListener('close',()=>{clear();status.textContent='链接已从本页清除。此前复制的链接仍到原有效期结束。';});
     generate.onclick=async()=>{
       if(generate.disabled||!ownerDialog.open)return;
-      clear();generate.disabled=true;const ticket=epoch;
+      const scope=current();if(selectedSource&&!scope){status.textContent='暂无可分享的已处理批次。';return;}
+      clear();generate.disabled=true;const ticket=epoch;let operation='links';
       status.textContent='正在生成；结果未知时不会自动重发。';
       try {
-        const value=await api('/api/cloud',{action:'publication_share',payload:{request_id:crypto.randomUUID()}});
-        if(ticket!==epoch||!ownerDialog.open)return;
-        if(value.schema!=='crowd-owner-publication-share-v1'||typeof value.page_url!=='string'||!value.page_url.startsWith('https://app-lyart-eta-22.vercel.app/materials#publication=')||!value.page_url.match(/#publication=[A-Za-z0-9_-]+$/)||!Number.isFinite(Date.parse(value.expires_at))||Date.parse(value.expires_at)<=Date.now())throw Error('publication_share_invalid_response');
+        let snapshot=scope?saved.get(scope.pro_key):null;
+        if(scope&&!snapshot){
+          operation='publish';snapshot=await request(scope,operation);
+          if(!validSaved(snapshot,scope))throw Error('publication_share_invalid_response');
+          saved.set(scope.pro_key,snapshot);
+          if(!still(ticket,scope))return;
+        }
+        operation='links';
+        const value=scope?await request(scope,operation):await api('/api/cloud',{action:'publication_share',payload:{request_id:crypto.randomUUID()}});
+        if(!still(ticket,scope))return;
+        if(value.schema!=='crowd-owner-publication-share-v1'||typeof value.page_url!=='string'||!value.page_url.startsWith('https://app-lyart-eta-22.vercel.app/materials#publication=')||!value.page_url.match(/#publication=[A-Za-z0-9_-]+$/)||!Number.isFinite(Date.parse(value.expires_at))||Date.parse(value.expires_at)<=Date.now()||(scope&&(value.report_hash!==snapshot.report_hash||value.project_id!==snapshot.project_id)))throw Error('publication_share_invalid_response');
         link={url:value.page_url,expires:Date.parse(value.expires_at)};copy.disabled=false;
         status.textContent='链接已生成，有效期至 '+new Date(link.expires).toLocaleString()+'。点击复制后可发给接收者；原未知项保留。';
         timer=setTimeout(()=>{if(ticket===epoch){link=null;copy.disabled=true;status.textContent='链接已到期，已从本页清除；不会自动续签。';}},Math.max(0,link.expires-Date.now()));
-      }catch(error){if(ticket===epoch&&ownerDialog.open)status.textContent='生成未确认，请先核对结果。不会自动重试；关闭后重新打开可显式准备新一次操作。';}
+      }catch(error){
+        if(scope&&operation==='publish'&&(!error.message||error.message.includes('unknown')||error.message==='publication_share_invalid_response'||error instanceof TypeError))unknown.set(scope.pro_key,true);
+        if(still(ticket,scope)){
+          if(scope&&unknown.get(scope.pro_key)){verify.hidden=false;status.textContent='云保存结果未确认。先点“核对云保存”，只读取核对，不重新上传。';}
+          else status.textContent='生成未确认，请先核对结果。不会自动重试；关闭后重新打开可显式准备新一次操作。';
+        }
+      }
+    };
+    verify.onclick=async()=>{
+      const scope=current();if(!scope||verify.disabled||!ownerDialog.open)return;
+      clear();verify.disabled=true;generate.disabled=true;const ticket=epoch;status.textContent='只读核对云保存，不重新上传。';
+      try{
+        const value=await request(scope,'verify');if(!validSaved(value,scope))throw Error('publication_share_invalid_response');
+        saved.set(scope.pro_key,value);unknown.delete(scope.pro_key);
+        if(still(ticket,scope)){verify.hidden=true;generate.disabled=false;status.textContent='四格式云保存已核对。现在可点击生成查看链接。';}
+      }catch{if(still(ticket,scope))status.textContent='云保存仍未确认，未重新上传或签发链接。';}
+      finally{if(still(ticket,scope))verify.disabled=false;}
     };
     copy.onclick=async()=>{
       const ticket=epoch,value=link;
@@ -38,6 +68,7 @@ const resultsView = (() => {
       try{await navigator.clipboard.writeText(value.url);if(ticket===epoch&&ownerDialog.open)status.textContent='查看链接已复制，请仅发给需要查看的人。';}
       catch{if(ticket===epoch&&ownerDialog.open)status.textContent='浏览器未允许复制；链接未重新生成。请允许本页使用剪贴板后再点复制。';}
     };
+    return {selectionChanged(){clear();status.textContent='已切换批次。点击才保存和签发；原链接仍到原有效期结束。';}};
   }
   attachPublicationShare(domainExports,dialog);
 
@@ -45,7 +76,28 @@ const resultsView = (() => {
   const materialExports=node('details');materialExports.append(node('summary','导出当前已审素材'),node('p','导出当前发布批次的全部已审素材。'));
   for(const [format,path]of [['JSON','report.json'],['JSONL','materials.jsonl'],['CSV','materials.csv']]){const link=node('a',format);link.href='/materials/'+path;link.download='materials.'+format.toLowerCase();materialExports.append(link,document.createTextNode(' '));}
   const participantMaterialLink=node('a','查看参与者自动处理素材');participantMaterialLink.href='/materials/participants';participantMaterialLink.target='_blank';participantMaterialLink.rel='noopener';
-  $('library_export').after(materialLink,materialExports,participantMaterialLink);
+  const participantShare=node('details');participantShare.append(node('summary','分享参与者素材'));
+  const scopeSelect=node('select');scopeSelect.setAttribute('aria-label','分享哪批参与者素材');participantShare.append(scopeSelect);
+  let shareScopes=new Map(),shareGeneration=0;
+  const proShare=attachPublicationShare(participantShare,dialog,()=>shareScopes.get(scopeSelect.value)||null);
+  scopeSelect.onchange=()=>proShare.selectionChanged();
+  dialog.addEventListener('close',()=>{shareGeneration++;});
+  async function loadShareScopes(){
+    const ticket=++shareGeneration;shareScopes=new Map();scopeSelect.replaceChildren(new Option('正在读取已处理批次',''));proShare.selectionChanged();
+    try{
+      const response=await fetch('/materials/participants.json',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('publication_index_unavailable');
+      const value=await response.json();if(ticket!==shareGeneration||!dialog.open)return;
+      if(!Array.isArray(value.publications)||value.publications.length>2000)throw Error('publication_index_unavailable');
+      for(const item of value.publications){
+        const match=typeof item.url==='string'&&item.url.match(/^\/materials\/pro\/(pro-[a-f0-9]{64})$/);
+        if(item.state==='ready'&&match&&Number.isSafeInteger(item.items)&&item.items>0&&Number.isSafeInteger(item.task_id))shareScopes.set(match[1],{pro_key:match[1],items:item.items,task_id:item.task_id});
+      }
+      scopeSelect.replaceChildren();for(const scope of shareScopes.values())scopeSelect.append(new Option('任务 '+scope.task_id+' · '+scope.items+' 条',scope.pro_key));
+      if(!shareScopes.size)scopeSelect.append(new Option('暂无已处理批次',''));
+    }catch{if(ticket===shareGeneration&&dialog.open)scopeSelect.replaceChildren(new Option('批次读取失败，请重新打开资料库',''));}
+    if(ticket===shareGeneration&&dialog.open)proShare.selectionChanged();
+  }
+  $('library_export').after(materialLink,materialExports,participantMaterialLink,participantShare);
   let revision=null,offset=0,filters={},total=0,generation=0,loading=false;
   $('library_close').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{generation++;loading=false;launch.focus();});
   function getFilters(){const result={};if($('library_platform').value)result.platform=$('library_platform').value;if($('library_tag').value.trim())result.tags=[$('library_tag').value.trim()];if($('library_author').value.trim())result.author_id=$('library_author').value.trim();if($('library_kind').value)result.kind=$('library_kind').value;for(const [id,key]of [['library_after','published_after'],['library_before','published_before']])if($(id).value)result[key]=new Date($(id).value).toISOString();return result;}
@@ -54,7 +106,7 @@ const resultsView = (() => {
       for(const item of rows){const row=item.record||item.data||item;const card=node('article');card.className='record';card.append(node('h3',(row.platform==='zhihu'?({answer:'回答 · ',article:'文章 · ',zvideo:'视频 · '}[row.content_type]||''):'')+(row.title||row.author?.nickname||'已保存记录')),node('p',row.body||row.text||'没有可展示文字'),node('small',(platformNames[row.platform]||sourceNames[row.platform]||row.platform||'')+' · '+(recordNames[row.kind]||row.kind||'')+' · '+(row.published_at_utc?dateText(row.published_at_utc):'未报告发布时间')));card.querySelector('p').className='body';card.append(node('small','采集入口：'+entryText(row)));if(['content','dynamic'].includes(row.kind))card.append(button('查看版本、评论与评价',()=>detail(row)));$('library_records').append(card);}
       if(!rows.length)$('library_records').append(node('p','暂无匹配资料。先在任务中读取结果，资料会保存到本机。'));$('library_previous').disabled=offset===0;$('library_next').disabled=offset+rows.length>=total;
     }catch(e){$('library_error').textContent=errorNames[e.message]||e.message;}finally{if(ticket===generation)loading=false;}}
-  async function open(){dialog.showModal();$('library_platform').focus();await load(true);}
+  async function open(){dialog.showModal();$('library_platform').focus();await Promise.all([load(true),loadShareScopes()]);}
   async function detail(row){const ticket=++generation,selector=row.entity_ref?{entity_ref:row.entity_ref}:{};const value=await call('detail',{platform:row.platform,content_id:row.content_id,revision,...selector});if(ticket!==generation||!dialog.open)return;$('library_records').classList.add('detail');$('library_records').replaceChildren();const back=button('返回列表',()=>load());$('library_records').append(back,node('h3',row.title||'内容详情'));
     const ambiguous=value.content_identity_status==='ambiguous_types'||value.contents?.length!==1;if(ambiguous)$('library_records').append(node('p','同一标识包含多种正文，暂不能评价。请返回列表选择具体回答或文章。'));const score=node('select');score.setAttribute('aria-label','内容质量评分');for(let i=0;i<=5;i++)score.append(new Option(i+' 分',i));const savedEvaluation=(value.contents?.[0]?.owner_evaluations||[]).filter(e=>e.evaluator_ref==='local-owner').at(-1);score.value=String(savedEvaluation?.value??3);const tags=node('input');tags.type='text';tags.placeholder='业务标签，逗号分隔';tags.maxLength=400;tags.setAttribute('aria-label','业务标签');tags.value=(savedEvaluation?.tags||[]).join('，');const note=node('p','这是 Owner 对内容的业务评价，不改变原参与者评分或奖励。');note.className='hint';
     const save=button('保存业务评价',async()=>{if(ambiguous||ticket!==generation||!dialog.open)return;save.disabled=true;try{const saved=await call('evaluate',{platform:row.platform,content_id:row.content_id,revision,...selector,value:Number(score.value),tags:tags.value.split(/[,，]/).map(x=>x.trim()).filter(Boolean)});if(ticket!==generation||!dialog.open)return;revision=saved.results_revision;$('library_summary').textContent='保存后资料版本 '+revision+' · 内容质量评价已更新';$('library_error').textContent='评价已保存：'+saved.value+' 分'+(saved.tags.length?' · '+saved.tags.join('，'):'');}finally{save.disabled=ambiguous;}});score.disabled=tags.disabled=save.disabled=ambiguous;$('library_records').append(note,score,tags,save);

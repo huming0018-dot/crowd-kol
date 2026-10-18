@@ -6,6 +6,9 @@ MIMES={'json':'application/json; charset=utf-8','html':'text/html; charset=utf-8
 PAGE='https://app-lyart-eta-22.vercel.app/materials'
 
 def generate(app,payload):
+ if type(payload)is dict and ('pro_key'in payload or 'operation'in payload):
+  from publication_pro_share import generate as pro_generate
+  return pro_generate(app,payload)
  if type(payload)is not dict or set(payload)!={'request_id'} or type(payload['request_id'])is not str:raise ValueError('publication_share_invalid')
  try:
   if str(uuid.UUID(payload['request_id']))!=payload['request_id']:raise ValueError()
