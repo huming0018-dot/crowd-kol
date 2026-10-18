@@ -27,4 +27,5 @@ await test('duplicate click cannot duplicate put',async()=>{let done;const h=har
 await test('mixed scope publish refused before links',async()=>{const h=harness(true,async()=>({...verified,pro_key:other}));await h.generate.onclick();assert.equal(h.calls.length,1);assert(h.copy.disabled);});
 await test('mixed scope link refused',async()=>{const h=harness(true,async p=>p.operation==='links'?{...linked,project_id:'confirmed-pro-'+'e'.repeat(24)}:verified);await h.generate.onclick();assert(h.copy.disabled);});
 await test('no scope no network',async()=>{const h=harness();h.selected=null;await h.generate.onclick();assert.equal(h.calls.length,0);});
+await test('scope disclosure survives selection/status changes',async()=>{const h=harness();const disclosure=h.parent.children.find(x=>x.tag==='p'&&x.textContent.includes('正文、来源引用和跟踪编号'));assert(disclosure);h.controller.selectionChanged();assert(disclosure.textContent.includes('私有云'));assert(disclosure.textContent.includes('不含媒体文件'));await h.generate.onclick();assert(disclosure.textContent.includes('15分钟'));});
 console.log(JSON.stringify({passed,source:process.argv[2]}));

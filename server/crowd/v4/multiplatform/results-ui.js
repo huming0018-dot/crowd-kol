@@ -13,10 +13,10 @@ const resultsView = (() => {
   dialog.querySelector('#library_export').after(domainLink,domainExports);
   // Explicit Owner action; the bearer URL exists only in this dialog's memory until expiry/close.
   function attachPublicationShare(parent, ownerDialog, selectedSource=null) {
-    const generate=node('button','生成15分钟查看链接'),copy=node('button','复制查看链接'),status=node('p',selectedSource?'点击会把所选批次的正文、来源引用和跟踪编号保存到本项目私有云，并签发15分钟链接。持有人可免登录查看和下载；不含媒体文件。':'仅分享当前领域发现快照；点击才签发，持有人15分钟内免登录查看。不会自动续签。');
+    const generate=node('button','生成15分钟查看链接'),copy=node('button','复制查看链接'),status=node('p',selectedSource?'请选择已处理批次；点击才保存和签发。':'仅分享当前领域发现快照；点击才签发，持有人15分钟内免登录查看。不会自动续签。');
     generate.type=copy.type='button';copy.disabled=true;status.setAttribute('role','status');
     parent.append(generate,copy,status);
-    const verify=node('button','核对云保存');verify.type='button';verify.hidden=true;if(selectedSource)parent.append(verify);
+    const verify=node('button','核对云保存');verify.type='button';verify.hidden=true;if(selectedSource)parent.append(verify,node('p','点击会把所选批次的正文、来源引用和跟踪编号保存到本项目私有云，并签发15分钟链接。持有人可免登录查看和下载；不含媒体文件。'));
     let epoch=0,link=null,timer=null;const saved=new Map(),unknown=new Map();
     const current=()=>selectedSource?selectedSource():null;
     const clear=()=>{++epoch;link=null;clearTimeout(timer);copy.disabled=true;generate.disabled=Boolean(unknown.get(current()?.pro_key));verify.hidden=!unknown.get(current()?.pro_key);verify.disabled=false;};
