@@ -146,6 +146,27 @@ def _record_bili_self_diagnostic(store, session_id, request, verification, respo
         pass
 
 
+def _original_profile_reference(session, platform):
+    """Only a migration-pinned original XHS session may supply browser_data."""
+    try:
+        marker = session / 'browser-profile-reference.json'
+        if platform != 'xhs' or marker.is_symlink() or marker.stat().st_mode & 0o077 or marker.stat().st_uid != os.getuid() or marker.stat().st_size > 4096:
+            return False
+        value = json.loads(marker.read_text())
+        if set(value) != {'schema', 'session_id', 'platform', 'browser_data', 'identity_sha256', 'binding_sha256'} or value['schema'] != 'crowd-pro-original-browser-profile-v1' or value['session_id'] != session.name or value['platform'] != platform:
+            return False
+        original = Path(value['browser_data'])
+        if not original.is_absolute() or original.resolve() != original or original.name != 'browser_data' or original.parent.name != session.name or original.parent.parent.name != 'sessions' or original.parent == session or not original.is_dir() or not (session / 'browser_data').is_symlink() or (session / 'browser_data').resolve() != original:
+            return False
+        for name, field in (('identity.json', 'identity_sha256'), ('pro-binding.json', 'binding_sha256')):
+            for path in (session / name, original.parent / name):
+                if path.is_symlink() or path.stat().st_size > 16384 or hashlib.sha256(path.read_bytes()).hexdigest() != value[field]:
+                    return False
+        return json.loads((session / 'identity.json').read_text()) == {'platform': platform}
+    except (OSError, ValueError, TypeError, KeyError, RecursionError):
+        return False
+
+
 def _preserve_bound_xhs_bridge(root, session_id, platform, browser_name, user_data_dir, options):
     """Only keep the already-bound XHS/Bili profile's installed extensions enabled.
 
@@ -159,7 +180,7 @@ def _preserve_bound_xhs_bridge(root, session_id, platform, browser_name, user_da
         session = Path(root).resolve() / 'sessions' / identifier(session_id)
         expected = session / 'browser_data' / (platform + '_bridge_profile')
         binding = session / 'pro-binding.json'
-        if (session.is_symlink() or session.parent.is_symlink() or expected.parent.is_symlink()
+        if (session.is_symlink() or session.parent.is_symlink() or (expected.parent.is_symlink() and not _original_profile_reference(session, platform))
                 or not expected.is_dir() or expected.is_symlink() or not binding.is_file()
                 or binding.is_symlink() or binding.stat().st_size > 16384):
             return result
