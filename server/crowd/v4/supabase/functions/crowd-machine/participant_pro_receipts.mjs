@@ -9,8 +9,8 @@ export async function participantProReceipts(payload,backend,actor){
   assert(typeof c.created_at==='string'&&c.created_at.length<=64&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/.test(c.created_at)&&Number.isFinite(Date.parse(c.created_at))&&Number.isSafeInteger(c.task_id)&&c.task_id>0&&['request','subject','installation_id','dispatch_id'].every(k=>uuid(c[k])),'invalid_request');
  }
  const r=await backend.rpc('crowd_participant_pro_receipts_rpc',{p_owner_scope:'crowd-owner-main',p_actor_kind:actor,p_payload:payload});
- if(r.error)throw new Error(['principal_denied','invalid_request','participant_receipt_feed_limit','participant_receipt_feed_invalid'].includes(r.error.message)?r.error.message:'backend_unavailable');
- assert(r.data&&r.data.schema==='crowd-participant-pro-receipt-feed-v1'&&Array.isArray(r.data.groups)&&r.data.groups.length<=(payload.limit??8)&&typeof r.data.has_more==='boolean','participant_receipt_feed_invalid');
+ if(r.error)throw new Error(['principal_denied','invalid_request','participant_receipt_feed_limit','participant_receipt_feed_invalid','comment_capture_pending'].includes(r.error.message)?r.error.message:'backend_unavailable');
+ assert(r.data&&['crowd-participant-pro-receipt-feed-v1','crowd-participant-pro-receipt-feed-v2'].includes(r.data.schema)&&Array.isArray(r.data.groups)&&r.data.groups.length<=(payload.limit??8)&&typeof r.data.has_more==='boolean','participant_receipt_feed_invalid');
  assert(new TextEncoder().encode(JSON.stringify(r.data)).length<=8*1024*1024,'participant_receipt_feed_limit');
  return r.data;
 }
