@@ -842,3 +842,18 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 
 - 根目录：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`。`G05-review-guard/FREEZE.json` e79b04c7、非作者`review/g05-review-guard/FINAL.json` ebf75f07；`G05-knowledge-adoption/FREEZE-V2.json` 958bc02a、采用器独审ADOPTER-V2-FINAL adcb94da；V1/CLI RED保留，不采用。
 - 实际：`G05-knowledge-adoption/runtime-adoption/ADOPTED.json`、`ACTUAL-READBACK.json`、`ACTUAL-KNOWLEDGE-UI.png`、`STATUS.json`。非作者`review/g05-review-guard/ACTUAL-FINAL.json`全SHA925cc5f34c4d18164c936ddd49bb8cee46656971f6ccb9a3b8ebf8f0ed0d6a1d，原始实际读取PRIVATE仅本地。源码d70c27c；本机Owner95651/481、知识223采用，十HTTP旧hash保持，原知识业务0写。不是新采集、真人批准或G05全闭环验收。
+
+## 2026-10-19 04:35 CST｜G06评论中央与Owner实际证据
+
+根目录：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`。PRIVATE和真实SDK保存输入仅本机；共享源不含这些原件，接力者读不到时标未核验。
+
+| 证据 | 结果与边界 |
+|---|---|
+| G06-comment-vertical/central-v3/FREEZE.json；review/g06-central-v3/FINAL.json | 冻结20670fd5、独审1eb0d0ad；84PG/11Edge/+999独立反例、旧v1全JSON保持。原V1/V2失败保留。正式tests/pro-comments仅合成35/13与自有API SQL前件。 |
+| G06-comment-vertical/{MIGRATION-APPLY,EDGE-DEPLOY,CENTRAL-ACTUAL-ROOT}.json；MIGRATION-LEDGER.PRIVATE.json；EDGE-{BEFORE,AFTER}.PRIVATE.json | 实际账本20261018202619/SQL5fae7fde；Edge47/30源只改handler，原index/auth保持。实际动作与离线测试分开。 |
+| G06-comment-vertical/CLOUD-{BEFORE-CORRECTED,AFTER}.PRIVATE.json；OWNER-FEED-{BEFORE,AFTER}.PRIVATE.json；review/g06-central-v3/ACTUAL-CENTRAL-FINAL.json | 独审全SHAeec7b56aab93648e2576692165d5e81f039b34ce76000956ea84abbffef2b295；原3任务/27proof/27receipt exact，feed全JSON旧v1两组49995B/5ef871d3。原首query误用p_task仅30行，保留后明确纠正，不称已查27receipt。 |
+| G06-comment-vertical/FREEZE.json、ADOPTION-INPUTS.json；review/g06-b-vertical/FINAL.json | 冻结9fee6dc6、独审536fa53b8e5a66569ba4a62b68347d14217980f1169284d6b45a54f6c783e52e；原SDK真类保存输入35对象13页9媒体引用→原生RPC/子ACK/seal→原Jobs四格式。并非新平台来源/新评论云ACK或媒体文件。 |
+| G06-owner-adoption/runtime-adoption/ADOPTED.json；review/g06-owner-adopter/{FINAL,ACTUAL-FINAL}.json | 实际2760/owner-pro-comments-e81822f9e921459b、482源、13cfg；独立实际37c952eebd098fd8452bf16fe70ae6cc3f762a99b6a72ab7fb75b0e92006dc0e。五库/native/原资产保，97.22秒业务hash/原job mtime稳定；12其他旧文件仅mtime变，初次过宽断言失败原件保。 |
+| G06-native-package/{FREEZE,STAGES-FREEZE,AUDIT}.json、DELIVERY.md | 候选freeze4434c90f，Mac ZIP0603f8bf、helper70979bb2、runtime113 manifestaa13868；原108未删+5自有码，原128边界保。正式入口构建不等于实装，23成员恢复包只恢复helper；仍需新包独审/发布/真实安装。 |
+
+本节记录中央与Owner已采用，参与者包未采用；待核未seal组阻塞及新来源门不能被上述绿灯覆盖。

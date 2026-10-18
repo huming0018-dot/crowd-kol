@@ -1,5 +1,14 @@
 # 分布式采集系统｜固定交接入口
 
+## 当前追加｜2026-10-19 04:35 CST｜Pro评论中央与Owner已采用，客户端包及新来源仍有门
+
+- **原参与者**：本轮收到用户原账号已登录回复；实际原task29/run a379f72a仍complete2/2、pending0、helper stopped/busyfalse。未重开19/20/29、追加额度、启动新来源或恢复48h/watchdog。旧ACK不冒新来源验收。
+- **实现与源码**：crowd-kol `399fb71`、`23a223e`、账本对齐`6c2d316`已推原分支；EXT隔离工作树`c43af92`尚未推。使用Pro原生评论/回复保存与分页，仅新增原参与者typed child ACK/seal/耐久回传和原Jobs/Consumer元数据映射；35评论不算35正文或奖励。没有Pro SDK源码外发。旧纯正文feed整JSON/组hash保持；历史35评论13页9媒体引用同输入链及四格式通过，媒体文件字节与新来源ACK尚未验。
+- **中央实际**：已审迁移实际账本`20261018202619`，SQL SHA`5fae7fde75f1acd5dc86feed66c48834d0e0caa1496fc199bc132ab984b5f74e`；只把CLI草稿201337重命名对齐，不重复apply。crowd-machine **47 ACTIVE**，30文件仅participant_pro_receipts.mjs变，原index/auth及verify_jwt=false保持。三新RPC限定authenticated/service_role，四私helper不对外EXECUTE，原scope/claim/receipt保持；原3任务＋27proof＋27receipt共57行hash保持。实际Owner旧feed全49995B/SHA`5ef871d3261cab16e937afa2cbde58bbee23600a7837be7de3264027a792e0df`同原v1两组。独立实际报告`review/g06-central-v3/ACTUAL-CENTRAL-FINAL.json` SHA`eec7b56aab93648e2576692165d5e81f039b34ce76000956ea84abbffef2b295`；不是新评论云写。
+- **Owner实际**：唯一45937 PID**2760**，不可变`owner-pro-comments-e81822f9e921459b`，482文件/13项auto配置，SHA`cc43973fc4d0620cd50311025c630bdd752812bf91a48d5987829f04a338f1fa`。原5库/native/知识runtime与341资产字节保持；旧两job各1/5attempt/5stage，97.22秒自然重扫、24GET中8Pro导出逐字节等G03，0新job。12个旧light-transcript/SQLite-shm仅mtime变而bytes同，保原过宽比较失败，不编唯一根因。采用器独审后执行，实际独审`review/g06-owner-adopter/ACTUAL-FINAL.json` SHA`37c952eebd098fd8452bf16fe70ae6cc3f762a99b6a72ab7fb75b0e92006dc0e`。
+- **包与边界**：4.2.100候选沿原assembler/V6R9正式入口构建，runtime真实113＝原108未删＋5自有码，仍原128界限；helper70979bb2、包0603f8bf、freeze4434c90f，包独审中，尚未发布/安装/OTA采用。正式EXT仍99；100仅隔离snapshot的manifest/core微版本，不新增权限/换key。恢复重连包23成员只恢复helper，不冒全runtime回滚。现Pro本机固定root评论true/repliesfalse/max_comments0；Owner逐任务回复/上限尚未接通，历史35/13用了repliestrue/150，不能称默认全开。通用新机私有依赖安装及两设备runtime OTA未验。
+- **当前待核/下一步**：root发现未seal组可能阻塞后续Owner批次的假设，central_steps正以现PGlite双scope反例核验；未确定前不称已修或继续灰度。包独审→原正式入口发布/本机安装前先核身份、无未知、原29终态；新的来源/评论ACK需合法新grant，不能重开旧task。G04私有分享范围待答、原Vercel403停止重试；G05同context换pack重算、真人发布/撤回、其他设备和连续runtime OTA仍缺，整体目标进行中。
+
 ## 当前追加｜2026-10-19 03:58 CST｜审核未知结果修复已正式采用，Pro评论接线继续
 
 - **原登录与参与者**：用户已回复原账号登录完成；本轮只读原native数据库仍为task29/run a379f72a complete、delivered2/pending0，helper stopped/busyfalse。没有重开已完成任务、追加额度或据此声称登录永久有效；正文真实云ACK56/57继续见下方原件。

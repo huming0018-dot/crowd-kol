@@ -828,3 +828,11 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **验证/定位/修复**：独立原脚本先RED后GREEN，6 SDK scope＋10旧例＋UI；采用器8旧fixture＋5独立双CAS通过。首轮CLI路径含空格漏检P1修为完整已知script边界匹配，保V1/RED，V2才采用。实际Owner481/知识223、两cfg、五库＋知识表、340资产、10HTTP、原native任务/host全复读exact。没有把作者检查冒独审。
 - **部署/线上**：本机正式Owner95651及独立知识runtime生效；未中央部署/新扩展发布/新采集/新分享。提案034仍proposed、知识四类业务计数0，非业务批准；原task29仍complete2/pending0。
 - **证据/风险/下一步**：证据根`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`，`G05-knowledge-adoption/STATUS.json`、`runtime-adoption/ADOPTED.json`和`review/g05-review-guard/ACTUAL-FINAL.json`。继续G06评论全链独审与正式接入；领域重算、人审发布、异机消费/第二设备/runtime OTA仍有缺口；48h/watchdog暂停。
+
+## 2026-10-19 04:35 CST｜Pro评论中央与Owner正式采用，参与者包待独审
+
+- **接力者/独审**：central_steps实现中央；knowledge_reuse_probe实现参与者/原Jobs接线；root集成和Owner采用；native_diagnostics_review独立审两代码组件、root采用器及中央实际，central_steps独立审Owner实际。
+- **代码/版本**：crowd-kol399fb71/23a223e/6c2d316已推；最后仅将迁移草稿201337重命名实际202619，SQL不变。EXT隔离c43af92未推、正式版本99未改。新Pro评论调用仍原SDK，不加来源引擎/任务队列/奖励。
+- **验证/修复**：中央84PGlite/11Edge、独立+999回复计数反例、旧feed整JSON回归；参与者19新增Python、组合123发现/120执行/3原skip、便携6、RPC9/Swift5、旧Jobs7及同输入35评论13页9引用四格式。修掉旧feed被v2空字段改hash、回复计数伪完整、CSV字段读回界限；原RED保留。131072B规范JSON在PG格式化后超界会拒绝，耐久本地保留且不finish，未扩大合同。
+- **实际部署/运行**：中央47/30源与迁移20261018202619已独立回读，57旧业务行hash同，原Owner feed49995B逐字同。Owner2760/482源/13cfg、五库/native/知识及341资产bytes保持；97.22秒两job和导出稳定，12旧资产仅mtime差异保留。无新来源或评论云写。原29complete2/2/pending0不重开。
+- **待验/下一步**：100包freeze4434c90f已构建但尚未发布/安装；ROOT新增“未seal组是否阻塞后续scope”的待核假设，由central_steps复现，确认前不继续灰度。新原生评论来源/云ACK、任务回复选项、媒体bytes、通用依赖、新机/连续runtime OTA仍未验。48h/watchdog暂停。详见HANDOFF当前追加、EVIDENCE及本地原件。
