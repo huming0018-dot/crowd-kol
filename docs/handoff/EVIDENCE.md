@@ -787,3 +787,20 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - **证据**：outputs/runtime-2026-10-18/pro-participant-native-entry/root/R4-ACTUAL-CHECKPOINT.json SHA64efec9c4e60aa546b607952c8094fad5f1d3473e7022bb88adc08a91e8df46d；其索引10个实际文件及R4/independent-native、native-clean-disconnect-fix-v2、review/start-real-relay、review/hello-first-start。
 - **状态位置**：固定docs/HANDOFF.md本轮原生接线段优先；没有复制完整聊天。
 - **收尾追加**：718d1a7正式源码已推：只追加两个便携host回归与一条非就绪提示，独审062721f8/c86c6e13；正式原suite+两新例实跑exit0，root/FORMAL-HOST-REGRESSIONS.log。未为单文案发97，当前96界面仍旧文字。15:22:09Z原grant实际过期但29open0/无lease；同2条/14请求恢复窗口合同在独审准备，未执行。额外TCC直接mismatch摘录root/ACTUAL29-TCC-CODE-REQUIREMENT.json已保留，精确fopen路径仍未知。
+
+## 2026-10-19 02:04 CST｜原参与者Pro真实2ACK与自动停止
+
+证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。真实run a379f72a-9f99-4673-965c-293795c52458，原task29 complete2/2；当前99/V6/原身份，不是旧结果重算。
+
+- root/ACTUAL29-PROOFS-RECEIPTS-JOIN.json：真实proof56/57、两新UUID、body/record/canonical SHA、inserted/duplicate/count逐条。
+- root/ACTUAL29-COMPLETE-CLOUD-PROTECTION.json：真实29complete及旧55/19/20、评分奖励/旧grant投影hash保。
+- root/ACTUAL-R9-SOURCE-SUMMARY.json：原manifest/status时间差10.222976秒、当前10/14+旧8=18/22；评论未请求/媒体仅引用。
+- root/ACTUAL-R9-COMPLETE-{LOCAL,TRANSPORT,HOST}.json：两稳定complete、直接portfalse/inflight0/desiredfalse/pending0、hostfree和两lockfree；原身份/gen16/history20保。
+- review/r9-actual-lifecycle/FINAL.json：独审SHA6c446110ac5e1acc9859b950744ac3511125000a93936757ae0fb28466856d1a；focus1142/115，fronttrue0/CGcount恒10但部分onscreen1，不能冒绝对无窗/无闪窗。
+- review/task29-a379-local/FINAL.json：独审SHA3397f39ae06e3027034b73094661812ffce2842b359d49dc3f26385b2fbb737f，原Pro SQLite.desc/normalized/outbox哈希逐同，正文112/9字。
+- review/task29-a379-cloud-exports/FINAL.json：独审SHAad78d55b7fac957aab920b4cc016b1903131452c2db9836b541b0085e74cd797；真实云逐条/旧投影及R9/exports八文件逐行逐cell，原工作台API/revision89。
+- R9/independent-native/{FINAL,ACTUAL-INSTALL-CAS-FINAL}.json：公开R9包3fcc0cf1/948759B、V6manifest1904b8af/108、EXT99/33、helper2997、六settings保；actual报告SHAd0d9c2ca。
+- task29-reexecution-window/independent-native/FINAL.json（1dddc8d1）与normal-start99-r9-acceptance/independent-native/FINAL.json（90857e4f）：原grant/总budget22 CAS、一次正常UI Start门。CAS及readback保root/ACTUAL29-BUDGET22-*，真实Start保actual-once。
+- native-message-stop-combined/independent-native/FINAL.json（9916ca1a）、native-eof-attribution/independent-native/FINAL.json（b75b828e）、native-explicit-reexecution/independent-native/FINAL.json（872e5b2b）；对照正式source2d50f94/f417c0c/3f50df9。
+
+未验：本批评论分页/媒体字节、第二设备Pro、普通新机合法SDK准备、通用恢复、无人值守runtime OTA/两设备连续OTA、48h实验；人工评分不由received冒充。专用29临时分支现不可达，下次正常维护移除并保版本追溯，不重复本批来源。

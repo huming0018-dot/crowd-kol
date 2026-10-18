@@ -1,5 +1,16 @@
 # 分布式采集系统｜固定交接入口
 
+## 当前追加｜2026-10-19 02:04 CST（优先于下方历史状态）
+
+- **本机本批已实际完成**：原身份/installation的原task29 complete **2/2**，新Pro run `a379f72a-9f99-4673-965c-293795c52458`，proof **56/57** 两条新receipt均inserted=true、duplicate=false、received依次1/2。17:55生产只读确认；旧task19/20仍22/22、3/3，旧55proof/receipt完整行hash及评分/奖励投影全保，未把历史结果冒本批。
+- **真实自动停止**：正常参与者UI唯一Start；本次Pro官方self及原账号principal匹配通过，source exit0。source manifest→status耗时**10.223秒**、10/14请求；旧login失败4＋断连失败4全部归档，累计**18/22**。无需手工补回执；客户端phase finish/state complete/desiredfalse/pending0稳定，17:59直接读port_connected=false、inflight=0、busy=false；宿主busyfalse/stopped，两锁free，原gen16/history20/outbox0保持。完整120秒采样fronttrue0，CG窗口总数恒10；部分样本原Chrome仍onscreen，**不称全程零可见窗口或无瞬时闪窗**。
+- **已正式发布与采用**：客户端`crawler-extension`源码 **2d50f94**，实际**4.2.99**，33EXT文件逐字等于已审包SHA3526117e；签名Pro通道pages **f87b044**/sequence2026101999，原公钥验签，真实98→99 applied，17:47云node99/release dd43df3e。普通93通道未动。自有Python源码`crowd-kol` **3f50df9**（含f417c0c），R9 runtime V6 manifest1904b8af/108文件逐hash；原helper29970455及六settings绑定保留，config仅entry+entry_sha256改变。R9公开不可变包pages **65f3f05d8134512af9d01abb005299e93e153888**，948759字节/SHA3fcc0cf1017281ca513a7fdedd9e3bd8042ca76753f09b751dd01d001f81804c，公开回取后完整原入口安装exit0；**没有分发Pro私SDK/资料或凭据**。
+- **根因与审查**：实际BG实类RED复现状态帧与reverseRPC争用maintenance，统一catch误标protocol_invalid并断口；修为每port串行、fixed错误保留、Stop revision取消。断口Stop补原session/epoch/knownrun核对，独审抓出的两个foreignport关闭竞态已修并保反例。EOF来源区分native_host/port_disconnected，launch-return旧user标签竞态仍待后续单独修，不回填历史。30次JS行为验证（9消息+14原Pro+5Stop+2独立race）和58正式Python组合通过；独审修复、安装、SQL、司机及实际内容/生命周期均有独立记录，不以作者自述作证。
+- **预算恢复边界**：原729只是未提交种子，search guard rpc_unknown，未假装裸checkpoint续采；正常Stop-only先真核停机。临时恢复严格限定原29/356/729及新意图，保旧8消耗后新run14，总22、成功仍2；SQL29709792唯一CAS只改原dispatch预算14→22/hash及同grant到**18:52:13Z**，audit1，其他表hash保全。它是本次有界验收恢复，**不是通用恢复功能完成**；现29已complete且run已切a379，专用入口不可再触发，后续正常运行时发布应清理该临时分支（可追溯3f50df9），不为删除代码另逼参与者安装。
+- **内容与真实导出**：两条正文112字/9字，原Pro SQLite.desc→normalized→outbox→中央proof/receipt canonical/body hash逐一致；9字是上游原文，不冒充优质长正文。原正式工作台45937已索引到revision89，正常ingest复读为duplicate_import；通过原results.export API按两个content_id各导出JSON/JSONL/CSV/XLSX，总8文件、各格式分别2/6行，位置`pro-participant-native-entry/R9/exports`。评论本批未请求，媒体只有引用，**未验证评论分页或媒体字节下载**，不能将其说成Pro能力缺失。
+- **独立证据入口**：证据根`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`；先读root/ACTUAL29-PROOFS-RECEIPTS-JOIN.json、root/ACTUAL29-COMPLETE-CLOUD-PROTECTION.json、root/ACTUAL-R9-{SOURCE-SUMMARY,COMPLETE-LOCAL,COMPLETE-HOST,COMPLETE-TRANSPORT}.json；再读review/task29-a379-local、review/r9-actual-lifecycle及R9/independent-native。真实云及四格式独审review/task29-a379-cloud-exports/FINAL.json SHAad78d55b；生命周期独审review/r9-actual-lifecycle/FINAL.json SHA6c446110。四导出复核在R9/exports。其他bot无法访问这些原件时必须标未验证。
+- **尚未验收/下一步**：原第二设备当前在线/Pro安装依赖与新采集、两设备无人值守连续OTA、普通全新参与者的合法SDK自动准备、通用故障恢复、原生参与者评论/媒体薄接线仍有缺口；扩展签名OTA已真验，不等于Python runtime可自动OTA（本轮经完整安装器采用）。继续优先接Pro成熟链路，不能扩大自研平台核心。48小时多用户实验及watchdog仍暂停，不自动启动；先完成上述产品门禁，再按原计划试验。
+
 更新：2026-10-18 23:25 CST（R4正式实装/独审；原Start仍0来源，已定位Python初始化被macOS桌面权限请求挡住；原Stop/gen12保进度）。Codex /root。
 
 ## 1. 接力规则

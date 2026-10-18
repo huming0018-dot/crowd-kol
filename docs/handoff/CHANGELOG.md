@@ -787,3 +787,19 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **证据**：outputs/runtime-2026-10-18/pro-participant-native-entry/root/R4-ACTUAL-CHECKPOINT.json SHA64efec9c4e60aa546b607952c8094fad5f1d3473e7022bb88adc08a91e8df46d；其索引10个实际文件及R4/independent-native、native-clean-disconnect-fix-v2、review/start-real-relay、review/hello-first-start。
 - **状态位置**：固定docs/HANDOFF.md本轮原生接线段优先；没有复制完整聊天。
 - **收尾追加**：718d1a7正式源码已推：只追加两个便携host回归与一条非就绪提示，独审062721f8/c86c6e13；正式原suite+两新例实跑exit0，root/FORMAL-HOST-REGRESSIONS.log。未为单文案发97，当前96界面仍旧文字。15:22:09Z原grant实际过期但29open0/无lease；同2条/14请求恢复窗口合同在独审准备，未执行。额外TCC直接mismatch摘录root/ACTUAL29-TCC-CODE-REQUIREMENT.json已保留，精确fopen路径仍未知。
+
+## 2026-10-19 02:04 CST｜普通参与者 Pro 原生采集实跑闭环
+
+- **接力者 / 独立审查者**：Codex /root；central_steps（真实内容、云对账、导出）；native_diagnostics_review（并发、Stop/EOF、包/安装/SQL/司机及实际生命周期）；knowledge_reuse_probe实现通信、机械组包。作者自测不代独审。
+- **目标**：保原身份、任务、进度、评分、回执及OTA，普通安装入口/正常Start静默使用已购Pro，原task29两条真实入库并自动停。
+- **实际改动**：EXT按port串行状态与reverseRPC，固定错误分类，断口仅原knownrun/session/epoch Stop重连；保即时撤权、pending/unknown，不重发旧RPC。独审两次foreignport反例均保存并修复。Python非显式EOF标native_host/port_disconnected；原29临时有界再执行保旧8请求，正常新run14、累计22、成功目标仍2。实际SQL只原dispatch14→22/hash及原grant新1h+audit1，不清计数或旧记录。此临时恢复不是通用产品能力，29完成后已不可达；后续正常维护删除并保3f50df9追溯。
+- **文件 / 版本**：crawler-extension正式2d50f94（participant-pro.js、版本号及4项便携回归文件），crowd-kol正式f417c0c/3f50df9（mc_runner.py、participant_pro.py、participant_pro_native.py及2项测试）；pages dcbe25c/f87b044/65f3f05。4.2.99 EXT3526117e/174740字节；R9包3fcc0cf1017281ca513a7fdedd9e3bd8042ca76753f09b751dd01d001f81804c/948759字节；V6 manifest1904b8af/108自有文件。helper29970455不变，无私有SDK/登录资料/凭据公开分发。
+- **验证**：30次JS行为验证（9+14+5+2）与58正式Python组合0失败；SQL14PGlite及重复/CAS/保护测试0失败；曾有路径/夹具/时间戳NaN/端口归属失败均保原证，不删除断言。原R7真实断连失败及旧原件保留，机制复现不冒捕获实际wire。
+- **正式采用**：原签名公钥验99，普通93通道保持。原机98→99真实applied，公开R9不可变下载回取exact后完整安装exit0；33EXT与108runtime逐hash，原六settings/身份/数据不变，config仅entry+entry_sha256。真实云node99/dd43df3e；Python runtime通过完整安装器采用，不冒已实现runtime无人值守OTA。
+- **业务证据**：原正常UI唯一Start99，真实run a379f72a-9f99-4673-965c-293795c52458，Pro官方self及原principal匹配。source完成exit0，10.222976秒、10/14请求，累计4+4+10=18/22。proof56/57、两UUID请求新receipt inserted=true/duplicate=false，task_received1→2；原29生产complete2/2。SQLite原文desc/normalized/outbox/中央canonical与body hash对应，正文112/9字；9字不冒优质长稿。旧55proof/receipt、19/20、原grant及评分奖励hash保持。
+- **自动停止 / 静默**：17:55、17:59稳定客户端complete/phasefinish/desiredfalse/pending0，直接portfalse/inflight0/busyfalse，宿主stopped/busyfalse且pro/update锁free。完整120秒1142focus/115窗口样本，前台抢焦点0、CG窗口总数恒10；35个样本onscreen1，不能宣绝对零可见窗口/不闪窗/从未建新窗。
+- **导出**：原工作台45937已经索引revision89，正常ingest返回duplicate_import；原results.export接口按两content_id各跑JSON/JSONL/CSV/XLSX，8文件，各格式行2/6（正文与媒体引用），0新增来源请求。位置R9/exports；JSON/JSONL所有行及CSV/XLSX逐cell由独立审查ad78d55b复核通过；不扩大为转写质量或媒体字节验收。
+- **独立审查**：组合9916ca1a、EOF b75b828e、R8机械d6905e2c/实装67e7eece、R9机械5cd4155a/实际安装CAS d0d9c2ca、临时再执行872e5b2b、SQL1dddc8d1、Start司机90857e4f；实际生命周期最终6c446110、内容本地3397f39a、真实云与四导出最终ad78d55b。完整JSON和SHA保在各对应independent-native/FINAL或review目录。
+- **未验 / 下一步**：本批未请求评论/回复，媒体只有引用而非字节；不冒多平台/两设备/普通新机依赖/通用恢复/人工评分验收。继续补Pro参与者评论媒体薄接线、合法依赖准备、第二设备及真正无人值守连续OTA，清理已退役29临时分支。48h实验和watchdog不恢复。不能只凭这次本机2ACK称完整产品就绪。
+- **证据根**：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。先读root/ACTUAL29-PROOFS-RECEIPTS-JOIN.json、root/ACTUAL29-COMPLETE-CLOUD-PROTECTION.json、root/ACTUAL-R9-{SOURCE-SUMMARY,COMPLETE-LOCAL,COMPLETE-TRANSPORT,COMPLETE-HOST}.json；review/r9-actual-lifecycle/FINAL.json；review/task29-a379-local；R9/exports；normal-start99-r9-acceptance/actual-once。读不到原件标未验证。
+- **状态更新**：正式docs/HANDOFF.md当前追加及docs/handoff/{EVIDENCE,CHANGELOG}.md；不夹带并行CTFS/ASR/旧迁移差异。
