@@ -875,3 +875,12 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **部署 / 业务**：本轮未发布101包或OTA、未安装/搬SDK/切配置、未新增grant/source/正文或评论ACK。原HELLO RESULT240ae098保UNKNOWN；host变为busytrue/unknown，未清busy、不冒停止或恢复。48h/watchdog仍暂停。
 - **新发现 / 下一步**：旧Swift子进程首帧前退出后无错误反馈已temp真实编译RED复现；G09窄修8边界/原宿主回归过，待独审与正式采用。G08 Owner正常新批次/取消及G05显式换包重算继续隔离。SDK分发覆盖、Mac UI/TCC结果、外部原profile续登、第二设备、全栈OTA和新来源仍有门。
 - **证据**：RUN18/G07-native-package、review/g07-native-package/FINAL.json；G06-native-package/own-port-cleanup/ACTUAL-POST-LOCAL.json；normal-state-reader/READ100-POST-DIAG-CLEANUP.json SHA587e3b40；review/g06-own-port-cleanup/FINAL.json；review/appsupport-private-layout-v2/FINAL.json；G09-native-startup-eof。
+
+## 2026-10-19 07:00 CST｜普通Owner派单中央49与本机入口正式接入
+
+- **接力者 / 独审**：root；central_steps实现G08与审101V2、knowledge_reuse_probe审G08/诊断对账和UUID修复、native_diagnostics_review审中央及Owner实际采用。实现和独审分离。
+- **实际改动 / 版本**：crowd-kol 5a03dcf/78c98f3/8ac9697/6b85a82已推原分支。原任务原子创建/取消、既有回执与授权链，不改Pro平台核心。SQL4293fadb实际账本20261018224237；crowd-machine49 ACTIVE。Owner45937实际37752/owner-pro-dispatch-544bf739cbed0cd1，仅482中两文件overlay；配置仅原13字段中3路径变化。
+- **验证 / 发现修复**：G08保存同输入1正文/35评论13页/9媒体引用→原四格式/真实Native与原SQL函数回归；非作者22反例、正式7命令回归。UUID局部遮蔽旧重试真实RED修复；Edge绝对entrypoint明确拒绝后相对index.ts成功。原57中央业务行、9旧OID/ACL/config/security、7旧约束保持，新helper私有；旧200项Advisors仍在。原证据同名覆盖错误从独立留存完整恢复原hash，新回读另名，保ROOT-EVIDENCE-NAME-RECOVERY记录。
+- **正式采用 / 证据**：采用器ff36c74a后新鲜dryrun通过才执行；早期cloud_not_idle及APPROVAL缺失均无INTENT/无动作，不抹失败log。实际e89fbdea独审两读76.49秒，482文件/五库及五备份/native/341资产保持，原两Jobs不重复，8份Pro及旧31/六店HTTP导出逐SHA保持。未新建任务/额度/来源/评论云ACK。
+- **诊断 / 包**：原HELLO-only传输metadata经独审e78f9d74有限对账为stopped，原UNKNOWN结果不改，原100全安装和身份进度保持。EXT 1dad14f首帧前子退出反馈已独审d113e56f；101V2 Mac858b019b/974458B、EXT8498aafe/helper59df7aff/runtime a72d，独审eae8fcbb。未公开101/OTA/cache/安装，23 reconnect非完整回滚。
+- **遗留 / 下一步**：SignSrv Desktop绝对.pth与原外部profile引用需最小迁移修正，V2未实际复制；G05换包重算8正式源码已接入，须Owner＋独立knowledge双bundle采用。G04分享范围、Vercel403、原第二设备、新来源正文评论媒体字节/云ACK和连续无人值守OTA仍未验。48h/watchdog保持暂停。固定HANDOFF和EVIDENCE同步；PRIVATE/SDK不发布。

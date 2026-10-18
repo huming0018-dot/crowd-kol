@@ -906,3 +906,21 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - AppSupport V1初审review/appsupport-private-layout/INITIAL-HOLD.json SHA3f8e2ff68db17d4f570e3b40f9cd3537dfb6df0748f345899f655c9d11de2883；V2 freeze85e75d6c70a7b42fc03cba0e35acaa15123b793952b7660c442564f0a28bef6c，独审review/appsupport-private-layout-v2/FINAL.json SHAe1fa62cc461fd5e17ef5852f4e2c678fb8e7191d91c95baaf69b4d23b4a8b138。仅候选三行修目录/四actor，实际0copy/0配置/0重启；profile续登与venv等门未过。
 - G09-native-startup-eof/FREEZE.json SHAc8390b9ed15f616fd0833f00e609d7f1f2cb90ca1bce73ca22a85f4d27c52d38：RED.log真实编译子退出不报错；BOUNDARIES.log8例、ORIGINAL-HOST.log原宿主回归过，未独审/未formal/未装，原101冻结保持。
 - review/private-sdk-delivery/REPORT.md SHA77d60e2d02ea965c5089e259ce1b1f9ba5d65e1d4d7c8fd1f5b8333ad4ffe02c：固定本地许可证/官方clone+uv事实；普通第三节点私发SDK/runtime授权覆盖未证实，不推全面禁止/每台付费，未发SDK或Owner凭据。
+
+## 2026-10-19 07:00 CST｜中央49、原Owner入口与诊断对账
+
+证据根RUN18=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry；PRIVATE和SDK仅本机，读不到即未验证。
+
+| 证据 | 结果 / 边界 |
+|---|---|
+| G08-owner-provisioning/FREEZE.json、review/g08-owner-provisioning/FINAL.json | freeze4f86f7c1、独审58fbc502；原子Owner批次/原claim/取消/日额/旧fallback；保存同输入35评论13页，不冒新采集。 |
+| G08-owner-provisioning/formal-adoption/MIGRATION-ACTUAL.json、MIGRATION-APPLY.json、EDGE-DEPLOY-V2.json、ACTUAL-ROOT.json | 实际20261018224237/4293fadb；Edge49/30源1662b377；原57业务行保持。V1明确BadRequest不作unknown成功；只相对index.ts修正。 |
+| review/g08-owner-provisioning/ACTUAL-FINAL.json | ccacadb4ce96f40a0d3ba1f715f2f015ba88bfd300e07960c7d1a915371d514e；9旧函数OID/ACL/config/security、7约束保持；新增private helper/2约束/3可空属性，无新授权或来源。 |
+| G08-owner-provisioning/ROOT-EVIDENCE-NAME-RECOVERY.json、ACTUAL-FUNCTIONS-POSTDEPLOY.PRIVATE.json | 旧metadata原SHA0c81762b从独审留存恢复，新actual SHA1b39beb0另名，不改freeze或测试pin。 |
+| review/g08-cancel-uuid/FINAL.json、review/g08-portable-nonauthor/FINAL.json | UUID独审0410bc63，正式回归7eefe6a4；前后RED/GREEN保留，缺私输入明确fail。源码6b85a82只对齐实际账本名不再apply。 |
+| G08-owner-adoption/FREEZE.json、PLAN.json、APPLY-0655.log、runtime-adoption/ADOPTED.json | freeze3306c939/plan eccb8fd6；实际新37752/owner-pro-dispatch-544bf739cbed0cd1。旧失败preflight/log保，成功前件另存，不清自然队列。 |
+| review/g08-owner-adoption/FINAL.json、ACTUAL-FINAL.json | 司机ff36c74a；实际e89fbdea082f4a3665f91fe346c33944cdecca41443e863a2cd81355900a0191。482/13配置/五库/341资产/native及原HTTP导出保持，自然两周期无重复Jobs；非新来源。 |
+| G06-native-package/diagnostic-transport-reconcile-v3/FREEZE.json、review/diagnostic-transport-central/ACTUAL-FINAL.json | freeze7503e57c；实际e78f9d74934a64b10ea51f1b2412d5c8a82160e248f5effbff9c7469727bd727。仅无业务的自有HELLO传输metadata对账，原UNKNOWN/result240ae098和原业务/配置保持；不冒TCC或依赖就绪。 |
+| G09-native-startup-eof/FREEZE.json、review/g09-native-startup-eof/FINAL.json | c8390b9e/d113e56f；首HELLO前子退出窄反馈，真实编译边界过，EXT源码1dad14f已推，安装仍100。 |
+| G07-native-package-v2/FREEZE.json、AUDIT.json、review/g07-package-v2-central/FINAL.json | 6a17c209/eae8fcbbdf9f52289fdbbac5ffd810ebde5edddde7846d16e177baafdfabc12a；Mac858b019b/974458B，EXT8498aafe/helper59df7aff/runtime a72d；178冻结/140包/33EXT/113runtime/双arch重编exact，0实际安装/发布。 |
+| G05-source-integration/SOURCE-MANIFEST.json、FORMAL-GREEN.log、FORMAL-UI.log、FORMAL-LEGACY-UI.log | 8正式源接入保G08/UUID，24Py含3原skip＋UI7＋旧share10通过；仍未正式双bundle采用，无生产真人release。 |
