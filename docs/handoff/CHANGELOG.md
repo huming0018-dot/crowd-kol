@@ -865,3 +865,13 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 实机HELLO仍UNKNOWN/busy，TCC原PID日志明确DesktopFolder提示、Mac锁屏待本人；无重发、强关或清busy。原身份/本地任务和配置保持。G07已部署中央不等于新宿主/包/Owner UI实机采用或平台同输入采集验收；旧100/G06 Owner保持。
 - 下一步：本人解锁后先对账原HELLO晚到状态，需另审才可能关闭自己旧port，不重复HELLO；配套新包前解决AppSupport布局。G08普通Owner新batch授权独立实现/审查，不动旧pilot或已完成任务。第二设备、连续OTA、真实新评论云ACK、分享/知识门未过，48h/watchdog暂停。
 - 证据根RUN18/G07-comment-options、review/g07-*及raw-hello100-once；固定HANDOFF/EVIDENCE同步，PRIVATE与SDK不公开。主目标继续进行。
+
+## 2026-10-19 06:24 CST｜101配套独审；原HELLO-only端口已收口，业务和未知结果保留
+
+- **接力者 / 独审**：root；native_diagnostics_review独审包与cleanup司机，knowledge_reuse_probe修AppSupport两独审P1，central_steps补普通Owner建批次。作者自检不冒独审。
+- **目标 / 实际修改**：沿G07评论选项部署补配套101，只将EXT原manifest/core微版本100→101；原builder构建113自有runtime/33EXT/双架构helper。原未知HELLO-only自有端口在独审司机与新鲜全量前件下仅disconnect一次；不是重试或业务状态清理。G08/G09/G05仍隔离。
+- **版本 / 文件**：EXT原分支4bcd9b1（两文件两行）已推；G07-native-package freeze39fcaa01，Mac b9edc16b/972550B、EXT8498aafe/helper3d6995fd/runtime a72d375f。中央仍原48/迁移20261018215050；本机仍100，Owner仍2760旧已审runtime。
+- **验证 / 审查**：包独审364e0f97重建EXT/helper byte exact、33/113/140、原11installer及恶意归档4反例。AppSupport V1目录/actor两P1由V2三行修复、14+独立反例通过，e1fa62cc。cleanup司机23+7独立temp用例e78d9ba0后唯一执行DISCONNECT_REQUESTED；fresh正常API全agent/pro/risk/原task29 complete2/2/四actor保持，原native全表/私配置及已装文件保持，原17759/17760退出。实际cleanup独审回读4d198d7a已通过，原全表/安装/配置及完整正常状态保持。
+- **部署 / 业务**：本轮未发布101包或OTA、未安装/搬SDK/切配置、未新增grant/source/正文或评论ACK。原HELLO RESULT240ae098保UNKNOWN；host变为busytrue/unknown，未清busy、不冒停止或恢复。48h/watchdog仍暂停。
+- **新发现 / 下一步**：旧Swift子进程首帧前退出后无错误反馈已temp真实编译RED复现；G09窄修8边界/原宿主回归过，待独审与正式采用。G08 Owner正常新批次/取消及G05显式换包重算继续隔离。SDK分发覆盖、Mac UI/TCC结果、外部原profile续登、第二设备、全栈OTA和新来源仍有门。
+- **证据**：RUN18/G07-native-package、review/g07-native-package/FINAL.json；G06-native-package/own-port-cleanup/ACTUAL-POST-LOCAL.json；normal-state-reader/READ100-POST-DIAG-CLEANUP.json SHA587e3b40；review/g06-own-port-cleanup/FINAL.json；review/appsupport-private-layout-v2/FINAL.json；G09-native-startup-eof。
