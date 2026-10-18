@@ -857,3 +857,18 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 | G06-native-package/{FREEZE,STAGES-FREEZE,AUDIT}.json、DELIVERY.md | 候选freeze4434c90f，Mac ZIP0603f8bf、helper70979bb2、runtime113 manifestaa13868；原108未删+5自有码，原128边界保。正式入口构建不等于实装，23成员恢复包只恢复helper；仍需新包独审/发布/真实安装。 |
 
 本节记录中央与Owner已采用，参与者包未采用；待核未seal组阻塞及新来源门不能被上述绿灯覆盖。
+
+## 2026-10-19 05:26 CST｜G06公平性与100实机最终证据
+
+根目录：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。PRIVATE/SDK保存输入仅本机，读不到原件须标未核验。
+
+| 证据 | 结果与边界 |
+|---|---|
+| G06-feed-fairness/FORMAL-91.log；review/g06-feed-fairness/ACTUAL-FINAL.json | 91/独立92；实际20261018204727、SQL e358396b、feed MD5 08931e1b、原OID/ACL保持。独审02aff369c8072116d525babb37b080cda4cd077239aa679aef876cf25f66a73e。 |
+| G06-native-package/FREEZE.json、PUBLIC-ASSETS-ACTUAL.json、SIGNED-PATH-ACTUAL.json；review/g06-native-package/FINAL.json | 100原包freeze4434c90f、Mac0603f8bf/EXT2cb36272/helper70979/runtime113 aa13868；公网回取exact，包独审c184881b。7通道未改，非全量发布。 |
+| G06-actual-install/INSTALL.log、AFTER-LOCAL.json、ACTUAL-STAGE1-FINAL.json、UPDATE-OBSERVED.json | 原入口exit0；阶段1 ffa75248、软件7d30a976独审。原身份/settings/native/29保。check UNKNOWN未重发，物理100和宿主loaded100另据回读确认。 |
+| G06-native-package/cache-stage-v2、normal-update-check-v2、open-controller100-once | 短写P1/鲜度P2修后独审才执行；独审565714a2/f890a98d/01d6dc17。once未知原件保，target读回不追认原返回或唯一因果。 |
+| G06-native-package/normal-state-reader/READ100-CONTROLLER.json；G06-actual-install/ACTUAL-NORMAL100-ROOT.json | 正常100原件SHAed076d14d1de3a338b0e5c2ee17eb94b084b185449c131c516ef1489dbd1daac；完整agent/pro/risk原样，gen16/history20/outbox0/29complete2/2。 |
+| G06-actual-install/CLOUD-BUSINESS-POST100-VERIFIED.json；CLOUD-NODE-AFTER.PRIVATE.json；CLOUD-OTA-AFTER.PRIVATE.json | 原3task27proof27receipt行hash exact，node100/release4d178e32/6217 completed。后skipped非第二段升级。PRIVATE不公开。 |
+| review/g06-native-package/ACTUAL100-FINAL.json；G06-actual-install/CONTROLLER-FOCUS.jsonl | 独审SHA4cf2b76c52feaedf86522cd0aa29afddbe5f85efc9632d6a25c03f286cc49e5c；185焦点样本front0、19窗口样本10/屏上1。有限维护观察，非新来源或零可见窗承诺。 |
+| G06-native-package/DEPENDENCY-READONLY.md；G07-comment-options/ | 新helper依赖/TCC未实测；G07候选不冒部署，真实allocator已只读取回以补委托fixture缺口。新source/评论云ACK/媒体bytes/第二设备/runtime连续OTA未验。 |

@@ -836,3 +836,14 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **验证/修复**：中央84PGlite/11Edge、独立+999回复计数反例、旧feed整JSON回归；参与者19新增Python、组合123发现/120执行/3原skip、便携6、RPC9/Swift5、旧Jobs7及同输入35评论13页9引用四格式。修掉旧feed被v2空字段改hash、回复计数伪完整、CSV字段读回界限；原RED保留。131072B规范JSON在PG格式化后超界会拒绝，耐久本地保留且不finish，未扩大合同。
 - **实际部署/运行**：中央47/30源与迁移20261018202619已独立回读，57旧业务行hash同，原Owner feed49995B逐字同。Owner2760/482源/13cfg、五库/native/知识及341资产bytes保持；97.22秒两job和导出稳定，12旧资产仅mtime差异保留。无新来源或评论云写。原29complete2/2/pending0不重开。
 - **待验/下一步**：100包freeze4434c90f已构建但尚未发布/安装；ROOT新增“未seal组是否阻塞后续scope”的待核假设，由central_steps复现，确认前不继续灰度。新原生评论来源/云ACK、任务回复选项、媒体bytes、通用依赖、新机/连续runtime OTA仍未验。48h/watchdog暂停。详见HANDOFF当前追加、EVIDENCE及本地原件。
+
+## 2026-10-19 05:26 CST｜G06公平性修复与本机100实际采用
+
+- 接力者root；central_steps独审Owner，native_diagnostics_review独审中央公平性、包、司机和真实软件/身份。G07仍隔离实施，尚未采用。
+- 正式源码d764e7d已推：feed选组前跳过未seal组，严格完整性检查不吞，91/独立92反例通过；实际迁移20261018204727/OID46577/原ACL保持。EXT c43af92/12202a8已推；pages adb8c250/e6b77bac发布固定100包，7通道未改。无Pro私SDK或凭据分发。
+- 原100安装入口实际exit0；33扩展文件/113runtime/helper70979逐hash保全，原六绑定/native全表/29两delivery保持。签名缓存V1短写P1与check V1鲜度P2被独审否决，修V2后才执行；旧RED保留。唯一正常check重载断回应UNKNOWN，唯一后台诊断页恢复亦UNKNOWN，均不重发，不补写唯一因果。
+- 正常100 state已实际读回，完整原agent/pro/risk和身份、gen16/history20/outbox0、29complete2/2/desiredfalse保持；宿主applied+loaded100/seq20261019100，云node100/release4d178e32及OTA6217 completed。后续5439/5440是普通skipped检查，不冒第二段更新。
+- 独审ACTUAL100-FINAL SHA4cf2b76c52feaedf86522cd0aa29afddbe5f85efc9632d6a25c03f286cc49e5c；原57云行再次逐MD5 exact。185焦点样本front0，19窗口样本10/屏上1不变，有限采样非绝对零可见窗。
+- 本轮source/新grant/新评论云ACK=0，旧29两ACK不冒100新来源。普通status不启动Python，新helper TCC/Pro依赖待零来源HELLO；第二设备/runtime连续自动OTA、G04分享范围/Vercel403和G05同context换pack/真人决定仍有门。
+- 下一步：G07原Owner三控件/auto/真实allocator/权威claim/Pro逐run CLI完整验证；候选只受既有合法batch/pilot约束，非任意新词自动授权。固定能力协商保持旧帧，unknown不冒ready，Pro self和同账号检查不放松。48h/watchdog暂停。
+- 证据根RUN18，详见G06-feed-fairness、G06-native-package、G06-actual-install和review/g06-*。固定HANDOFF/EVIDENCE同步；PRIVATE只本机。保留他人dirty，仅stage本轮块。
