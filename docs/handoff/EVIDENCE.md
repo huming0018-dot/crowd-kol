@@ -879,3 +879,19 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - HELLO-TIMEOUT-PROCESSES.PRIVATE.json；HELLO-TIMEOUT-CHILD-SAMPLE.PRIVATE.txt SHAd23e1e15b42ce521b7d253257bf6adbf63be6a88a3ffefdb41b72e8beb6bc79a。root791与独立793样本同Python初始化open等待，尚缺精确文件/原因；PRIVATE仅本机，不发布栈原文。
 - review/g06-raw-hello100/FINAL.json SHAb78eb4eb34fe6cde9db784888cfdff9cb081cfc5fbbc6f999adf4e477212dbf9（离线有限PASS）；actual-timeout/ACTUAL-FINAL.json SHAd81ab92ae35a600744b6c1f006b61798bb4775b3a317768c4f5318ef494416a4（实际HOLD）。独审系统3.9 native全表/29两交付/config/六绑定/身份保持，hostbusytrue。无新source/claim/断口/kill。
 - CUA listApps实际返回Mac锁屏，已发解锁请求；不是TCC原因证明。G07 product非作者预审见review/g07-product-nonauthor/STATIC.md，未冻结不冒最终独审。
+
+## 2026-10-19 05:59 CST｜G07正式与中央上线证据
+
+证据根仍RUN18=/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。所有PRIVATE仅本机。
+
+| 证据 | 实际结果与边界 |
+|---|---|
+| G07-comment-options/FREEZE.json、CONTRACT.md、SOURCE-MAP.json | freeze0a2cba15758ab2e0599aa826d443e4bc4fee8da8caedb58ffdb321d6a5a4ce07；SQLda22、113manifest a72d；11源精确CAS。不是新包实装。 |
+| review/g07-options/FINAL.json；review/g07-product-nonauthor/FINAL.json | 代码独审929825ac32065a158b658fa5cd716a849520c2e7377ea67f3de5e60f47a0fce6；非作者产品34a10bc27a63928d1707695b7006bba5983f830cbfe29313b0c09aaba35c8624。有限existing授权任务，普通新batch仍缺。 |
+| G07-comment-options/PORTABLE-TESTS-FREEZE.json；review/g07-portable/FINAL.json | 正式10测试freeze497754c1；独审9f51342e847a8e0b28e29cbba6244a25d2d894ffe22647604706facd14213983。67Py、28PG/11实际函数→Native/SQLite、Edge/UI/JS/编译host；缺必填证据失败非skip，原断言保。 |
+| G07-comment-options/formal-adoption/COPIED.json、MIGRATION.json、MIGRATION-ACTUAL.json；tooling/supabase-2.120.0/VERIFIED.json | 正式source5ef198c、EXT a5b686d、文件名对齐b485e3a；官方固定CLI archive SHA3b8546cc，隔离工具不升级不全局安装。CLI214510→实际215050，只rename同SQL。 |
+| G07-comment-options/EDGE-CANDIDATE-SUMMARY.json；review/g07-options/EDGE-BUNDLE-FINAL.json | 原实际47+两源overlay，其余28/auth保持；准备独审abc61bd18c0d26201fa62ca1053335650f812148cfe00adcb23e5654c0a67d35。 |
+| G07-comment-options/MIGRATION-APPLY.json、EDGE-DEPLOY.json、ACTUAL.PRIVATE.json、EDGE-AFTER.PRIVATE.json、BUSINESS-AFTER.PRIVATE.json | 实际账本20261018215050/SQLda22e3bd4ca7e12b000396e504bcce42e023f810bafed7b8006d45225948b1bd；Edge48 ACTIVE/30源逐字exact；57旧业务行保持，原100cap空。无新source/grant。 |
+| review/g07-options/ACTUAL-CENTRAL-FINAL.json | 实际独审全SHA58121b236e82e75b235a6eeef9d8158903e09abe9ffa306f60af3370b3e6d9e4。原7OID/ACL/config/security保持、8bodyexact、3helper私有、2列可空；Advisors8组200finding语义新增/移除0，7组observed_at不同不能称7新增。 |
+| review/g06-raw-hello100/actual-timeout/TCC-PROMPT-SUPPLEMENT.json；raw-hello100-once/HELLO-TIMEOUT-TCC-PIDS.PRIVATE.json | 独审e55ac8bf4a5876275750de5f6af75e1b4883b0b99794c67bc9253004d9c4e232；原helper/Python同PID+msg关联DesktopFolder PROMPTING，无结果，原HELLO unknown不重试。 |
+| G08-owner-provisioning/MISSING-AUTHORIZATION-RED.log、ACTUAL-FUNCTIONS.PRIVATE.json、ACTUAL-SCHEMA.PRIVATE.json；review/appsupport-private-layout/PLAN.md | 下一缺口已复现/元数据只读取回；AppSupport布局私迁仍候选，当前busy阻止采用，不搬原浏览器profile/全Owner根/不扩max14。不是上线功能。 |

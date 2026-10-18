@@ -854,3 +854,14 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 
 - 离线司机freeze0ed84114、driver a6030782经33+独立4用例及独审b78eb4eb后才唯一实际调用；先read门通过，实际HELLO无READY，不能以离线通过冒依赖就绪。原UNKNOWN保留，未来late-ready只观察不自动断口或回写成功。
 - 并行G07独立预审发现无eligible时误阻断旧Owner Pro machine及0/350仅native语义的假ready；前者正在修原子fallback，后者需明确unsupported/wait，不能PGstub冒原Python可执行。真实原11 allocator函数已接入测试；G07未正式/未部署/未来源。48h/watchdog仍暂停。
+
+## 2026-10-19 05:59 CST｜G07评论权威选项正式代码与中央实际部署
+
+- 接力者root；central_steps实现G07、移植便携测试；knowledge_reuse_probe非作者产品复核；native_diagnostics_review非作者组件、正式测试、Edge准备及中央实际复核。实现者不冒独审。
+- 源码5ef198c/EXT a5b686d已推；11源+10测试（9新、原UI只append）+README/CLI迁移，未夹带其他CTFS/ASR改动。原core Pro代码和配置不变。仅修原控件到原CLI的参数/授权/可选能力声明；没有新queue/table/身份。
+- 四个RED保留：原Worker忽略选项、auto noeligible抢走旧Owner Pro、0/350机器假ready、缺省max20和请求null错配；修后67Py/28PG真实11函数+Native链/Edge/UI/JS/编译宿主通过，独审929825ac、34a10bc2、9f51342e。测试移植曾把test_计入runtime128，保FAIL，仅修与原首循环相同的测试文件筛选，不改产品边界或断言。
+- 本机PATH无法找到旧CLI，没有捏造文件名；从官方supabase/cli v2.120.0固定release重取并验官方SHA，隔离工具不升级/不全局安装。CLI先生成214510；实际迁移215050后同SQLda22仅改正式文件名，b485e3a已推，不重复apply。
+- 中央真实48/30源、8函数体精确匹配、7旧OID/ACL/config保持、3私helper postgres-only、2节点可空字段；原57业务行hash不变，原100cap/time均null。实际独审58121b23；Advisors语义新增0，旧200finding不消失。纯metadata回读，不冒新来源/grant/评分。
+- 实机HELLO仍UNKNOWN/busy，TCC原PID日志明确DesktopFolder提示、Mac锁屏待本人；无重发、强关或清busy。原身份/本地任务和配置保持。G07已部署中央不等于新宿主/包/Owner UI实机采用或平台同输入采集验收；旧100/G06 Owner保持。
+- 下一步：本人解锁后先对账原HELLO晚到状态，需另审才可能关闭自己旧port，不重复HELLO；配套新包前解决AppSupport布局。G08普通Owner新batch授权独立实现/审查，不动旧pilot或已完成任务。第二设备、连续OTA、真实新评论云ACK、分享/知识门未过，48h/watchdog暂停。
+- 证据根RUN18/G07-comment-options、review/g07-*及raw-hello100-once；固定HANDOFF/EVIDENCE同步，PRIVATE与SDK不公开。主目标继续进行。
