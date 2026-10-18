@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from participant_native_rpc import FrameIO,NativeMux,NativeTransport,ProtocolError,frame,valid_uuid,relay_child
-from participant_pro import ParticipantProWorker,ParticipantOutbox,ParticipantError,local_runner,transport_diagnostic
+from participant_pro import ParticipantProWorker,ParticipantOutbox,ParticipantError,local_runner,transport_diagnostic,source_failure_error
 import mc_runner
 
 CONFIG_KEYS={'schema','python','entry','entry_sha256','root','mc_root','session_id','max_api_requests','purpose'}
@@ -20,7 +20,7 @@ STATES={'ready','not_ready','running','complete','partial','finish_unknown','sou
         'delivery_unknown','source_launch_unknown','stopped','blocked','unknown','native_ready','launching'}
 PHASES={'initial','local_status','scope','delivery','import','stage','finish','source','stopping'}
 ERRORS={'participant_scope_changed','participant_writer_busy','participant_stopped','participant_rpc_outcome_unknown',
-        'participant_protocol_invalid','participant_contract_refused','participant_installation_invalid','participant_existing_run'}
+        'participant_protocol_invalid','participant_contract_refused','participant_installation_invalid','participant_existing_run','login_required'}
 
 def load_config(path):
     path=Path(path)
@@ -106,14 +106,20 @@ class NativeService:
             task_id=message['task_id'],installation_id=message['installation_id'],subject=message['subject'],session_id=self.config['session_id'],known_ids=[],
             request_options={k:self.config[k] for k in ('purpose','max_api_requests')})
         native_start={k:message[k] for k in ('subject','installation_id','task_id','intent')}
+        login_recovery=None
         with worker.outbox._db() as db:
             db.execute('BEGIN IMMEDIATE')
-            row=db.execute('SELECT state,context FROM participant_runs WHERE task=?',(message['task_id'],)).fetchone()
+            row=db.execute('SELECT state,context,run_id FROM participant_runs WHERE task=?',(message['task_id'],)).fetchone()
             if row:
                 context=json.loads(row[1]);old=context.get('native_start')
-                if row[0]!='complete' and (old!=native_start or context.get('binding',{}).get('generation')!=message['epoch']):raise ProtocolError('participant_existing_run')
+                if row[0]=='source_failed' and old!=native_start:
+                    login_recovery=(row[2],context['target']-context['limit'])
+                elif row[0]!='complete' and (old!=native_start or context.get('binding',{}).get('generation')!=message['epoch']):raise ProtocolError('participant_existing_run')
             else:
                 db.execute('INSERT INTO participant_runs VALUES(?,?,NULL,?)',(message['task_id'],'native_ready',mc_runner.canonical({'binding':dict(rpc.binding),'native_start':native_start})))
+        if login_recovery is not None:
+            worker.recover_known_failed_once(login_recovery[0],expected_used_requests=4,expected_detail_count=None,expected_received=login_recovery[1],native_start=native_start)
+        if self.mux.stopped.is_set():raise ProtocolError('participant_stopped')
         self.worker=worker;self.start_message=message
         self.thread=threading.Thread(target=self._run,daemon=True);self.thread.start()
     def _run(self):
@@ -141,10 +147,11 @@ class NativeService:
         task,state,run,c=found[0];b=c['binding'];rpc=NativeTransport(self.mux,b['subject'],b['installation_id'],task)
         self.worker=self.worker_class(Path(self.config['root']),rpc,self.runner(),
             task_id=task,installation_id=b['installation_id'],subject=b['subject'],session_id=self.config['session_id'],known_ids=[],request_options={k:self.config[k] for k in ('purpose','max_api_requests')})
+        error=c.get('source_error') if state=='source_failed' and c.get('source_error')=='login_required' else None
         if state=='running' and run is not None:
-            local=self.worker.runner('status',{'run_id':run}).get('state')
+            status=self.worker.runner('status',{'run_id':run});local=status.get('state');error=source_failure_error(status)
             if local in mc_runner.FINAL:state='partial' if local=='completed' else 'source_unknown' if local=='interrupted_unknown' else 'source_failed'
-        self.reconnected=True;self.last={'state':state if state in STATES else 'unknown'}
+        self.reconnected=True;self.last={'state':state if state in STATES else 'unknown',**({'error':error} if error else {})}
     def stop_owned(self,*,explicit=True):
         self.mux.stop();unresolved=False
         if self.worker is not None:
