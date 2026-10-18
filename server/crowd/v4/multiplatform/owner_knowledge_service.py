@@ -105,12 +105,14 @@ class OwnerKnowledgeService:
                                 'fingerprint': hashlib.sha256(canonical(data)).hexdigest(),
                                 'intent_id': None}
         self._save_preview(token, self.previews[token])
+        unresolved = self.binding.unresolved_decisions()
         return {**data, 'preview_token': token, 'preview_fingerprint': self.previews[token]['fingerprint'],
                 'principal_kind': principal['kind'], 'human_uid': None,
                 'role_state': {**data['role_state'], 'central_owner_service_scope_bound': True},
-                'decision_available': True,
-                'actions': {x: {'enabled': True} for x in ('approved', 'request_changes', 'rejected')},
-                'notice': '本次仅记录知识审核决定。发布与结果生效另行处理，不会自动采集或更新评分。'}
+                'unresolved_decisions': unresolved,
+                'decision_available': not unresolved,
+                'actions': {x: {'enabled': not unresolved} for x in ('approved', 'request_changes', 'rejected')},
+                'notice': '原审核决定结果待核对，新的审核已暂停；请先核对原决定。' if unresolved else '本次仅记录知识审核决定。发布与结果生效另行处理，不会自动采集或更新评分。'}
 
     def decide(self, payload):
         self._check_config()

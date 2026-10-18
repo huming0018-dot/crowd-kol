@@ -187,3 +187,11 @@ python3 -m unittest test_mc_runner test_dashboard test_analysis test_owner_tasks
 实现入口：`publication_share.py`、`publication_pro_share.py` 和 `results-ui.js`。私有 intent 与包在运行根目录 `publication-pro-intents/`、`publication-pro-bundles/`；其中不保存签名链接。消费页为原 `china-travel-food/app/pages/materials.tsx`，仍通过私桶签名 GET、字节数、SHA256 和实际报告项目绑定后展示。接受 Pro 项目格式本身不是授权。
 
 回归：在本目录运行 `CROWD_MP_ROOT="$PWD" python3 -m unittest test_publication_pro_share`；在仓库根运行 `node server/crowd/v4/tests/publication-pro-share-ui.mjs server/crowd/v4/multiplatform/results-ui.js`。Next 真实保存文件回归需要明确 `CROWD_SAVED_EXPORTS` 或测试第四参数，不将私有报告捆入源码。代码采用、服务运行、云保存、签链和异机业务验收分别记录在固定 HANDOFF；不要凭本节认定已经上线。
+
+## 知识审核的待核对决定
+
+知识审核在原私有 intents 目录使用共同 `review.lock`，覆盖待核对扫描、意图持久化和 SDK 审核操作。原决定仍为 `started` 时，同一提案的新预览、新请求编号及直接后端调用均不能绕过；已完成决定仍可按原编号精确读取。损坏或不安全的日志拒绝新审核，不删除未知记录，也不自动重试 grant/review。页面禁用新决定，提供“核对原审核决定”；查询不等于重新提交或发布。
+
+真实 SDK 克隆回归脚本为 `../tests/knowledge-review-scope.py`，需显式提供 `CROWD_KNOWLEDGE_TARGET`、`CROWD_MP_ROOT` 和 `CROWD_KNOWLEDGE_FIXTURE`，并使用已装 toolbox 的 Python。fixture 为本地保存的 service 测试设置，仅克隆白名单数据库与知识包，不能指向在线工作区；缺失时明确报错，不冒通过。UI 行为回归为 `CROWD_KNOWLEDGE_UI="$PWD/knowledge-ui.js" node ../tests/knowledge-review-ui.cjs`。私人 fixture 不随源码发布。
+
+Owner 页面与 `data-products/knowledge-runtime.json` 指向的独立 Python 子进程分别采用；只更新主工作台源码不会更新原知识服务。切换时必须证实旧 Owner 和知识请求均退出，保留原绑定、知识工作区及意图，按原 SHA 对配置执行 CAS；未知请求不能通过热切或新编号重放。实际采用和剩余知识闭环缺口见固定 HANDOFF。

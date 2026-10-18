@@ -10,6 +10,8 @@ import os
 import re
 import stat
 import tempfile
+import contextlib
+import fcntl
 import yaml
 from toolbox.knowledge import AuthContext, KnowledgeStore, _candidate_hash
 from material_bridge import read_bytes
@@ -118,7 +120,67 @@ class OwnerKnowledgeBinding:
                 or expected_candidate_hash != self.config['candidate_hash']):
             raise BindingError('knowledge_decision_invalid')
 
+    def _intent_directory(self):
+        directory = Path(self.config['intents'])
+        if any(p.is_symlink() for p in (directory, *directory.parents)):
+            raise BindingError('knowledge_intent_directory_invalid')
+        directory.mkdir(mode=0o700, exist_ok=True)
+        info = directory.stat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise BindingError('knowledge_intent_directory_invalid')
+        return directory
+
+    @contextlib.contextmanager
+    def _decision_lock(self):
+        directory = self._intent_directory()
+        fd = os.open(directory / 'review.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise BindingError('knowledge_decision_lock_invalid')
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise BindingError('knowledge_decision_in_progress') from None
+            yield
+        finally:
+            os.close(fd)
+
+    def unresolved_decisions(self):
+        directory = self._intent_directory()
+        paths = list(directory.glob('*.json'))
+        if len(paths) > 2000:
+            raise BindingError('knowledge_decision_journal_limit')
+        pending = []
+        for path in sorted(paths):
+            if re.fullmatch(r'[a-f0-9-]{36}\.json', path.name) is None:
+                continue
+            try:
+                value = json.loads(protected_bytes(path))
+                if type(value) is not dict or value.get('state') not in ('started', 'completed'):
+                    raise ValueError()
+                if value['state'] == 'completed':
+                    if type(value.get('result')) is not dict or type(value['result'].get('decision')) is not dict:
+                        raise ValueError()
+                    continue
+                intent = value.get('intent')
+                if type(intent) is not dict or type(intent.get('proposal_id')) is not str:
+                    raise ValueError()
+                if intent['proposal_id'] == self.config['proposal_id']:
+                    pending.append(path.stem)
+            except (ValueError, TypeError, KeyError, RecursionError):
+                raise BindingError('knowledge_decision_journal_invalid') from None
+        return pending
+
     def decide(self, owner_client, *, decision, reason, expected_candidate_hash, intent_id):
+        self.validate_decision(decision=decision, reason=reason,
+                               expected_candidate_hash=expected_candidate_hash, intent_id=intent_id)
+        # Preview tokens are per request. This lock must cover every request for the bound proposal.
+        with self._decision_lock():
+            return self._decide_locked(owner_client, decision=decision, reason=reason,
+                                       expected_candidate_hash=expected_candidate_hash, intent_id=intent_id)
+
+    def _decide_locked(self, owner_client, *, decision, reason, expected_candidate_hash, intent_id):
         # No caller-provided actor, role, scope, proposal, workspace, or path.
         self.validate_decision(decision=decision, reason=reason,
                                expected_candidate_hash=expected_candidate_hash, intent_id=intent_id)
@@ -144,6 +206,8 @@ class OwnerKnowledgeBinding:
         if directory.is_symlink() or directory.stat().st_mode & 0o077:
             raise BindingError('knowledge_intent_directory_invalid')
         path = directory / (intent_id + '.json')
+        if not path.exists() and self.unresolved_decisions():
+            raise BindingError('knowledge_decision_outcome_unknown')
         try:
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         except FileExistsError:

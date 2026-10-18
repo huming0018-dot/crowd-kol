@@ -23,6 +23,7 @@ const knowledgeView = (() => {
     body.append(node('p', '本次影响：'+Object.entries(value.added_unknowns).map(([key,count]) => (labels[key] || key)+'新增'+count+'项待确认').join('；')+'。其他内容是否保持请查看下方证据。'));
     body.append(node('p', '采用仅记录批准。发布生效、结果版本切换另行处理。'));
     body.append(node('p', '本次预览有效5分钟；超时请刷新提案，审核理由保留。'));
+    for (const id of value.unresolved_decisions || []) body.append(button('核对原审核决定', () => check(id, ticket)));
     for (const file of value.files) if (file.changed) body.append(details(file.name+' 改动', file.diff));
     body.append(details('来源与证据', {gap:value.observed_gap,evidence:value.evidence_refs,quotes:value.quotes_preserved,sources:value.source_versions_preserved}));
     body.append(details('版本与审核边界', {proposal_id:value.proposal_id,candidate_hash:value.candidate_hash,role:value.role_state,principal:value.principal_kind,human_uid:value.human_uid}));
