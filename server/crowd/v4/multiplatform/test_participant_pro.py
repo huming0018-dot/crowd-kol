@@ -67,7 +67,9 @@ class Tests(unittest.TestCase):
                 calls.append(('scope',self.binding['generation']))
                 if self.binding['generation']!=8:raise ParticipantError('participant_scope_changed')
             def __call__(self,*a):raise AssertionError('no RPC after Stop')
-        worker=ParticipantProWorker(self.root,Transport(),lambda *a:self.fail('no source'),task_id=19,installation_id=install,subject=subject,session_id=sid,known_ids=[])
+        def local_status(action,payload):
+            self.assertEqual(action,'status');return {'state':'completed'}
+        worker=ParticipantProWorker(self.root,Transport(),local_status,task_id=19,installation_id=install,subject=subject,session_id=sid,known_ids=[])
         with self.assertRaises(ParticipantError):worker.tick({})
         self.assertEqual(calls,[('scope',7)])
     def test_bad_record_never_staged(self):

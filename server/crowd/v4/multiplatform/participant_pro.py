@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import mc_runner
 from cloud_sync import CloudOutbox
+from participant_pro_transport import ParticipantTransportError
 
 class ParticipantError(ValueError):pass
 
@@ -100,6 +101,8 @@ class ParticipantProWorker:
         self.known_ids=known_ids;self.outbox=ParticipantOutbox(root,transport)
     def tick(self,request):
         import json
+        self.phase='local_status'
+        status=None
         with self.outbox._db() as db:old=db.execute('SELECT state,run_id,context FROM participant_runs WHERE task=?',(self.task_id,)).fetchone()
         if old:
             state,run_id,encoded_context=old;context=json.loads(encoded_context)
@@ -107,9 +110,15 @@ class ParticipantProWorker:
             require(isinstance(binding,dict) and all(binding.get(k)==previous.get(k) for k in ('profile','subject','installation_id')),'participant_scope_changed')
             require(type(previous.get('generation')) is int and previous['generation']>=0 and binding.get('generation') in (None,previous['generation']),'participant_scope_changed')
             binding['generation']=previous['generation']  # BEFORE scope/RPC; Stop cannot mint new authority.
+        if old and state=='running':
+            status=self.runner('status',{'run_id':run_id})
+            if status.get('state') not in mc_runner.FINAL:
+                return {'state':'running','run_id':run_id,'source_started':True}
+        self.phase='scope'
         require(self.transport.scope()=={'subject':self.subject,'installation_id':self.installation},'participant_scope_changed')
         if old and state in ('partial','complete','finish_unknown','source_failed','source_unknown'):
             return {'state':state,'run_id':run_id,'source_started':False}
+        self.phase='delivery'
         delivery=self.outbox.flush(self.task_id)
         if delivery=='unknown':return {'state':'delivery_unknown','source_started':False}
         if delivery=='rejected':
@@ -156,8 +165,10 @@ class ParticipantProWorker:
             # A crash/unknown launch leaves launching durable; it is never automatically retried.
             started=self.runner('start',{'request':p,'participant_context':context});run_id=uuid_value(started.get('run_id'))
             with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=?,run_id=? WHERE task=?',('running',run_id,self.task_id))
-        status=self.runner('status',{'run_id':run_id})
+        self.phase='local_status'
+        if status is None:status=self.runner('status',{'run_id':run_id})
         if status.get('state') not in mc_runner.FINAL:return {'state':'running','run_id':run_id,'source_started':True}
+        self.phase='import'
         imported=self.runner('import',{'run_id':run_id});records=imported.get('records',[])
         manifest=imported.get('manifest',{})
         commit=manifest.get('source',{}).get('commit')
@@ -169,9 +180,11 @@ class ParticipantProWorker:
             context['captured_at']=datetime.now(timezone.utc).isoformat()
             with self.outbox._db() as db:db.execute('UPDATE participant_runs SET context=? WHERE task=?',(mc_runner.canonical(context),self.task_id))
         content=[r for r in records if r.get('kind')=='content'];require(len(content)<=context['limit'],'participant_source_limit_exceeded')
+        self.phase='stage'
         for r in content:
             require(r.get('content_id') not in context['known_ids'],'participant_known_content_returned')
             self.outbox.stage(r,{'task_id':self.task_id,'lease':context['lease'],'installation_id':self.installation},{'local_run_id':run_id,'upstream_commit':PINNED_COMMIT,'request_sha256':context['request_sha256'],'captured_at':context['captured_at']})
+        self.phase='delivery'
         delivered=self.outbox.flush(self.task_id)
         if delivered!='delivered':
             if delivered=='rejected':
@@ -186,6 +199,7 @@ class ParticipantProWorker:
             return {'state':'partial','reason':'no_new_received','run_id':run_id,'source_started':False}
         # Not enough relevant native records is partial; never open another source run implicitly.
         with self.outbox._db() as db:db.execute('UPDATE participant_runs SET state=? WHERE task=?',('finish_unknown',self.task_id))
+        self.phase='finish'
         receipt=self.transport('pro_finish',{'p_task':self.task_id,'p_lease':context['lease'],'p_installation_id':self.installation})
         fresh=self.transport('pro_status',{'p_task':self.task_id,'p_installation_id':self.installation})
         task=fresh.get('task') if isinstance(fresh,dict) else None
@@ -284,6 +298,18 @@ def local_runner(root,mc):
     return call
 
 
+def transport_diagnostic(error,phase):
+    # Only fixed transport codes/phase names; never exception body, stack, URLs or credentials.
+    known={'participant_writer_busy','participant_scope_changed','participant_profile_changed',
+           'participant_worker_missing','participant_worker_invalid','participant_listener_invalid',
+           'participant_port_invalid','participant_profile_invalid','invalid_participant_scope',
+           'invalid_participant_action','invalid_participant_params','invalid_platform_principal',
+           'invalid_participant_transport','participant_node_runtime_missing'}
+    code=str(error)
+    return {'state':'blocked' if code in known else 'unknown',
+            'reason':code if code in known else 'participant_rpc_outcome_unknown',
+            'phase':phase if phase in {'local_status','scope','delivery','import','stage','finish'} else 'initial'}
+
 def main():
     import argparse
     import json
@@ -318,7 +344,11 @@ def main():
         print(mc_runner.canonical(result),flush=True)
         return  # Explicit preparation only; separate normal invocation launches once.
     while True:
-        result=worker.tick(request)
+        try:result=worker.tick(request)
+        except ParticipantTransportError as error:
+            diagnostic=transport_diagnostic(error,getattr(worker,'phase','initial'))
+            print(mc_runner.canonical(diagnostic),flush=True)
+            raise SystemExit(2 if diagnostic['state']=='unknown' else 1) from None
         # Safe summary only: never record, target URL, principal, config or RPC error text.
         print(mc_runner.canonical({k:v for k,v in result.items() if k in ('state','run_id','receipt_count','coverage','source_started')}),flush=True)
         if args.once or result['state']!='running':
