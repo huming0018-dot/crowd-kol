@@ -157,7 +157,7 @@ class NativeService:
         if self.worker is not None:
             with self.worker.outbox._db() as db:row=db.execute('SELECT run_id FROM participant_runs WHERE task=?',(self.worker.task_id,)).fetchone()
             if row and row[0]:
-                state=mc_runner.stop(self.config['root'],{'run_id':row[0],'origin':'user','reason':'user_stop'})
+                state=mc_runner.stop(self.config['root'],{'run_id':row[0],'origin':'user' if explicit else 'native_host','reason':'user_stop' if explicit else 'port_disconnected'})
                 evidence=state.get('stop_context',{})
                 if explicit and evidence.get('origin')=='user' and evidence.get('reason')=='user_stop' and (state.get('stop_requested') is True or state.get('state')=='stopped'):
                     self.explicit_stop_run=row[0]

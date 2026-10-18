@@ -27,7 +27,7 @@ MEDIA = NATIVE_MEDIA | {'tieba','zhihu'}
 JSONL_DIRS = {'dy':('douyin','dy'),'ks':('kuaishou','ks'),'wb':('weibo','wb')}
 DISCOVERY_KINDS = frozenset(('search','detail','creator','homefeed','trending'))
 FINAL = {'completed','failed','stopped','interrupted_unknown','login_required'}
-STOP_REASONS = {'user': {'user_stop'}, 'cloud_worker': {'cloud_controller_error','cloud_dispatch_denied','cloud_worker_shutdown','owner_stop_requested'},
+STOP_REASONS = {'native_host': {'port_disconnected'}, 'user': {'user_stop'}, 'cloud_worker': {'cloud_controller_error','cloud_dispatch_denied','cloud_worker_shutdown','owner_stop_requested'},
                 'docker_worker': {'worker_shutdown'}}
 STOP_ERRORS = {'cloud_outcome_unknown','invalid_cloud_lease','runner_outcome_unknown','invalid_runner_result',
                'worker_revoked','principal_denied','cloud_worker_failed'}
