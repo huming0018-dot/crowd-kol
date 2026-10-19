@@ -894,3 +894,12 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **迁移实际落地**：V3明确原profile受限引用及SignSrv3.12额外.pth，V4全锁内单次PRECAS新鲜proof；实际首次prepare被手造risk真值门拒，0plan/0copy。对照正式participant-policy发现实际固定false占位，V5仅维护门严格布尔并保全risk指纹，不改来源准入。新真实计划5499b73a库存独审1e879913后唯一apply成功，9277源/clone、34links/1pth/6run、原新native5表保持，六绑定只root/python改到Application Support，原profile内容0复制。PRECAS reader1次至RESULT0.128秒，实际独审b98fff9f；原HELLO UNKNOWN240ae不改。
 - **后验 / 真实限制**：实际Pro3.11/61和Signer3.12/20 distribution元数据、prefix/sys.path无Desktop，原SDK官方本地能力exit0/d32clean；原profile路径及保扩展校验通过，独审ea8bd44d。未验所有依赖import/签名服务/平台账号现时有效/真实续登/新来源/媒体字节。官方Python通用venv不可移动，故本机受测复制不是通用新机安装；官方Pro uv冻结重建路线缓存完整性未证，双路线证据另列OPTIMIZATION_PLAN。
 - **下一步**：迁移后前像独审缓存CAS＋正常一次update_check，核101 installed/loaded/云OTA后再做零来源ready与按原范围真实路径验收。原第二设备/无人值守连续runtime OTA、G04分享范围/Vercel403、生产社会包真人发布仍有门。48h/watchdog暂停，完整产品不报完成。固定HANDOFF/EVIDENCE同步，PRIVATE/SDK不发布，不夹他人dirty。
+
+## 2026-10-19 08:00 CST｜原Mac101真实OTA、业务保全与Pro依赖就绪独审通过
+
+- **接力者 / 独审**：root唯一实际操作；central_steps实现cache/check，native_diagnostics_review审代码、实际OTA和云保护；knowledge_reuse_probe实现101 HELLO及后台入口，central_steps非作者审。未增加凭据或付费审查。
+- **实际改动 / 版本**：沿pages4240f3e不可变101资产、原公钥/28a8/seq20261019101，仅本机已授权tuple缓存和正常更新；未改六个公共channel、未推Pro源码、未扩第二设备。源代码仍beb54c8/EXT1dad14f，中央49及Owner45709不变。
+- **验证 / OTA**：10缓存、19正常check＋2native及独立Stop反例通过，实际计划1e39b6ee经独审后缓存一次成功；check UNKNOWN不重发。独立核33文件101/113runtime9b/helper59df/新私有路径/原native全表。云node101/c13ede、5508→5509→5510/id6296 completed；原57项3task/27proof/27receipt整行hash同G10前像和G08后像。controller缺失原因未知，后台入口UNKNOWN也保留；之后唯一正常101及完整agent/pro/risk/recovery/四actor保持，实际独审4ae5935a。
+- **验证 / HELLO**：35VM＋5RO及7独立恶意边界通过；后台opener20＋6反例通过。root新101 HELLO一次实际READY且正常退出，host stopped/busyfalse、前后5native表/两交付及33/113/配置/完整正常业务保全；结果e3c77bde、独审70462692。旧100及本轮check/opener UNKNOWN均不改。
+- **部署 / 业务验收**：本机101已运行并有真实云OTA完成，Pro依赖ready已验。没有新Start/claim/任务/grant/来源/模型/正文或评论ACK；不冒平台鉴权、登录恢复、新采集、第二设备或全程零窗口/焦点体验验收。
+- **额外诊断 / 下一步**：停止态capnull不是已证bug；真实生产模块离线核Start先登记能力再claim、无任务不start，0实际IPC。未造新外围feature。通用新机依赖、连续runtime OTA及原第二设备仍有门，原完成任务不重开，48h/watchdog暂停。固定HANDOFF/EVIDENCE同步；PRIVATE/SDK不发布。

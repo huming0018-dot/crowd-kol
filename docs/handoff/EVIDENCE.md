@@ -942,3 +942,15 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 | G10-dependency-adoption/actual-local-probes/*；review/g10-local-probes/FINAL.json | 实际解释器启动、61/20 metadata和官方SDKearly exit、原profile引用证明；非作者ea8bd44d0f1879db34df74094031f10ea8b8c4f71110ea34a670a082c326a70e。没有全依赖import/网络签名服务/平台login/来源证明。 |
 | G10-dependency-adoption/OPTIMIZATION_PLAN.md；review/uv-offline-feasibility/FINAL.json | 官方venv/site与Pro uv冻结安装证据＋独立三路线取舍，未运行uv sync或安装/下载依赖，不推新Mac通用通过。 |
 | G10-101-adoption-preparation-v3/signed101/channel.json | 仅本机公签信封28a8b3431947521c75cc36e1564f4bb2966efa2e7ce9a02e93c412cd140b22ad/seq20261019101；此记录时未cache/check，不是101/OTA新回执。 |
+
+## 2026-10-19 08:00 CST｜101实际OTA与零来源Pro就绪
+
+证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。PRIVATE原件留本机，不公开正文、SDK或凭据。
+
+- G10-101-cache-check：FREEZE d3585bf5、CACHE-PLAN1e39b6ee、ROOT-STAGE成功；ROOT-CHECK及once UNKNOWN保留。CLOUD-PRE/POST.PRIVATE.json含原node与真实OTA5508→5510，BUSINESS-POST.PRIVATE.json仅原57行摘要。
+- review/g10-101-actual-update/ACTUAL-FINAL.json SHA4ae5935ae9c52467780638b059a3d7d3ec77e99584f78273c84cbe6dd8738ab7：33/113、host、新配置/native、正常101全文状态、云版本/OTA和原业务综合独审。
+- 同目录BUSINESS-FINAL.json SHAe0733cc53460c0934a5707a00f05bb0348f5f4c0eb094560cdb6454d8ad6e726：3task＋27proof＋27receipt逐整行hash同G10 BEFORE及G08 AFTER。
+- G10-open-controller101-once：唯一UNKNOWN原件；关闭/未知原因未定、不重发。G10-dependency-adoption/normal-state-reader/READ101-POSTOPEN.json为真实101正常状态。
+- G10-native-readiness101：FREEZE85b59428、ROOT-HELLO exit0；新once INTENT8d4ea04d、HELLOc1fef5d8、RESULTe3c77bde、前后LOCAL和STATE-AFTER。review/g10-hello101-central/ACTUAL-FINAL.json SHA70462692879eef4a4e2e6ab5c338530f9279eb6e3b64fe1a9742058c41a4bdbf独核ready/退出/保全；HELLO是已审同context校验摘要，不冒原始帧独立解析。
+- G10-capability-registration-readonly/REPORT.md及EVIDENCE：停止态capnull不是已证bug，生产原Start注册/claim回归通过，未调用实际Start或强刷cap。
+- 不证明新来源、评论分页、媒体字节、平台登录恢复、第二设备或自然runtime OTA；旧100 UNKNOWN240ae保留。
