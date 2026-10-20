@@ -135,4 +135,35 @@
   }
   refresh();refreshEvents();refreshLocal();
   setInterval(refresh,5000);setInterval(refreshEvents,5000);setInterval(refreshLocal,5000);
+  const recoveryPanel=node('section');local.after(recoveryPanel);
+  let recoveryBusy=false,recoveryPending=false,recoveryGeneration=0;
+  async function refreshRecovery(){
+    if(recoveryBusy||recoveryPending||document.hidden)return;recoveryPending=true;const generation=recoveryGeneration;
+    try{
+      const value=await api('/api/tasks',{action:'reconcile',payload:{recovery_action:'status'}});
+      if(generation!==recoveryGeneration||recoveryBusy)return;
+      if(!value||value.ok!==true)throw Error('terminal_recovery_unavailable');
+      if(value.available===false){recoveryPanel.replaceChildren();return;}
+      if(value.schema!=='crowd-terminal-import-recovery-v1'||value.source_outcome!=='unknown'||value.api_attempts!==null||!Number.isSafeInteger(value.quota_charge)||value.quota_charge<1||value.released_requests!==0||!Number.isSafeInteger(value.cloud_revision)||value.cloud_revision<1||typeof value.state_hash!=='string'||!/^([a-f0-9]{64})$/.test(value.state_hash))throw Error('terminal_recovery_invalid');
+      recoveryPanel.replaceChildren(node('h3','终止未知请求账务'));
+      recoveryPanel.append(node('p','此运行已失败；实际来源请求次数未知。原运行与结果保留，不重试来源。保守结算将按本批配置 '+value.quota_charge+' 次全额计入，不回收额度。'));
+      const hint=node('p');recoveryPanel.append(hint);
+      const choices=value.can_park===true?[['park','停止此运行续租，保留未知记录']]:value.can_reconcile===true?[['reconcile','确认全额计入并结束未知账务']]:value.can_verify===true?[['verify','只读核对上次云账务，核验后解除停机']]:[];
+      if(!choices.length)hint.textContent='已停止续租，等待原租约自然到期；不会重新派发来源。';
+      for(const [operation,label] of choices){
+        const control=node('button',label);control.type='button';recoveryPanel.append(control);
+        control.onclick=async()=>{
+          if(recoveryBusy)return;recoveryBusy=true;recoveryGeneration++;control.disabled=true;
+          try{
+            await api('/api/tasks',{action:'reconcile',payload:{recovery_action:operation,expected_state_hash:value.state_hash,expected_revision:value.cloud_revision}});
+            hint.textContent=operation==='park'?'续租已停，未知记录保留。':'核对结果已保存。';
+          }catch(_error){hint.textContent='操作结果待核对；不会自动重发。请刷新状态，只读核对原记录。';}
+          finally{recoveryBusy=false;await refreshRecovery();}
+        };
+      }
+    }catch(_error){if(generation!==recoveryGeneration||recoveryBusy)return;recoveryPanel.replaceChildren(node('p','未知账务状态查询失败；原记录保留，未执行恢复。'));}
+    finally{recoveryPending=false;if(generation!==recoveryGeneration&&!recoveryBusy)refreshRecovery();}
+  }
+  refreshRecovery();setInterval(refreshRecovery,5000);
+
 })();

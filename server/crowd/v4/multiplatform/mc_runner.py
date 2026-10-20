@@ -620,6 +620,16 @@ def status(root, payload):
     # No inference of success from the supervisor or browser disappearing.
     if state['state'] not in FINAL and time.time()-state['updated_at'] > 8:
         state = {**state,'state':'interrupted_unknown','reason':'supervisor_heartbeat_missing'}
+    # Only a complete future pre-SDK witness may provide a verified zero.
+    from pro_startup_import import media_failed_before_source
+    try:
+        media_failure=media_failed_before_source(run,read(run/'manifest.json'),state)
+        if media_failure is not None:
+            state={**state,'api_attempts':0,'api_attempts_unverified':False,
+                   'media_preflight_verified':True,'failure_reason':media_failure['failure_reason']}
+    except (ValueError,OSError,TypeError,KeyError,sqlite3.Error):
+        state={**state,'api_attempts':None,'api_attempts_unverified':True,
+               'media_preflight_error':'media_preflight_evidence_invalid'}
     return state
 
 def stop(root,payload):

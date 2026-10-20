@@ -583,6 +583,7 @@ class CloudWorker:
             if 'postprocessing_runs' not in state:state['postprocessing_runs']=prior.get('postprocessing_runs',[])
             if 'material_recompute_requests'not in state and 'material_recompute_requests'in prior:state['material_recompute_requests']=prior['material_recompute_requests']
             if 'postprocessing_contexts' not in state:state['postprocessing_contexts']=prior.get('postprocessing_contexts',{})
+            if 'terminal_recoveries' not in state and 'terminal_recoveries' in prior:state['terminal_recoveries']=prior['terminal_recoveries']
             if 'participant_pro_cursor' not in state and 'participant_pro_cursor' in prior:state['participant_pro_cursor']=prior['participant_pro_cursor']
             if 'pending_deliveries' not in state:state['pending_deliveries']=prior.get('pending_deliveries',[])
             if 'last_stop' not in state and 'last_stop' in prior:state['last_stop']=prior['last_stop']
@@ -610,6 +611,8 @@ class CloudWorker:
         count = sum(v.get('desired_state', 'running') == 'running'
                     for v in state.get('waiting_logins', []))
         effective = phase or ('waiting_login' if state.get('phase') == 'idle' and count else state.get('phase'))
+        if effective in ('terminal_recovery_parked', 'terminal_recovery_unknown'):
+            effective = 'paused'
         if effective == 'claiming' and not lease:
             return  # Empty queue polling must not evict actual run history.
         try:self.machine_steps.observe(state, effective)
@@ -1095,6 +1098,8 @@ class CloudWorker:
         except mc_runner.BridgeError:return None
 
     def _tick(self, state):
+        if state.get('phase') in ('terminal_recovery_parked', 'terminal_recovery_unknown'):
+            return {'state': state['phase'], 'source_outcome': 'unknown', 'api_attempts': None}
         # A login wait owns no running executor; other platforms may continue.
         waiting = state.get('waiting_logins', [])
         # Persist old journal bindings before a successful resume removes its wait.
@@ -1256,8 +1261,9 @@ class CloudWorker:
             self._save(state)
             if stage not in mc_runner.FINAL:
                 return {'state': 'running', 'local_stage': stage}
-            terminal_attempts=current.get('api_requests',current.get('api_attempts',0))
-            if current.get('api_attempts_unverified') is True or type(terminal_attempts)is not int or terminal_attempts<0 or terminal_attempts>lease['request'].get('max_api_requests',500):
+            terminal_attempts=current.get('api_requests',current.get('api_attempts'))
+            if (current.get('api_attempts_unverified') is True or type(terminal_attempts)is not int or terminal_attempts<0 or terminal_attempts>lease['request'].get('max_api_requests',500)
+                    or current.get('media_preflight_verified') is True and (stage!='failed' or self.outbox.stats(lease['run_id'])['capture_ids'])):
                 # Keep the original lease and reservation. Re-read only; never start,
                 # import or finish with a guessed zero/old parent sink count.
                 state['status_read_error']='runner_budget_unavailable'
@@ -1268,7 +1274,7 @@ class CloudWorker:
             if diagnostic is not None:state['run_diagnostic']=diagnostic
             else:state.pop('run_diagnostic',None)
             state.update(phase='importing', outcome='unknown' if stage == 'interrupted' else stage,
-                         api_attempts=current.get('api_requests', current.get('api_attempts', 0)))
+                         api_attempts=terminal_attempts)
             if state['outcome'] not in ('completed','stopped','failed','login_required'):
                 state['outcome'] = 'unknown'
             if state['outcome'] == 'login_required':

@@ -1104,8 +1104,10 @@ def _media_preflight_failure(run, manifest, stage, reason):
             or manifest['request'].get('source_executor') != 'pro'):
         raise ValueError('pro_media_preflight_scope_invalid')
     # A prior source invocation cannot acquire a new zero-attempt witness.
-    if any((run/name).exists() or (run/name).is_symlink() for name in (DB_NAME, 'request-budget.json', 'phase.json',
-            'mc-source-steps.sqlite3', 'pro-pagination.json', 'xhs-pro-media-intent.json')):
+    if any((run/name).exists() or (run/name).is_symlink() for name in (DB_NAME, DB_NAME+'-wal', DB_NAME+'-shm', 'request-budget.json', 'phase.json',
+            'mc-source-steps.sqlite3', 'mc-source-steps.sqlite3-wal', 'mc-source-steps.sqlite3-shm',
+            'pro-pagination.json', 'xhs-pro-media-intent.json', 'hybrid-media-dispatch.json',
+            'hybrid-media-result.json')):
         raise ValueError('pro_media_preflight_state_unknown')
     output=run/'output'
     if output.is_symlink() or output.exists() and any(output.rglob('*')):

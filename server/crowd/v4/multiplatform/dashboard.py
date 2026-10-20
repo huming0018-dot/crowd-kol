@@ -536,6 +536,8 @@ class Application:
         value = self._call_runner(root, action, payload)
         if action == 'import' and value.get('ok') is not False:
             imported = value.get('result', value)
+            if imported.get('media_preflight_verified') is True:
+                return value  # Proven pre-source failure creates no empty library/job.
             if isinstance(imported, dict) and 'records' in imported:
                 try:
                     from results_store import ResultsStore
@@ -838,6 +840,9 @@ class Application:
                 raise ValueError('invalid_batch_request')
             parsed = parse_batch(payload['text'], payload['mode'])
             return {**parsed, 'valid': parsed['ok'], 'ok': True}
+        if action == 'reconcile' and 'recovery_action' in payload:
+            from terminal_import_recovery import handle
+            return handle(self, payload)
         with self.lock:
             if self.owner_tasks is None:
                 self.owner_tasks = OwnerTasks(self.root, self.task_run)

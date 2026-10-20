@@ -57,4 +57,18 @@ class Preflight(unittest.TestCase):
   self.request['media']=False
   with self.assertRaises(ProbeBoundary):self.execute()
   self.pp.assert_called_once();self.dp.assert_not_called();self.assertFalse((self.run/'pro-media-preflight.json').exists())
+ def test_real_media_outputs_and_sqlite_residues_never_attest_zero(self):
+  names=('hybrid-media-result.json','hybrid-media-dispatch.json',P.DB_NAME+'-wal',P.DB_NAME+'-shm',
+         'mc-source-steps.sqlite3-wal','mc-source-steps.sqlite3-shm')
+  for name in names:
+   with self.subTest(artifact=name):
+    path=self.run/name;path.write_bytes(b'{"state":"completed","assets":[]}')
+    try:
+     with patch.dict(sys.modules,{'portable_node':None}):
+      with self.assertRaises(Exception):self.execute()
+     self.assertFalse((self.run/'pro-media-preflight.json').exists());self.pp.assert_not_called()
+    finally:
+     path.unlink()
+     witness=self.run/'pro-media-preflight.json'
+     if witness.exists():witness.unlink()  # Temp fixture cleanup isolates each old/new counterexample.
 if __name__=='__main__':unittest.main()
