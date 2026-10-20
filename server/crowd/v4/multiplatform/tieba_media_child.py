@@ -21,6 +21,9 @@ async def execute_payload(payload):
  if source.get('source_observation_sha256')!=digest(topics[0]):raise ValueError('tieba_media_source_changed')
  common=('note_id','title','desc','note_url','tieba_name','tieba_link','total_replay_num','total_replay_page')
  if any(topics[0].get(k)!=original.get(k) for k in common):raise ValueError('tieba_media_source_changed')
+ from pro_tieba_entry import verify_media_source,summary
+ expected_assets=verify_media_source(source)
+ if summary(run,manifest,sys.modules['pro_executor']).get('coverage') not in ('exhausted','limit_reached','not_requested'):raise ValueError('tieba_media_scope_unverified')
  fd=os.open(run/'hybrid-media-intent.json',os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600)
  with os.fdopen(fd,'w') as out:json.dump({'run_id':rid,'source_sha256':expected,'retry_unknown_forbidden':True},out)
  ledger=RunRequestBudget(run/'request-budget.json',rid,request_fingerprint(request),request['max_api_requests'])
@@ -32,7 +35,6 @@ async def execute_payload(payload):
  install_hybrid_transport_limits(httpx,requests,None,request,sink,ledger)
  expected_assets=source_assets(raw)
  if [x['transport_url'] for x in expected_assets]!=[x['url'] for x in extract_assets(raw)]:raise ValueError('tieba_media_extractor_changed')
- if not expected_assets:raise ValueError('tieba_media_missing_from_detail')
  async with httpx.AsyncClient(timeout=12,trust_env=False,follow_redirects=False) as client:result=await download_assets(raw,source['content_id'],run/'output',client)
  assets=[]
  for item in result['downloaded']:

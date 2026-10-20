@@ -97,6 +97,7 @@ def public_detail(raw):
    part=fields(x,{'text','c','type'});chosen=next(((k,x[k]) for k in keys if k in x and asset_url(x[k])),None)
    if chosen is not None:part[chosen[0]]=chosen[1]
    elif any(k in x for k in keys):raise TiebaStop('tieba_media_url_scope_unverified')
+   elif set(x)-{'type','text','c'} or type(x.get('type'))is not int or x['type']!=0 or not isinstance(x.get('text',x.get('c')),str):raise ValueError('tieba_zero_media_unverified')
    result.append(part)
   return result
  def post(value):
@@ -113,27 +114,62 @@ def public_detail(raw):
  if len(canonical(value).encode())>MAX:raise TiebaStop('tieba_detail_evidence_limit')
  return value
 
-def source_assets(raw):
+def source_assets(raw,*,references=False):
  """Retain the reported URL separately from mature downloader's canonical URL."""
  from tieba_media import asset_url
  keys=('origin_src','big_cdn_src','big_src','cdn_src','src','video_url');seen=set();items=[]
- for post in [raw.get('first_floor') or {},*(raw.get('post_list') or [])]:
+ for post_index,post in enumerate([raw.get('first_floor') or {},*(raw.get('post_list') or [])]):
   content=post.get('content',[])
   if isinstance(content,str):
    if re.search(r'<(?:img|source|video)\b',content,re.I):raise TiebaStop('tieba_html_media_original_url_unverified')
    continue
   if type(content)is not list:raise TiebaStop('tieba_media_content_invalid')
-  for part in content:
+  for part_index,part in enumerate(content):
    if type(part)is not dict:raise TiebaStop('tieba_media_content_invalid')
    chosen=next(((part[k],asset_url(part[k])) for k in keys if k in part and asset_url(part[k])),None)
    if chosen is None:
     if any(k in part for k in keys):raise TiebaStop('tieba_media_url_scope_unverified')
     continue
    original,transport=chosen
-   if transport in seen:continue
-   seen.add(transport);items.append({'original_url':original,'transport_url':transport,'source_post_id':str(post.get('id') or post.get('pid') or '')})
- if len(items)>3:raise TiebaStop('tieba_media_source_exceeds_existing_scope')
+   if transport in seen and not references:continue
+   seen.add(transport);items.append({'original_url':original,'transport_url':transport,'source_post_id':str(post.get('id') or post.get('pid') or ''),**({'source_slot':post_index,'content_index':part_index}if references else{})})
+ if len(seen)>3:raise TiebaStop('tieba_media_source_exceeds_existing_scope')
  return items
+
+def media_projection(pages):
+ """Page-bound public snapshots -> existing downloader shape, never platform parsing."""
+ if type(pages)is not list or not pages or len(pages)>1000:raise TiebaStop('tieba_media_pages_invalid')
+ references=[];unique={}
+ for number,page in enumerate(pages,1):
+  if type(page)is not dict or set(page)!={'page','raw','sha256'} or type(page['page'])is not int or page['page']!=number or page['sha256']!=digest(page['raw']) or public_detail(page['raw'])!=page['raw']:raise TiebaStop('tieba_media_pages_invalid')
+  for item in source_assets(page['raw'],references=True):
+   ref={**item,'page':number,'page_sha256':page['sha256']};references.append(ref);unique.setdefault(item['transport_url'],item)
+ if len(unique)>3:raise TiebaStop('tieba_media_source_exceeds_existing_scope')
+ # Topic fields remain the first original native page. Only the downloader's
+ # post list is a compact projection, so its existing first50 bound cannot
+ # silently omit media from later pages. Full page bodies/occurrences stay above.
+ raw={**pages[0]['raw'],'post_list':[{'id':x['source_post_id'],'content':[{'origin_src':x['original_url']}]}for x in unique.values()]}
+ if len(canonical({'pages':pages,'raw':raw,'references':references}).encode())>MAX:raise TiebaStop('tieba_media_source_limit')
+ return raw,references
+
+def verify_media_source(source):
+ try:
+  if source.get('schema_version')!=2 or type(source.get('schema_version'))is not int:raise ValueError('tieba_media_source_version')
+  raw,refs=media_projection(source['pages'])
+  if source.get('raw')!=raw or source.get('references')!=refs:raise ValueError('tieba_media_projection_changed')
+  assets=source_assets(raw)
+  if not assets:
+   def text_only(value):
+    if isinstance(value,list):return all(text_only(x)for x in value)
+    if isinstance(value,dict):
+     if any(k in value for k in ('origin_src','big_cdn_src','big_src','cdn_src','src','video_url')):return False
+     if 'type'in value and (type(value['type'])is not int or value['type']!=0 or not isinstance(value.get('text',value.get('c')),str)):return False
+     return all(text_only(x)for x in value.values())
+    if isinstance(value,str)and re.search(r'<(?:img|source|video)\b',value,re.I):return False
+    return True
+   if not all(text_only(page['raw'])for page in source['pages']):raise ValueError('tieba_zero_media_unverified')
+  return assets
+ except (TiebaStop,KeyError,TypeError):raise ValueError('tieba_media_source_invalid') from None
 
 async def run_detail(run,manifest,executor,handler):
  """Native DetailHandler hook: real original stores/CheckpointRepoManager retained."""
@@ -153,13 +189,32 @@ async def run_detail(run,manifest,executor,handler):
  async def commit(note,cursor,complete):await manager.update_note_comment_cursor(rid,note,str(cursor),is_success_crawled_comments=complete)
  # Media bytes run after source commit in the owned child; raw URL/source data
  # is retained privately in the run, never cloud telemetry.
- def media(raw,note,row):
-  path=Path(run)/'tieba-media-source.json';data={'run_id':rid,'content_id':note,'raw':public_detail(raw),'source_observation_sha256':digest(row)};rawbytes=(canonical(data)+'\n').encode()
-  if len(rawbytes)>8*1024*1024:raise TiebaStop('tieba_media_source_limit')
-  fd=os.open(safe_path(path),os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
-  with os.fdopen(fd,'wb') as out:out.write(rawbytes);out.flush();os.fsync(out.fileno())
- async def media_source(raw,note):
-  rows=await readback('topic',[note]);media(raw,note,rows[note])
+ def media(raw,note,row,page):
+  path=safe_path(Path(run)/'tieba-media-source.json');previous=read_json(path) if path.exists()else None
+  if previous is not None:
+   verify_media_source(previous)
+   bound=read_json(Path(run)/'pro-pagination.json')
+   if previous.get('run_id')!=rid or previous.get('content_id')!=note or previous.get('source_observation_sha256')!=digest(row) or bound.get('media_source_sha256')!=digest(previous):raise TiebaStop('tieba_media_source_changed')
+  pages=[] if previous is None else previous['pages']
+  if type(page)is not int or page!=len(pages)+1:raise TiebaStop('tieba_media_page_replayed')
+  projected=public_detail(raw);pages=pages+[{'page':page,'raw':projected,'sha256':digest(projected)}];merged,refs=media_projection(pages)
+  data={'schema_version':2,'run_id':rid,'content_id':note,'raw':merged,'pages':pages,'references':refs,'source_observation_sha256':digest(row)};rawbytes=(canonical(data)+'\n').encode()
+  if len(rawbytes)>MAX:raise TiebaStop('tieba_media_source_limit')
+  tmp=path.with_name('.tieba-media-'+uuid.uuid4().hex)
+  try:
+   fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+   with os.fdopen(fd,'wb')as out:out.write(rawbytes);out.flush();os.fsync(out.fileno())
+   if previous is None:os.link(tmp,path)
+   else:
+    if digest(read_json(path))!=digest(previous):raise TiebaStop('tieba_media_source_changed')
+    os.replace(tmp,path)
+   fd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+   try:os.fsync(fd)
+   finally:os.close(fd)
+  finally:tmp.unlink(missing_ok=True)
+  return digest(projected)
+ async def media_source(raw,note,page):
+  rows=await readback('topic',[note]);return media(raw,note,rows[note],page)
  detail=Detail(journal,readback,topic,store.batch_update_tieba_note_comments,commit,media_source if request['media'] else None)
  try:await detail.collect(handler.tieba_client,note_id,request['max_comments'],request['comments'],request['replies'])
  except BaseException:
@@ -187,7 +242,7 @@ def summary(run,manifest,executor):
   if not isinstance(pages,list) or len(pages)>1000 or len(topics)!=1:raise ValueError('tieba_journal_invalid')
   content=next(iter(topics));seen=set();roots={};children={};nextcursor=1;committed_any=False
   if manifest['request'].get('media'):
-   source=read_json(Path(run)/'tieba-media-source.json')
+   source=read_json(Path(run)/'tieba-media-source.json');verify_media_source(source)
    if source.get('run_id')!=manifest['run_id'] or source.get('content_id')!=content or source.get('source_observation_sha256')!=digest(topics[content]) or value.get('media_source_sha256')!=digest(source):raise ValueError('tieba_media_source_changed')
   for p in pages:
    if not isinstance(p,dict) or p.get('scope') not in ('root','reply') or p.get('content_id')!=content or p.get('selected_saved') is not True or type(p.get('checkpoint_committed'))is not bool or type(p.get('has_more'))is not bool:raise ValueError('tieba_page_invalid')
@@ -210,6 +265,9 @@ def summary(run,manifest,executor):
    if type(p.get('cursor_in'))is not int or type(p.get('cursor_out'))is not int or p['cursor_in']<1 or p['cursor_out']!=p['cursor_in']+1 or type(p.get('saved'))is not bool or p['saved'] is not (len(ids)==len(allids)):raise ValueError('tieba_cursor_invalid')
    if p['scope']=='reply' and p['checkpoint_committed'] is not False:raise ValueError('tieba_reply_checkpoint_invalid')
    if p['scope']=='root':
+    if manifest['request'].get('media'):
+     page=source['pages'][p['cursor_in']-1]
+     if p.get('media_page_sha256')!=page['sha256'] or [str(x.get('id'))for x in page['raw']['post_list']]!=allids:raise ValueError('tieba_media_page_changed')
     if p['saved'] is False and p['checkpoint_committed'] is not False:raise ValueError('tieba_partial_root_checkpoint_invalid')
     expected={x:rows[x]['sub_comment_count'] for x in ids}
     declared=p.get('reply_roots')
@@ -217,12 +275,13 @@ def summary(run,manifest,executor):
     if p.get('checkpoint_committed') is True:
      if p['cursor_in']!=nextcursor or type(p['cursor_out'])is not int or p['cursor_out']!=nextcursor+1:raise ValueError('tieba_cursor_invalid')
      nextcursor+=1;committed_any=True
+  if manifest['request'].get('media') and len(source['pages'])!=(len([p for p in pages if p['scope']=='root']) or 1):raise ValueError('tieba_media_pages_changed')
   if set(rows)!=seen or any(len(children.get(root,set()))!=row['sub_comment_count'] for root,row in roots.items()):raise ValueError('tieba_replies_incomplete')
   cp=executor.checkpoint(run,manifest);notes=cp.get('crawled_note_list') if isinstance(cp,dict) else None
   if not isinstance(notes,list) or len(notes)!=1 or notes[0].get('note_id')!=content or notes[0].get('is_success_crawled') is not True or notes[0].get('current_note_comment_cursor')!=(str(nextcursor) if committed_any else None) or notes[0].get('is_success_crawled_comments') is not (value['coverage']=='exhausted'):raise ValueError('tieba_checkpoint_mismatch')
   if value['coverage']=='limit_reached' and (cp.get('is_completed') is not False or cp.get('acquisition_committed') is not False):raise ValueError('tieba_global_complete_mismatch')
   return {'coverage':value['coverage'],'page_count':len(pages),'root_count':len(roots),'reply_count':len(rows)-len(roots),'checkpoint_verified':True,'cloud_ack':False}
- except (ValueError,OSError,KeyError,TypeError,RecursionError):return {'coverage':'unknown','reason':'tieba_evidence_unverified','cloud_ack':False}
+ except (ValueError,OSError,KeyError,TypeError,RecursionError,IndexError):return {'coverage':'unknown','reason':'tieba_evidence_unverified','cloud_ack':False}
 
 def finalize_scope(run,manifest,executor,assets):
  """Commit selected task scope only after durable media + three export readbacks."""
@@ -233,11 +292,11 @@ def finalize_scope(run,manifest,executor,assets):
  if coverage.get('coverage') not in ('limit_reached','exhausted','not_requested'):raise TiebaStop('tieba_scope_not_durable')
  rows=executor.observations(run,manifest);records=normalize_rows(rows,manifest['run_id']);request=manifest['request'];source=read_json(run/'tieba-media-source.json') if request['media'] else None
  if request['media']:
-  expected=source_assets(source['raw'])
-  if not expected or len(assets)!=len(expected):raise TiebaStop('tieba_media_partial')
+  expected=verify_media_source(source)
+  if len(assets)!=len(expected):raise TiebaStop('tieba_media_partial')
   for item,target in zip(assets,expected):
    path=safe_path(run/item['path'])
-   if not path.is_relative_to(run) or item.get('content_id')!=source['content_id'] or item.get('original_url')!=target['original_url'] or item.get('transport_url')!=target['transport_url']:raise TiebaStop('tieba_media_identity_changed')
+   if not path.is_relative_to(run) or item.get('content_id')!=source['content_id'] or item.get('original_url')!=target['original_url'] or item.get('transport_url')!=target['transport_url'] or item.get('source_page_sha256')!=digest(source):raise TiebaStop('tieba_media_identity_changed')
    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
    try:
     info=os.fstat(fd)
@@ -255,6 +314,7 @@ def finalize_scope(run,manifest,executor,assets):
    from saved_media_attachments import decode_bytes
    pixels=decode_bytes(content)
    if any(item.get(k)!=v for k,v in pixels.items()):raise TiebaStop('tieba_media_pixels_changed')
+ if source is not None:assets=[{**x,'source_references':[ref for ref in source['references']if ref['transport_url']==x['transport_url']]}for x in assets]
  exports=run/'output/tieba/verification-exports';safe_path(exports);exports.mkdir(parents=True,exist_ok=True)
  receipts={};packages={}
  # Reuse original ResultsStore serialization, with disposable verification DB.
@@ -291,8 +351,8 @@ def read_scope(run,manifest,executor):
   if not isinstance(assets,list):raise ValueError('tieba_scope_media_invalid')
   if type(value.get('platform_exhausted'))is not bool or value['platform_exhausted'] is not (current['coverage']=='exhausted') or type(value.get('source_rows'))is not int or value['source_rows']!=len(records) or type(value.get('media_rows'))is not int or value['media_rows']!=len(assets) or value.get('sdk_checkpoint_global_complete_unchanged') is not True:raise ValueError('tieba_scope_counts_or_completion_changed')
   if manifest['request'].get('media'):
-   source=read_json(run/'tieba-media-source.json');expected=source_assets(source['raw'])
-   if len(expected)!=len(assets) or not expected or any(x.get('content_id')!=source['content_id'] or x.get('original_url')!=wanted['original_url'] or x.get('transport_url')!=wanted['transport_url'] or x.get('source_page_sha256')!=digest(source) for x,wanted in zip(assets,expected)):raise ValueError('tieba_scope_media_source_changed')
+   source=read_json(run/'tieba-media-source.json');expected=verify_media_source(source)
+   if len(expected)!=len(assets) or any(x.get('content_id')!=source['content_id'] or x.get('original_url')!=wanted['original_url'] or x.get('transport_url')!=wanted['transport_url'] or x.get('source_page_sha256')!=digest(source) or x.get('source_references')!=[ref for ref in source['references']if ref['transport_url']==wanted['transport_url']] for x,wanted in zip(assets,expected)):raise ValueError('tieba_scope_media_source_changed')
   for asset in assets:
    path=safe_path(run/asset['path'])
    if not path.is_relative_to(run):raise ValueError('tieba_scope_asset_path')

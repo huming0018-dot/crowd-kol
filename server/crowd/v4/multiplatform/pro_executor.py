@@ -56,8 +56,21 @@ def supports_bili_audio_request(request):
             and options.get('long_audio') is True)
 
 
+def supports_tieba_detail(request):
+    """Only the existing single-post adapter, explicitly selected before any run."""
+    return (request.get('platform') == 'tieba' and request.get('mode') == 'detail'
+            and type(request.get('max_items')) is int and request['max_items'] == 1
+            and isinstance(request.get('targets'), list) and len(request['targets']) == 1
+            and isinstance(request['targets'][0], str) and bool(request['targets'][0])
+            and request.get('platform_options', {}) == {} and request.get('wordcloud', False) is False
+            and all(type(request.get(k)) is bool for k in ('comments', 'replies', 'media'))
+            and type(request.get('max_comments')) is int and request['max_comments'] >= 0)
+
+
 def explicit_unsupported(request, environ=None, *, native_comments=None):
     """Explicit task engines never silently substitute a different collector."""
+    if request.get('platform') == 'tieba':
+        return None if supports_tieba_detail(request) else 'pro_tieba_candidate_scope_unsupported'
     if request.get('platform')=='dy' and request.get('mode') in ('homefeed','trending'):
         if not dy_scope_enabled(request,environ):return 'pro_dy_discovery_disabled'
     if request.get('platform')=='zhihu' and (request.get('mode')!='detail' or request.get('max_items')!=1 or request.get('media') is not False or request.get('platform_options')!={}):
@@ -86,14 +99,39 @@ def owner_task_capabilities():
         modes=[]
         for mode in ('search','detail','creator'):
             request={'platform':platform,'mode':mode,'max_items':1 if mode=='detail' else 20,
-                     'comments':False,'replies':False,'media':False,'wordcloud':False,'platform_options':{}}
+                     'comments':False,'replies':False,'media':False,'wordcloud':False,'platform_options':{},'max_comments':20}
+            if platform == 'tieba': request['targets'] = ['1']
             reason=explicit_unsupported(request)
             modes.append({'id':mode,'adapted':reason is None,'reason':reason})
-        platforms.append({'id':platform,'adapter_state':'adapted' if platform in SUPPORTED else 'not_adapted',
+        platforms.append({'id':platform,'adapter_state':'adapted' if any(item['adapted'] for item in modes) else 'not_adapted',
                           'modes':modes,'upstream_support':'not_inferred_from_adapter'})
     return {'schema':'crowd-owner-pro-capabilities-v1','default_new_owner_executor':'pro',
             'platforms':platforms,'scope':'body_without_media_or_options',
             'exact_request_validation_required':True,'account_verified':False,'source_actions_started':0}
+
+
+def tieba_source_capabilities(app):
+    """Local feature declaration; execution still performs the official same-UID self check."""
+    from account_sessions import AccountSessions
+    sid = app._cloud_session({'platform': 'tieba'})
+    roots = [Path(root) for root in app._roots() if (Path(root)/'sessions'/sid).is_dir()]
+    if len(roots) != 1: raise ValueError('collector_session_ambiguous')
+    root = roots[0]
+    from mc_runner import BridgeError
+    try:
+        chosen = task_installation(root, {'source_executor': 'pro'})
+        bound = binding_for(root, {'platform': 'tieba', 'session_id': sid})
+        info = bridge().source_info(Path(chosen['root']))
+    except BridgeError as error: raise ValueError(str(error)) from None
+    if info.get('commit') != PINNED_COMMIT or info.get('dirty'): raise ValueError('pro_source_changed')
+    state = AccountSessions(root).status(sid, 'tieba')
+    if (chosen is None or bound.get('platform') != 'tieba'
+            or type(state.get('generation')) is not int or state['generation'] < 1
+            or not isinstance(state.get('account_ref'), str) or not re.fullmatch(r'[a-f0-9]{64}', state['account_ref'])
+            or state.get('login_in_progress') is True or state.get('state') in
+            ('account_changed', 'identity_unverified', 'waiting_login', 'checking', 'logged_out', 'check_failed')):
+        raise ValueError('pro_session_identity_unverified')
+    return ['pro_tieba_detail_v1']
 
 
 def task_installation(root, request):

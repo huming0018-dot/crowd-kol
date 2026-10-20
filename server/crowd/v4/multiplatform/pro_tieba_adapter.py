@@ -138,7 +138,7 @@ class Detail:
   saved=await self.readback('topic',[note_id]);row=saved.get(note_id)
   if not isinstance(row,dict) or any(row.get(k)!=v for k,v in note.model_dump().items()):raise TiebaStop('tieba_store_not_durable')
   if type(note.total_replay_page)is not int or note.total_replay_page<0:raise TiebaStop('tieba_page_count_invalid')
-  if self.media is not None:await self.media(raw,note_id)
+  media_hash=await self.media(raw,note_id,1) if self.media is not None else None
   selected=0;page=1
   if not comments:self.coverage='not_requested';self.reason='comments_not_requested';self.persist();return note
   while page<=note.total_replay_page:
@@ -148,9 +148,13 @@ class Detail:
    rawids=[str(x.get('id')) for x in raw['post_list'] if isinstance(x,dict)]
    if len(rawids)!=len(raw['post_list']) or rawids!=[str(x.comment_id) for x in models] or not models:raise TiebaStop('tieba_root_extraction_incomplete')
    if any(type(x.get('sub_post_number',0))is not int or x.get('sub_post_number',0)<0 or x.get('sub_post_number',0)!=m.sub_comment_count for x,m in zip(raw['post_list'],models)):raise TiebaStop('tieba_reply_count_invalid')
+   if page!=1 and str(client.page_extractor.extract_note_detail_from_api(raw).note_id)!=note_id:raise TiebaStop('tieba_content_identity_invalid')
+   if page!=1 and self.media is not None:media_hash=await self.media(raw,note_id,page)
    chosen=models[:max(0,max_roots-selected)] if max_roots else models
    p=await self.save(note_id,'root',chosen,page,page+1,page<note.total_replay_page,all_ids=rawids)
-   p['reply_roots']={str(x.comment_id):x.sub_comment_count for x in chosen};self.persist()
+   p['reply_roots']={str(x.comment_id):x.sub_comment_count for x in chosen}
+   if self.media is not None:p['media_page_sha256']=media_hash
+   self.persist()
    if replies:
     for root in chosen:await self.replies(client,note_id,root)
    p['replies_complete']=replies or not any(x.sub_comment_count for x in chosen);selected+=len(chosen)

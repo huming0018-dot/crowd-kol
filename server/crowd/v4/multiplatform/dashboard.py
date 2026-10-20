@@ -108,8 +108,13 @@ class Application:
     def _source_capabilities(self):
         from dy_task_scope import ready
         request={'platforms':['dy'],'source_executor':'pro','mode':'trending','desired_items':1,'max_api_requests':12,'timeout_seconds':120,'max_comments':3,'comments':True,'replies':True,'media':True}
-        try:return ready(self,request)
-        except (ValueError,OSError,SystemExit):return []
+        values=[]
+        try:values.extend(ready(self,request))
+        except (ValueError,OSError,SystemExit):pass
+        from pro_executor import tieba_source_capabilities
+        try:values.extend(tieba_source_capabilities(self))
+        except (ValueError,OSError,SystemExit):pass
+        return values
 
     def health(self):
         value = self.health_events.status()
