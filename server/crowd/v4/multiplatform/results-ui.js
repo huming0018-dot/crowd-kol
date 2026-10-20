@@ -115,8 +115,8 @@ const resultsView = (() => {
     panel.append(items,kind,reason,quote,experienceLabel,consentLabel,submit,check,button('刷新反馈记录',()=>load()),status,history);parent.append(panel);ownerDialog.addEventListener('close',()=>{ticket++;view=null;busy=false;});
     return {selectionChanged:load};
   }
-  const participantShare=node('details');participantShare.append(node('summary','分享参与者素材'));
-  const scopeSelect=node('select');scopeSelect.setAttribute('aria-label','分享哪批参与者素材');participantShare.append(scopeSelect);
+  const participantShare=node('details');participantShare.append(node('summary','参与者素材：版本、反馈与分享'));
+  const scopeSelect=node('select');scopeSelect.setAttribute('aria-label','参与者素材批次');participantShare.append(scopeSelect);
   let shareScopes=new Map(),shareGeneration=0;
   const proShare=attachPublicationShare(participantShare,dialog,()=>shareScopes.get(scopeSelect.value)||null);
   const materialFeedback=attachMaterialFeedback(participantShare,dialog,()=>shareScopes.get(scopeSelect.value)||null);
