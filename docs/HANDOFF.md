@@ -1,6 +1,16 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 00:18 CST｜正式消费已验；原机Pro依赖续接成功，便携Node源码已合入
+## 当前状态｜2026-10-21 00:54 CST｜120运行包已在原机实际采用；中央白名单已上线
+
+- **本轮进展**：上一轮是已改变正式源码/完成真实消费验收的progress；本轮继续完成原机120运行包采用、真实HELLO和中央迁移，不是仅候选或隔离通过。统一PRODUCT-PLAN的U01–U22范围不变，全产品尚未完成。
+- **原普通安装链/本机采用**：复用原assemble-pro-runtime/build_participant，完整包151成员、120 own文件（原113无删除）经非作者独立重建逐字节一致。发现本机缺现文档规定的pro-dependency-settings.json，普通安装将走不准备Node的旧分支；按原运营配置机制一次写入已验证0600描述符，原设置不改，无新增协议。随后从真实解包安装入口的prepare-and-configure-pro.py，仅调用依赖/绑定阶段一次exit0/upgraded，用时8.905128秒；未运行fullshell/reconnect或重新装Chrome。原helper现在实际指向runtime faea360b34b7a9599101b3689c67001f72ce917a4bbfc02b662c3632eb40c026，120manifest 5d292476332e18a322a04fadb378cc1b0edf1b7415b86f48e49f874de8195e2e，config SHA4a35503c5b3b26b41238106ec603c02a7bddb2d83acb74f506f5ef654a99923b；只entry路径改变，Python/executor/原六settings/Signer指针保持，旧113目录完整保留。
+- **Node/真实宿主**：原helper已准备固定官方Node arm64资源，archive/bin/LICENSE和module.check静态核对通过。原101控制页唯一G37零来源HELLO实际READY_CLEAN_CLOSED_PRESERVED，自己的连接关闭、host stopped/busyfalse；完整agent/pro/risk/四actor及双native表保持，原29仍complete2/2/pending0。维护时间字段有正常变化，不能称整个state响应字节不变。HELLO/validate_only不经过平台签名或证明平台登录；G30隔离ownedSigner证据仍单独列。旧UNKNOWN和旧once全部保留、不复用。
+- **中央正式上线**：Supabase原项目迁移20261020164814只向原pro_node_capable白名单增加5d292运行包。使用现MCP生成云账本版本再按实际version保存本地文件，未为缺CLI另装工具/伪造时间。实际function md5由319524f90ec0d11ea498642da34d26ae变686cdadf3247cd1a070d4743cafd699d；OID46770、ACL、search_path、security/stable/120s/额度及两个旧runtime保持。原3task+27proof+27receipt整行hash部署前后及G11历史57项完全一致。独审通过；源码8ab05612fa5e82c8193a6e474e85d40caa043475已推原分支并回读。没有伪造node能力心跳、赋新预算、重开任务或发起来源。advisor200项既有发现除观察时间/顺序保持，新增0，不冒系统安全全绿。
+- **正式消费保护**：Owner仍76467/owner-material-controls-labels-79f2d6952e936559、488文件；本轮未换Owner或知识服务。原标题/版本、反馈和多项目沿G32正式验收；采用及中央上线后正常工作台20次/16唯一URL导出再验全部等原字节/hash，原反馈/缺口响应不变。知识0.1.2仍proposed，未自动批准/release/pin。原身份、进度、评分、云回执、EXT101/helper59df和原OTA配置保持；本轮无新来源云ACK、无新OTA发布，也不把包内check-install说成完整开始安装.command用户全程通过。
+- **源码地图纠正**：参与端Pro正式Git源码实际位于同repo linkedworktree RUN/extension-worktree（本地branch codex/pro-participant-entry，clean HEAD1dad14f6ae09dd4e60c5de75b274bb8bf5306067）；本轮ls-remote确认crawler-extension原codex/v4.0.6-handoff也为1dad。35 EXT输入、Swift源及helper已与受pin原包对上。pushpull/crawler-extension工作树d94a2d9是分叉旧checkout（ahead1/behind11），不得直接覆盖其独有HOME补丁，也不能因它缺Pro源码就称正式源码丢失；后续先审查合流。正式采集核心仍Pro，私SDK不公开。
+- **下一步/未验**：先核分叉HOME补丁与已发布参与端合流、普通新设备授权依赖配置/恢复包及连续runtime OTA；再在新来源窗口下验证同账号登录恢复、正文/评论分页/媒体/四格式新云回执及第二设备。旧任务19/20/29完成不重开，旧grant窗口已过期、剩余额度不能当新来源许可；新来源必须走现中央新任务/窗口门。watchdog TOML已核PAUSED，本轮未启动48h实验，中央实验阶段未做新鲜查询；不自动恢复。知识真人审核、跨端及完整M0–M7两项目验收仍保留，不能以本轮安装门放行全产品。证据见本轮EVIDENCE，主要改动后继续更新此固定入口。
+
+## 历史快照｜2026-10-21 00:18 CST｜正式消费已验；原机Pro依赖续接成功，便携Node源码已合入
 
 - **用户路径**：原标题/版本、知识反馈、多项目仍沿下方2026-10-20 23:08正式验收：原4条正常UI新→旧→新、16格式原件匹配、反馈原SDK实库可读、多项目正常导出。未重采或重复反馈；知识0.1.2仍待人工审核，不自动批准/发布。Owner采用版本仍owner-material-controls-labels-79f2d6952e936559；源码新HEAD不等于Owner已换运行版本。
 - **原机实际续接**：正式PAGES安装器一次返回upgraded/exit0，依赖准备、原生validate_only和两Pro Python指针事务续接合计9.673922秒。原六设置不改，Pro配置与执行器指向同一新环境；Signer旧绑定、原113运行文件、helper、扩展101、原身份/进度/评分/账本/云回执/OTA配置保持。这里的耗时不是采集性能。原完整state读回task29 complete2/2、pending0、四来源actor均false；未重开任务。

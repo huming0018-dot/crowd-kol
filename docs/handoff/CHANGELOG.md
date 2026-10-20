@@ -976,3 +976,13 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **运行与业务验收**：原机依赖已续接、就绪已验；Node仅正式源码和隔离实际，未采用120运行包或发布新OTA。原4素材/反馈/多项目正式验收沿上一条证据，不重复提交。原身份、进度、评分、云ACK、OTA/113运行文件和账本保持，无新来源/新中央部署。停止任务不恢复，UNKNOWN不重放。
 - **遗留/下一步**：普通安装120包组装/采用/中央能力与新Mac门；原两设备同账号恢复、新来源完整性和连续无人值守OTA。知识proposed仍待真人决定；48h/watchdog暂停。手动源/云/发布验收不能用本轮零来源替代。
 - **证据/位置**：G33、G34、G30及独审精确路径见EVIDENCE；固定HANDOFF同步本轮日期、结论与下一步。无需新增交接入口。
+
+## 2026-10-21 00:54 CST｜原120运行包采用及中央白名单部署
+
+- **接力者/独审**：root统筹及唯一实际写；knowledge_reuse_probe组包/G37候选、独审A中央；central_steps独审组包/作者中央候选与portablePG21；native_diagnostics_review独审descriptor、实际安装及G37。作者机械重建与非作者审明确分开。
+- **目标/实际改动**：按原公开依赖资源+Pro原生协议接通普通安装续接链，不重写平台核心。复用原assembler/builder产生120包，配置原文档固定私描述符，包内wrapper原helper实际采用；原节点/平台绑定不改。正式SQL仅加一已审runtimeSHA，测试仅3处路径适配，PG断言保留。
+- **版本/文件**：crowd-kol8ab05612fa5e82c8193a6e474e85d40caa043475，PAGES仍23165e16ff0c66fa9cb8a792dc4e18f07142ab13。helper59df/EXT101不改；原helper新120/5d292已实际采用，Owner仍76467/488、知识234未换。云ledger20261020164814有唯一正式迁移，与Git SQL逐字一致。
+- **验证/结果**：独立151包成员/120清单/check-install通过；原wrapper一次8.905128秒upgraded，唯一路径配置变更、旧113保。G37真实ready/关闭/hoststopped、原16保护及完整业务/双native保持；不冒签名/登录。25native/RPC/comment回归、PG21及独立负例通过。中央新md5686cd，旧ACL/安全配置及57原行exact；200既有advisor发现保持，新增0。正式消费20读/16唯一URL及反馈/缺口再验通过。
+- **部署/业务界限**：本机已采用与中央已部署，不是仅离线候选；完整开始安装.command全流程、新Mac/第二设备、发布新包/OTA、平台认证、评论媒体新来源和新云ACK仍未验。本轮source0，原身份/进度/评分/ACK/OTA设置保；知识待审不自动批准。watchdog PAUSED、本轮未启动48h，中央实验阶段未fresh核。
+- **事实纠正/风险**：整state仅agent/pro/risk/四actor保持；三维护时间变化不冒整个响应全等。正式Pro参与端源在干净linkedworktree1dad而非分叉旧canonical d94a；后者HOME补丁需非破坏审查合流。旧窗口过期，不拿残额重开19/20/29或重复UNKNOWN。未为部署另装CLI；固定官方Node依赖资源已实际准备。
+- **下一步/证据**：按HANDOFF当前门推进普通授权依赖/恢复包与连续runtime OTA，核HOME分叉，新的中央来源窗口下实测同账号和完整性/两设备；M4真人决定、跨端和所有U项仍保留。G36/G37与独审详EVIDENCE，三固定文档同步，私有原件不上传。
