@@ -408,6 +408,17 @@ class Application:
             logging.getLogger('crowd.workbench.material_request').warning(json.dumps({'schema':'crowd-material-request-failure-v1','route':'data-product' if domain else 'materials','format':fmt,'error_code':code,'error_type':type(error).__name__},sort_keys=True))
             raise ValueError('material_delivery_unavailable') from None
 
+    def material_source_detail(self, body):
+        # Original verified publication only: no build, source, attach or import.
+        if type(body) is not dict or body:
+            raise ValueError('invalid_material_source_request')
+        from confirmed_material_detail import project
+        try:
+            return {'ok': True, **project(json.loads(self.material_delivery('json')), self.root,
+                                         lambda item: self.media_file(item))}
+        except (OSError, ValueError, KeyError, TypeError, RecursionError, ImportError):
+            raise ValueError('material_source_unavailable') from None
+
     def configure(self, body):
         if set(body) != {'mc_root'} or not isinstance(body['mc_root'], str):
             raise ValueError('invalid_configuration')
@@ -1374,6 +1385,8 @@ def make_server(app, port=45937):
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_watchlist_request')
                     return self.send(app.watches(body['action'], body['payload']))
+                if self.path == '/api/material-source':
+                    return self.send(app.material_source_detail(body))
                 if self.path == '/api/accounts':
                     if type(body.get('action')) is str and body['action'] in ACCOUNT_FAILURE_ACTIONS:
                         account_failure_action=body['action']

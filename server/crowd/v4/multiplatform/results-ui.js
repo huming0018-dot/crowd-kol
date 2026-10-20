@@ -74,6 +74,35 @@ const resultsView = (() => {
   attachPublicationShare(domainExports,dialog);
 
   const materialLink=node('a','查看当前已审素材');materialLink.href='/materials';materialLink.target='_blank';materialLink.rel='noopener';
+  // Read existing confirmed captures alongside immutable Consumer exports.
+  async function downloadRegisteredImage(item, still) {
+    if(!still())return;
+    if(typeof item.run_id!=='string'||typeof item.path!=='string'||!/^attachments\/[a-f0-9]{64}\/[a-f0-9]{64}\.(jpg|png|webp)$/.test(item.path))throw Error('图片登记未核验');
+    const response=await fetch('/api/media',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({run_id:item.run_id,path:item.path})});
+    if(!response.ok)throw Error('图片读取未通过核验');
+    const blob=await response.blob();
+    if(!still())return;
+    if(item.sha256){const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');if(blob.size!==item.bytes||hash!==item.sha256)throw Error('图片内容已变化');}
+    if(!still())return;
+    const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=item.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  async function showConfirmedSourceDetail() {
+    const ticket=++generation,still=()=>ticket===generation&&dialog.open;loading=false;
+    $('library_error').textContent='';$('library_summary').textContent='正在只读核对当前已审素材；不采集或重建。';
+    try{
+      const value=await api('/api/material-source',{});if(!still())return;
+      if(value.schema!=='crowd-confirmed-material-source-detail-v1'||!Array.isArray(value.contents)||!Array.isArray(value.comments)||!value.counts||value.source_calls!==0||value.publication_changed!==false)throw Error('原素材详情未通过核验');
+      const container=$('library_records');container.classList.add('detail');container.replaceChildren();container.append(button('返回资料列表',()=>load(true)),node('h3','当前已审素材：原正文、评论与已登记图片'),node('p','只展示已保存记录，覆盖范围为部分或未知；未取得的评论与图片不补造。旧四格式保持。'));
+      function card(item,label){const c=node('article');c.className='record';c.dataset.captureId=item.capture_id;c.append(node('strong',label),node('h3',item.title??'原记录未报告标题'),node('p',item.text));c.lastChild.className='body';c.append(node('small','正文/评论来源 run：'+item.capture_run_id));
+        for(const media of item.media||[]){if(media.state==='registered_verified'){const b=button('下载已登记原图',()=>guarded(async()=>{if(!still()||b.disabled)return;b.disabled=true;try{await downloadRegisteredImage(media,still);}finally{if(still())b.disabled=false;}}));c.append(b,node('small','图片来源 run：'+media.media_origin.run_id+'；登记原图来源与正文来源分别保留。'));}else c.append(node('small','图片仅有原始引用，未匹配到已登记原图；未下载。'));}
+        return c;}
+      const byId=new Map(value.comments.map(x=>[x.capture_id,x])),children=new Map();for(const item of value.comments){if(item.relationship==='reply'){if(!byId.has(item.parent_capture_id))throw Error('评论父子关系未通过核验');const rows=children.get(item.parent_capture_id)||[];rows.push(item);children.set(item.parent_capture_id,rows);}}
+      function appendComments(parent,items,seen=new Set()){for(const item of items){if(seen.has(item.capture_id))throw Error('评论关系循环');const next=new Set(seen);next.add(item.capture_id);const c=card(item,item.relationship==='root'?'已报告根评论':item.relationship==='reply'?'已报告回复':'关系未确认');if(item.parent_capture_id)c.dataset.parentCommentId=item.parent_capture_id;c.dataset.commentThread='confirmed';parent.append(c);appendComments(c,children.get(item.capture_id)||[],next);}}
+      for(const item of value.contents){const section=node('section');section.append(card(item,'原始正文'));const rows=value.comments.filter(x=>x.platform===item.platform&&x.content_id===item.content_id);appendComments(section,rows.filter(x=>x.relationship==='root'));const unknown=rows.filter(x=>x.relationship==='unassigned');if(unknown.length){section.append(node('h3','父子关系未确认'));appendComments(section,unknown);}container.append(section);}
+      $('library_summary').textContent='原正文 '+value.counts.contents+' · 已报告根评论 '+value.counts.roots+' · 回复 '+value.counts.replies+' · 关系未确认 '+value.counts.unassigned+'；不代表完整评论覆盖。';$('library_previous').disabled=$('library_next').disabled=true;
+    }catch{if(still())$('library_error').textContent='原素材详情未通过核验，原四格式与资料保留。';}
+  }
+  const confirmedDetail=button('查看已审素材正文、评论与原图',()=>guarded(showConfirmedSourceDetail));confirmedDetail.dataset.confirmedSourceDetail='current';
   const materialExports=node('details');materialExports.append(node('summary','导出当前已审素材'),node('p','导出当前发布批次的全部已审素材。'));
   for(const [format,path]of [['JSON','report.json'],['JSONL','materials.jsonl'],['CSV','materials.csv']]){const link=node('a',format);link.href='/materials/'+path;link.download='materials.'+format.toLowerCase();materialExports.append(link,document.createTextNode(' '));}
   const participantMaterialLink=node('a','查看参与者自动处理素材');participantMaterialLink.href='/materials/participants';participantMaterialLink.target='_blank';participantMaterialLink.rel='noopener';
@@ -175,7 +204,7 @@ const resultsView = (() => {
   }
   const refresh=button('刷新版本记录',()=>loadMaterialVersions());recompute.append(releaseSelect,create,engineCreate,check,refresh,versionSelect,select,recomputeStatus,versionLinks);participantShare.append(recompute);
   const originalSelection=scopeSelect.onchange;scopeSelect.onchange=()=>{originalSelection();void loadMaterialVersions();};dialog.addEventListener('close',()=>{materialTicket++;materialView=null;});
-  $('library_export').after(materialLink,materialExports,participantMaterialLink,participantShare);
+  $('library_export').after(materialLink,confirmedDetail,materialExports,participantMaterialLink,participantShare);
   let revision=null,offset=0,filters={},total=0,generation=0,loading=false;
   $('library_close').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{generation++;loading=false;launch.focus();});
   function getFilters(){const result={};if($('library_platform').value)result.platform=$('library_platform').value;if($('library_tag').value.trim())result.tags=[$('library_tag').value.trim()];if($('library_author').value.trim())result.author_id=$('library_author').value.trim();if($('library_kind').value)result.kind=$('library_kind').value;for(const [id,key]of [['library_after','published_after'],['library_before','published_before']])if($(id).value)result[key]=new Date($(id).value).toISOString();return result;}
@@ -211,11 +240,7 @@ const resultsView = (() => {
           if(ticket!==generation||!dialog.open)return;
           get.disabled=true;
           try{
-            const response=await fetch('/api/media',{method:'POST',headers:{'Content-Type':'application/json','X-Crowd-CSRF':token},body:JSON.stringify({run_id:item.run_id,path:item.path})});
-            if(!response.ok)throw Error((await response.json()).error||'图片读取失败');
-            const blob=await response.blob();
-            if(ticket!==generation||!dialog.open)return;
-            const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=item.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+            await downloadRegisteredImage(item,()=>ticket===generation&&dialog.open);
           }finally{get.disabled=false;}
         }));
         const cloudNote=node('small','原图已核验并保存在本机；尚未查询云端状态。');
