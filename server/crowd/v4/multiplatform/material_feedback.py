@@ -4,6 +4,7 @@ import datetime,fcntl,hashlib,json,os,stat,subprocess,tempfile,uuid
 from contextlib import contextmanager
 from owner_knowledge_binding import BindingError,canonical
 from toolbox.knowledge import AuthContext,KnowledgeStore,KnowledgeError
+import toolbox.knowledge as knowledge_sdk
 from publication_pro_share import private_dir,create
 from automatic_materials import write
 
@@ -22,6 +23,10 @@ KINDS=('preference','ignore','want_to_know','experienced')
 GAP_TYPES=('regression-miss','taxonomy-gap','rubric-gap')
 ACTIONS=('material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox','material_feedback_gap_preview','material_feedback_gap_submit','material_feedback_gap_status','material_feedback_gap_list')
 def digest(value):return hashlib.sha256(value).hexdigest()
+def gap_payload(event):
+ # Original 065 stores {}; pinned 615 exposes its own canonical semantic payload.
+ formatter=getattr(knowledge_sdk,'_canonical_gap',None)
+ return formatter(event) if formatter is not None else {}
 def fail(code):raise BindingError('material_feedback_'+code)
 def identifier(value):
  try:
@@ -212,6 +217,10 @@ class MaterialFeedback:
    # list_gaps establishes the existing consumer actor ACL before this one-row RO lookup.
    authorized=[v for v in st.list_gaps()if v['gap_id']==expected and v['submission_id']==expected and v['created_by']==self.actor]
    if len(authorized)!=1 or receipt['operation']!='gap' or receipt['actor_ref']!=self.actor or receipt['project_id']!=self.scope['project']:fail('gap_receipt_mismatch')
+   # Preserve historical empty submissions; never reinterpret their receipt as a new payload.
+   expected_payload={} if row['envelope']['payload_ref']['hash']==digest(canonical({})) else gap_payload(row['event'])
+   payload=st.get_payload(expected);expected_hash=digest(canonical(expected_payload))
+   if payload['payload_hash']!=expected_hash or receipt['payload_hash']!=expected_hash or json.loads(payload['payload_bytes'])!=expected_payload or row['envelope']['payload_ref']['hash']!=expected_hash:fail('gap_receipt_mismatch')
    v=st._conn.execute('SELECT gap_id,gap_type,submission_id,title,description,status,source_channel,evidence_refs_json,related_entity,created_by,created_at,receipt_seq FROM gaps WHERE gap_id=? AND created_by=?',(expected,self.actor)).fetchone()
    fields=('gap_id','gap_type','submission_id','title','description','status','source_channel','evidence_refs','related_entity','created_by','created_at','receipt_seq')
    actual=dict(zip(fields,v));actual['evidence_refs']=json.loads(actual['evidence_refs'])
@@ -247,7 +256,7 @@ class MaterialFeedback:
    h=digest(canonical(event))
    # SDK gap persists {}; bind the entire event in a separate typed source identity.
    refs=[{'category':'consumer_preference','locator':f['feedback_id'],'version':f['intent_id'],'hash':f['payload_sha256']},{'category':'crowd_observation','locator':f['target_ref'],'version':v['job_id'],'hash':v['record_hash']},{'category':'consumer_preference','locator':'material-gap-intent:'+iid,'version':iid,'hash':h}]
-   env={'contract_version':'ctfs-knowledge-envelope/0.1','submission_id':iid,'project_id':self.scope['project'],'pack_ref':v['pack_ref'],'channel':'consumer','actor':{'ref':self.actor},'purpose':'feedback_gap','consent_ref':None,'consent':{'scope':'private','granted_at':now,'granted_by':'central_owner_service'},'source_refs':refs,'payload_ref':{'store':'inline','key':iid,'type':'gap','hash':digest(canonical({}))},'operation':'gap','idempotency_key':iid}
+   env={'contract_version':'ctfs-knowledge-envelope/0.1','submission_id':iid,'project_id':self.scope['project'],'pack_ref':v['pack_ref'],'channel':'consumer','actor':{'ref':self.actor},'purpose':'feedback_gap','consent_ref':None,'consent':{'scope':'private','granted_at':now,'granted_by':'central_owner_service'},'source_refs':refs,'payload_ref':{'store':'inline','key':iid,'type':'gap','hash':digest(canonical(gap_payload(event)))},'operation':'gap','idempotency_key':iid}
    row={'state':'attempted_no_retry','gap_intent':iid,'input':p,'event':event,'event_sha256':h,'feedback_sha256':f['payload_sha256'],'envelope':env}
    if max(len(canonical(row)),len(canonical({**row,'state':'recorded'})))>MAX_JOURNAL_BYTES:fail('journal_limit')
    private_dir(path.parent);create(path,row)

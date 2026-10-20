@@ -14,9 +14,10 @@ class OwnerKnowledgePublicationService:
   raw=protected_bytes(path)
   if hashlib.sha256(raw).hexdigest()!=sha:raise BindingError('knowledge_host_config_changed')
   cfg=parse(raw)
-  if set(cfg)not in (KEYS,KEYS|{'material_root'}):raise BindingError('knowledge_host_config_invalid')
+  if set(cfg)not in (KEYS,KEYS|{'material_root'},KEYS|{'material_root','draft_manifest','draft_manifest_sha256'}):raise BindingError('knowledge_host_config_invalid')
   self.path,self.sha,self.client=path,sha,client
   self.material_root=cfg.get('material_root')
+  self.draft=({key:cfg[key]for key in ('draft_manifest','draft_manifest_sha256')}if 'draft_manifest'in cfg else None)
   self.review=OwnerKnowledgeService(cfg['review_config'],cfg['review_sha256'],client)
   self.publication=OwnerKnowledgePublication(cfg['publication_config'],cfg['publication_sha256'],client)
   if self.review.binding.config_sha256!=self.publication.binding.config_sha256:raise BindingError('knowledge_host_binding_mismatch')
@@ -84,6 +85,13 @@ class OwnerKnowledgePublicationService:
   self._check()
   if type(body)is not dict or set(body)!={'action','payload'}or type(body['action'])is not str or type(body['payload'])is not dict:raise BindingError('knowledge_request_invalid')
   action=body['action']
+  if action=='draft_preview':
+   if body['payload']!={}:raise BindingError('knowledge_request_invalid')
+   if not self.draft:
+    self.review.binding.authenticate(self.client)
+    return {'state':'knowledge_draft_preview','items':[],'live_database_changed':False,'decision_available':False}
+   from knowledge_draft_preview import preview
+   return preview(self.draft['draft_manifest'],self.draft['draft_manifest_sha256'],self.review.binding,self.client)
   if action in ('material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox','material_feedback_gap_preview','material_feedback_gap_submit','material_feedback_gap_status','material_feedback_gap_list'):
    if not self.material_root:raise BindingError('material_feedback_not_configured')
    from material_feedback import MaterialFeedback

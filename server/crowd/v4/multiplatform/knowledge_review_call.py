@@ -6,7 +6,7 @@ from workbench_material_call import command as material_command
 
 
 def call(config_path, cloud_config, body):
-    if type(body)is not dict or set(body)!={'action','payload'} or body['action'] not in ('preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read','material_releases','material_release_resolve','material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox','material_feedback_gap_preview','material_feedback_gap_submit','material_feedback_gap_status','material_feedback_gap_list') or type(body['payload'])is not dict:
+    if type(body)is not dict or set(body)!={'action','payload'} or body['action'] not in ('draft_preview','preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read','material_releases','material_release_resolve','material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox','material_feedback_gap_preview','material_feedback_gap_submit','material_feedback_gap_status','material_feedback_gap_list') or type(body['payload'])is not dict:
         raise ValueError('knowledge_request_invalid')
     raw=json.dumps(body,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()
     if len(raw)>32768:raise ValueError('knowledge_request_too_large')

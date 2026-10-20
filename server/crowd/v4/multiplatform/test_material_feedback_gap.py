@@ -5,7 +5,7 @@ from unittest.mock import patch
 HERE=Path(__file__).resolve().parent
 MP=Path(os.environ.get('CROWD_MP_ROOT',str(HERE)))
 sys.path[:0]=[str(Path(sys.argv.pop(1)) if len(sys.argv)>1 else Path(os.environ.get('CROWD_FEEDBACK_CANDIDATE',str(HERE)))),str(MP)]
-from material_feedback import MaterialFeedback,canonical,digest,read,write
+from material_feedback import MaterialFeedback,canonical,digest,read,write,gap_payload
 from toolbox.knowledge import KnowledgeStore
 from owner_knowledge_binding import BindingError
 class Gap(unittest.TestCase):
@@ -79,6 +79,8 @@ class Gap(unittest.TestCase):
  def test_sdk_full_event_hash_ref_blocks_same_uuid_changed_event(self):
   p=self.args();r=self.submit(p);row=read(self.service._gap_path(self.fid));changed=copy.deepcopy(row['event']);changed['description']='changed'
   env=copy.deepcopy(row['envelope']);env['source_refs'][-1]['hash']=digest(canonical(changed))
+  # Make a valid payload for the pinned SDK, then test the original idempotency barrier.
+  env['payload_ref']['hash']=digest(canonical(gap_payload(changed)))
   st=self.service.store()
   try:
    with self.assertRaisesRegex(Exception,'idempotency'):st.gap(env,changed)

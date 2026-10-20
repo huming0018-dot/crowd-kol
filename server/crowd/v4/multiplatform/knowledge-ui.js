@@ -6,6 +6,7 @@ const knowledgeView = (() => {
   dialog.setAttribute('aria-label', '知识提案审核'); body.className = 'dialog-body';
   const publicationBody = node('div'), feedbackBody = node('section'), gapsBody=node('section');
   dialog.append(close, feedbackBody, gapsBody, body, publicationBody); document.body.append(dialog);
+  const draftsBody=node('section');dialog.append(draftsBody);
   let generation = 0, busy = false, current = null, draftReason = '';
   const storageKey = 'crowd:knowledge:pending-intent';
   dialog.addEventListener('close', () => { generation++; current = null; });
@@ -173,10 +174,31 @@ const knowledgeView = (() => {
       if(value.next_cursor)feedbackBody.append(button('下一页反馈',()=>feedbackInbox(ticket,value.next_cursor)));
     } catch {if(valid())feedbackBody.replaceChildren(node('h2','素材反馈待处理'),node('p','反馈列表暂时无法核验；不会把错误显示为没有反馈。'),button('重读反馈列表',()=>feedbackInbox(ticket)));}
   }
+  async function drafts(ticket) {
+    draftsBody.replaceChildren(node('h2','知识草案与验证结果'),node('p','正在核对草案证据…'));
+    try {
+      const value=await call('draft_preview');
+      if(!isCurrent(ticket))return;
+      if(value.state!=='knowledge_draft_preview'||!Array.isArray(value.items)||value.items.length>20||value.live_database_changed!==false||value.decision_available!==false)throw Error('invalid_draft_preview');
+      draftsBody.replaceChildren(node('h2','知识草案与验证结果'));
+      if(!value.items.length)draftsBody.append(node('p','当前没有接入的知识草案。'));
+      for(const row of value.items){
+        if(row.published!==false||row.reviewed!==false||row.pin_changed!==false||row.knowledge_live_submission!==false)throw Error('invalid_draft_state');
+        const article=node('article');
+        article.append(node('h3',row.title),node('p','只读草案 · 未审核、未发布，现有结果与评分保持。'));
+        article.append(node('p','当前处理版本 '+row.original_processing_pack.version+'；生成上下文 '+row.proposal_base_ref.version+'；草案目标 '+row.draft_target_ref.version+'。'));
+        article.append(node('p','基于原4条素材的影响对照；隔离运行通过不等于正式重算或发布。'));
+        article.append(details('同输入对照与来源', {impact:row.same_input_impact,source:row.source,gap:row.original_gap_context}));
+        article.append(details('草案内容',row.objects),details('六文件改动',row.diff));
+        article.append(details('生成与发布边界',{generation:row.generation,limits:row.limits,next:row.publication_gap}));
+        draftsBody.append(article);
+      }
+    }catch{if(isCurrent(ticket))draftsBody.replaceChildren(node('h2','知识草案与验证结果'),node('p','草案证据暂时无法核验；不显示为没有草案，也不自动审核或发布。'));}
+  }
   async function show() {
     const ticket = ++generation; current = null; body.replaceChildren(node('p', '正在读取知识提案…'));
     if (!dialog.open) dialog.showModal();
-    publication(ticket);feedbackInbox(ticket);gapList(ticket);
+    publication(ticket);feedbackInbox(ticket);gapList(ticket);drafts(ticket);
     const last = remembered(); if (last) body.append(button('核对上次决定', () => check(last, ticket)));
     try { const value = await call('preview'); if (isCurrent(ticket)) { render(value, ticket); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
     catch { if (isCurrent(ticket)) { body.replaceChildren(node('p', '提案暂时无法读取或权限尚未接通；当前结果与原决定保留。')); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
