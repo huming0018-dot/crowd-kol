@@ -1,5 +1,16 @@
 # 交接变更日志
 
+## 2026-10-20 22:22 CST｜正式待审知识入口、原4素材版本与多项目消费验收
+
+- **接力/独审**：root接线、实际采用、正常UI送审与消费验证；central_steps采用器/配置/目录初始化；knowledge_reuse_probe原生组合及root Python、实际DB独审；native_diagnostics_review组合/UI/采用/实际与目录修复独审。B所写原生模块由C审，不自审冒独审。
+- **目标/实际改动**：保原SDK065与原数据，新增固定Owner目标准备/状态及原SDK提案组合、独立目标预览、两提案选择及命名隔离。配置parent7→9，新child6/Review6/Binding14；无迁移。原数据/评分不自动改，草案明确送审并保原SID，不自动审批/发布。
+- **文件/版本**：crowd-kol codex/v4.0.6-handoff，4a2e722d8ab446f2542f07fcccffe25956c21d28已推/远读；8代码/7测试/README，不夹带既有ASR/测试/历史dirty文档。正式Owner66999/488与知识234按冻结差异采用。新20私有候选/旧包/比较/配置资产不含公开Pro源码或凭据。
+- **验证/错误修复**：24Py+UI8/4/7/8、独立Python4、UI竞争RED→GREEN、采用18temp及目录5+独立3通过。实际原19/29共4条新→旧→新与48四格式读取逐SHA/bytes保持，原标题/全文/capture保真；前后20份项目导出相同。V1验证URL拼错404保留且按已成功选择续读，不重发该写。
+- **实际故障/修复**：首次送审UI UNKNOWN、原SID/INTENT无/知识15表全保；原运行栈确认新日志父目录缺失，鉴权1.277s后锁失败，总1.290s，不能冒成已证超时。C审固定4空目录0700初始化后，正常UI同SID再次明确送审成功；不改Binding/配置/原journal，不删除原失败。
+- **实际数据/保护**：只追加正式target proposal1/submission1/evidence3/audit2；原034/feedback9705/gaps及全部旧schema/rows保持，human review/grant/decision/release/pin/attempt0。采用瞬间1114+K57/五库/native/身份/settings/OTA保，追加后仅知识DB物理变化，其他1113保持。正常preview/status/20导出after通过。不是新抓取、新云ACK或新知识发布。
+- **下一步/风险**：新0.1.2目标仍待真人明确审核，再沿原生发布与同4输入影响验证；当前处理仍0.1.0，外部生成执行未验证。Pro隔离安装只有依赖ready，绑定续接实际因Signer未就绪HOLD；不得冒已发布新Mac包/OTA或两设备新采集通过。48h/watchdog继续暂停。双task_list合计可能超过25s是合同风险，尚不是本次缺目录故障归因，后续可单独优化；不得猜改timeout掩盖。
+- **证据/交接**：本轮EVIDENCE列精确原件和SHA；沿同一固定HANDOFF与模板每轮回写。读不到原件标未验证，保私有SDK/DB/源素材不公开；本轮未变MAC_HANDOFF或其他智能体未提交修改。
+
 ## 2026-10-20 18:20 CST｜正式只读知识草案、双协议兼容及消费保护
 
 - **人员**：root产品接线、正式采用与UI；central_steps依赖安装及采用器，knowledge_reuse_probe原生M4及非作者采用独审，native_diagnostics_review源码/原生链/实际运行独审。作者不替独审。

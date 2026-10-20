@@ -1,6 +1,16 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-20 18:20 CST｜知识草案已接正常工作台；原素材和多项目消费复验
+## 当前状态｜2026-10-20 22:22 CST｜原四素材正式消费复验；知识草案已进入正式待审
+
+- **源码/正式运行**：4a2e722d8ab446f2542f07fcccffe25956c21d28已推crowd-kol原分支并回读。正常45937唯一Owner66999，owner-knowledge-target-3b0868bace699fd8（488文件/8覆盖）；知识knowledge-owner-target-46deba2503be3197（234文件/7覆盖），仍原SDK065/schema13。仅采用冻结差异，不冒整个HEAD都在运行。parent服务保原7字段加target二字段；outer5字段SHA2adf578fc4e0dcdf6fd05b518174e39a69b1a91f3c257ed59847e3d8994b8c9c。材料13配置、G17/G25资产和原处理包保留。
+- **原4条与多项目实际验收**：正常API原19/29分别新版→旧版→原新版，4次明确本机选择，48次HTML/JSON/JSONL/CSV读取逐SHA及bytes匹配历史原件；新版4条标题/全文与原Pro record逐项相等，完整capture保留。最终均原新版。采用前后各20份正常导出读回保持（含软件更新项目/六店）；不冒这些为新来源采集或知识0.1.2重算。首次验证脚本误用items.jsonl得到404，原失败与接续过程保留，V2只续已成功选择，不重复该写。
+- **正常知识入口/真实入库**：草案卡明确“送审当前草案”，原SDK Owner私有提案prop:g26-owner-social-target-012已正式入库，social-observations0.1.2/proposed；固定SID的journal recorded。正常UI/API可切原034与新目标，审核/发布/页面记录分开。DB精确仅追加proposal1/submission1/evidence3/audit2，全部旧schema/rows保持。原9705反馈仍1/c7缺口含总2/034仍proposed；旧反馈与缺口本轮只核验，未重复提交。生成上下文0.1.1与目标0.1.2分开，当前素材仍0.1.0；外部产物执行仍未验证，不冒在线模型执行。
+- **修复/独审**：B独审Python24+独立4，C独审UI8及旧4/7/8/正常routes4，另有原生组合772e门。修复审核响应提前解锁的并发竞态、未知声明计数文案。实际第一次送审UNKNOWN保留；B原环境复现1.290s鉴权成功后因新intent父目录漏建而锁失败，SDK/INTENT均0；不是已证超时。目录窄修经C独审，只初始化固定两父/两叶0700，不改Binding、配置、旧journal或编号；随后正常UI同SID明确送审成功。未把未知提交自动重发。
+- **保护/边界**：采用瞬间1114原路径+知识57路径、五库/知识全部业务行/双本地native/host/settings保持；合法新增后仅知识DB原物理SHA变化，其余1113保持，知识按上述精确追加验证，不能称全部字节不变。原参与身份、进度、评分、云回执及OTA配置保留；无本轮新采集、云ACK重交、中央部署、媒体上传或OTA发布。真人批准、review grants/decisions/releases/pins/attempts仍0。48h实验/watchdog仍暂停。
+- **未验/下一步**：此轮达到正式消费、反馈/缺口可读与活库目标待审，尚非知识发布闭环。下一步由真人明确审核新目标，再按原生release与同4条影响对照验证结果采用；不得自动批准/发布、重开原19/20/29或换key重放UNKNOWN。Pro安装绑定V2离线审过，但隔离实际入口停在现Signer缺失（原8990、旧探针8989均无监听），只有依赖准备；未采用原机绑定或发布新安装/OTA。先按原绑定校验Signer原生就绪，不能以临时OS/Chrome fixture称完整新Mac安装。
+- **证据/接力**：原件根仍pro-participant-native-entry；读G27-owner-target-ui、G27-owner-target-adoption、G27-owner-target-directory-repair及review/g27*；精确SHA见EVIDENCE本轮。PRIVATE/SQLite/原素材/Pro源码仅本地，在线接力者不可访问则标未验证。继续PRODUCT-PLAN统一主线，主要改动后按固定模板回写；不要另建正式库或重写Pro采集核心。
+
+## 历史快照｜2026-10-20 18:20 CST｜知识草案已接正常工作台；原素材和多项目消费复验
 
 - **源码与正式采用**：7bb6c0cd9c1449910dd55afc7237585ee749476e已推crowd-kol原分支并回读。正常45937唯一Owner47915，owner-draft-preview-b2f3084f09ee16e0，485文件/5覆盖；知识knowledge-draft-preview-2e447584ac0ff39c，231文件/4覆盖。只采用冻结差异，不称整个HEAD都已运行。知识继续原065，outer仍5字段/SHA3335ceb3cb8a0dc3f830b196b244090caee2a8749cf7d15d214af578d0dd394a；新service保原5字段加2草案pin。材料13字段/G11 worker、G17四快照与原配置前像保留。
 - **正常用户路径**：原知识更新中反馈、知识缺口及034提案仍可读，新加“知识草案与验证结果”。原4条此前完成new→back→new及72次四格式读取，本轮采用前后各16读取逐SHA保持；另一软件更新项目采用后4格式保持。正常UI已显示原9705反馈、原c7缺口、原034与新草案；反馈/缺口/publication读回与采用前完全相同，本轮没有重复提交或新抓取。

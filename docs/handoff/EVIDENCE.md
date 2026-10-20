@@ -1,5 +1,29 @@
 # 交接证据索引
 
+## 2026-10-20 22:22 CST｜G27正式目标提案与原4素材真实消费
+
+原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。以下是本轮可复核原件，PRIVATE/DB/素材不提交或公开；只读者无法访问必须标未验证。
+
+| 范围 | 原件 | SHA256/结果 |
+|---|---|---|
+| 8产品/7测试冻结 | G27-owner-target-ui/FREEZE-V3.json | 65fd52cff50085bc7411adc480d611cfda55c743ddb59e19fad3c3682d3e69e6；24Py、UI8/4/7/8绿 |
+| Python非作者 | review/g27-owner-target-independent/PYTHON-FINAL.json | 37f3b68b31ef7dce8dcab190c3027f359dc2a6477d62441c1ca960b8b82c1c7f；24+独立4 |
+| UI非作者 | review/g27-owner-target-ui/FINAL-V3.json | dc689d7bf14b25c7351f4fbe292030c9199e000a6cc0e01aac73b3fd78c16ad7；原竞态RED/修复回归保留 |
+| 原生提案/preview独审 | review/g26-owner-target/FINAL-V2.json | 772eaaa0b3b824eb783ef0fc872b5ca6d0799dad245dd236c89c22f1e6fd80ee；原SDK065/不自审B模块 |
+| 采用代码/两PLAN独审 | review/g27-owner-target-adopter/PLAN-FINAL.json | 6fed4fd740eadbb7c845ed24eebc464303d96a1d51d7dbf8a7d1641747d26eeb；18temp、0写dryrun |
+| 实际采用 | G27-owner-target-adoption/runtime-adoption/ADOPTED.json | ef32c5b339de9140021ca303712aa919288275a4363fb44c94e471e2f1803d82；66999/488、知识234 |
+| 采用瞬间保护独审 | review/g27-owner-target-adopter/ACTUAL-ADOPTION-INSTANT.json | 84ad651b9c91cdb1760d0dab4ee7c4c21390e55b7b772f6a5b155824c8ecfccf；1114+K57/五库/native原样 |
+| 原4素材实际版本/导出独审 | review/g27-owner-target-adopter/ACTUAL-VERSION-READBACK.json | d7c7951e5b01b570a4df88f5d2ee4bb0ecaf42774ac78554dbf096ab96abdc5a；48逐SHA/bytes相同、最终原new |
+| 原第一次送审失败 | G27-owner-target-ui/ACTUAL-FIRST-UNKNOWN-UI.txt；review/g27-owner-target-actual-delta/PREWRITE-ROOT-CAUSE.json | 原UNKNOWN不删除；后者72aa1cc47d31bbadfd38080a6d2bd259cd2769f309cf11b436cb47761a5eed68；原运行鉴权成功后缺父目录锁失败，无SDK写 |
+| 目录初始化独审/实际 | review/g27-owner-target-adopter/DIRECTORY-REPAIR-FINAL.json；G27-owner-target-directory-repair/ACTUAL-APPLY.json | 380e5bea106957d90a36ac8bf6d8f377909b28d8c8d77ea925d22bf0086fe65d；只固定4空目录700，不改config/SID |
+| 独立活库追加 | review/g27-owner-target-actual-delta/ACTUAL-DELTA-FINAL.json | 516946fe112c2417c26a51d4f388207116fcd3aa3fdc6cd84b76a2bd05a65c04；旧15表rows保，严格+1/+1/+3/+2 |
+| 第二份活库独审 | review/g27-owner-target-adopter/ACTUAL-KNOWLEDGE-APPEND.json | aa14a02b4137f04a16a8ad4f7e1742d980e5dffb5ac6811640c6941019da20dc；target proposed，审核发布0 |
+| 追加后原资产保护 | review/g27-owner-target-adopter/ACTUAL-POST-INTAKE-PROTECTION.json | a32e9f50e77039e52357c921a48fd5165b3a99c8c91d2718c8262ebeca3820be；1113原件保持，仅知识DB合法物理变化 |
+| 最终正式运行独审 | review/g27-owner-target-adopter/ACTUAL-FINAL.json | fa73ca73c24c048bf6ffa8aff1e3a03d6543b014a62642bab2feed4ac4be1781；正式Caller/DB/运行资产及消费综合有限PASS |
+| 正常Owner最终回读 | G27-owner-target-ui/ACTUAL-AFTER-READBACK.json | target_status recorded/preview proposed，两提案选择；20导出SHA不变、原feedback/gap/publication等前像 |
+
+本轮不等于真人批准、知识发布/新版素材采用、新云ACK/远端设备验收/新OTA。Pro绑定实际入口HOLD见G26-pro-binding-continuation-v2/ACTUAL-ENTRY-binding_success与ACTUAL-BINDING.log：现Signer未就绪，之前离线8609门不代替实际采用。原验证脚本404见G27-owner-target-ui/VERSION-VERIFY-V1-FAILURE.json与V1/V2脚本，48为V2完整成功读取数，不隐藏首轮失败。
+
 ## 2026-10-20 18:20 CST｜G22–G25原生候选与正式工作台
 
 原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。只公开证据索引，不提交PRIVATE、SQLite、素材或Pro源码；在线读者读不到原件必须标未验证。
