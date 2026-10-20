@@ -1408,6 +1408,8 @@ def make_server(app, port=45937):
                 return self.send({'ok': False, 'error': message if message.replace('_', '').isalnum() else 'invalid_request'}, 400)
 
     class Server(ThreadingHTTPServer):
+        # Cover the existing eight export downloads plus UI polling burst.
+        request_queue_size = 64
         def server_close(self):
             app.health_events.close()
             if app.analysis_jobs is not None:

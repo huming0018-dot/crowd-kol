@@ -19,7 +19,7 @@ def read(path):
   return json.loads(raw)
 
 KINDS=('preference','ignore','want_to_know','experienced')
-ACTIONS=('material_feedback_preview','material_feedback_submit','material_feedback_status')
+ACTIONS=('material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox')
 def digest(value):return hashlib.sha256(value).hexdigest()
 def fail(code):raise BindingError('material_feedback_'+code)
 def identifier(value):
@@ -84,6 +84,32 @@ class MaterialFeedback:
   return [read(p)for p in files]
  def response(self,row):
   return {'state':'pending_feedback'if row['state']=='recorded'else 'outcome_unknown','intent_id':row['intent_id'],'feedback_id':row.get('feedback_id'),'pro_key':row['input']['pro_key'],'request':row['input']['request'],'kind':row['input']['kind'],'principal_kind':'central_owner_service','human_uid':None,'knowledge_scope':self.scope,'source_project':row['payload']['source_project'],'pack_ref':row['payload']['pack_ref'],'reviewed':False,'published':False,'pin_changed':False}
+ def inbox(self,payload):
+  if set(payload)!={'after'}:fail('request_invalid')
+  after=payload['after']
+  if after is not None:identifier(after)
+  self.check()
+  with self.lock():
+   paths=sorted(self.folder.glob('*.json'),key=lambda p:p.stem)
+   if len(paths)>2000:fail('journal_limit')
+   for path in paths:identifier(path.stem)
+   selected=[p for p in paths if after is None or p.stem>after]
+   page=selected[:20];items=[];store=None
+   try:
+    for path in page:
+     row=read(path)
+     if row['intent_id']!=path.stem:fail('journal_invalid')
+     if row['state']!='recorded':
+      items.append({'state':'outcome_unknown','intent_id':row['intent_id'],'principal_kind':'central_owner_service','human_uid':None,'reviewed':False,'published':False})
+      continue
+     if store is None:store=self.store(True)
+     receipt=store.get_receipt(row['intent_id']);value=store.get_payload(row['intent_id']);event=store.get_feedback('fb:'+row['intent_id'])
+     if receipt['actor_ref']!=self.actor or receipt['project_id']!=self.scope['project']or receipt['operation']!='feedback'or value['payload_hash']!=row['payload_sha256']or json.loads(value['payload_bytes'])!=row['payload']or event['payload_hash']!=row['payload_sha256']or event['submission_id']!=row['intent_id']or event['target_ref']!=row['target_ref']or event['kind']!=row['payload']['kind']:fail('receipt_mismatch')
+     v=row['payload']
+     items.append({'state':'pending_feedback','intent_id':row['intent_id'],'feedback_id':event['event_id'],'principal_kind':'central_owner_service','human_uid':None,'source_project':v['source_project'],'pro_key':v['pro_key'],'job_id':v['job_id'],'request':v['request'],'record_hash':v['record_hash'],'pack_ref':v['pack_ref'],'kind':v['kind'],'reason':v['reason'],'quote':v['quote'],'reviewed':False,'published':False})
+   finally:
+    if store:store.close()
+   return {'state':'material_feedback_inbox','knowledge_scope':self.scope,'items':items,'next_cursor':page[-1].stem if len(selected)>20 else None,'indexed':len(paths),'reviewed':False,'published':False}
  def preview(self,payload):
   if set(payload)!={'pro_key'}:fail('request_invalid')
   self.check();s=self.resolver(self.root,payload['pro_key'])
@@ -154,4 +180,4 @@ class MaterialFeedback:
     if store:store.close()
  def request(self,action,payload):
   if type(payload)is not dict:fail('request_invalid')
-  return {'material_feedback_preview':self.preview,'material_feedback_submit':self.submit,'material_feedback_status':self.status}[action](payload)
+  return {'material_feedback_preview':self.preview,'material_feedback_submit':self.submit,'material_feedback_status':self.status,'material_feedback_inbox':self.inbox}[action](payload)

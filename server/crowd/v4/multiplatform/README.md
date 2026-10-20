@@ -233,3 +233,12 @@ Pro 原标题独立于正文进入素材标题和证据字段；只有空标题�
 资料库“参与者素材”页面的“项目交付”链接打开 `/data-products`。项目登记在运行根目录的 `data-products/project-publications.json`，仅 Owner 配置；每个项目继续使用原 `publication_reader.py` 和五字段读配置，经 Manifest、项目、报告、工具箱及六文件规则包核验后提供 HTML、JSON、JSONL、CSV。URL 不接收本地路径。原 `/materials` 和 `/data-product` 保持各自原数据。列表只代表已登记，打开核验成功才代表可消费。
 
 回归入口：`test_material_feedback.py`、`test_material_feedback_routes.py`、`test_material_current_engine.py`、`test_project_publications.py`，以及 `node test_material_feedback_ui.mjs`、`node test_material_current_engine_ui.mjs`。SDK 测试使用已安装 toolbox 的解释器；私有原数据须显式提供 `CROWD_MATERIAL_TEST_ROOT`、`CROWD_OWNER_TEST_PYTHON`、`CROWD_PRO_ACK_FIXTURE`，版本变更测试还需显式提供旧版不可变代码目录 `CROWD_PREVIOUS_MATERIAL_RUNTIME`，项目 HTTP 测试另需 `CROWD_PROJECT_TEST_CONFIG`、`CROWD_PROJECT_TEST_LEGACY_ROOT`。缺输入报错，原数据不随源码分发；所有业务写入仅发生在测试临时副本。正式运行和实际反馈入库证据见固定 HANDOFF。
+
+
+### 素材反馈待处理列表
+
+正式工作台「知识更新」会读取 `material_feedback_inbox`，按原授权空间分页显示已保存的素材反馈，每页最多20条，保留提交时的素材版本、来源、知识包和回执。沿现有知识SDK只读核对原提交与反馈事件，不新建数据库或执行采集；读取失败显示错误，不冒充空列表。未知反馈只保留原编号供显式查询，不自动重发、审核或发布。当前本机列表仅索引该授权空间内的原提交日志，不宣称覆盖异机未同步反馈。
+
+Owner 标准 HTTP 接收队列容量为64，以承载并发导出及页面轮询；不改变 Host、Origin、CSRF 校验，不靠重试掩盖连接失败。该值经过有限负载验证，不代表无限并发。
+
+回归：`test_material_feedback_inbox.py` 使用原 `test_material_feedback.py` 的临时SDK夹具及保存的真实ACK；沿用 `CROWD_MATERIAL_TEST_ROOT`。`test_material_feedback_inbox_routes.py`、`test_material_feedback_inbox_ui.mjs` 和 `test_dashboard_http.py` 覆盖原服务/子进程、界面与 HTTP 安全门。测试不对正式反馈库写入。

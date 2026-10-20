@@ -4,8 +4,8 @@ const knowledgeView = (() => {
   const call = (action, payload = {}) => api('/api/knowledge', {action, payload});
   const dialog = node('dialog'), body = node('div'), close = button('关闭', () => dialog.close());
   dialog.setAttribute('aria-label', '知识提案审核'); body.className = 'dialog-body';
-  const publicationBody = node('div');
-  dialog.append(close, body, publicationBody); document.body.append(dialog);
+  const publicationBody = node('div'), feedbackBody = node('section');
+  dialog.append(close, feedbackBody, body, publicationBody); document.body.append(dialog);
   let generation = 0, busy = false, current = null, draftReason = '';
   const storageKey = 'crowd:knowledge:pending-intent';
   dialog.addEventListener('close', () => { generation++; current = null; });
@@ -85,10 +85,41 @@ const knowledgeView = (() => {
       }
     } catch { if (isCurrent(ticket)) publicationBody.append(node('p', '发布前置尚未接通或记录待核对；原决定、现有结果保持。')); }
   }
+  let feedbackGeneration = 0;
+  async function feedbackInbox(ticket,after=null) {
+    const request=++feedbackGeneration,valid=()=>isCurrent(ticket)&&request===feedbackGeneration;
+    feedbackBody.replaceChildren(node('h2','素材反馈待处理'),node('p','正在核对已保存反馈…'));
+    try {
+      const value=await call('material_feedback_inbox',{after});
+      if(!valid())return;
+      if(value.state!=='material_feedback_inbox'||!Array.isArray(value.items)||value.items.length>20)throw Error('invalid_feedback_inbox');
+      feedbackBody.replaceChildren(node('h2','素材反馈待处理'),node('p','反馈已保存不等于已审核或更新知识。这里只读取本授权空间中、本机提交的素材反馈。'));
+      feedbackBody.append(button('刷新反馈列表',()=>feedbackInbox(ticket)));
+      if(!value.items.length)feedbackBody.append(node('p','本页暂无素材反馈；已有提案与结果保留。'));
+      const kinds={preference:'偏好',ignore:'不感兴趣',want_to_know:'进一步了解',experienced:'已体验反馈'};
+      for(const row of value.items){
+        const article=node('article'),note=node('p');
+        article.append(node('h3',row.state==='outcome_unknown'?'提交结果待核对':(kinds[row.kind]||'素材反馈')+' · 已入库，未审核'));
+        if(row.state!=='outcome_unknown'){
+          article.append(node('p',row.reason||''));
+          if(row.quote)article.append(node('blockquote',row.quote));
+          if(/^pro-[a-f0-9]{64}$/.test(row.pro_key)&&/^[a-f0-9]{64}$/.test(row.job_id)){
+            const link=node('a','查看提交时的原素材版本');link.href='/materials/pro/'+row.pro_key+'/versions/'+row.job_id;article.append(link);
+          }
+          article.append(details('原素材、版本与回执',{project:row.source_project,job_id:row.job_id,request:row.request,record_hash:row.record_hash,pack:row.pack_ref,feedback_id:row.feedback_id,principal:row.principal_kind,human_uid:row.human_uid}));
+        } else article.append(node('p','保留原编号，仅核对结果；不会重发反馈或创建知识决定。'));
+        article.append(node('p','反馈编号：'+row.intent_id),button('核对原反馈',async()=>{
+          try{const result=await call('material_feedback_status',{intent_id:row.intent_id});if(valid())note.textContent='原反馈状态：'+result.state+'；未审核、发布。';}
+          catch{if(valid())note.textContent='原反馈暂时无法核对；不自动重发。';}
+        }),note);feedbackBody.append(article);
+      }
+      if(value.next_cursor)feedbackBody.append(button('下一页反馈',()=>feedbackInbox(ticket,value.next_cursor)));
+    } catch {if(valid())feedbackBody.replaceChildren(node('h2','素材反馈待处理'),node('p','反馈列表暂时无法核验；不会把错误显示为没有反馈。'),button('重读反馈列表',()=>feedbackInbox(ticket)));}
+  }
   async function show() {
     const ticket = ++generation; current = null; body.replaceChildren(node('p', '正在读取知识提案…'));
     if (!dialog.open) dialog.showModal();
-    publication(ticket);
+    publication(ticket);feedbackInbox(ticket);
     const last = remembered(); if (last) body.append(button('核对上次决定', () => check(last, ticket)));
     try { const value = await call('preview'); if (isCurrent(ticket)) { render(value, ticket); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
     catch { if (isCurrent(ticket)) { body.replaceChildren(node('p', '提案暂时无法读取或权限尚未接通；当前结果与原决定保留。')); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
