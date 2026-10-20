@@ -258,13 +258,31 @@ class ResultsStore:
                 CREATE INDEX IF NOT EXISTS evaluation_version ON evaluations(entity,version_hash,revision);
             ''')
 
+    @classmethod
+    def existing(cls, root):
+        """Read an existing store without creating directories or running schema DDL."""
+        base = Path(root).expanduser().absolute()
+        if base.resolve() != base or not base.is_dir():
+            raise ValueError('unsafe_results_root')
+        reader = cls.__new__(cls)
+        reader.root = base / 'results'
+        reader.path = reader.root / 'results.sqlite3'
+        if reader.path.resolve() != reader.path or not reader.path.is_file():
+            raise ValueError('results_database_unavailable')
+        reader._read_only = True
+        return reader
+
     def _connect(self):
         if self.path.is_symlink():
             raise ValueError('unsafe_results_database')
-        db = sqlite3.connect(str(self.path), timeout=10)
+        readonly = getattr(self, '_read_only', False)
+        if readonly and self.path.resolve() != self.path:
+            raise ValueError('unsafe_results_database')
+        db = (sqlite3.connect(self.path.as_uri() + '?mode=ro', uri=True, timeout=10)
+              if readonly else sqlite3.connect(str(self.path), timeout=10))
         db.row_factory = sqlite3.Row
         db.execute('PRAGMA busy_timeout=10000')
-        db.execute('PRAGMA journal_mode=DELETE')
+        db.execute('PRAGMA query_only=ON' if readonly else 'PRAGMA journal_mode=DELETE')
         return db
 
     def _revision(self, db, revision):

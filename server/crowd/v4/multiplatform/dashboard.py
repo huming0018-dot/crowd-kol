@@ -956,10 +956,16 @@ class Application:
         if run_id != body['run_id']:
             raise ValueError('invalid_run_id')
         if not artifact and body['path'].startswith('attachments/'):
+            import sqlite3
             from saved_media_attachments import SavedMediaAttachments
-            attachments = SavedMediaAttachments(self.root,
-                lambda rid: self._registered_run_root(rid) / 'runs' / rid, self.results_store)
-            return attachments.resolve(run_id, body['path'])
+            from results_store import ResultsStore
+            try:
+                attachments = SavedMediaAttachments(self.root,
+                    lambda rid: self._registered_run_root(rid) / 'runs' / rid,
+                    ResultsStore.existing(self.root))
+                return attachments.resolve(run_id, body['path'])
+            except sqlite3.Error:
+                raise ValueError('attachment_results_unavailable') from None
         response = self.run('import', {'run_id': run_id})
         if response.get('ok') is False:
             raise ValueError('results_not_ready')
