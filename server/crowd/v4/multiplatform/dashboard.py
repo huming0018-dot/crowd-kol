@@ -2,6 +2,7 @@
 """Local-only task UI for a separately installed MediaCrawler executor."""
 import argparse
 import logging
+import time
 from datetime import datetime, timezone
 from copy import deepcopy
 import base64
@@ -1208,6 +1209,28 @@ def log_account_request_failure(action,error):
  except Exception:
   pass # Diagnostics must not prevent the original bounded 400 response.
 
+MATERIAL_READ_ACTIONS=frozenset(('material_versions','material_feedback_preview'))
+MATERIAL_READ_CODES=frozenset(('knowledge_read_unavailable','knowledge_request_unavailable',
+ 'knowledge_result_invalid','knowledge_runtime_unsafe','knowledge_runtime_requires_0600',
+ 'knowledge_owner_principal_denied','owner_authorization_required','material_publication_unavailable',
+ 'material_publication_index_limit','material_feedback_not_ready','material_feedback_read_unavailable',
+ 'material_feedback_current_changed','material_feedback_scope_mismatch','material_feedback_receipt_mismatch',
+ 'cloud_read_unavailable','local_storage_unavailable','invalid_request'))
+_MATERIAL_READ_LOG=logging.getLogger('crowd.workbench.material_read')
+
+def log_material_read_failure(action,error,started,http_status):
+ """Reuse account diagnostics boundary: fixed fields, never raw request/error data."""
+ if action not in MATERIAL_READ_ACTIONS:return
+ try:
+  first=error.args[0] if error.args else None
+  code='local_storage_unavailable'if isinstance(error,sqlite3.Error)else first if type(first)is str and first in MATERIAL_READ_CODES else 'request_failed'
+  event={'schema':'crowd-material-read-failure-v1','route':'cloud','action':action,'phase':'route',
+         'http_status':http_status,'error_code':code,'elapsed_ms':max(0,min(600000,int((time.monotonic()-started)*1000))),
+         'utc':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),'correlation_id':str(uuid.uuid4())}
+  _MATERIAL_READ_LOG.warning(json.dumps(event,sort_keys=True,separators=(',',':')))
+ except Exception:pass # Diagnostics cannot replace the original bounded HTTP response.
+
+
 def make_server(app, port=45937):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -1307,6 +1330,8 @@ def make_server(app, port=45937):
             if not secrets.compare_digest(self.headers.get('X-Crowd-CSRF', ''), app.token):
                 return self.send({'ok': False, 'error': 'workbench_page_updated'}, 403)
             account_failure_action=None
+            material_read_action=None
+            material_read_started=None
             try:
                 length = int(self.headers.get('Content-Length', '0'))
                 limit = 131072 if self.path in ('/api/cloud', '/api/tasks') else 32768
@@ -1322,6 +1347,8 @@ def make_server(app, port=45937):
                 if self.path == '/api/cloud':
                     if set(body) != {'action', 'payload'}:
                         raise ValueError('invalid_cloud_request')
+                    if type(body.get('action'))is str and body['action']in MATERIAL_READ_ACTIONS:
+                        material_read_action=body['action'];material_read_started=time.monotonic()
                     return self.send(app.cloud(body['action'], body['payload']))
                 if self.path == '/api/health':
                     if body != {'action': 'status', 'payload': {}}:
@@ -1403,9 +1430,11 @@ def make_server(app, port=45937):
                         raise ValueError('invalid_stop_request')
                     body['payload']={**body['payload'],'origin':'user','reason':'user_stop'}
                 return self.send(app.run(body['action'], body['payload']))
-            except sqlite3.Error:
+            except sqlite3.Error as error:
+                if material_read_action is not None:log_material_read_failure(material_read_action,error,material_read_started,503)
                 return self.send({'ok': False, 'error': 'local_storage_unavailable'}, 503)
             except (ValueError, TypeError, OSError) as error:
+                if material_read_action is not None:log_material_read_failure(material_read_action,error,material_read_started,400)
                 if account_failure_action is not None:log_account_request_failure(account_failure_action,error)
                 message = str(error)
                 return self.send({'ok': False, 'error': message if message.replace('_', '').isalnum() else 'invalid_request'}, 400)
