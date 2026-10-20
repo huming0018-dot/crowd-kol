@@ -536,7 +536,7 @@ class Application:
         value = self._call_runner(root, action, payload)
         if action == 'import' and value.get('ok') is not False:
             imported = value.get('result', value)
-            if imported.get('media_preflight_verified') is True:
+            if isinstance(imported, dict) and imported.get('media_preflight_verified') is True:
                 return value  # Proven pre-source failure creates no empty library/job.
             if isinstance(imported, dict) and 'records' in imported:
                 try:
