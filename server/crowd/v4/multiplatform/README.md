@@ -180,7 +180,7 @@ python3 -m unittest test_mc_runner test_dashboard test_analysis test_owner_tasks
 
 ## 分享参与者已处理素材
 
-资料库中的“分享参与者素材”只列出已就绪的任务批次。Owner 选择批次后，显式生成链接：先把同一 Consumer 的 HTML/JSON/JSONL/CSV 保存到原私有发布桶，再逐格式回取核对，最后签发原有15分钟免登录链接。原六店领域入口和账号授权消费路径保留。正文、来源引用和跟踪编号会进入分享文件；媒体仅保留原引用，不包含媒体文件。
+资料库中的“参与者素材：版本、反馈与分享”只列出已就绪的任务批次。Owner 选择批次后，显式生成链接：先把同一 Consumer 的 HTML/JSON/JSONL/CSV 保存到原私有发布桶，再逐格式回取核对，最后签发原有15分钟免登录链接。原六店领域入口和账号授权消费路径保留。正文、来源引用和跟踪编号会进入分享文件；媒体仅保留原引用，不包含媒体文件。
 
 `publication_share` 原 `{request_id}` 协议不变。Pro 请求严格为 `{request_id,pro_key,operation}`，操作为 `publish`、`verify` 或 `links`。后端从原 ready context 和 ACK group 计算项目，并逐条匹配 receipt；客户端不能指定路径、项目或哈希。一个批次一个不可变包，沿用250000字节总限额。未知发布由包级 intent 阻止重传；“核对云保存”只读回取，确认后需再次显式生成链接。关闭或切换批次不会继续签链，链接不会自动续签。
 

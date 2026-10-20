@@ -957,3 +957,13 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - 下一步：按固定HANDOFF当前门推进Pro原生真实两设备/恢复/OTA与导出负载定位；本轮不宣告完整产品或启动实验。主要改动后按ENTRY_TEMPLATE回写，未知原ID只读核对。
 - 审查证据命名纠正：非作者后次wrapper误覆盖其未冻结初ADOPTION-READBACK（旧5ddd原bytes不可用），不重造；最终采用保护25564a0f和总审0ac40d58可复读。原PLAN/ADOPTED/backup/冻结/用户原件与业务数据未动，EVIDENCE-NAME-CORRECTION df1b49a1明示。原草稿审查是当时状态，不拿旧SHA当现存证据。
 - G13收尾d1c5d66a59aec9835ea8bdc572817178f526d26e：当前版本下拉默认值及已生效文案修复，原10+新增2 UI测试独审127a0d14。静态1JS采用B独审32ec28ec/10temp，实际Owner22870/owner-current-version-ui-380041e6d76a09d4，484→484；两配置/worker/知识230及884现资产不动。原19339是G11阶段版本，最终Owner以22870为准。实际DOM默认newdfe940a7和已生效文案确认，G13实际独审3ad4ee0d9ae196bf8b1cb5ef27a2c289f012c74e17b5e7f76e6198a7416fd9d8通过。
+
+## 2026-10-20 23:08 CST｜正式消费三项收口及可发现性修复
+
+- **接力者/独审**：Codex /root；非作者central_steps、knowledge_reuse_probe、native_diagnostics_review。
+- **目标/实际改动**：完成原4条标题/版本、知识反馈、多项目正式用户路径复验；仅重命名原素材details和批次aria，避免功能藏在分享名下。README入口名称同步，无新框架/依赖或采集核心替换。
+- **文件/版本**：results-ui.js、test_material_controls_label.mjs，正式源码d0234e49a880989546ab77a23574f2405a5974f1已推/回读；本条文档提交另记Git。采用Owner76467/owner-material-controls-labels-79f2d6952e936559，488文件单JS替换，不冒全部HEAD运行。
+- **验证**：正常UI19/29各new→old→new；16下载等历史字节与SHA；新版4标题/全文等原Pro。采用后20次/16唯一URL导出及knowledge复验通过。原9705/c7/两proposed与SDK/journal一致，0重复反馈/0审核发布。精确命令、结果与证据见EVIDENCE本轮节。
+- **独审/部署**：产品文案及10例采用框架/只读PLAN已独审；root唯一原adopter --apply exit0；非作者实际1349文件、五库/双native、知识234/15表、两配置、host/settings/身份全保持。已在正式45937打开新入口并留图；无中央部署/新OTA。
+- **边界/下一步**：原进度、评分、云ACK与OTA保留；本轮不重采不重算。知识0.1.2待人工决定与原生发布，普通新Mac/两设备新采集及连续OTA仍未因本轮放行。48h/watchdog暂停，继续PRODUCT-PLAN；不重开已完成任务或重放UNKNOWN。
+- **证据**：G32-formal-consumption-recheck、review/current-material-audit-20261020、review/g31-knowledge-consumption-readonly；正式HANDOFF/EVIDENCE同步。
