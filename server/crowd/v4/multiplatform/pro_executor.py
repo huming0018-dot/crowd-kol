@@ -82,7 +82,9 @@ def explicit_unsupported(request, environ=None, *, native_comments=None):
     audio_supported=supports_bili_audio_request(request)
     from pro_hybrid_media import supports_weibo_images
     wb_images_supported=supports_weibo_images(request)
-    if request.get('media') and not (audio_supported or wb_images_supported or dy_scope_enabled(request,environ)):
+    from pro_xhs_media import supports as supports_xhs_images
+    xhs_images_supported=supports_xhs_images(request)
+    if request.get('media') and not (audio_supported or wb_images_supported or xhs_images_supported or dy_scope_enabled(request,environ)):
         return 'pro_media_pipeline_unavailable'
     if request.get('wordcloud') or request.get('platform_options') and not audio_supported:
         return 'pro_options_unsupported'
@@ -446,7 +448,7 @@ def public_url(value):
     return value
 
 
-def import_records(run, manifest):
+def import_records(run, manifest, *, include_media_summary=True):
     """Reuse the established normalizer and retain Pro-specific public fields."""
     m = bridge()
     p = manifest['request']['platform']
@@ -518,7 +520,7 @@ def import_records(run, manifest):
                 'cloud_ack': False, 'raw_response_pages_available': False,
                 'pagination_evidence': 'upstream_checkpoint_only',
                 'media_evidence': 'references_only_no_download_or_transcript'}
-    if manifest['request'].get('media') and manifest['request'].get('source_executor')=='pro':
+    if include_media_summary and manifest['request'].get('media') and manifest['request'].get('source_executor')=='pro':
         from pro_media_integration import summary
         result=summary(run,manifest)
         evidence['media_evidence']='hybrid_result_verified_at_import' if result else 'hybrid_missing_or_failed_source_preserved'
@@ -1096,6 +1098,11 @@ def execute(run, manifest, *, mc_root=None):
     run = Path(run).resolve()
     selected, request = manifest['executor'], manifest['request']
     root = Path(selected['root'])
+    if request.get('platform')=='xhs' and request.get('media') is True:
+        from pro_xhs_media import dependency_binding
+        dependency_binding(Path(run).parent.parent)  # Fail before any SDK/platform request.
+        from portable_node import check as check_node
+        check_node(Path.home()/'Library/Application Support/CrowdV4Updater')
     # Recheck provenance immediately before code execution, not only at selection.
     probe(root)
     os.chdir(run)

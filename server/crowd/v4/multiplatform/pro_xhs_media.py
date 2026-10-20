@@ -1,0 +1,170 @@
+"""Own XHS image glue around a separately licensed Pro DownloadManager.
+No platform parser, downloader implementation, browser or account credentials.
+"""
+import hashlib,json,os,re,stat,subprocess,sys,uuid
+from pathlib import Path
+MANAGER_SHA='8fe88ee05ac91fa7e256be921b67e6fcb9396f337fed0a92f8ca12ea45e5c84e'
+ENGINE='native_pro_downloader'
+DRIVER_SHA='4d862e2741cbe07481713684fbdb7706ad6f57b5b4a41b33e36e2682935d8bea'
+AXIOS_INVENTORY_SHA='7341217843184a92af65c4a7125094242d5fe52c48f035740e7ab62fb89f85ba'
+
+def digest(value):
+ from shared_request_budget import canonical
+ return hashlib.sha256(value if isinstance(value,bytes) else canonical(value).encode()).hexdigest()
+
+def supports(request):
+ return (request.get('platform')=='xhs' and request.get('source_executor')=='pro' and request.get('media') is True
+  and request.get('mode') in ('search','detail','creator') and request.get('platform_options',{})=={} and request.get('wordcloud',False) is False)
+
+def plan(run,manifest):
+ from pro_executor import import_records
+ from saved_media_attachments import reference_transport
+ if not supports(manifest['request']) or Path(run).name!=manifest['run_id'] or str(uuid.UUID(manifest['run_id']))!=manifest['run_id']:raise ValueError('xhs_media_run_invalid')
+ records,refs,_=import_records(run,manifest,include_media_summary=False)
+ from pro_executor import observations
+ if any(row.get('type')!='normal' or type(row.get('image_list')) is not str for kind,_,row in observations(run,manifest) if kind=='topic'):raise ValueError('xhs_media_images_only_scope')
+ if not records or not any(r['kind']=='content' for r in records):raise ValueError('xhs_media_source_missing')
+ result=[];seen=set()
+ for ref in refs:
+  if ref.get('kind') not in ('image','comment_image','cover'):raise ValueError('xhs_media_video_not_adapted')
+  mid=ref['media_id'];cid=ref['content_id']
+  if not re.fullmatch('[0-9a-f]{64}',mid) or not re.fullmatch('[0-9a-f]{24}',cid) or mid in seen:raise ValueError('xhs_media_reference_invalid')
+  seen.add(mid);url=reference_transport(ref)
+  from urllib.parse import urlsplit
+  u=urlsplit(url)
+  if u.scheme!='https' or u.username or u.password or u.fragment or u.port not in (None,443) or not any(u.hostname==d or (u.hostname or '').endswith('.'+d) for d in ('xhscdn.com','xhsimg.com')):raise ValueError('xhs_media_reference_invalid')
+  result.append({'content_id':cid,'media_id':mid,'url':url})
+ return result
+
+def identity(run,manifest):
+ from account_sessions import AccountSessions
+ from analysis_artifact import _safe_ancestors
+ root=Path(run).parent.parent;sid=manifest['request']['session_id'];store=AccountSessions(root)
+ state=store.status(sid,'xhs')
+ if (state.get('state') not in ('authenticated','resumed') or state.get('login_verified') is not True or state.get('authorized_for_run')!=manifest['run_id'] or type(state.get('generation')) is not int or state['generation']<0 or not re.fullmatch('[0-9a-f]{64}',state.get('account_ref',''))):raise ValueError('xhs_media_identity_unverified')
+ paths=[store.root/sid/'state.json',root/'sessions'/sid/'identity.json',root/'sessions'/sid/'pro-binding.json']
+ # Reuse the existing fixed Pro binding reader; no browser credentials.
+ from pro_executor import binding_for
+ binding=binding_for(root,manifest['request'])
+ for p in paths[:2]:_safe_ancestors(p)
+ if (root/'sessions'/sid/'login-stop').exists():raise ValueError('xhs_media_identity_changed')
+ return {'session_id':sid,'state_path':str(paths[0]),'state_sha256':digest(paths[0].read_bytes()),'identity_path':str(paths[1]),'identity_sha256':digest(paths[1].read_bytes()),'binding_path':str(paths[2]),'binding_sha256':digest(paths[2].read_bytes()),'binding':binding}
+
+def check_context(run,manifest,intent):
+ from shared_request_budget import request_fingerprint
+ if (Path(run)/'stop.json').exists():raise SystemExit(74)
+ if dependency_binding(Path(run).parent.parent)['binding_sha256']!=intent.get('dependency_binding_sha256'):raise ValueError('xhs_media_dependency_binding_changed')
+ if manifest['run_id']!=Path(run).name or intent.get('run_id')!=manifest['run_id'] or intent.get('request_hash')!=request_fingerprint(manifest['request']) or intent.get('plan')!=plan(run,manifest) or intent.get('identity')!=identity(run,manifest):raise ValueError('xhs_media_context_changed')
+
+def guard(run,row):
+ from mc_runner import read
+ from shared_request_budget import RunRequestBudget,request_fingerprint
+ run=Path(run);manifest=read(run/'manifest.json');intent=read(run/'xhs-pro-media-intent.json');check_context(run,manifest,intent)
+ if type(row) is not dict or set(row)!={'method','url','media_id'} or row['method'] not in ('HEAD','GET') or not any(x['media_id']==row['media_id'] and x['url']==row['url'] for x in intent['plan']):raise ValueError('xhs_media_transport_scope')
+ # Every original-manager HEAD and GET is a real shared-budget attempt.
+ return RunRequestBudget(run/'request-budget.json',manifest['run_id'],request_fingerprint(manifest['request']),manifest['request']['max_api_requests']).debit('media')
+
+def verify_assets(run,manifest,assets):
+ from saved_media_attachments import safe_path,read,decode_bytes
+ expected=plan(run,manifest)
+ if type(assets) is not list or len(assets)!=len(expected):raise ValueError('xhs_media_asset_set_mismatch')
+ result=[]
+ from pro_executor import import_records
+ refs={r['media_id']:r for r in import_records(run,manifest,include_media_summary=False)[1]}
+ for item,a in zip(expected,assets):
+  if type(a) is not dict or a.get('content_id')!=item['content_id'] or a.get('source_media_id')!=item['media_id'] or a.get('transport_url')!=item['url'] or a.get('media_engine')!=ENGINE or a.get('content_engine')!='mediacrawler_pro' or a.get('source_kind')!='mediacrawler_api' or a.get('reward_eligible') is not False or a.get('kind')!='image':raise ValueError('xhs_media_asset_binding_invalid')
+  p=Path(a['path']);p=p if p.is_absolute() else Path(run)/p;p=safe_path(p,Path(run)/'output')
+  expected_path=Path(run)/'output/xhs/media'/item['content_id']/(digest(item['media_id'].encode())+'.png')
+  if p!=expected_path:raise ValueError('xhs_media_asset_path_invalid')
+  data=read(p,2097152);decoded=decode_bytes(data)
+  if p.stat().st_nlink!=1:raise ValueError('xhs_media_asset_path_invalid')
+  if not data or type(a.get('bytes')) is not int or a.get('bytes')!=len(data) or a.get('sha256')!=digest(data):raise ValueError('xhs_media_asset_changed')
+  result.append({**a,'path':str(p.relative_to(run)),'platform':'xiaohongshu','original_url':refs[item['media_id']]['url'],'status':'downloaded_by_native_pro_downloader','width':decoded['width'],'height':decoded['height'],'rgba_sha256':decoded['pixel_sha256']})
+ # Nothing outside the verified object set may be admitted by the scanner.
+ folder=Path(run)/'output/xhs/media'
+ files={p for p in folder.rglob('*') if p.is_file()} if folder.exists() else set()
+ if files!={Path(run)/a['path'] for a in result}:raise ValueError('xhs_media_unregistered_asset')
+ return result
+
+
+def dependency_binding(root):
+ """Private operator local-reference metadata; never task/browser supplied paths."""
+ from saved_media_attachments import safe_path,read_json_object,read
+ try:driver=read(Path(__file__).with_name('pro_xhs_download.mjs'),1048576)
+ except (OSError,ValueError):raise ValueError('xhs_media_driver_unavailable') from None
+ if digest(driver)!=DRIVER_SHA:raise ValueError('xhs_media_driver_changed')
+ p=safe_path(Path(root)/'pro-xhs-media.json');info=p.stat()
+ if info.st_mode&0o077 or info.st_uid!=os.getuid():raise ValueError('xhs_media_dependency_binding_invalid')
+ value=read_json_object(p,1048576)
+ if (set(value)!={'schema','manager_path','manager_sha256','axios_root','axios_files'} or value['schema']!='crowd-pro-xhs-download-manager-v1' or value['manager_sha256']!=MANAGER_SHA or type(value['axios_files']) is not dict or not value['axios_files']):raise ValueError('xhs_media_dependency_binding_invalid')
+ source=safe_path(value['manager_path']);axios_root=safe_path(value['axios_root'])
+ if digest(read(source,1048576))!=MANAGER_SHA:raise ValueError('xhs_manager_changed')
+ if digest(value['axios_files'])!=AXIOS_INVENTORY_SHA:raise ValueError('xhs_media_dependency_inventory_untrusted')
+ actual={str(f.relative_to(axios_root)) for f in axios_root.rglob('*') if f.is_file() or f.is_symlink()}
+ if actual!=set(value['axios_files']):raise ValueError('xhs_media_dependency_files_changed')
+ for name,expected in value['axios_files'].items():
+  f=safe_path(axios_root/name,axios_root)
+  if not re.fullmatch('[0-9a-f]{64}',expected) or digest(read(f,8388608))!=expected:raise ValueError('xhs_media_dependency_files_changed')
+ if json.loads(read(axios_root/'node_modules/axios/package.json',1048576)).get('version')!='0.21.4' or json.loads(read(axios_root/'node_modules/follow-redirects/package.json',1048576)).get('version')!='1.15.9':raise ValueError('xhs_media_dependency_version_changed')
+ return {**value,'binding_path':str(p),'binding_sha256':digest(p.read_bytes())}
+
+def execute_payload(payload,*,launch=None):
+ """Explicit own child entry. Tests may inject transport, main has no such flag."""
+ from mc_runner import read,write
+ from shared_request_budget import request_fingerprint,RunRequestBudget
+ from saved_media_attachments import safe_path
+ run=safe_path(payload['run']);manifest=read(run/'manifest.json');request=manifest['request']
+ if payload.get('request_hash')!=request_fingerprint(request) or payload.get('headers')!={}:raise ValueError('xhs_media_request_mismatch')
+ items=plan(run,manifest);rows=__import__('pro_executor').observations(run,manifest)
+ expected_topics=[row for kind,_,row in rows if kind=='topic']
+ if payload.get('note')!=expected_topics or payload.get('response')!={'xhs_plan_sha256':digest(items)}:raise ValueError('xhs_media_source_changed')
+ binding=dependency_binding(run.parent.parent);context=identity(run,manifest)
+ intent={'run_id':manifest['run_id'],'request_hash':payload['request_hash'],'plan':items,'identity':context,'dependency_binding_sha256':binding['binding_sha256'],'retry_unknown_forbidden':True}
+ fd=os.open(run/'xhs-pro-media-intent.json',os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_WRONLY,0o600)
+ with os.fdopen(fd,'w') as f:json.dump(intent,f);f.flush();os.fsync(f.fileno())
+ check_context(run,manifest,intent)
+ folder=run/'output/xhs/media';safe_path(folder);folder.mkdir(parents=True,exist_ok=True)
+ if any(folder.rglob('*')):raise ValueError('xhs_media_output_exists')
+ if not items:assets=[]
+ elif launch is None:
+  from portable_node import check
+  node=check(Path.home()/'Library/Application Support/CrowdV4Updater')
+  driver=Path(__file__).with_name('pro_xhs_download.mjs')
+  command=[str(node),'--experimental-vm-modules',str(driver)]
+  env=os.environ.copy()
+  for name in ('NODE_OPTIONS','NODE_PATH','PYTHONHOME'):env.pop(name,None)
+  own={'run':str(run),'root':str(folder),'items':items,'binding':binding,'identity':context,'python':sys.executable,'guard_module':str(Path(__file__).resolve()),'timeout':min(30000,int(request['timeout_seconds']*1000))}
+  done=subprocess.run(command,input=json.dumps(own).encode(),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,timeout=request['timeout_seconds'])
+  if done.returncode in (73,74):raise SystemExit(done.returncode)
+  if done.returncode!=0 or len(done.stdout)>1048576:raise ValueError('xhs_media_failed_or_unknown')
+  assets=json.loads(done.stdout)
+ else:assets=launch(items,folder)
+ check_context(run,manifest,intent);assets=verify_assets(run,manifest,assets)
+ ledger=RunRequestBudget(run/'request-budget.json',manifest['run_id'],payload['request_hash'],request['max_api_requests'])
+ result={'schema_version':1,'run_id':manifest['run_id'],'request_hash':payload['request_hash'],'state':'completed','assets':assets,'subtitle_available':False,'api_attempts':ledger.snapshot()['used'],'cloud_ack':False,'content_engine':'mediacrawler_pro','media_engine':ENGINE}
+ write(run/'hybrid-media-result.json',result);return result
+
+def summary(run,manifest,value):
+ from mc_runner import read
+ from shared_request_budget import RunRequestBudget,request_fingerprint
+ intent=read(Path(run)/'xhs-pro-media-intent.json')
+ if intent.get('plan')!=plan(run,manifest) or intent.get('request_hash')!=request_fingerprint(manifest['request']) or intent.get('run_id')!=manifest['run_id']:raise ValueError('xhs_media_source_changed')
+ assets=verify_assets(run,manifest,value.get('assets'))
+ ledger=RunRequestBudget(Path(run)/'request-budget.json',manifest['run_id'],request_fingerprint(manifest['request']),manifest['request']['max_api_requests'])
+ if assets!=value['assets'] or value.get('api_attempts')!=ledger.snapshot()['used'] or value.get('state')!='completed':raise ValueError('xhs_media_result_changed')
+ return value
+
+if __name__=='__main__':
+ try:
+  raw=sys.stdin.buffer.read(131073)
+  if len(raw)>131072:raise ValueError('xhs_media_guard_input_invalid')
+  if len(sys.argv)==3 and sys.argv[1]=='--guard':guard(Path(sys.argv[2]),json.loads(raw));print('ok')
+  elif len(sys.argv)==1:
+   from bili_media_child import install_watchdog
+   payload=json.loads(raw);run=Path(payload['run']);manifest=json.loads((run/'manifest.json').read_text());os.chdir(run)
+   stopped=install_watchdog(run,manifest['request'])
+   try:execute_payload(payload)
+   finally:stopped.set()
+  else:raise ValueError('xhs_media_args_invalid')
+ except SystemExit:raise
+ except BaseException:raise SystemExit(87) from None

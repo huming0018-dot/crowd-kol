@@ -30,7 +30,10 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
  from shared_request_budget import request_fingerprint
  run=Path(run);manifest=json.loads((run/'manifest.json').read_text());request=manifest['request']
  if str(uuid.UUID(run.name))!=run.name or manifest['run_id']!=run.name:raise ValueError('hybrid_media_run_invalid')
- if request['platform']=='dy':
+ if request['platform']=='xhs':
+  if headers!={}:raise ValueError('xhs_media_credentials_forbidden')
+  child=Path(__file__).with_name('pro_xhs_media.py')
+ elif request['platform']=='dy':
   if headers!={}:raise ValueError('hybrid_douyin_credentials_forbidden')
   child=Path(__file__).with_name('dy_media_child.py')
  elif request['platform']=='tieba':

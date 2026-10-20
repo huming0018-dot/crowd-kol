@@ -44,6 +44,11 @@ class MediaStage:
   except (KeyError,TypeError,AttributeError,ValueError):return
  def run(self,run,manifest,rows,*,mc_root,remaining):
   if not self.enabled:return None
+  if manifest['request'].get('platform')=='xhs':
+   import sys,shared_request_budget
+   from pro_xhs_media import plan,digest
+   items=plan(run,manifest);topics=[row for kind,entity,row in rows if kind=='topic']
+   return run_media_child(run,topics,{'xhs_plan_sha256':digest(items)},{},python=Path(sys.executable),mc_root=Path(__file__).parent,runtime_root=Path(__file__).parent,budget_module_root=Path(shared_request_budget.__file__).parent,timeout=remaining)
   from pro_hybrid_media import supports_request
   tieba=(manifest['request'].get('platform')=='tieba' and manifest['request'].get('mode')=='detail' and manifest['request'].get('max_items')==1 and manifest['request'].get('platform_options',{})=={})
   from pro_douyin_entry import supports as supports_dy
@@ -87,7 +92,10 @@ def summary(run,manifest):
  path=Path(run)/'hybrid-media-result.json'
  if not path.exists():return None
  value=_read(path,1048576)[0]
- if not isinstance(value,dict) or type(value.get('schema_version')) is not int or value.get('schema_version')!=1 or type(value.get('api_attempts')) is not int or not 0<=value['api_attempts']<=manifest['request']['max_api_requests'] or value.get('run_id')!=manifest['run_id'] or value.get('request_hash')!=request_fingerprint(manifest['request']) or value.get('state') not in ('completed','partial') or value.get('cloud_ack') is not False or value.get('content_engine')!='mediacrawler_pro' or value.get('media_engine')!='native_mc_media_only' or not isinstance(value.get('assets'),list):raise ValueError('hybrid_media_result_binding_invalid')
+ if not isinstance(value,dict) or type(value.get('schema_version')) is not int or value.get('schema_version')!=1 or type(value.get('api_attempts')) is not int or not 0<=value['api_attempts']<=manifest['request']['max_api_requests'] or value.get('run_id')!=manifest['run_id'] or value.get('request_hash')!=request_fingerprint(manifest['request']) or value.get('state') not in ('completed','partial') or value.get('cloud_ack') is not False or value.get('content_engine')!='mediacrawler_pro' or value.get('media_engine')!=('native_pro_downloader' if manifest['request'].get('platform')=='xhs' else 'native_mc_media_only') or not isinstance(value.get('assets'),list):raise ValueError('hybrid_media_result_binding_invalid')
+ if manifest['request'].get('platform')=='xhs':
+  from pro_xhs_media import summary as xhs_summary
+  return xhs_summary(run,manifest,value)
  if manifest['request'].get('platform')=='wb':
   from pro_executor import observations
   from wb_media_child import verify_assets
@@ -108,19 +116,23 @@ def annotate_import(run,manifest,media):
  result=summary(run,manifest)
  if result is None:return
  expected=result['assets'];paths=set()
+ engine='native_pro_downloader' if manifest['request'].get('platform')=='xhs' else 'native_mc_media_only'
  from cloud_sync import canonical
- fields=(('path','bytes','sha256','platform','content_id') if manifest['request'].get('platform') in ('wb','tieba','dy') else ('path','bytes','sha256','platform','content_id','source_media_id','bilibili_view_cid','bilibili_media_identity_sha256'))
+ fields=(('path','bytes','sha256','platform','content_id') if manifest['request'].get('platform') in ('xhs','wb','tieba','dy') else ('path','bytes','sha256','platform','content_id','source_media_id','bilibili_view_cid','bilibili_media_identity_sha256'))
  for asset in expected:
   if not isinstance(asset,dict) or asset.get('path') in paths:raise ValueError('hybrid_media_result_binding_invalid')
   paths.add(asset.get('path'))
   matches=[m for m in media if m.get('path')==asset.get('path')]
   if len(matches)!=1:raise ValueError('hybrid_media_asset_missing')
   item=matches[0]
-  if any(canonical(item.get(k))!=canonical(asset.get(k)) for k in fields) or item.get('source_kind')!='mediacrawler_api' or item.get('reward_eligible') is not False or asset.get('source_kind')!='mediacrawler_api' or asset.get('reward_eligible') is not False or asset.get('content_engine')!='mediacrawler_pro' or asset.get('media_engine')!='native_mc_media_only':raise ValueError('hybrid_media_asset_mismatch')
+  if any(canonical(item.get(k))!=canonical(asset.get(k)) for k in fields) or item.get('source_kind')!='mediacrawler_api' or item.get('reward_eligible') is not False or asset.get('source_kind')!='mediacrawler_api' or asset.get('reward_eligible') is not False or asset.get('content_engine')!='mediacrawler_pro' or asset.get('media_engine')!=engine:raise ValueError('hybrid_media_asset_mismatch')
   suffix=Path(asset['path']).suffix
   kind='audio' if suffix=='.m4a' else 'video' if suffix=='.mp4' else 'image'
   if asset.get('kind')!=kind:raise ValueError('hybrid_media_asset_mismatch')
-  item.update(kind=kind,status='downloaded_by_hybrid_media_executor',content_engine='mediacrawler_pro',media_engine='native_mc_media_only')
+  item.update(kind=kind,status='downloaded_by_hybrid_media_executor',content_engine='mediacrawler_pro',media_engine=engine)
+  if manifest['request'].get('platform')=='xhs':
+   item.update({key:asset[key] for key in ('source_media_id','original_url','transport_url','width','height','rgba_sha256')})
+   item['status']='downloaded_by_native_pro_downloader'
   if manifest['request'].get('platform')=='wb':
    item.update({key:asset[key] for key in ('source_media_id','original_url','transport_url','image_index','weibo_observation_sha256','width','height','rgba_sha256')})
  # No unchecked file may get silently attributed to this hybrid child.

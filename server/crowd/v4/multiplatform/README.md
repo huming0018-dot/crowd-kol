@@ -283,3 +283,11 @@ Owner 标准 HTTP 接收队列容量为64，以承载并发导出及页面轮询
 资料库的“查看已审素材正文、评论与原图”读取当前机器回执发布，复用原 Consumer 校验及已登记附件下载。`confirmed_material_detail.py` 核对原始 envelope、回执、记录哈希和评论父链；不把未知关系归为根评论，也不以正文前缀补造缺失标题。正文采集与图片保存可能来自不同运行，界面分别保留来源。
 
 正常入口为既有 Origin/CSRF 保护内的 `POST /api/material-source`，载荷只允许 `{}`。它读取 `material-runtime.json` 当前发布，不接浏览器文件路径、项目根、参与者批次或素材版本参数；原参与者 Pro 素材与其他项目仍使用各自现有版本和导出入口。该只读视图不重采、重算、建立附件或发布快照，四格式导出保持原件。详情先在本地核对登记附件与摘要；明确下载时才通过原 `/api/media` 返回已登记字节。
+
+## Pro 原生小红书图片接线
+
+`pro_xhs_media.py` / `pro_xhs_download.mjs` 复用本机另行安装、固定摘要的已购 Pro DownloadManager；本仓只包含自有接线，不包含该私有源码。仅适配 `source_executor=pro`、普通图文的 search/detail/creator，逐张保留原引用与字节证据。视频、未知帖子类型及超过每图 2MiB 的内容明确拒绝，不能当作零媒体成功。原管理器每张图片先 HEAD 再 GET，两次都计入原任务共享请求预算；不新建平台请求器或静默回退其他核心。
+
+运行前检查原本机私有 `pro-xhs-media.json`、已购源文件摘要、固定 Axios 依赖清单、便携 Node 及自有 `.mjs` 摘要；漏包或依赖漂移在来源请求前拒绝。普通安装/升级是否已接通这些依赖、真实平台及云回执是否通过，以固定 HANDOFF 为准，源码存在不等于已部署。原任务、账号、进度、评分和回执模型不变。
+
+可复跑的自有集成测试在 `tests/pro-xhs-images/`，只生成临时合成数据并禁止 socket；真实 Axios HTTP adapter 在测试专用 HTTPS 替身上运行，不能当作新平台采集。显式运行 `python3 tests/pro-xhs-images/run_tests.py /本机私有测试环境.json`。环境对象提供 `python`、`legacy_python`、`CROWD_XHS_MP`（本目录）、`CROWD_XHS_SDK`、`CROWD_XHS_AXIOS_ROOT`、`CROWD_PRO_DOWNLOAD_MANAGER`、`CROWD_PRO_NODE`；只填本机已合法安装文件的路径，不放 Cookie/密钥。缺少依赖失败退出，不跳过验证；原 83 项回归在正式源码目录运行。

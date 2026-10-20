@@ -174,22 +174,23 @@ class SavedMediaAttachments:
         # No source request: re-verify the committed original SDK child result.
         from pro_media_integration import summary
         run=self._run(run_id);ref,body,files=verify_source(run,media_id)
-        if ref['platform']!='weibo':raise ValueError('attachment_native_platform_invalid')
+        if ref['platform'] not in ('weibo','xiaohongshu'):raise ValueError('attachment_native_platform_invalid')
         manifest=read_json_object(run/'manifest.json',1024*1024)
         info=summary(run,manifest)
         if not isinstance(info,dict) or info.get('state')!='completed' or not isinstance(info.get('assets'),list):raise ValueError('attachment_native_incomplete')
         assets=[a for a in info['assets'] if isinstance(a,dict) and a.get('original_url')==ref['url'] and a.get('content_id')==ref['content_id']]
+        if ref['platform']=='xiaohongshu':assets=[a for a in assets if a.get('source_media_id')==media_id and a.get('media_engine')=='native_pro_downloader']
         if len(assets)!=1:raise ValueError('attachment_native_ambiguous')
-        a=assets[0];asset=safe_path(run/a['path'],run);data=read(asset,WB_LIMIT);decoded=decode_bytes(data)
+        a=assets[0];asset=safe_path(run/a['path'],run);data=read(asset,reference_limit(ref));decoded=decode_bytes(data)
         if a.get('transport_url')!=reference_transport(ref) or a.get('sha256')!=sha(data) or a.get('bytes')!=len(data):raise ValueError('attachment_native_binding_invalid')
         receipt={'state':'downloaded_not_imported_or_cloud_saved','source_files_unchanged':True,'run_id':run_id,'media_id':media_id,'platform_http_requests':None,'native_stage_verified':True,'cloud_ack':False,'reference_sha256':sha(ref),'source_record_hash':body['record_hash'],'asset_file':asset.name,'asset_sha256':sha(data),'bytes':len(data),'url_sha256':sha(ref['url']),'transport_url_sha256':sha(reference_transport(ref)),'normalized_sha256':files['normalized.json'],'manifest_sha256':files['manifest.json'],'status_sha256':files['status.json'],'content_type':MIMES[decoded['format']][0]}
-        return self._attach_verified(run_id,media_id,asset,receipt)
+        return self._attach_verified(run_id,media_id,asset,receipt,native_verified=True)
 
-    def _attach_verified(self,run_id,media_id,asset_path,receipt):
+    def _attach_verified(self,run_id,media_id,asset_path,receipt,*,native_verified=False):
         run=self._run(run_id);ref,body,files=verify_source(run,media_id)
         if not isinstance(receipt,dict):raise ValueError('attachment_receipt_invalid')
         asset=safe_path(asset_path);data=read(asset,reference_limit(ref))
-        if not data or receipt.get('state')!='downloaded_not_imported_or_cloud_saved' or receipt.get('source_files_unchanged') is not True or receipt.get('run_id')!=run_id or receipt.get('media_id')!=media_id or not ((ref['platform']=='weibo' and receipt.get('native_stage_verified') is True and receipt.get('platform_http_requests') is None) or (ref['platform']!='weibo' and type(receipt.get('platform_http_requests')) is int and receipt['platform_http_requests']==1)) or receipt.get('cloud_ack') is not False or receipt.get('reference_sha256')!=sha(ref) or receipt.get('source_record_hash')!=body['record_hash'] or receipt.get('asset_file')!=asset.name or receipt.get('asset_sha256')!=sha(data) or type(receipt.get('bytes')) is not int or receipt['bytes']!=len(data):raise ValueError('attachment_receipt_invalid')
+        if not data or receipt.get('state')!='downloaded_not_imported_or_cloud_saved' or receipt.get('source_files_unchanged') is not True or receipt.get('run_id')!=run_id or receipt.get('media_id')!=media_id or not ((native_verified is True and ref['platform'] in ('weibo','xiaohongshu') and receipt.get('native_stage_verified') is True and receipt.get('platform_http_requests') is None) or (ref['platform']!='weibo' and type(receipt.get('platform_http_requests')) is int and receipt['platform_http_requests']==1)) or receipt.get('cloud_ack') is not False or receipt.get('reference_sha256')!=sha(ref) or receipt.get('source_record_hash')!=body['record_hash'] or receipt.get('asset_file')!=asset.name or receipt.get('asset_sha256')!=sha(data) or type(receipt.get('bytes')) is not int or receipt['bytes']!=len(data):raise ValueError('attachment_receipt_invalid')
         transport=reference_transport(ref)
         if receipt.get('url_sha256')!=sha(ref['url']) or receipt.get('transport_url_sha256')!=sha(transport):raise ValueError('attachment_transport_binding_invalid')
         if any(receipt.get(field)!=files[name] for name,field in [('normalized.json','normalized_sha256'),('manifest.json','manifest_sha256'),('status.json','status_sha256')]):raise ValueError('attachment_source_changed')
