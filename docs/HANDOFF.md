@@ -1,6 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-20 17:22 CST｜四素材与多项目消费已实机复验；知识反馈缺口已正式入库
+## 当前状态｜2026-10-20 18:20 CST｜知识草案已接正常工作台；原素材和多项目消费复验
+
+- **源码与正式采用**：7bb6c0cd9c1449910dd55afc7237585ee749476e已推crowd-kol原分支并回读。正常45937唯一Owner47915，owner-draft-preview-b2f3084f09ee16e0，485文件/5覆盖；知识knowledge-draft-preview-2e447584ac0ff39c，231文件/4覆盖。只采用冻结差异，不称整个HEAD都已运行。知识继续原065，outer仍5字段/SHA3335ceb3cb8a0dc3f830b196b244090caee2a8749cf7d15d214af578d0dd394a；新service保原5字段加2草案pin。材料13字段/G11 worker、G17四快照与原配置前像保留。
+- **正常用户路径**：原知识更新中反馈、知识缺口及034提案仍可读，新加“知识草案与验证结果”。原4条此前完成new→back→new及72次四格式读取，本轮采用前后各16读取逐SHA保持；另一软件更新项目采用后4格式保持。正常UI已显示原9705反馈、原c7缺口、原034与新草案；反馈/缺口/publication读回与采用前完全相同，本轮没有重复提交或新抓取。
+- **草案来源与边界**：复用615原生external intake和materialize，原4素材真实同输入对照完成。新Codex产物经原SDK验证，执行模式仍external_artifact_execution_unverified，不冒远程模型执行证明。原生实验仅一致隔离副本：源登记提案1+实际候选提案1、精确只读grant1、决定/release/pin均0；草案源上下文0.1.1、物化目标0.1.2，原消费仍0.1.0。正常入口只读17受pin原件及其manifest的私有0600副本，不迁移活库、不把源登记当候选、不自动审核发布；后续发布需原生Owner target提案及真人明确决定。
+- **兼容、独审与保护**：缺口协议适配通过真实065/615各24+1+1及独立伪造反例；历史空载荷保留，新版用SDK自有canonical载荷，未知只读对账。新入口8Python/4UI及原gap7/inbox8通过，非作者已审。采用器16临时例与独立元数据重建通过；独审首次遇cloud_not_idle保原拒绝，自然idle后只读重建，再唯一apply。框架后验五库/知识业务行/双native及1114保护路径保持，原身份、进度、评分、云回执和OTA配置不变；实际独审结果另见EVIDENCE。
+- **依赖与未验**：PAGES安装依赖源码6bf3e2dc已本地提交，隔离原安装入口已验，但未push或发布新包；仍拒绝旧绑定迁移，不冒新Mac完整ready。无本轮新云ACK、来源、模型API、中央部署、知识批准/发布或OTA发布。原57云业务行、101安装及旧OTA是历史证据。48h实验/watchdog仍暂停，完整产品仍进行中。
+- **接力下一步**：按统一计划接通M4真实活库候选/Owner target提案与审核后版本影响；迁移前须同时兼容全部同库写入服务，不能单换615解释器。继续Pro依赖与原两设备门，不重开已完成19/20/29，不重发UNKNOWN。证据根仍pro-participant-native-entry：本轮G22-m4-external-candidate、G23-participant-dependency-install、G24-sdk-gap-compat、G25-owner-draft-preview、G25-draft-preview-adoption及相应review。私有原件读不到标未验证，不公开Pro/素材/凭据。
+
+## 历史快照｜2026-10-20 17:22 CST｜四素材与多项目消费已实机复验；知识反馈缺口已正式入库
 
 - **源码与正式运行**：b7fa33734bee412bb87c66fd13604fb78bf82d9f，4代码、4测试及README。正常45937唯一Owner40586，owner-feedback-gap-f10396f104028a3b（484文件/4项覆盖）；knowledge-feedback-gap-54046c4af2a5ef4a（230文件/3项覆盖）。按冻结差异采用，不称整个HEAD都在运行。原G11材料worker与13字段配置保持；G17外部提案快照request及SHA保持，知识outer只换script和SHA，当前配置SHA a867759001704296e8b2093629423d10de67b70d1158e5c753ac565e2074046a。
 - **实际消费**：原19/29共4条正常API完成新版→旧版→新版，72次HTML/JSON/JSONL/CSV读取全部通过；原标题、全文、完整metadata.capture及旧8格式SHA保持，最终选择新版。另一软件更新观察项目4格式通过，原31条和六店8格式保持。新Owner下另16次读取、并发8全部匹配原SHA，有限负载1.591秒，不冒多用户容量结论；未重抓或重算素材。

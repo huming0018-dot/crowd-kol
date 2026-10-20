@@ -1,5 +1,18 @@
 # 交接证据索引
 
+## 2026-10-20 18:20 CST｜G22–G25原生候选与正式工作台
+
+原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。只公开证据索引，不提交PRIVATE、SQLite、素材或Pro源码；在线读者读不到原件必须标未验证。
+
+- **源码/发布**：G25-owner-draft-preview/{COMBINED-SOURCE,SOURCE-CHECKPOINT,SOURCE-PUSH-READBACK}.json及STAGED.diff。7bb6c0cd9c1449910dd55afc7237585ee749476e，精确10源/测试/README；远端原分支回读同SHA。组合freeze602dfc3d59da84d7c7e711cdd20f8cac4e94e2788dcd32eb4554377c5d15ebe2。
+- **原生候选/影响**：G22-m4-external-candidate/FREEZE.json SHA4d575c190facc07186d203e0370954a87cbf06f452a5df08d460f3db494dba0f，manifest2ceb564385bc197351a43d7a9b15d80ab84375654b9d1c2cc63413092dfcc252、viewb8ef9e744b6ec316f9a10c9fcffa1c7bf849966af0954e6583357fd281a5f1bf，experiment-final/impact-four-final。独审review/g22-external-candidate/FINAL.json SHA6d35f4bbba930f0a252e0212080e1a36a1bba53bdca6abb9191397652afbfddc。真实SDK13及完整scratch生成/原051同输入；旧业务行保持，2proposal/1readgrant/决定发布0，91freeze refs保持。只在副本，非活库模型或知识发布。
+- **兼容/产品代码**：G24-sdk-gap-compat/{FREEZE,V3-TEST-RESULTS}.json，原RED/V2缺fixture失败不删；review/g24-sdk-gap-compat-central/FINAL.json SHA3806370e08e82c74ea9183dcb45f958ab68c72a3f81aa0bb39284b43191092af。真实065/615各24+1+1，独立伪造哈希每SDK3反例拒绝；历史{}业务行不改。G25-owner-draft-preview/FREEZE.json SHA87adc623429d585ec10ed30067a3432cff03cfda63da7db5b9c651f1be0563d5；独审review/g25-owner-draft-preview/FINAL.json SHA108e845f9e55a79e47e758b96a04801b86d80a87d563f9d96345d3fab1e9c0c2。8Python/4UI、原gap7/inbox8和独立4否决，无liveDB/review/release路径。
+- **采用门/实际**：G25-draft-preview-adoption/FREEZE.json SHA7232bea86572399ccb6603593d9542b9d811ef32be1ab8437ef332469a0e1476，script5e02f504f6615601eb24310f2c18cb9219fcd4958be07cce768a780ad578e630，16temp。PLANc46fa3d952a00ce50e535b9a2d10cf1f151df2f95d50c71942c76db7585b5ec6、KPLAN199c3420e74b8ab54ccf1f3ca8905a4eaaf1d40d65082213d37a92e4f48b9e17，APPROVALc839b409710106193f94a30a5fa8db6c4a2c6d90cf7db879cfbd1442c1ae2507。非作者review/g25-draft-adopter-independent/FINAL.json SHAeb97fe606410fb993cdf21cf07268d9a491b4a41e90f038efc8e98d52c1c5eb6；首次阶段拒绝保留，后只读重建exact。唯一apply/APPLY.log和runtime-adoption/ADOPTED.json SHA8ed47a39d223afa81bfcc79e853f97fca0b1db64f1d6e1553923a7e246689d4d：47915、485/231、五锁/五库/native/知识业务及1114保护保持。
+- **正常消费/界面**：G25-owner-draft-preview/{BEFORE-ACTUAL,ACTUAL-READBACK,ACTUAL-PROJECT-READBACK}.json及ACTUAL-UI.txt/png。正常Owner16原SHA+另一项目4格式，原feedback/gap/publication完全same、034preview成功、新只读草案可见；无新反馈/缺口/审核/发布业务写。034只读preview会生成短期token文件，不能称整个文件系统0写。脚本独审review/g25-owner-draft-preview/READBACK-SCRIPT-REVIEW.json SHAbfa38aa1735c1db3e099187ecf476d44c95488017f5ce0a0a0be9e97f05277fc。
+- **依赖源**：G23-participant-dependency-install/FREEZE.json SHAdf006225aee46465c3bec3d291c9fa803d4641a97face5494d5fb39d280c271a、commit-evidence/RESULT与ALL-PREIMAGES-ADDENDUM；PAGES6bf3e2dcadd3afcfe050e0668f5e7a51f3959002本地未push。独审review/g23-participant-dependency-install/FINAL.json SHA148f4aa742dce28a86df0fd896a510ba89b25e88adc9086830085c7f6846503b。23tests、隔离正式zsh/JXA入口licensed38.644s依赖准备→明确binding_migration_required；源锁文件哈希不匹配3.116s明确未就绪/0env。OS注册/浏览器/重连为测试stub，不是新Mac完整安装或实际账号ready。未发布包/OTA。
+
+- **实际非作者独审**：review/g25-owner-draft-preview/ACTUAL-FINAL.json SHAeef663d509e780ab69ea6a663b4dc11567eb0141cd6b92b7cf7ea4a86ba166d4；ACTUAL-PROTECTION-READBACK/AFTER-HTTP与HTTP-READBACK均保留。独立正常4读+16GET原SHA；Owner485/knowledge231、1114保护、五库及知识全部schema/rows、双native/host/settings均exact。活库仍schema13/反馈1/缺口2/034 proposed/审核授权决定发布pin0。非新来源/新云ACK或live615生成。
+
 ## 2026-10-20 17:22 CST｜G19–G21实际工作台与知识缺口
 
 原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。以下PRIVATE、SQLite和原素材只在本机；未取得原件不能从bot自述推定通过。

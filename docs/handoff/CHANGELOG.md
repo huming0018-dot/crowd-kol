@@ -1,5 +1,15 @@
 # 交接变更日志
 
+## 2026-10-20 18:20 CST｜正式只读知识草案、双协议兼容及消费保护
+
+- **人员**：root产品接线、正式采用与UI；central_steps依赖安装及采用器，knowledge_reuse_probe原生M4及非作者采用独审，native_diagnostics_review源码/原生链/实际运行独审。作者不替独审。
+- **改动/版本**：7bb6c0c，5代码/4测试/README精确10文件已提交推送；不带私有SDK/素材或其他dirty。正常Owner47915/485、knowledge231；原065/材料13配置/G17四assets保留，新17原件副本及manifest0600；service5→7、outer5不变。
+- **验证与真实结果**：G24真实065/615各24+1+1；G22原生13+原四素材/16格式/24隔离读取；G25 8Python+4新UI+旧7gap/8inbox及独立负例。采用器16与独立实际元数据重建通过，首次cloud_not_idle保拒绝，未改门或重prepare；唯一apply成功。采用后正常16素材导出+另一项目4格式原SHA保持，原反馈/缺口/publication等采用前，034preview正常，原知识UI及新草案实际可见。原72新旧切换是前轮已验，本轮不冒重复新采集。
+- **问题/修复**：旧空payload协议无法写新版SDK，复用原SDKcanonical并兼容历史；新增SDKpayload/receipt核验。三份候选报告0644不放松读取规则，不改原证据权限，复制新私有inode并path-only改manifest。原preview短期token文件正常生成，不把0业务写说成全文件系统0写。
+- **状态区别**：只读入口已正式采用；草案仍隔离未发布，源上下文0.1.1与目标0.1.2分开。隔离2提案/1readgrant不是生产新增或人审；活库仍原反馈1/缺口2/034 proposed、审核发布pin0。原身份、评分、回执、OTA保持，未重开任务或实验。
+- **并行依赖**：PAGES6bf3e2dc10自有文件仅本地commit；23测试及受限隔离安装真实入口独审通过，仍需要合法SDK/uv/Python，旧绑定迁移明确拒绝；没有实际发布新包或普通新机ready证据。
+- **下一步**：M4活库候选及Owner target提案/人审后版本影响、全部同库writer兼容迁移；Pro安装绑定及原两设备/无人值守runtime OTA。48h/watchdog保持暂停。原件和精确独审SHA见EVIDENCE。
+
 ## 2026-10-20 17:22 CST｜原四素材复验与反馈知识缺口正式接入
 
 - **接力者/独审**：root负责Host/UI、正式采用与实机；knowledge_reuse_probe负责SDK薄接线；central_steps独审采用计划和原四素材；native_diagnostics_review独审代码与实际知识库、保护。
