@@ -90,8 +90,10 @@ def snapshot_bundle(snapshot,runtime_root):
   if not isinstance(text,str)or not 1<=len(text)<=500000:raise MaterialError('material_text_outside_pack_scope')
   platform=rec.get('platform')
   if not isinstance(platform,str)or not platform:raise MaterialError('material_platform_missing')
-  seen.add(cid);title=text[:80];sources.append({'version_id':cid,'source_id':platform+'-ugc','source_kind':'ugc','canonical_body':text,'canonical_body_sha256':hashlib.sha256(text.encode()).hexdigest(),'retrieved_at':r['received_at']})
-  candidates.append({'id':cid,'revision':1,'draft':{'title':title,'text':text,'entity_type':rec['kind']},'evidence':[{'source_version_id':cid,'start':0,'end':len(title),'quote':title,'field':'title'}]+[{'source_version_id':cid,'start':start,'end':min(start+5000,len(text)),'quote':text[start:start+5000],'field':'text'}for start in range(0,len(text),5000)],'capture':item,'coverage':snapshot.get('coverage','unknown'),'unscoreable_reason':'No verified restaurant identity or independent dining evidence. Material traceability is not taste, quality or reward.'})
+  title=rec['title']if rec['kind']=='content'and isinstance(rec.get('title'),str)and rec['title'].strip()else text[:80]
+  source_text=text if text.startswith(title)else title+'\n\n'+text;offset=0 if source_text==text else len(title)+2
+  seen.add(cid);sources.append({'version_id':cid,'source_id':platform+'-ugc','source_kind':'ugc','canonical_body':source_text,'canonical_body_sha256':hashlib.sha256(source_text.encode()).hexdigest(),'retrieved_at':r['received_at']})
+  candidates.append({'id':cid,'revision':1,'draft':{'title':title,'text':text,'entity_type':rec['kind']},'evidence':[{'source_version_id':cid,'start':0,'end':len(title),'quote':title,'field':'title'}]+[{'source_version_id':cid,'start':offset+start,'end':offset+min(start+5000,len(text)),'quote':text[start:start+5000],'field':'text'}for start in range(0,len(text),5000)],'capture':item,'coverage':snapshot.get('coverage','unknown'),'unscoreable_reason':'No verified restaurant identity or independent dining evidence. Material traceability is not taste, quality or reward.'})
  return {'source_versions':sources,'candidates':candidates,'capture_snapshot':snapshot}
 
 def snapshot_publication_scope(snapshot):
