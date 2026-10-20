@@ -1,8 +1,8 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 const src=fs.readFileSync(new URL('./accounts-ui.js',import.meta.url),'utf8');
 const task='22222222-2222-4222-8222-222222222222',child='33333333-3333-4333-8333-333333333333';
-async function fixture(recovery,diagnostic,paused=true,connection){
-const elements=new Map(),calls=[];const session={pro_connection:connection,login_recovery:recovery,session_id:'11111111-1111-4111-8111-111111111111',platform:'bili',state:'check_failed',login_in_progress:false,login_flow:'pro_bound_official_self',login_error_code:'pro_login_verification_failed',login_wait_reason:'bridge_unavailable',login_diagnostic:diagnostic};
+async function fixture(recovery,diagnostic,paused=true,connection,state='check_failed'){
+const elements=new Map(),calls=[];const session={pro_connection:connection,login_recovery:recovery,session_id:'11111111-1111-4111-8111-111111111111',platform:'bili',state,login_in_progress:false,login_flow:'pro_bound_official_self',login_error_code:'pro_login_verification_failed',login_wait_reason:'bridge_unavailable',login_diagnostic:diagnostic};
 function node(tag,text=''){return {tag,textContent:text,children:[],listeners:{},append(...x){this.children.push(...x)},setAttribute(){},before(){},set id(v){elements.set(v,this)},set innerHTML(v){for(const m of v.matchAll(/id="([^"]+)"/g))if(!elements.has(m[1]))elements.set(m[1],node('div'))},addEventListener(k,f){this.listeners[k]=f},replaceChildren(...x){this.children=x},showModal(){this.open=true},close(){this.open=false;this.listeners.close?.()}}}
 const $=k=>{if(!elements.has(k))elements.set(k,node('div'));return elements.get(k)};const context=vm.createContext({node,$,button:(text,onclick)=>Object.assign(node('button',text),{onclick}),document:{body:node('body')},platformNames:{bili:'B站'},setTimeout(){return 1},clearTimeout(){},guarded:fn=>fn(),api:async(path,body)=>{calls.push({path,...body});return body.action==='list'?{sessions:[session]}:{ok:true}},console});vm.runInContext(src,context);await vm.runInContext('accountView.open()',context);function walk(n){return [n,...n.children.flatMap(x=>x&&typeof x==='object'?walk(x):[])]};const rows=walk($('accounts_list')),text=rows.map(x=>x.textContent).join('|');return {rows,text,calls,ctx:context};}
 
@@ -19,3 +19,6 @@ for(const [status,text] of [['configuration_required','重复扫码不能修复'
   assert.deepEqual(value.calls.map(x=>x.action),['list']);
 }
 console.log('PASS connection4 / finite copy / read-only list / no raw errors');
+const saved=await fixture(undefined,undefined,true,{status:'connected_unverified'},'authenticated');
+assert.ok(saved.text.includes('已保存登录核验记录'));assert.equal(saved.text.includes('登录已核验'),false);assert.deepEqual(saved.calls.map(x=>x.action),['list']);
+console.log('PASS saved login record is historical / no source or verification action');

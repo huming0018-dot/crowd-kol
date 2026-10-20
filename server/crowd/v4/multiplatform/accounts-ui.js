@@ -9,7 +9,7 @@ const accountView = (() => {
   let browserSequence=0;browserDialog.addEventListener('close',()=>{browserSequence++;});
   const openButton=button('平台登录',()=>guarded(open));$('open_settings').before(openButton);
   $('accounts_close').onclick=()=>dialog.close();
-  const labels={check_failed:'连接或身份核验失败，不代表账号登出',checking:'正在核验登录',logged_out:'已登出，采集暂停',waiting_login:'请在弹出的浏览器本人登录',resumed:'登录已恢复，可继续原任务',account_changed:'账号已更换，原任务保持暂停',identity_unverified:'登录可用，需确认是否原账号',unverified:'尚未核验登录',authenticated:'登录已核验'};
+  const labels={check_failed:'连接或身份核验失败，不代表账号登出',checking:'正在核验登录',logged_out:'已登出，采集暂停',waiting_login:'请在弹出的浏览器本人登录',resumed:'登录已恢复，可继续原任务',account_changed:'账号已更换，原任务保持暂停',identity_unverified:'登录可用，需确认是否原账号',unverified:'尚未核验登录',authenticated:'已保存登录核验记录'};
   const loginErrors={login_browser_timeout:'登录页或二维码等待超时，请打开原会话重试。',login_browser_closed:'登录窗口已关闭，请重新打开。',login_dependency_missing:'登录执行器缺少依赖，请检查设置。',login_flow_ended_before_verification:'登录流程结束，但尚未通过账号核验。',login_executor_failed:'登录执行器未完成核验，请重试；原任务仍保留。'};
   function proDiagnostic(value){
     if(!value||value.method!=='pro_official_self')return null;
