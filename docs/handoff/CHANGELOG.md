@@ -903,3 +903,17 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **验证 / HELLO**：35VM＋5RO及7独立恶意边界通过；后台opener20＋6反例通过。root新101 HELLO一次实际READY且正常退出，host stopped/busyfalse、前后5native表/两交付及33/113/配置/完整正常业务保全；结果e3c77bde、独审70462692。旧100及本轮check/opener UNKNOWN均不改。
 - **部署 / 业务验收**：本机101已运行并有真实云OTA完成，Pro依赖ready已验。没有新Start/claim/任务/grant/来源/模型/正文或评论ACK；不冒平台鉴权、登录恢复、新采集、第二设备或全程零窗口/焦点体验验收。
 - **额外诊断 / 下一步**：停止态capnull不是已证bug；真实生产模块离线核Start先登记能力再claim、无任务不start，0实际IPC。未造新外围feature。通用新机依赖、连续runtime OTA及原第二设备仍有门，原完成任务不重开，48h/watchdog暂停。固定HANDOFF/EVIDENCE同步；PRIVATE/SDK不发布。
+
+## 2026-10-20 15:50 CST｜原标题、反馈与多项目消费正式采用
+
+- 接力者：Codex /root；并行作者 central_steps / knowledge_reuse_probe；非作者产品及实际审查 native_diagnostics_review，采用计划由未参与采用器实现的 knowledge_reuse_probe 复核。
+- 目标/实际改动：复用原4ACK的标题保真及当前处理器版本化，原KnowledgeStore私有反馈，原Consumer多项目HTTP消费；9产品文件、6回归脚本和README。未重写Pro平台核心或增加依赖。
+- 版本：crowd-kol/codex/v4.0.6-handoff 955be7411d064306cf06eb6e2ee314776b2a1344。Owner19339/owner-feedback-product-b3ac618683edb9a1（484），knowledge-feedback-product-737a9c4865429085（230）。原中央49/扩展101/helper59df/113runtime9b不改；两台新采集、恢复和OTA未在本轮重验。
+- 实际验证：合并51+独立跨版本SDK1（隔离）；正式6脚本50（重叠）全通过。实际两scope各新job1、new/back/final旧新current四格式72读、原31+六店8格式同SHA；唯一工程反馈9705346已原SDK/SQLite回读；云三task27proof27receipt57行同原hash。全部经原Owner与实际私有知识库完成，没有新来源、模型或新云采集ACK。
+- 发现/修复：UTF8日志不对称修到V2；意图0600/fsync后才调用；正式fixture显式旧runtime，原失败和断言保留。29两次definite锁忙沿原UUID待锁释放入队，不当UNKNOWN重发；8读并发reset保留为未解负载限制，不凭后续串读通过声称已修。
+- 保护：原身份/进度/评分/云回执/OTA及原库行、旧runtime/旧导出保持；原completed任务不重开，48h/watchdog暂停。knowledge原提案/审核/release/pin全表不改。
+- 独审：联合57bd8ed4、正式脚本1302a517、采用9fec5058、实际最终0ac40d58/最终保护25564a0f、反馈24af6e8c；最终业务独审0ac40d58通过，另见本轮EVIDENCE条目。
+- 证据：本机 RUN= /Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry，G11-actual-user-path/RESULT.json、各阶段EXPORTS、CLOUD-BUSINESS-READBACK.PRIVATE.json、实际UI截图，G11-combined-adoption/PLAN及runtime-adoption/ADOPTED，G12-canonical-stage/RESULT。
+- 下一步：按固定HANDOFF当前门推进Pro原生真实两设备/恢复/OTA与导出负载定位；本轮不宣告完整产品或启动实验。主要改动后按ENTRY_TEMPLATE回写，未知原ID只读核对。
+- 审查证据命名纠正：非作者后次wrapper误覆盖其未冻结初ADOPTION-READBACK（旧5ddd原bytes不可用），不重造；最终采用保护25564a0f和总审0ac40d58可复读。原PLAN/ADOPTED/backup/冻结/用户原件与业务数据未动，EVIDENCE-NAME-CORRECTION df1b49a1明示。原草稿审查是当时状态，不拿旧SHA当现存证据。
+- G13收尾d1c5d66a59aec9835ea8bdc572817178f526d26e：当前版本下拉默认值及已生效文案修复，原10+新增2 UI测试独审127a0d14。静态1JS采用B独审32ec28ec/10temp，实际Owner22870/owner-current-version-ui-380041e6d76a09d4，484→484；两配置/worker/知识230及884现资产不动。原19339是G11阶段版本，最终Owner以22870为准。实际DOM默认newdfe940a7和已生效文案确认，G13实际独审3ad4ee0d9ae196bf8b1cb5ef27a2c289f012c74e17b5e7f76e6198a7416fd9d8通过。

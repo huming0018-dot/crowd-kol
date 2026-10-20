@@ -1,6 +1,6 @@
 # 交接证据索引
 
-更新：2026-10-17。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E85为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
+更新：2026-10-20。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E85为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
 |---|---|---|
@@ -954,3 +954,20 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - G10-native-readiness101：FREEZE85b59428、ROOT-HELLO exit0；新once INTENT8d4ea04d、HELLOc1fef5d8、RESULTe3c77bde、前后LOCAL和STATE-AFTER。review/g10-hello101-central/ACTUAL-FINAL.json SHA70462692879eef4a4e2e6ab5c338530f9279eb6e3b64fe1a9742058c41a4bdbf独核ready/退出/保全；HELLO是已审同context校验摘要，不冒原始帧独立解析。
 - G10-capability-registration-readonly/REPORT.md及EVIDENCE：停止态capnull不是已证bug，生产原Start注册/claim回归通过，未调用实际Start或强刷cap。
 - 不证明新来源、评论分页、媒体字节、平台登录恢复、第二设备或自然runtime OTA；旧100 UNKNOWN240ae保留。
+
+## 2026-10-20 15:50 CST｜标题、反馈和多项目消费正式验收
+
+本节RUN为 /Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry；PRIVATE原件仅本机存在，不随源码外发。源码955be7411d064306cf06eb6e2ee314776b2a1344不是整棵运行树标签，实际两个runtime以采用计划逐文件map为准。
+
+- G11-product-combined/FREEZE.json SHA3eeecf7c1eea75f4450f9b742576a281ff11ffd96577e87ea48a55d590188b81；SOURCE-MAP含9prod+6 unchanged支持文件，MERGE-ANALYSIS三候选并集0冲突。非作者 review/g11-product-combined/FINAL.json SHA57bd8ed4ae135eae2aa9e92fe2fdab8d2befaccfaaa15e9dbd207fd55a423f76，亲跑51原回归+额外真实临时SDK同记录跨版本反馈；不据此声称生产反馈。
+- G11-formal-regression原日志：14反馈/4路由/4engine/9HTTP/9UI/10UI=50（与上述重叠），初次engine.log明确旧新fixture相同失败，engine-previous-runtime.log修后4通过。独审FORMAL-TESTS-FINAL.json SHA1302a517e1dca4f1786f891a3cc2d9bf3592cd798c5fc7a6dc813220754664ff，四Python所有断言AST与已审候选exact。
+- G11-combined-adoption/PLAN.json SHA418bd263ee3dc72ba60d04381092544a55ce343aa975bceabf4e45e336ccdf4e，KNOWLEDGE-PLAN.json SHA1624a3f8f4a62793860fe87d444f4bd1fe8846befd041b35c8fc611a415f1bf6；adopter4d79269f、COMPONENTSc228ab1f、FREEZE76e3b4f9。最终非作者采用审查9fec5058163e347563ce4c6c4297e47991ed86c9f7d9ce4449a9e7b09a6becdd。ROOT-APPLY.log唯一exit0；runtime-adoption/ADOPTED.json、五库独立backup、旧配置前像；两指针CAS后Owner19339唯一。实际最终非作者ACTUAL-FINAL.json SHA0ac40d5863ec8871d9510715fe03e5af4714e7221666a592377966fc3c8e1e98、FINAL-PROTECTION.json SHA25564a0f7958df33295a3afdcc30967f65c11ffed3073a444c6145f974182113，484/230全map及原5DB/双native实读；577保护文件原样，两个pro描述符显式选新及知识DB真实反馈为预期变化。
+- G11-actual-user-path/BEFORE.json保存原两scope/4原title/bodyhash/旧8格式；19和29的QUEUE-INTENT、正常API结果、READY、SELECT-{new,back,final}及每阶段12下载/EXPORTS可逐hash复核。RESULT.json核72成功格式读取、原标题4/4、body/capture不变、旧格式保持。原19新job74cbfed2…、29新jobdfe940a7…各一；无新平台访问/新云采集ACK。
+- FEEDBACK-{PREVIEW,INTENT,SUBMIT,STATUS}.json原UUID9705346c-d135-4086-aabe-81fa0f8c4282；独审FEEDBACK-READBACK.json SHA24af6e8c2a86964e102612749e734095f57ca6595b3306f83b5c2f287d0513db，从真实知识库/原SDK读取原提交、事件与payload；source_project及原ACK/newjob/pack全部精确，actor为工程服务/human_uidnull，未改知识提案/审核/release/pin。是真实私有反馈待处理回执，不能写成真人评价、发布或云采集ACK。
+- G12-canonical-stage/{INTENT,RESULT}.json、G11-combined-adoption/CANONICAL-STAGE.json保护17内容文件；独审canonical d1df165b与联合readback82e40a44。正常 /data-products 的软件更新观察四格式在G11-actual-user-path/PROJECT.*及PROJECT-EXPORTS.json；源为已保存101签名OTA观察1条，非新采集。原31/六店8格式同hash；辅助WAL0/SHM/indexlock0保留，不将17当目录全文件数。
+- CLOUD-BUSINESS-READBACK.PRIVATE.json：本轮Supabase限定只读同原SQL得到19/20/29三task27proof27receipt57行，逐行MD5等G10-101-cache-check/BUSINESS-POST.PRIVATE.json；不读取正文、不改评分/权限/任务。ACTUAL-UI.txt与ACTUAL-WORKBENCH.png/ACTUAL-VERSIONS.png是真实19339页面读回，显示原标题、两个版本四格式和原反馈ID。
+- 原失败保留：G11反馈V1 UTF8RED；正式engine旧新fixture RED；DRIVER-INITIAL指出未先fsync意图、修后DRIVER-FINAL批准13cde0b；29-QUEUED/RETRY-RESULT两次definite锁忙，观察worker释放1.687秒沿原UUID成功；EXPORT-CONCURRENCY-INITIAL.json记录8路只读导出+轮询时一次GET reset，原Owner未退，后单driver全部通过，backlog5只是证据之一，根因未证/未宣称已修。未以删断言或重放UNKNOWN造绿。
+- 未验：本轮无新来源/模型/云保存/中央或公网部署/OTA，已做本机Owner和知识服务正式采用；两设备新采集及完整登录恢复、媒体字节和连续runtime OTA/新Mac依赖等原门保留，48h/watchdog暂停。
+- 证据更正原件：review/g11-actual-user-path/EVIDENCE-NAME-CORRECTION.json SHAdf1b49a1b0f7ca86e5a72ed56809a886dc5b634f3172d9b5135b4d6390c24ccd。审查者后次wrapper文件名替换未命中、覆写其未冻结初ADOPTION-READBACK，初5ddd字节已不可读；当前该路径内容等FINAL-PROTECTION，不沿旧SHA验证，不补造原bytes。原PLAN/ADOPTED/备份/候选冻结/生产数据和用户证据无变。原草稿DOC-REVIEW c8ab是覆盖前观察，更新后应读增量文档审。主最终总审不覆盖G13后续UI窄修，需单独审查采用。
+- G13-version-ui/FREEZE.json 8d92969187eed0ac7ea1bd5be195471764209e838a0ec5858cb34d599e3e1c5b；RED/GREEN与非作者INDEPENDENT-BASELINE-RED/GREEN保12测试。产品独审FINAL.json SHA127a0d1458a6e6b941779a4c833c3cc65a3c3ef1891816792f6e0830923d13c6，JS2ee8ee012980a7070812af656246e9d965426747a1523c37e4b3ac70f751d0c9。代码收尾d1c5d66a59aec9835ea8bdc572817178f526d26e。
+- G11-static-ui-adoption/PLAN.json b11bdbdc3694c1073394f3d9ec57c6976e4cf66d32d6bb50cbcc053ccdd7bfc7，adopter be6836244ef31e88aa206cdb48e8f6439b9fe15ceea2370cdd07c5beb56d5993。非作者review/g13-static-adopter-nonauthor/FINAL.json SHA32ec28ecb8f089772570237094ca24c0a644e6ff05155c3bc56bb74e3932b1af；10temp+只读实际计划/884现内容/知识业务保护。ROOT-APPLY.log唯一exit0，runtime-adoption/ADOPTED.json当前Owner22870/owner-current-version-ui-380041e6d76a09d4，484仅1JS变，不改两cfg，不新复制knowledge230；G13-version-ui/ACTUAL-UI.json/png证明当前newoption已选和明确已生效。实际独立review/g13-version-ui/ACTUAL-FINAL.json SHA3ad4ee0d9ae196bf8b1cb5ef27a2c289f012c74e17b5e7f76e6198a7416fd9d8通过，884资产/知识及五库/native/两cfg不变；正常API current19/29仍新，实机DOM/PNG验证29当前选中与文案，未再写反馈。
