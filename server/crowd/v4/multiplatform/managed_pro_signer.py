@@ -2,7 +2,7 @@
 import contextlib,errno,fcntl,hashlib,json,os,signal,socket,stat,subprocess,time,uuid,sys
 from pathlib import Path
 SERVER=Path(__file__).with_name('pro_signer_server.py')
-SERVER_SHA='dda68aa02b1954b8172af0453a4806a019ab34162e82b73ce04095b1f1f89c17'
+SERVER_SHA='7a33a3545ee91e7d592f75a50d6eb3152e77d8492f0952d8300bd3a47a8cabeb'
 SOURCE_MANIFEST_SHA='65f74774ed37b21fa49688929a17270c1f7777ef82fecc075239d24c8ed26b6d'
 SOURCE_COMMIT='26c53d8f3221d95e0d4961b0593debd179d3cf10'
 class SignerError(RuntimeError):pass

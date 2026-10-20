@@ -113,9 +113,8 @@ async def build_application(root):
         path=Path(distribution.locate_file(item['file']))
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=item['sha256']:raise ValueError('sign_dependency_changed')
     clean_node_environment()
-    node=json.loads((Path(__file__).parent/'NODE-SHA.json').read_text())
-    node_path=Path(node['path'])
-    if not node_path.is_file() or hashlib.sha256(node_path.read_bytes()).hexdigest()!=node['sha256']:raise ValueError('sign_node_changed')
+    from portable_node import from_runtime
+    node_path=from_runtime(Path(__file__).parent)
     os.environ['PATH']=str(node_path.parent)+os.pathsep+os.environ.get('PATH','')
     root=verify_source(root)
     for name in ('config','apis.xiaohongshu','apis.douyin','apis.zhihu'):
