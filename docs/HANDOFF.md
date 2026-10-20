@@ -1,6 +1,16 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 04:06 CST｜知识待审影响卡正式采用；新助手协商能力实机闭合
+## 当前状态｜2026-10-21 04:51 CST｜正式消费往返验收；Pro贴吧中央与Owner已采用
+
+- **正式运行**：源码df44584bc1038835eb6de27703adafeea64e420a与659f6ea已推原分支。原45937当前唯一Owner6807 / owner-pro-tieba-631ced48753e658e，488文件中仅6项覆盖、其余482保持；原Owner树保留。独立素材引擎material-title-18318804ce289741（238项仅替bridge），原13字段配置只改四个路径/摘要字段，现SHA ebe9532788675f5a9b65b623925aeade1327d874fc737c9dd86a34b633cde875；知识仍234/knowledge-review-impact-660ebafd776158e9及64704原配置。不是只把文件放进候选目录。
+- **用户要求的三项**：标题保真、知识反馈入口、多项目消费均在正式工作台。新Owner实际UI“资料库→参与者素材：版本、反馈与分享”，原19/29四素材各新版→旧版→新版，最终原74cb/dfe94；四阶段当前下载逐字节等对应固定版本，JSON/JSONL/CSV记录互等，新版四条标题/全文与原record相等。原反馈9705仍pending_feedback，可在正式面板读取；未为演示重复入库、重采或重算。软件项目与六店原入口/四格式保持，不冒已接任意新增项目。截图与正常API、原SDK活库证据见下。
+- **新边界修复**：通用机器素材桥原来仍取正文80字当标题，复用Pro分支的原标题/正文证据偏移投影，评论fallback/原capture/Pro分支保持。6原测试+4独立边界、原Jobs/Consumer合成单内容四格式和重放通过；这是明确合成receipt，不冒真实ACK。贴吧分页后页独图遗漏P1已修；每页原Pro字段及摘要/引用来源保留，跨页去重、不截断超限。另修media=true纯文本被拒；独审又以缺类型/未知字段反例拦住V2，V3只让已核typedtext成为零媒体，未知/视频仍明确拒绝。原SDK未修改或公开复制。
+- **中央已上线**：原Supabase项目crowd-machine Edge49→50，30文件仅core/contract覆盖，保留远端入口和原鉴权。迁移20261020203421，原RPC31987的MD5 c96211→4d0fb9fa094c918c5b24a2a0a7311618，ACL/search_path/owner/security保持。原任务69/子任务75/captures1772全行hash相同；截止时间前82336 claims亦同。期间新增空轮询（首次+9、进一步15）均无child/run/outcome，不能说整库无写。原工作台正常unified_preview已实调云端readytrue、machine_worker1/30、createdfalse/source0；未创建新任务或宣新来源云ACK。
+- **独审/保护**：中央V3、媒体V3、素材引擎采用、中央部署、Owner采用均有非作者审核及实际后验。Owner采用瞬间原五业务库+知识schema/全行、本机两份native账本（不是两台设备验收）、身份/进度/评分/outbox/OTA配置、1824保护项保持。随后用户明确要求的版本选择单独记录。独审恰逢29旧版，4项严格hash差异被保留并逐项等UI-29-old；最后独立8次当前下载重新等原新版，不删除失败或宣全程不变。正式89 Python、12 handler、1正8反contract通过。
+- **未验与下一步**：当前贴吧旧session只有saved authenticated和正generation，缺该root的pro-executor.json、该session的pro-binding.json/account_ref，不能声明Pro就绪。先利用既有许可SDK/CookieBridge与原浏览器身份补正常绑定/同账号自检，再沿新任务/窗口/预算门取得真实正文、评论分页、媒体、导出及云ACK；不可强制tag、重开completed19/20/29或重放UNKNOWN。当前范围仍单帖detail、图片最多3/视频拒绝、SDK金样为离线；完整Consumer父子/媒体呈现、快手Pro接线、新设备依赖与连续runtime OTA、两设备新来源及双域全M链仍未完成。
+- **知识/实验**：两个提案仍proposed；0.1.2的人类决定尚未收到明确答复，不代批或按预选行动。反馈入库不等于审核、release/pin或Consumer采用。48h实验/watchdog沿原暂停设置，本轮不恢复；中央实验阶段未fresh查。全U01–U22目标继续进行，不能以本轮消费与中央部署验收结项。
+
+## 历史快照｜2026-10-21 04:06 CST｜知识待审影响卡正式采用；新助手协商能力实机闭合
 
 - **本轮为实际进展**：沿统一U01–U22推进，正式源码20743e8f825f77edb3b6530cfd44672567f78547已推。45937当前唯一Owner187 / owner-review-impact-34e34c82f0d1898d，488中仅knowledge-ui.js一项覆盖；知识234切到knowledge-review-impact-660ebafd776158e9，仅owner_knowledge_service.py一项覆盖。不是只替Owner同名服务副本；旧两运行树保留，原material13字段配置字节不写。
 - **正式用户路径**：IAB原45937重新加载→知识更新→素材反馈提案0.1.2，实际显示同输入影响卡和9705→c7→target012血缘。原4条固定输入/2批次的身份、采集记录、证据、追溯评分均4/4，旧四格式/原选择2/2；明确是既有隔离比较，不代表所有来源或正式重算。旧034入口保持；本轮20次/16唯一URL正常导出等原hash，反馈/缺口保持，无重复提交、新来源或新云ACK。
