@@ -54,7 +54,7 @@ def index_html(root):
     rows=summaries(root)
     parts=['<!doctype html><meta charset="utf-8"><title>参与者素材</title><h1>参与者素材</h1>',
            '<p>云端已确认的数据自动进入清洗、可追溯性评分和审计。该评分不代表内容质量、口味或参与者奖励。</p>',
-           '<p><a href="/">返回工作台</a> · <a href="/materials">原已审素材</a> · <a href="/data-product">领域发现</a></p>']
+           '<p><a href="/">返回工作台</a> · <a href="/materials">原已审素材</a> · <a href="/data-product">领域发现</a> · <a href="/data-products">项目交付</a></p>']
     if not rows:parts.append('<p>暂无参与者素材处理结果；原数据与回执保留。</p>')
     names={'waiting':'等待处理','processing':'处理中','blocked':'处理异常，原数据保留','ready':'已处理'}
     for row in rows:

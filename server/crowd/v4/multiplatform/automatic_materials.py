@@ -31,12 +31,13 @@ def material_context_key(c):
     return 'pro-'+sha(canonical(c)) if c.get('schema')=='crowd-participant-pro-material-context-v1' else c['local_run_id']
 def validate_context(c):
     if type(c)is dict and c.get('schema')=='crowd-material-recompute-v1':
-        if set(c)!={'schema','original','pro_key','expected_job','target_release','config'}:raise ValueError('material_recompute_invalid')
+        engine=set(c)=={'schema','original','pro_key','expected_job','target_release','mode','config'}and c.get('mode')=='current_engine'and c.get('target_release')is None
+        if not engine and set(c)!={'schema','original','pro_key','expected_job','target_release','config'}:raise ValueError('material_recompute_invalid')
         original=validate_context(c['original'])
         if original['schema']!='crowd-participant-pro-material-context-v1'or material_context_key(original)!=c['pro_key']:raise ValueError('material_recompute_invalid')
         import re
         release=c['target_release'];cfg=c['config']
-        if type(release)is not dict or set(release)!={'pack_id','version','hash'}or not re.fullmatch('[a-z0-9][a-z0-9-]{0,63}',release['pack_id'])or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',release['version'])or not re.fullmatch('[a-f0-9]{64}',release['hash'])or not re.fullmatch('[a-f0-9]{64}',c['expected_job']):raise ValueError('material_recompute_invalid')
+        if not re.fullmatch('[a-f0-9]{64}',c['expected_job'])or not engine and(type(release)is not dict or set(release)!={'pack_id','version','hash'}or not re.fullmatch('[a-z0-9][a-z0-9-]{0,63}',release['pack_id'])or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',release['version'])or not re.fullmatch('[a-f0-9]{64}',release['hash'])):raise ValueError('material_recompute_invalid')
         if type(cfg)is not dict or set(cfg)not in (KEYS|{'pro_snapshot_sha256'},KEYS|{'pro_snapshot_sha256','pro_comments_sha256'}):raise ValueError('material_recompute_invalid')
         return c
     if type(c)is dict and c.get('schema')=='crowd-participant-pro-material-context-v1':
@@ -132,6 +133,43 @@ class AutomaticMaterials:
             validate_context(result)
             # Persist old readable descriptor before any work is scheduled. Never modify old state here.
             old=Path(pointer['request']).parent/'ready.json'
+            if old.exists():
+                if {**private_json(old),'context':current['context']}!=current:raise ValueError('material_recompute_original_changed')
+            else:write(old,current)
+            return result
+
+    def _current_engine_context(self,key,expected_job):
+        from participant_material_delivery import publication
+        from workbench_material_call import command
+        current=publication(self.root,key)
+        if current.get('state')!='ready'or current.get('job_id')!=expected_job:raise ValueError('material_recompute_current_changed')
+        pointer=current['publication_pointer'];command(pointer,'read','json');request=private_json(pointer['request'])
+        if _digest(pointer['request'])!=pointer['request_sha256']:raise ValueError('material_recompute_original_changed')
+        cfg=private_json(self.root/'data-products/material-auto-runtime.json')
+        if type(cfg)is not dict or set(cfg)not in (KEYS|{'pro_snapshot_sha256'},KEYS|{'pro_snapshot_sha256','pro_comments_sha256'}):raise ValueError('material_recompute_runtime_changed')
+        for key_ in ('toolbox_root','toolbox_pins','pack_path','pack_sha256'):
+            if cfg[key_]!=request[key_]:raise ValueError('material_recompute_runtime_changed')
+        self.pack_info(pointer)
+        engine=('bridge_sha256','runtime_cloud_sha256','pro_snapshot_sha256')+(('pro_comments_sha256',)if'pro_comments_sha256'in request else())
+        old_engine={**request,'bridge_sha256':pointer['script_sha256']}
+        if not any(cfg.get(k)!=old_engine.get(k)for k in engine):raise ValueError('material_engine_unchanged')
+        checks=[(cfg['worker_script'],cfg['worker_sha256']),(cfg['bridge_path'],cfg['bridge_sha256']),(Path(cfg['runtime_root'])/'cloud_sync.py',cfg['runtime_cloud_sha256']),(Path(cfg['runtime_root'])/'pro_ack_snapshot.py',cfg['pro_snapshot_sha256'])]
+        if 'pro_comments_sha256'in cfg:checks.append((Path(cfg['runtime_root'])/'participant_pro_comments.py',cfg['pro_comments_sha256']))
+        if any(_digest(path)!=pin for path,pin in checks):raise ValueError('material_recompute_runtime_changed')
+        result={'schema':'crowd-material-recompute-v1','original':current['context'],'pro_key':key,'expected_job':expected_job,'target_release':None,'mode':'current_engine','config':cfg}
+        validate_context(result);return result
+
+    def current_engine_available(self,key,expected_job):
+        with self.lock:
+            try:self._current_engine_context(key,expected_job)
+            except (ValueError,OSError)as error:return {'available':False,'reason':str(error)if str(error)in ('material_engine_unchanged','material_recompute_runtime_changed','material_recompute_current_changed')else'material_engine_unavailable'}
+            return {'available':True,'reason':None}
+
+    def prepare_current_engine(self,key,expected_job):
+        with self.lock:
+            result=self._current_engine_context(key,expected_job)
+            from participant_material_delivery import publication
+            current=publication(self.root,key);old=Path(current['publication_pointer']['request']).parent/'ready.json'
             if old.exists():
                 if {**private_json(old),'context':current['context']}!=current:raise ValueError('material_recompute_original_changed')
             else:write(old,current)

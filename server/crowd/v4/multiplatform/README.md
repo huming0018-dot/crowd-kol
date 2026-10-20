@@ -221,3 +221,15 @@ G07 能力协商切片只匹配已有授权任务；正常 Owner 新目标建批
 正常 Owner `unified_create` 在已启用、同意且能力/日额匹配的参与节点上，为单个小红书搜索目标原子建立原任务和 Pro 批次；保留旧 pilot，使用独立的 Owner-dispatch 授权模式，不伪造邀请或验收阶段。正文数量1–100且不超过原日额，评论/回复/根评论上限和 API 预算沿权威 claim 传至 Pro；媒体、多目标和其他平台仍走已支持的原路径，不以此分支冒称覆盖。能力包未采用或节点不匹配时保留既有有效 Owner Pro 回退，原生专有选项明确不可用。
 
 原任务列表的停止入口使用 Owner-only `unified_cancel` 撤销这个新批次的来源权限。取消不等于在途进程已经停止；原回执、严格范围内已保存评论和恢复读取保留，不能启动新请求。未知取消结果只核对原列表，不自动重发。实现与部署状态、原始输入/评论分页/媒体引用或字节/四格式/云回执验收分别记在固定 HANDOFF；迁移和源码存在不等于安装或新来源已验收。
+
+## 原素材标题、版本与私有反馈
+
+Pro 原标题独立于正文进入素材标题和证据字段；只有空标题才沿用正文摘要。已经处理的素材不会被代码更新覆盖。在资料库的参与者批次中，可显式“按当前处理器重建”，仍读同一 ACK、原工具箱及原规则包；创建独立 job，完成后再选择新版，也能切回旧版并下载四格式。该操作不采新来源、不授予知识发布权限。
+
+同一入口提供素材反馈，绑定实际选中的 job、原 request、record_hash、云回执和规则包。复用原 KnowledgeStore 的 consumer feedback 通道；当前身份为 `central_owner_service`、`human_uid:null`，不冒充人类体验或审核。反馈需要明确私有保存同意；“实际体验”另需确认。未知结果保留原 intent_id，只查原回执，不自动重提、审核、发布或改分。独立知识服务须与 Owner 配套采用；原 host 配置保持，新不可变服务配置仅增加 `material_root`。
+
+## 多项目消费
+
+资料库“参与者素材”页面的“项目交付”链接打开 `/data-products`。项目登记在运行根目录的 `data-products/project-publications.json`，仅 Owner 配置；每个项目继续使用原 `publication_reader.py` 和五字段读配置，经 Manifest、项目、报告、工具箱及六文件规则包核验后提供 HTML、JSON、JSONL、CSV。URL 不接收本地路径。原 `/materials` 和 `/data-product` 保持各自原数据。列表只代表已登记，打开核验成功才代表可消费。
+
+回归入口：`test_material_feedback.py`、`test_material_feedback_routes.py`、`test_material_current_engine.py`、`test_project_publications.py`，以及 `node test_material_feedback_ui.mjs`、`node test_material_current_engine_ui.mjs`。SDK 测试使用已安装 toolbox 的解释器；私有原数据须显式提供 `CROWD_MATERIAL_TEST_ROOT`、`CROWD_OWNER_TEST_PYTHON`、`CROWD_PRO_ACK_FIXTURE`，版本变更测试还需显式提供旧版不可变代码目录 `CROWD_PREVIOUS_MATERIAL_RUNTIME`，项目 HTTP 测试另需 `CROWD_PROJECT_TEST_CONFIG`、`CROWD_PROJECT_TEST_LEGACY_ROOT`。缺输入报错，原数据不随源码分发；所有业务写入仅发生在测试临时副本。正式运行和实际反馈入库证据见固定 HANDOFF。

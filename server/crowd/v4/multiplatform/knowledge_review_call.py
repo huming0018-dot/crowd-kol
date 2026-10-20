@@ -6,7 +6,7 @@ from workbench_material_call import command as material_command
 
 
 def call(config_path, cloud_config, body):
-    if type(body)is not dict or set(body)!={'action','payload'} or body['action'] not in ('preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read','material_releases','material_release_resolve') or type(body['payload'])is not dict:
+    if type(body)is not dict or set(body)!={'action','payload'} or body['action'] not in ('preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read','material_releases','material_release_resolve','material_feedback_preview','material_feedback_submit','material_feedback_status') or type(body['payload'])is not dict:
         raise ValueError('knowledge_request_invalid')
     raw=json.dumps(body,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()
     if len(raw)>32768:raise ValueError('knowledge_request_too_large')
@@ -26,11 +26,14 @@ def call(config_path, cloud_config, body):
         try:
             process=subprocess.run(argv,input=raw,stdout=output,stderr=subprocess.DEVNULL,env=env,timeout=25,close_fds=True)
         except subprocess.TimeoutExpired:
-            raise ValueError('knowledge_outcome_unknown'if body['action']in ('decide','publication_release','publication_pin','publication_rollback')else 'knowledge_read_unavailable')from None
+            raise ValueError('knowledge_outcome_unknown'if body['action']in ('decide','publication_release','publication_pin','publication_rollback','material_feedback_submit')else 'knowledge_read_unavailable')from None
         if os.fstat(output.fileno()).st_size>1024*1024:
             raise ValueError('knowledge_request_unavailable')
         output.seek(0);value=parse_json(output.read(1024*1024+1))
         prewrite={'knowledge_preview_expired','knowledge_decision_invalid','knowledge_decision_request_invalid','knowledge_preview_required'}
+        feedback_prewrite={'material_feedback_journal_limit','material_feedback_request_invalid','material_feedback_not_ready','material_feedback_current_changed','material_feedback_scope_mismatch','material_feedback_record_changed','material_feedback_quote_mismatch','material_feedback_not_configured','material_feedback_request_conflict'}
+        if body['action']=='material_feedback_submit'and process.returncode==2 and type(value)is dict and set(value)=={'error'}and type(value['error'])is str and value['error']in feedback_prewrite:
+            return {'state':'not_submitted','error_code':value['error']}
         if (body['action']=='decide' and process.returncode==2 and type(value)is dict
                 and set(value)=={'error'} and type(value['error'])is str and value['error']in prewrite):
             return {'state':'not_submitted','error_code':value['error'],'message':'本次决定未提交：预览已过期或输入未通过校验。请刷新提案，原理由可保留。'}

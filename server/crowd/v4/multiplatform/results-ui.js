@@ -76,11 +76,50 @@ const resultsView = (() => {
   const materialExports=node('details');materialExports.append(node('summary','导出当前已审素材'),node('p','导出当前发布批次的全部已审素材。'));
   for(const [format,path]of [['JSON','report.json'],['JSONL','materials.jsonl'],['CSV','materials.csv']]){const link=node('a',format);link.href='/materials/'+path;link.download='materials.'+format.toLowerCase();materialExports.append(link,document.createTextNode(' '));}
   const participantMaterialLink=node('a','查看参与者自动处理素材');participantMaterialLink.href='/materials/participants';participantMaterialLink.target='_blank';participantMaterialLink.rel='noopener';
+  function attachMaterialFeedback(parent,ownerDialog,selectedSource){
+    const panel=node('details');panel.append(node('summary','提交素材反馈'),node('p','反馈由Owner服务（central_owner_service；human_uid:null）保存到原授权私有反馈空间，保留真实素材项目、回执与知识包。待处理反馈不等于真人审核、知识发布或评分；不重新采集。'));
+    const items=node('select'),kind=node('select'),reason=node('textarea'),quote=node('textarea'),experienced=node('input'),consent=node('input'),status=node('p'),history=node('ul');
+    items.setAttribute('aria-label','反馈哪条素材');kind.setAttribute('aria-label','反馈类型');reason.setAttribute('aria-label','反馈理由');quote.setAttribute('aria-label','原文引用（可选，必须与原文一致）');reason.maxLength=quote.maxLength=2000;experienced.type=consent.type='checkbox';
+    for(const [value,label]of [['preference','偏好'],['ignore','不感兴趣'],['want_to_know','进一步了解'],['experienced','已体验（需本人明确确认）']])kind.append(new Option(label,value));
+    const experienceLabel=node('label','我确认这条“已体验”描述确实发生（否则不要勾选）'),consentLabel=node('label','明确提交并仅在原私有反馈空间保存');experienceLabel.prepend(experienced);consentLabel.prepend(consent);
+    let ticket=0,view=null,busy=false;
+    const savedKey=key=>'crowd:material-feedback:'+key;
+    const call=(action,payload)=>api('/api/cloud',{action,payload});
+    function saved(key){try{return localStorage.getItem(savedKey(key));}catch{return null;}}
+    const submit=button('提交待处理反馈',async()=>{
+      const scope=selectedSource(),v=view,version=ticket,item=v?.items.find(i=>i.request===items.value);if(!scope||!v||!item||busy||submit.disabled||saved(scope.pro_key))return;
+      if(!reason.value.trim()||!consent.checked||(kind.value==='experienced'&&!experienced.checked)||(quote.value&&!item.body.includes(quote.value))){status.textContent='请填写理由、明确私有保存同意，并核对原文引用；已体验需单独确认。未提交。';return;}
+      const id=crypto.randomUUID();try{localStorage.setItem(savedKey(scope.pro_key),id);}catch{status.textContent='无法保存原请求，未提交。';return;}
+      busy=true;submit.disabled=true;status.textContent='已保存原请求，正在提交；不会自动重发。';
+      try{const r=await call('material_feedback_submit',{intent_id:id,pro_key:scope.pro_key,expected_job:v.expected_job,request:item.request,record_hash:item.record_hash,kind:kind.value,reason:reason.value,quote:quote.value,experience_confirmed:experienced.checked,consent_private:consent.checked});
+        if(r.intent_id&&r.intent_id!==id)localStorage.setItem(savedKey(scope.pro_key),r.intent_id);
+        if(r.state==='not_submitted'){localStorage.removeItem(savedKey(scope.pro_key));if(version===ticket&&ownerDialog.open){status.textContent='本次未提交，请刷新素材与反馈前置；原反馈保持。';submit.disabled=false;}return;}
+        if(version!==ticket||!ownerDialog.open)return;status.textContent=r.state==='pending_feedback'?'反馈已入库，待后续处理；未审核、发布或改分。原ID：'+id:'结果待核对，保留原ID，不自动重发。';
+      }catch{if(version===ticket&&ownerDialog.open)status.textContent='结果待核对；请查询原ID，不要换ID重发。';}
+      finally{if(version===ticket)busy=false;}
+    });
+    const check=button('查询原反馈',async()=>{
+      const scope=selectedSource(),version=ticket;if(!scope||busy)return;const id=saved(scope.pro_key)||view?.feedback?.find(r=>r.state==='outcome_unknown')?.intent_id;if(!id)return;
+      busy=true;try{const r=await call('material_feedback_status',{intent_id:id});if(version!==ticket||!ownerDialog.open)return;status.textContent='原反馈 '+id+'：'+r.state+'；未审核/发布。';if(r.state==='pending_feedback'){localStorage.removeItem(savedKey(scope.pro_key));await load();}}
+      catch{if(version===ticket&&ownerDialog.open)status.textContent='原反馈尚待核对，不自动重发。';}finally{if(version===ticket)busy=false;}
+    });
+    async function load(){
+      const version=++ticket,scope=selectedSource();view=null;busy=false;items.replaceChildren();history.replaceChildren();submit.disabled=true;reason.value=quote.value='';experienced.checked=consent.checked=false;if(!scope)return;
+      try{const r=await call('material_feedback_preview',{pro_key:scope.pro_key});if(version!==ticket||!ownerDialog.open)return;if(r.state!=='feedback_preview'||r.pro_key!==scope.pro_key||!Array.isArray(r.items)||!Array.isArray(r.feedback))throw Error('invalid_preview');view=r;
+        for(const item of r.items)items.append(new Option(item.title||item.request,item.request));
+        for(const row of r.feedback)history.append(node('li',row.intent_id+' · '+row.kind+' · '+row.state+' · 未审核'));
+        submit.disabled=!r.items.length||!!saved(scope.pro_key)||r.feedback.some(row=>row.state==='outcome_unknown');status.textContent=submit.disabled?'有原请求待核对，禁止换ID提交。':'请选择素材并填写反馈；点击才提交，未发起体验不会记为已体验。';
+      }catch{if(version===ticket&&ownerDialog.open)status.textContent='反馈前置未接通，未提交。';}
+    }
+    panel.append(items,kind,reason,quote,experienceLabel,consentLabel,submit,check,button('刷新反馈记录',()=>load()),status,history);parent.append(panel);ownerDialog.addEventListener('close',()=>{ticket++;view=null;busy=false;});
+    return {selectionChanged:load};
+  }
   const participantShare=node('details');participantShare.append(node('summary','分享参与者素材'));
   const scopeSelect=node('select');scopeSelect.setAttribute('aria-label','分享哪批参与者素材');participantShare.append(scopeSelect);
   let shareScopes=new Map(),shareGeneration=0;
   const proShare=attachPublicationShare(participantShare,dialog,()=>shareScopes.get(scopeSelect.value)||null);
-  scopeSelect.onchange=()=>proShare.selectionChanged();
+  const materialFeedback=attachMaterialFeedback(participantShare,dialog,()=>shareScopes.get(scopeSelect.value)||null);
+  scopeSelect.onchange=()=>{proShare.selectionChanged();void materialFeedback.selectionChanged();};
   dialog.addEventListener('close',()=>{shareGeneration++;});
   async function loadShareScopes(){
     const ticket=++shareGeneration;shareScopes=new Map();scopeSelect.replaceChildren(new Option('正在读取已处理批次',''));proShare.selectionChanged();
@@ -95,20 +134,22 @@ const resultsView = (() => {
       scopeSelect.replaceChildren();for(const scope of shareScopes.values())scopeSelect.append(new Option('任务 '+scope.task_id+' · '+scope.items+' 条',scope.pro_key));
       if(!shareScopes.size)scopeSelect.append(new Option('暂无已处理批次',''));
     }catch{if(ticket===shareGeneration&&dialog.open)scopeSelect.replaceChildren(new Option('批次读取失败，请重新打开资料库',''));}
-    if(ticket===shareGeneration&&dialog.open)proShare.selectionChanged();
+    if(ticket===shareGeneration&&dialog.open){proShare.selectionChanged();void materialFeedback.selectionChanged();}
   }
-  const recompute=node('details');recompute.append(node('summary','同一批回执重新处理与版本选择'),node('p','只读取原ACK；仅可选本知识作用域已完成发布的同类包。不自动审核、采集或切换云端发布。'));
+  const recompute=node('details');recompute.append(node('summary','同一批回执重新处理与版本选择'),node('p','只读取原ACK；可按当前处理器重建，或选择本知识作用域已发布的同类包。不自动审核、采集或切换云端发布。'));
   const releaseSelect=node('select'),versionSelect=node('select'),recomputeStatus=node('p');releaseSelect.setAttribute('aria-label','已发布知识版本');versionSelect.setAttribute('aria-label','已处理素材版本');
   let materialView=null,materialTicket=0;const materialCall=(action,payload)=>api('/api/cloud',{action,payload});
   const pendingKey=key=>'crowd:material-recompute:'+key;
   const pending=key=>{try{return localStorage.getItem(pendingKey(key));}catch{return null;}};
-  const create=button('按选中版本重新处理',async()=>{
-    const scope=shareScopes.get(scopeSelect.value),view=materialView;if(!scope||!view||!releaseSelect.value||pending(scope.pro_key))return;
+  const create=button('按选中版本重新处理',()=>submitRecompute('release'));
+  const engineCreate=button('按当前处理器重建',()=>submitRecompute('current_engine'));
+  async function submitRecompute(mode){
+    const scope=shareScopes.get(scopeSelect.value),view=materialView;if(!scope||!view||pending(scope.pro_key)||(mode==='current_engine'?view.current_engine?.available!==true:!releaseSelect.value))return;
     const ticket=materialTicket,id=crypto.randomUUID();try{localStorage.setItem(pendingKey(scope.pro_key),id);}catch{recomputeStatus.textContent='无法保存原请求，请先恢复本地存储；未提交。';return;}
-    create.disabled=true;recomputeStatus.textContent='已保留原请求，等待处理；旧四格式仍可读。';
-    try{const result=await materialCall('material_recompute',{request_id:id,pro_key:scope.pro_key,expected_job:view.current_job,release:JSON.parse(releaseSelect.value)});if(result.state==='not_submitted'){localStorage.removeItem(pendingKey(scope.pro_key));if(ticket===materialTicket&&dialog.open){recomputeStatus.textContent='本次未排队，请刷新版本记录；原产物保留。';create.disabled=false;}return;}if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='已排入原处理队列；请核对原请求，不会自动切换版本。';}
+    create.disabled=engineCreate.disabled=true;recomputeStatus.textContent='已保留原请求，等待处理；旧四格式仍可读。';
+    try{const result=await materialCall('material_recompute',{request_id:id,pro_key:scope.pro_key,expected_job:view.current_job,...(mode==='current_engine'?{mode}:{release:JSON.parse(releaseSelect.value)})});if(result.state==='not_submitted'){localStorage.removeItem(pendingKey(scope.pro_key));if(ticket===materialTicket&&dialog.open){recomputeStatus.textContent='本次未排队，请刷新版本记录；原产物保留。';create.disabled=!view.releases?.length;engineCreate.disabled=view.current_engine?.available!==true;}return;}if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='已排入原处理队列；请核对原请求，不会自动切换版本。';}
     catch{if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='结果待核对；保留原请求，不自动重发。';}
-  });
+  }
   const check=button('核对原重算请求',async()=>{
     const scope=shareScopes.get(scopeSelect.value);if(!scope)return;const id=pending(scope.pro_key),ticket=materialTicket;if(!id)return;
     try{const value=await materialCall('material_recompute_status',{request_id:id});if(ticket!==materialTicket||!dialog.open)return;recomputeStatus.textContent='原请求状态：'+value.state;
@@ -123,14 +164,14 @@ const resultsView = (() => {
   });
   const versionLinks=node('div');
   async function loadMaterialVersions(){
-    const ticket=++materialTicket,scope=shareScopes.get(scopeSelect.value);materialView=null;releaseSelect.replaceChildren();versionSelect.replaceChildren();versionLinks.replaceChildren();create.disabled=select.disabled=true;if(!scope)return;
+    const ticket=++materialTicket,scope=shareScopes.get(scopeSelect.value);materialView=null;releaseSelect.replaceChildren();versionSelect.replaceChildren();versionLinks.replaceChildren();create.disabled=engineCreate.disabled=select.disabled=true;if(!scope)return;
     try{const value=await materialCall('material_versions',{pro_key:scope.pro_key});if(ticket!==materialTicket||!dialog.open)return;
       materialView=value;for(const r of value.releases||[])releaseSelect.append(new Option(r.pack_id+' '+r.version,JSON.stringify(r)));
       for(const v of value.versions||[]){versionSelect.append(new Option((v.selected?'当前 · ':'')+v.job_id.slice(0,12),v.job_id));for(const [label,suffix]of [['HTML',''],['JSON','/report.json'],['JSONL','/materials.jsonl'],['CSV','/materials.csv']]){const link=node('a',v.job_id.slice(0,8)+' '+label);link.href='/materials/pro/'+scope.pro_key+'/versions/'+v.job_id+suffix;versionLinks.append(link,document.createTextNode(' '));}}
-      recomputeStatus.textContent=value.releases?.length?'新处理不会覆盖旧产物；完成后需要单独选择。':'该知识作用域暂无同类已发布包；不会把候选或其他领域包当成已批准版本。';create.disabled=!value.releases?.length||!!pending(scope.pro_key);select.disabled=!value.versions?.length;
+      recomputeStatus.textContent=value.current_engine?.available===true?'当前处理器已变化，可按原包重建；不涉及知识批准，完成后需要单独选择。':value.releases?.length?'新处理不会覆盖旧产物；完成后需要单独选择。':'该知识作用域暂无同类已发布包；不会把候选或其他领域包当成已批准版本。';create.disabled=!value.releases?.length||!!pending(scope.pro_key);engineCreate.disabled=value.current_engine?.available!==true||!!pending(scope.pro_key);select.disabled=!value.versions?.length;
     }catch{if(ticket===materialTicket&&dialog.open)recomputeStatus.textContent='版本前置未接通；原素材保持可读。';}
   }
-  const refresh=button('刷新版本记录',()=>loadMaterialVersions());recompute.append(releaseSelect,create,check,refresh,versionSelect,select,recomputeStatus,versionLinks);participantShare.append(recompute);
+  const refresh=button('刷新版本记录',()=>loadMaterialVersions());recompute.append(releaseSelect,create,engineCreate,check,refresh,versionSelect,select,recomputeStatus,versionLinks);participantShare.append(recompute);
   const originalSelection=scopeSelect.onchange;scopeSelect.onchange=()=>{originalSelection();void loadMaterialVersions();};dialog.addEventListener('close',()=>{materialTicket++;materialView=null;});
   $('library_export').after(materialLink,materialExports,participantMaterialLink,participantShare);
   let revision=null,offset=0,filters={},total=0,generation=0,loading=false;

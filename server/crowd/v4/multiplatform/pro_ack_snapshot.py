@@ -79,9 +79,10 @@ def records(snapshot):
 def bundle(snapshot):
  original_group(snapshot);sources=[];candidates=[]
  for row in records(snapshot).values():
-  rec=row['pro_payload']['record'];text=rec['body'];rid=row['request'];title=text[:80]
-  sources.append({'version_id':rid,'source_id':rec['platform']+'-ugc','source_kind':'ugc','canonical_body':text,'canonical_body_sha256':hashlib.sha256(text.encode()).hexdigest(),'retrieved_at':row['created_at']})
-  evidence=[{'source_version_id':rid,'start':0,'end':len(title),'quote':title,'field':'title'}]+[{'source_version_id':rid,'start':start,'end':min(start+5000,len(text)),'quote':text[start:start+5000],'field':'text'}for start in range(0,len(text),5000)]
+  rec=row['pro_payload']['record'];text=rec['body'];rid=row['request'];title=rec.get('title') if isinstance(rec.get('title'),str) and rec['title'].strip() else text[:80]
+  source_text=text if text.startswith(title) else title+'\n\n'+text;offset=0 if source_text==text else len(title)+2
+  sources.append({'version_id':rid,'source_id':rec['platform']+'-ugc','source_kind':'ugc','canonical_body':source_text,'canonical_body_sha256':hashlib.sha256(source_text.encode()).hexdigest(),'retrieved_at':row['created_at']})
+  evidence=[{'source_version_id':rid,'start':0,'end':len(title),'quote':title,'field':'title'}]+[{'source_version_id':rid,'start':offset+start,'end':offset+min(start+5000,len(text)),'quote':text[start:start+5000],'field':'text'}for start in range(0,len(text),5000)]
   candidates.append({'id':rid,'revision':1,'draft':{'title':title,'text':text,'entity_type':rec['kind']},'evidence':evidence,'capture':row,'coverage':snapshot['coverage'],'unscoreable_reason':'No verified restaurant identity or independent dining evidence. Material traceability is not taste, quality or reward.'})
  return {'source_versions':sources,'candidates':candidates,'capture_snapshot':snapshot}
 

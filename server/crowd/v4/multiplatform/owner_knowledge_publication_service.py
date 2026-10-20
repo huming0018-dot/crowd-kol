@@ -14,8 +14,9 @@ class OwnerKnowledgePublicationService:
   raw=protected_bytes(path)
   if hashlib.sha256(raw).hexdigest()!=sha:raise BindingError('knowledge_host_config_changed')
   cfg=parse(raw)
-  if set(cfg)!=KEYS:raise BindingError('knowledge_host_config_invalid')
+  if set(cfg)not in (KEYS,KEYS|{'material_root'}):raise BindingError('knowledge_host_config_invalid')
   self.path,self.sha,self.client=path,sha,client
+  self.material_root=cfg.get('material_root')
   self.review=OwnerKnowledgeService(cfg['review_config'],cfg['review_sha256'],client)
   self.publication=OwnerKnowledgePublication(cfg['publication_config'],cfg['publication_sha256'],client)
   if self.review.binding.config_sha256!=self.publication.binding.config_sha256:raise BindingError('knowledge_host_binding_mismatch')
@@ -83,6 +84,10 @@ class OwnerKnowledgePublicationService:
   self._check()
   if type(body)is not dict or set(body)!={'action','payload'}or type(body['action'])is not str or type(body['payload'])is not dict:raise BindingError('knowledge_request_invalid')
   action=body['action']
+  if action in ('material_feedback_preview','material_feedback_submit','material_feedback_status'):
+   if not self.material_root:raise BindingError('material_feedback_not_configured')
+   from material_feedback import MaterialFeedback
+   return MaterialFeedback(self.material_root,self.review.binding,self.client).request(action,body['payload'])
   if action in ('material_releases','material_release_resolve'):return self.material_releases(body['payload'],resolve=action=='material_release_resolve')
   if action in ('preview','decide','status'):
    value=self.review.request(body)
