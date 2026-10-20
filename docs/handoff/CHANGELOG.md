@@ -967,3 +967,12 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **独审/部署**：产品文案及10例采用框架/只读PLAN已独审；root唯一原adopter --apply exit0；非作者实际1349文件、五库/双native、知识234/15表、两配置、host/settings/身份全保持。已在正式45937打开新入口并留图；无中央部署/新OTA。
 - **边界/下一步**：原进度、评分、云ACK与OTA保留；本轮不重采不重算。知识0.1.2待人工决定与原生发布，普通新Mac/两设备新采集及连续OTA仍未因本轮放行。48h/watchdog暂停，继续PRODUCT-PLAN；不重开已完成任务或重放UNKNOWN。
 - **证据**：G32-formal-consumption-recheck、review/current-material-audit-20261020、review/g31-knowledge-consumption-readonly；正式HANDOFF/EVIDENCE同步。
+
+## 2026-10-21 00:18 CST｜原机Pro依赖续接；Node安装正式源码接入
+
+- **接力者/独审**：root统筹；central_steps审Node与正式11SHA，native_diagnostics_review审原机续接/实际HELLO，knowledge_reuse_probe编写Node及接入候选。非作者报告见EVIDENCE。
+- **目标/改动**：继续正式消费用户路径的安装基础收尾，复用Pro原生validate_only/Signer；PAGES九文件依赖安装修复先推送正式源码，再11文件Node接入（两仓合计6产品/4测试/1文档）。原机仅两Pro Python指针事务更换；保原六设置与Signer路径，未改平台采集核心。
+- **版本/验证**：PAGES8ed0ebc后23165e1；crowd-kol b257bc5。原正式包装器exit0/upgraded，9.673922秒；原101零来源HELLO实际ready/closed；Node真实隔离prepare/Signer pong/stop、source/sign0。18项产品测试/23旧安装/32依赖回归及独审通过；正式11afterSHA精确一致。
+- **运行与业务验收**：原机依赖已续接、就绪已验；Node仅正式源码和隔离实际，未采用120运行包或发布新OTA。原4素材/反馈/多项目正式验收沿上一条证据，不重复提交。原身份、进度、评分、云ACK、OTA/113运行文件和账本保持，无新来源/新中央部署。停止任务不恢复，UNKNOWN不重放。
+- **遗留/下一步**：普通安装120包组装/采用/中央能力与新Mac门；原两设备同账号恢复、新来源完整性和连续无人值守OTA。知识proposed仍待真人决定；48h/watchdog暂停。手动源/云/发布验收不能用本轮零来源替代。
+- **证据/位置**：G33、G34、G30及独审精确路径见EVIDENCE；固定HANDOFF同步本轮日期、结论与下一步。无需新增交接入口。

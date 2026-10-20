@@ -1038,3 +1038,14 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - 知识实库非作者：`review/g31-knowledge-consumption-readonly/FINAL.json` SHA9b41f5ec45702ee55432d2e174ae729a5642d55dc7aca92abfe1999aa44d4ed3；`FINAL-UI-RECEIPT.json` SHAfe916b868a989fd9b4177a4df5c526e6cc04cbebf2b9d782473e2731ab95e289。仅既有反馈/缺口/待审提案，未新增或批准。
 - 采用门：`review/current-material-audit-20261020/LABEL-ADOPTION-FINAL.json` SHAf623b143cc15337cbd6708251b86979c3417df72da1bf78274f7eea0c5d6a412。实际后验`ACTUAL-LABEL-ADOPTION.json` SHAa0a0e540a6fedcfe9e86c61b78cad3d3c83a0da8e1c5d3717a52f5854d51eccd，独立确认唯一76467、488map、单JS、1349保护及全部原业务/配置保持。实际记录`G31-material-controls-adoption/runtime-adoption/ADOPTED.json`。
 - 正式代码d0234e49a880989546ab77a23574f2405a5974f1已push/ls-remote一致；只2行UI文案与1个可移植小回归，原feedback9/recompute7/currentengine12及采用器10例独审通过，不相加冒独立产品范围。未验知识发布、通用新Mac、两设备新来源/连续OTA。
+
+## 2026-10-21 00:18 CST｜原机依赖实际续接与Node正式源码
+
+根仍为本机pro-participant-native-entry；以下证据只发布路径和摘要，PRIVATE原件不公开。
+
+- 正式安装源：crowd-pages 8ed0ebc5b807bfb9f4da7160871e8499bfe8d45e。G33-pro-installation-actual/original-wrapper-once/RETURNED.json及STDOUT.PRIVATE.log记录一次9.673922秒upgraded；独审review/g32-controller-reconciliation/G33-ACTUAL-CONTINUATION-FINAL.json SHA26e4a2efed82816c2d394ad17ae9bff22ed9dbcc658b0c8f259e07d9d6c6424b。原配置SHA81b891f3aa171d11304d8c06dec754b895b45fe6cf01bfaff506fff087b16cae，六设置仍542f58a7bf02b5a3d67935ce3b271fe78eb43ea3e83f74f42adbb9d8910cbf30。
+- 原101新依赖HELLO：G34-native-readiness101-after-binding，实际独审review/g34-native-readiness101/ACTUAL-FINAL.json SHA8c544a4f1e15fbdec475818384e0815872f9639e2cae2c9931ddd07afdfd37ce；只保存净化ready/validator结果，不能冒完整rawframe独立重建。旧UNKNOWN不重试。
+- 便携Node实际隔离：G30-owned-probe-driver-v4/OWNED-PROBE-RESULT.json，独审review/g30-node-v3-actual-central/ACTUAL-FINAL.json SHAaa01fb51579e9acaddfbe9ca58036e1ee983eceb878ff68cf280c67a69512555；启动PID80044已退出、原8990端口释放、sign/source各0。V4先修复busyfalse/stateunknown误放行，保原失败，严格stopped及锁覆盖后16驱动回归通过。全局ONCE已存在，不换版本重跑。
+- 正式源码CAS：G30-formal-source-cas/CAS-MAP.json SHA9cac4e1e8f50b1be3159f1faf8768a582cba1691a5ba03ea4d9ee968e56add3d；11项=6产品+4回归+1说明。独审FINAL.json SHAfb8b51fa1cb89c04f5cb98459f5b268dccbded75209a298b13a1e9ac16dfe316；正式后验FORMAL-ACTUAL.json SHAe508d3bd71516ce613af9671475175cbd0b835f580f2c511eaceec3d20f77da3，均位于review/g30-formal-portable-central。原18项产品测试方法和旧断言保留；23旧安装禁网测试、G2932均通过，不把驱动测试混算产品覆盖。
+- 已推crowd-kol b257bc50f2a3d61044b05c8e87889ef0b6577537、crowd-pages 23165e16ff0c66fa9cb8a792dc4e18f07142ab13；未部署120运行包、未新OTA/新云ACK，不冒普通新Mac或两设备通过。
+- 收尾正常Owner只读复验：G30-formal-source-cas/FINAL-WORKBENCH-READBACK.json SHAf4f449868ce1a87dbf456f5332bc863f352ca4c794578ef6ba0f3f8f8419a8c3，20次导出读取/16唯一URL均等历史SHA及bytes，feedback/gap响应与已验原件相等，0新反馈/来源。独立事实清单review/g35-handoff-facts/FINAL.json SHA4c2366118989f5a5e2a020c36072d8ff6403c502e3892903e11f863a8839843e。
