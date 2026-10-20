@@ -994,3 +994,14 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **发现/未修**：切批次一次前置读取失败，明确只读刷新恢复；根因未知，保失败与诊断，不猜修。当前软件项目登记1，素材和六店仍独立旧入口，不虚报新增项目数。
 - **版本/边界**：crowd-kol09c212a7；参与端Pro源码0fc758f3、PAGES3ae880d6。HOME/预检已有已审源码和102包，但原机仍101、102通道未发、普通完整安装未执行。原ASR/历史文档dirty保留，不夹带提交。
 - **下一步**：前置错误捕获HTTP/时序后根因修复；普通安装/两设备/连续runtime OTA另按门执行，48h/watchdog不恢复。交接状态与证据同步固定HANDOFF/EVIDENCE；本轮三项消费真实核验不冒整个产品完成。
+
+
+## 2026-10-21 03:07 CST｜正式诊断采用、102云回执与原机native-v2完整接续
+
+- **接力者/独审**：root统筹及唯一安装/采用；knowledge_reuse_probe作者诊断/安装包/计划，central_steps作者helper及发布，native_diagnostics_review独立审产品、实际采用/升级、协议兼容、包/发布/原机安装；产品与审查职责分开。
+- **实际改动/版本**：crowd-kol3ebae06两Python诊断+两回归；参与端c469681显式native-v2构建选项；PAGES33082e12仅4新发行文件。原Owner93346精确采用诊断，原Mac先完整旧入口6.475秒、真实101→102云completed6470，再完整新入口6.771秒采用helpera04fec，EXT102/runtime120保持。不是只候选，也不是全产品完成。
+- **用户路径与保护**：原4条G40真实新旧切换证据保留，正常workbench本轮20读/16唯一URL四格式hash全同、原反馈/缺口/原提案保持；未重复入库、采集或知识批准。8身份绑定、双native全表、原29complete2/2pending0、agent/pro/risk/progress/四actor等保持，原评分/回执不改。
+- **发现与修复**：暂态读取历史根因仍未知，正式增加有界错误日志而不猜改超时/重试；实证旧99助手会拒102新字段，check-install假不足。改新助手显式独立native-v2通道，旧七通道byteexact。历史“公开通道101”纠正为实为99，原机101是另一事实；保留原误记供追溯。
+- **验证/独审**：12诊断回归+旧SDK/路由/VM通过；真实原scope200/非法只读400日志；102文件/normal/云6470、helper独立同字节重编/协议、全包151、实际公开19GET、完整安装及保护后验分别留证。两个调用UNKNOWN均永久保留，后续读回不冒原响应成功。精确报告SHA见EVIDENCE本轮与追加实际项。
+- **未验/下一步**：其他原设备仍93（以最新云证据为准），新MacSDK依赖/同账号恢复/新来源正文评论分页媒体导出新ACK及连续运行包OTA待验。扩展OTA≠runtime/依赖OTA，旧助手必须匹配完整接续。知识仍proposed；watchdog已核PAUSED，本轮未启动48h，中央实验阶段未fresh查询。继续统一PRODUCT-PLAN，不重开已完成任务/不重发UNKNOWN/不公开私SDK。固定HANDOFF/EVIDENCE已更新，本轮文档提交另见Git。
+- **实际独审/云补充**：安装实际非作者report6d7addd1…；安装后fresh云8186f263…核原机102/另一台93本次查询均非stale且enabledfalse，原OTA6470completed及三任务complete/received投影保持，无新ACK。报告不含云不可见的helper/runtimeSHA，和本地安装审查分别列证。
