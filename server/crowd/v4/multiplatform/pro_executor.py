@@ -78,6 +78,24 @@ def explicit_unsupported(request, environ=None, *, native_comments=None):
     return None
 
 
+
+def owner_task_capabilities():
+    """Code-level exact Pro task support, not upstream factory support or login proof."""
+    platforms=[]
+    for platform in bridge().PLATFORMS:
+        modes=[]
+        for mode in ('search','detail','creator'):
+            request={'platform':platform,'mode':mode,'max_items':1 if mode=='detail' else 20,
+                     'comments':False,'replies':False,'media':False,'wordcloud':False,'platform_options':{}}
+            reason=explicit_unsupported(request)
+            modes.append({'id':mode,'adapted':reason is None,'reason':reason})
+        platforms.append({'id':platform,'adapter_state':'adapted' if platform in SUPPORTED else 'not_adapted',
+                          'modes':modes,'upstream_support':'not_inferred_from_adapter'})
+    return {'schema':'crowd-owner-pro-capabilities-v1','default_new_owner_executor':'pro',
+            'platforms':platforms,'scope':'body_without_media_or_options',
+            'exact_request_validation_required':True,'account_verified':False,'source_actions_started':0}
+
+
 def task_installation(root, request):
     """Operator installation metadata only; no process-wide executor mutation."""
     if request.get('source_executor') != 'pro':

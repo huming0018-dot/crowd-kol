@@ -242,3 +242,12 @@ Pro 原标题独立于正文进入素材标题和证据字段；只有空标题�
 Owner 标准 HTTP 接收队列容量为64，以承载并发导出及页面轮询；不改变 Host、Origin、CSRF 校验，不靠重试掩盖连接失败。该值经过有限负载验证，不代表无限并发。
 
 回归：`test_material_feedback_inbox.py` 使用原 `test_material_feedback.py` 的临时SDK夹具及保存的真实ACK；沿用 `CROWD_MATERIAL_TEST_ROOT`。`test_material_feedback_inbox_routes.py`、`test_material_feedback_inbox_ui.mjs` 和 `test_dashboard_http.py` 覆盖原服务/子进程、界面与 HTTP 安全门。测试不对正式反馈库写入。
+
+
+### Owner 新任务的 Pro 选择与项目导航
+
+正常新建任务显式保存 `source_executor: pro`，预览前经 `/api/tasks` 的只读 `capabilities` 核对本连接已接平台/模式。它描述代码接线，不代表依赖、账号或平台已实际就绪；尚未接通的 Pro 模式在创建前给出原因，不自动改为 MC。显式 MC 入口、七平台旧 MC 能力及历史缺少执行器字段的任务原样保留；不全局修改执行器默认值。
+
+资料库的「按项目查看数据与导出」进入原 `/data-products`，保留原领域发现及参与者素材入口、固定版本与四格式消费。
+
+独立回归：`python -B owner-pro-tests/run.py /tmp/owner-pro-unique-output`，输出目录必须不存在；复用原 Edge 合同、OwnerTasks 临时数据库和原平台选择函数，验证 UI→计划→持久任务→执行器，不运行真实来源。`test_project_entry.mjs` 验证新增导航及原导出锚点。

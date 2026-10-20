@@ -2,6 +2,7 @@
 // Uses the same saved tasks through HTTP and CLI; collection stays in the existing runner.
 const ownerView = (() => {
   const call = (action, payload = {}) => api('/api/tasks', {action, payload});
+  const executorErrors={pro_mode_requires_pro_executor:'此明确标为 Pro 的模式需要选择 Pro 内核；未创建任务。',owner_pro_capabilities_unavailable:'Pro 能力描述暂不可用；本次未预览或创建任务。原任务保留。',pro_operation_platform_not_adapted:'Pro 原厂具备该平台入口，但本项目的 Pro 回执连接尚未接通；本次未创建任务。可明确选择原 MediaCrawler 内核，不会自动替换。',pro_zhihu_scope_unsupported:'本项目 Pro 知乎连接当前只接通单条指定正文；该模式尚未接通，本次未创建任务。',pro_zhihu_candidate_scope_unsupported:'本项目 Pro 知乎连接当前只接通单条指定正文；该模式尚未接通，本次未创建任务。',pro_media_pipeline_unavailable:'本次 Pro 平台/模式的媒体字节连接尚未接通；原厂能力不等于本项目已接通，本次未创建任务。',pro_options_unsupported:'本次 Pro 原生选项尚未接通；本次未创建任务，不会换内核。',pro_mode_unsupported:'本次 Pro 模式尚未接通；本次未创建任务，不会换内核。'};
   function entryText(record){const names={search:'关键词搜索',detail:'指定详情',creator:'作者内容',homefeed:'首页推荐页面采样',trending:'热门页面采样'};return Object.hasOwn(names,record.discovery_kind)?names[record.discovery_kind]:'未记录（unknown）';}
   const receiptDialog=node('dialog');receiptDialog.setAttribute('aria-label','云端采集结果与回执');
   const receiptClose=button('关闭',()=>receiptDialog.close()),receiptBody=node('div');receiptBody.className='dialog-body';
@@ -30,6 +31,7 @@ const ownerView = (() => {
   dialog.innerHTML = `<div class="dialog-head"><h2 id="owner_title">新建多平台任务</h2><button type="button" id="owner_close">关闭</button></div>
   <form id="owner_form" class="dialog-body"><p class="hint">1. 采什么　2. 在哪采　3. 采多少</p><p id="owner_error" class="error" role="status"></p><button type="button" id="owner_reconcile" hidden>核对上次派发结果</button>
   <fieldset id="owner_request" style="border:0;padding:0"><label>采集方式<select id="owner_mode"><option value="search">搜索关键词</option><option value="detail">指定内容</option><option value="creator">指定博主作品</option><option value="homefeed">首页推荐内容</option><option value="trending">热门内容</option><option value="dy_pro_trending">抖音热门 · Pro单条（正文、3条根评论及回复、媒体，最多12次）</option></select></label>
+  <label>新任务采集内核<select id="owner_executor"><option value="pro" selected>已购 Pro 原生内核（默认）</option><option value="mc">原 MediaCrawler 内核（明确选择）</option></select><small>按本次预览核验平台、模式和选项；Pro 未接通的维度会在创建前阻止，不会自动换内核。原有任务保持原内核。</small></label>
   <label>关键词、链接或博主名单<textarea id="owner_targets" required rows="4" placeholder="搜索关键词，每行一个"></textarea><small id="owner_target_help">搜索词共享给所选平台；链接会按所属平台分配。</small></label>
   <label>导入 CSV / 文本文件<input id="owner_file" type="file" accept=".csv,.txt,text/csv,text/plain"><small>CSV 格式为 platform,target。导入后先预览，不启动采集。</small></label>
   <fieldset style="border:0;padding:0"><legend>采集平台（可多选）</legend><div id="owner_platforms" class="choices"></div></fieldset>
@@ -86,13 +88,26 @@ const ownerView = (() => {
     if(file.size>24000)throw Error('导入文件最多24KB。'); $('owner_targets').value=await file.text(); invalidate();
   });
   async function payload() {
-    const p={idempotency_key:crypto.randomUUID(),platforms:[...$('owner_platforms').querySelectorAll('input:checked')].map(x=>x.value),mode:$('owner_mode').value,desired_items:Number($('owner_total').value),max_api_requests:Number($('owner_requests').value),max_comments:Number($('owner_comment_limit').value),comments:$('owner_comments').checked,replies:$('owner_replies').checked,media:$('owner_media').checked,purpose:$('purpose').value};
-    if(p.mode==='dy_pro_trending'){p.mode='trending';p.source_executor='pro';p.timeout_seconds=120;}
+    const p={source_executor:$('owner_executor').value||'pro',idempotency_key:crypto.randomUUID(),platforms:[...$('owner_platforms').querySelectorAll('input:checked')].map(x=>x.value),mode:$('owner_mode').value,desired_items:Number($('owner_total').value),max_api_requests:Number($('owner_requests').value),max_comments:Number($('owner_comment_limit').value),comments:$('owner_comments').checked,replies:$('owner_replies').checked,media:$('owner_media').checked,purpose:$('purpose').value};
+    if(!['pro','mc'].includes(p.source_executor))throw Error('invalid_source_executor');
+    if(p.mode==='dy_pro_trending'){if(p.source_executor!=='pro')throw Error('pro_mode_requires_pro_executor');p.mode='trending';p.source_executor='pro';p.timeout_seconds=120;}
     if($('owner_long_audio').checked){if(!p.platforms.includes('bili'))throw Error('音轨采集需要选择B站。');p.media=true;p.platform_options_by_platform={bili:{long_audio:true}};}
     if($('owner_transcript_only').checked){if(!p.platforms.length||p.platforms.some(platform=>!['bili','dy','ks','wb','xhs','zhihu','tieba'].includes(platform)))throw Error('请选择支持的平台。');p.media=true;p.platform_options_by_platform=p.platform_options_by_platform||{};for(const platform of p.platforms)p.platform_options_by_platform[platform]={...(p.platform_options_by_platform[platform]||{}),transcript_only:true,...(platform==='bili'?{long_audio:true}:{})};}
     if($('authorization_ref').value.trim())p.authorization_ref=$('authorization_ref').value.trim();
     if(p.mode==='search')p.targets=$('owner_targets').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     else if(!['homefeed','trending'].includes(p.mode)) {const parsed=await call('parse_batch',{text:$('owner_targets').value,mode:p.mode});if(parsed.errors?.length)throw Error(parsed.errors.map(x=>'第'+(x.line||x.row||'?')+'行：'+(x.error||x.reason||'格式错误')).join('；'));p.targets_by_platform=parsed.targets_by_platform;}
+    if(p.source_executor==='pro'){
+      const capability=await call('capabilities');
+      if(capability?.schema!=='crowd-owner-pro-capabilities-v1'||capability.default_new_owner_executor!=='pro'||capability.account_verified!==false||!Array.isArray(capability.platforms))throw Error('owner_pro_capabilities_unavailable');
+      for(const id of p.platforms){
+        const platform=capability.platforms.filter(x=>x?.id===id);
+        if(platform.length!==1||platform[0].adapter_state!=='adapted')throw Error('pro_operation_platform_not_adapted');
+        if(['search','detail','creator'].includes(p.mode)){
+          const mode=platform[0].modes?.find(x=>x?.id===p.mode);
+          if(mode?.adapted!==true)throw Error(mode?.reason||'pro_mode_unsupported');
+        }
+      }
+    }
     if(p.mode==='creator'&&$('owner_continuous').checked){p.per_cycle_items=p.desired_items;p.per_cycle_requests=p.max_api_requests;delete p.desired_items;delete p.max_api_requests;delete p.mode;p.interval_minutes=Number($('owner_watch_interval').value);p.window_days=Number($('owner_watch_window').value);p.total_request_budget=Number($('owner_watch_budget').value);}
     return p;
   }
@@ -102,7 +117,7 @@ const ownerView = (() => {
       for(const c of children)box.append(node('p',(platformNames[c.platform]||c.platform)+(c.execution_kind?' · '+(routeNames[c.execution_kind]||'分配方式待核对'):'')+' · 内容配置 '+(c.item_quota??c.max_items??c.desired_items??c.budget?.max_items??'见摘要')+' · '+(dispatchReasons[c.reason_code]||reasons[c.local_stop_reason||c.local_failure_reason||c.reason_code||c.reason]||names[c.state]||c.reason_code||c.reason||'可执行')));
       if(value.schema==='crowd-unified-dispatch-v1'&&children.some(c=>c.execution_kind==='participant_extension'&&c.executor!=='mediacrawler_pro'))box.append(node('p','参与者接口频控与预算由本轮试验策略控制；上方接口尝试上限仅用于机器采集。'));
       if(value.watchlist){const w=value.watchlist;box.append(node('p','每 '+w.interval_minutes+' 分钟观察一次 · 每轮内容配置 '+w.per_cycle_items+' · 每轮接口上限 '+w.per_cycle_requests),node('p','整个计划接口总额 '+w.total_request_budget+' · 观察窗口 '+w.window_days+' 天'));for(const id of w.platforms||[])box.append(node('p',(platformNames[id]||id)+' · '+((w.blocked_platforms||[]).find(c=>c.platform===id)?'需要处理：'+(reasons[(w.blocked_platforms||[]).find(c=>c.platform===id).reason_code]||(w.blocked_platforms||[]).find(c=>c.platform===id).reason_code):'按本平台博主名单分配')));box.append(node('p','按最新作品持续观察，保留历史版本；当前不保证平台端完整按日期筛选。'));}else if(!children.length)box.append(node('p','没有可分配的平台，请核对目标与平台。'));box.append(node('p',value.schema==='crowd-unified-dispatch-v1'?(value.ready?'由云端保存统一派发，终端按能力自动领取。预览未启动采集。':dispatchReasons[value.reason]||'本次尚不可派发，请处理后重新预览。'):'不可执行的平台保留状态，其余平台按预览运行。不会扩大总接口额度。'));box.hidden=false;$('owner_create').disabled=value.schema==='crowd-unified-dispatch-v1'&&value.ready!==true;
-    }catch(e){$('owner_error').textContent=errorNames[e.message]||e.message;}finally{$('owner_preview_button').disabled=false;}
+    }catch(e){$('owner_error').textContent=executorErrors[e.message]||errorNames[e.message]||e.message;}finally{$('owner_preview_button').disabled=false;}
   };
   $('owner_form').onsubmit = async event => {
     event.preventDefault();if(busy||unresolvedKey||!previewRequest||unifiedMode&&!previewRequest.interval_minutes&&preview?.ready!==true)return;

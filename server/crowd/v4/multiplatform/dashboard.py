@@ -807,6 +807,9 @@ class Application:
         return {**self.analysis_jobs.status(latest['job_id']), 'input_summary': input_summary,**preview}
 
     def tasks(self, action, payload):
+        if action == 'capabilities' and payload == {}:
+            from pro_executor import owner_task_capabilities
+            return {'ok': True, **owner_task_capabilities()}
         from owner_tasks import OwnerTasks, parse_batch
         if not isinstance(payload, dict):
             raise ValueError('invalid_task_request')

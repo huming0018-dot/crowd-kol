@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';import {pathToFileURL}from'node:url';
+import {fixture}from'./ui-fixture.mjs';
+const edge=process.env.G14_EDGE_DIR;
+const {unifiedPlan}=await import(pathToFileURL(edge+'/unified_dispatch.mjs'));
+const {taskPlan}=await import(pathToFileURL(edge+'/contract.mjs'));
+const capability=JSON.parse(fs.readFileSync(process.env.G14_CAPABILITIES,'utf8'));
+const f=await fixture();await f.view.open();f.responses.capabilities=capability;
+for(const x of f.$('owner_platforms').querySelectorAll('input'))x.checked=['dy','bili','wb'].includes(x.value);
+f.$('owner_total').value='60';f.$('owner_requests').value='60';await f.$('owner_preview_button').onclick();
+const input=f.calls.find(c=>c.action==='unified_preview').payload;
+assert.equal(input.source_executor,'pro');
+const result=await unifiedPlan(input);assert.equal(result.participant,null);
+assert.equal(result.machine_proposal.children.length,3);
+for(const c of result.machine_proposal.children)assert.equal(c.request.source_executor,'pro');
+const retry=await unifiedPlan(input);assert.equal(retry.machine_proposal.request_hash,result.machine_proposal.request_hash);
+const legacy={...input};delete legacy.source_executor;const old=await taskPlan(legacy);assert(old.children.every(c=>!Object.hasOwn(c.request,'source_executor')));
+assert.notEqual(old.request_hash,(await taskPlan(input)).request_hash,'new choice persists in idempotency fingerprint');
+for(const platform of ['ks','tieba'])await assert.rejects(()=>unifiedPlan({...input,platforms:[platform],desired_items:20,max_api_requests:20}),/pro_operation_platform_not_adapted/);
+await assert.rejects(()=>unifiedPlan({...input,platforms:['zhihu'],desired_items:20,max_api_requests:20}),/pro_zhihu_scope_unsupported/);
+const seven={...legacy,source_executor:'mc',platforms:['xhs','dy','ks','bili','wb','tieba','zhihu'],desired_items:140,max_api_requests:140};
+const explicitMC=await taskPlan(seven);assert.equal(explicitMC.children.length,7);assert(explicitMC.children.every(c=>c.request.source_executor==='mc'));
+// Exact Pro unsupported dimensions reject, never build an MC replacement.
+for(const change of [{media:true},{wordcloud:true,comments:true},{platform_options_by_platform:{dy:{transcript_only:true}},media:true}])await assert.rejects(()=>unifiedPlan({...input,...change}),/pro_|invalid_/);
+if(process.env.G14_REQUESTS_OUTPUT)fs.writeFileSync(process.env.G14_REQUESTS_OUTPUT,JSON.stringify({input,machine_requests:result.machine_proposal.children.map(c=>c.request),legacy_requests:old.children.map(c=>c.request)},null,2)+'\n',{flag:'wx',mode:0o600});
+console.log('PASS normal UI -> original taskPlan/unifiedPlan -> explicit3Pro requests; retry hash; legacy7/explicitMC; unsupported before create');
