@@ -1092,17 +1092,65 @@ async def run_upstream_bounded(upstream,timeout):
     return value
 
 
+def _media_preflight_failure(run, manifest, stage, reason):
+    """Only this pre-SDK call site may attest a future failed-before-source run."""
+    import tempfile, uuid
+    if {'media_binding':'media_dependency_unavailable','node_import':'portable_node_unavailable',
+            'node_resource':'node_resource_unavailable'}.get(stage)!=reason:
+        raise ValueError('pro_media_preflight_reason_invalid')
+    from shared_request_budget import canonical, request_fingerprint
+    if (run.name != manifest['run_id'] or str(uuid.UUID(manifest['run_id'])) != manifest['run_id']
+            or manifest['executor'].get('backend') != 'pro'
+            or manifest['request'].get('source_executor') != 'pro'):
+        raise ValueError('pro_media_preflight_scope_invalid')
+    # A prior source invocation cannot acquire a new zero-attempt witness.
+    if any((run/name).exists() or (run/name).is_symlink() for name in (DB_NAME, 'request-budget.json', 'phase.json',
+            'mc-source-steps.sqlite3', 'pro-pagination.json', 'xhs-pro-media-intent.json')):
+        raise ValueError('pro_media_preflight_state_unknown')
+    output=run/'output'
+    if output.is_symlink() or output.exists() and any(output.rglob('*')):
+        raise ValueError('pro_media_preflight_state_unknown')
+    value={'schema':'crowd-pro-media-preflight-v1','run_id':manifest['run_id'],
+        'request_hash':request_fingerprint(manifest['request']), 'executor':'pro', 'platform':'xhs',
+        'stage':stage,'state':'failed_before_source','reason':reason,'source_started':False,'api_attempts':0}
+    raw=canonical(value).encode();fd,temp=tempfile.mkstemp(prefix='.media-preflight-',dir=run)
+    try:
+        with os.fdopen(fd,'wb') as stream:
+            if stream.write(raw)!=len(raw):raise OSError('pro_media_preflight_short_write')
+            stream.flush();os.fsync(stream.fileno())
+        os.link(temp,run/'pro-media-preflight.json')  # Never replace an old/unknown witness.
+        directory=os.open(run,os.O_RDONLY)
+        try:os.fsync(directory)
+        finally:os.close(directory)
+    finally:os.unlink(temp)
+
+
+def _media_preflight(run, manifest):
+    if manifest['request'].get('platform')!='xhs' or manifest['request'].get('media') is not True:
+        return
+    if (run/'pro-media-preflight.json').exists() or (run/'pro-media-preflight.json').is_symlink():
+        raise ValueError('pro_media_preflight_already_recorded')
+    stage,reason='media_binding','media_dependency_unavailable'
+    try:
+        from pro_xhs_media import dependency_binding
+        dependency_binding(run.parent.parent)
+        stage,reason='node_import','portable_node_unavailable'
+        from portable_node import check as check_node
+        stage,reason='node_resource','node_resource_unavailable'
+        check_node(Path.home()/'Library/Application Support/CrowdV4Updater')
+    except Exception:
+        _media_preflight_failure(run,manifest,stage,reason)
+        raise RuntimeError(reason) from None
+    # Success makes no zero-attempt claim. Probe/SDK failures remain outside this evidence.
+
+
 def execute(run, manifest, *, mc_root=None):
     """Runs in the runner-owned child process, never in the dashboard process."""
     m = bridge()
     run = Path(run).resolve()
     selected, request = manifest['executor'], manifest['request']
     root = Path(selected['root'])
-    if request.get('platform')=='xhs' and request.get('media') is True:
-        from pro_xhs_media import dependency_binding
-        dependency_binding(Path(run).parent.parent)  # Fail before any SDK/platform request.
-        from portable_node import check as check_node
-        check_node(Path.home()/'Library/Application Support/CrowdV4Updater')
+    _media_preflight(run, manifest)
     # Recheck provenance immediately before code execution, not only at selection.
     probe(root)
     os.chdir(run)
