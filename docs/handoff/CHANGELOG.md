@@ -1,5 +1,15 @@
 # 交接变更日志
 
+## 2026-10-20 17:22 CST｜原四素材复验与反馈知识缺口正式接入
+
+- **接力者/独审**：root负责Host/UI、正式采用与实机；knowledge_reuse_probe负责SDK薄接线；central_steps独审采用计划和原四素材；native_diagnostics_review独审代码与实际知识库、保护。
+- **实际改动/版本**：b7fa337，4代码、4测试、README，正式Owner40586/484与knowledge230；原材料worker/13cfg/G17外部request保持。私有日志、数据库及Pro代码不提交。
+- **验证**：原19/29四条72次四格式及另一项目4格式；原标题、全文、capture与旧版SHA保持。正式采用后16次正常读取逐SHA保持。组合24、日志失败1、旧20、UI7+旧8通过；正常UI提交唯一gap并关闭重开、status/list及原034preview成功。
+- **发现/修复**：SDK成功而终态日志写失败误报已复现修复；便携freeze自pin空文件错误保原件、V2排除自身。两次metadata准备因claiming拒绝，无服务或状态改变，确认自然idle才续准备。唯一apply成功。
+- **数据与保护**：只追加1gap/1submission/3evidence/2audit；原feedback1、proposal034proposed、审核发布pin0保持。知识DB物理SHA有意改变，其他1112路径、五原库、双native、身份、评分及OTA绑定保持，不把原protected1113=false改成绿灯。
+- **并行依赖**：官方uv空cache冷93.752秒、另一新env同cache温2.525秒已真实验证并独审；仍未正式切原安装绑定、登录或发OTA。
+- **部署/边界/下一步**：已采用原45937正式服务；无中央部署、新云ACK、模型、知识候选生成、人审或发布，不重开原完成任务或暂停实验。继续既有M4生成/版本影响、Pro及原两设备门。完整产品仍进行中，按EVIDENCE复核。
+
 ## 2026-10-20 16:37 CST｜正式反馈目录、项目入口、Pro默认与提案快照修复
 
 - **接力者/独审**：root统筹及反馈/入口实现；central_steps负责HTTP和采用；knowledge_reuse_probe负责Pro路由/快照；native_diagnostics_review及非作者交叉独审，作者自检不代独审。

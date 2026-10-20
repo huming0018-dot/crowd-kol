@@ -1,6 +1,17 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-20 16:37 CST｜反馈待处理、多项目可见入口与Pro新任务选择已正式采用；原提案预览已恢复
+## 当前状态｜2026-10-20 17:22 CST｜四素材与多项目消费已实机复验；知识反馈缺口已正式入库
+
+- **源码与正式运行**：b7fa33734bee412bb87c66fd13604fb78bf82d9f，4代码、4测试及README。正常45937唯一Owner40586，owner-feedback-gap-f10396f104028a3b（484文件/4项覆盖）；knowledge-feedback-gap-54046c4af2a5ef4a（230文件/3项覆盖）。按冻结差异采用，不称整个HEAD都在运行。原G11材料worker与13字段配置保持；G17外部提案快照request及SHA保持，知识outer只换script和SHA，当前配置SHA a867759001704296e8b2093629423d10de67b70d1158e5c753ac565e2074046a。
+- **实际消费**：原19/29共4条正常API完成新版→旧版→新版，72次HTML/JSON/JSONL/CSV读取全部通过；原标题、全文、完整metadata.capture及旧8格式SHA保持，最终选择新版。另一软件更新观察项目4格式通过，原31条和六店8格式保持。新Owner下另16次读取、并发8全部匹配原SHA，有限负载1.591秒，不冒多用户容量结论；未重抓或重算素材。
+- **真实知识入口**：正常UI将原9705346c-d135-4086-aabe-81fa0f8c4282转成唯一缺口c7c33466-00a5-5604-9a0e-adbc51d7fd82，regression-miss/pending；关闭重开、status/list均能读取，原034提案preview正常。保留原素材版本、云ACK及social-observations0.1.0血缘，是central_owner_service工程反馈，不冒真人体验。仅追加gap1/submission1/evidence3/audit2，全部旧业务行保持；原gap1→总2、feedback仍1、034仍proposed，审核授权/决定/release/pin/attempt均0。此项是现有SDK gap入口，不是候选生成或知识发布完成。
+- **独审与修复**：正式组合24（含SDK15）、终态失败1、旧feedback/inbox20、UI7及旧UI8通过，重叠数字不加作新覆盖。独审复现SDK已提交、终态日志写失败却误报成功；V2只在日志写成功后采用recorded，原RED与持久回归保留。采用器13临时用例通过；两次metadata准备遇claiming拒绝，0INTENT/信号/配置变化，确认自然idle后保原KPLAN续准备；唯一apply成功。
+- **原数据保护**：采用瞬间1113路径、五原库及双native保持；随后合法gap写改变其中知识DB物理SHA，不能宣称写后1113全字节相同。独审逐表验证该库仅上述追加，其他1112路径保持；原身份、进度、评分、host、安装绑定、G17四快照及OTA配置不变。保留原protected1113=false读回，以语义追加差异解释，不修改原证据制造绿灯。
+- **依赖并行成果**：官方Pro两项目uv sync --frozen安装候选及真实隔离依赖已独审。独立AppSupport空cache冷安装93.752秒；另新env复同cache温安装2.525秒，65/29依赖版本一致。未切原绑定、配置、Signer服务或OTA，不称普通新Mac正式安装或平台登录已验收，Pro私源码不公开。
+- **未验与下一步**：本轮无新来源、模型、中央部署、新云ACK、评分改动、OTA发布或分享，原19/20/29未重开；云57业务行及101/helper/runtime是历史验收，非本轮fresh远端验收。48h实验/watchdog仍暂停。继续既有M4候选生成与版本影响、Pro未接通原生能力、普通参与者安装及原两设备门；本地065没有生成器，既有recorded/external intake未采用为在线生成，不冒已完成。未知写不重发，知识审核发布不替真人决定。
+- **证据入口**：原件根/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry；先读G20-original-four-regression、G19-feedback-gap-adoption/runtime-adoption/ADOPTED.json、G21-gap-actual及review/g19-feedback-gap-actual。精确独审SHA见EVIDENCE本轮项。PRIVATE/SQLite/Pro源码不公开，读不到原件标未验证；每轮沿固定入口与模板更新。
+
+## 历史快照｜2026-10-20 16:37 CST｜反馈待处理、多项目可见入口与Pro新任务选择已正式采用；原提案预览已恢复
 
 - **正式运行与源码**：本轮源码44f8376（反馈列表/HTTP队列）及9627f1a3cae8a0bdee20ab99346d5af7e074141d（新任务显式Pro/项目入口）已提交。正常45937当前唯一PID29885，Owner不可变 owner-pro-route-project-link-451db484ade4bf18（484文件）；知识脚本仍 knowledge-http-inbox-ee0cc222c76d701c（230文件）。采用按冻结差异，不冒整个HEAD都在运行。material-auto原13字段配置/G11 worker字节不变。
 - **用户入口**：资料库→按项目查看数据与导出→原/data-products，已正常点击打开“软件更新观察”，HTML/JSON/JSONL/CSV均可读；原领域和参与者素材入口保留。知识更新→素材反馈待处理，正常UI可发现原9705346c-d135-4086-aabe-81fa0f8c4282及提交时的原素材版本，无需先知道编号。该列表只覆盖本授权空间本机提交日志，不冒异机全局反馈目录。

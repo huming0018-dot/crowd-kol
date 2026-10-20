@@ -1,5 +1,16 @@
 # 交接证据索引
 
+## 2026-10-20 17:22 CST｜G19–G21实际工作台与知识缺口
+
+原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。以下PRIVATE、SQLite和原素材只在本机；未取得原件不能从bot自述推定通过。
+
+- **原四素材与多项目**：G20-original-four-regression/{RESULT,各19/29的SELECT及EXPORTS、PROJECT-EXPORTS}.json及72格式原件；review/g20-original-four-regression/FINAL.json SHA7af397244c0a2e73d6ddf56fc11ac95581748417908a60ac274454d918663326。正常new/back/final，4原标题/全文/capture、旧8格式和另一项目4格式逐项核；非新采集。
+- **代码与回归**：源码b7fa33734bee412bb87c66fd13604fb78bf82d9f。G19-feedback-gap-v2/FREEZE.json SHA99ff638b7008c2a98188c981dda83768eb680cb7e5941117de839cac40483823；产品eb566863675bb1a9354754bf6c0e458731bec2bb0ecc49b3ecdd43a4a6f0cc02。root三源freeze G19-feedback-gap-host/FREEZE.json SHA4ca5700e1d18be2b14c883134ae407ae0f3e97ca533dbb098031a93234d5b09b。正式FORMAL-REGRESSION.json及五组日志实际全0；组合24含SDK15，不能当作39独立用例。独审review/g19-feedback-gap-combined/FINAL.json SHA82bf211f592d2920e3f26e1e9f200593442ab601413249cfa7e3f4016c82316f，终态日志写失败V1 RED→V2 GREEN、旧20/UI7+旧8通过；便携自pin错误freeze保留，改用PORTABLE-FREEZE-V2，不沿错误空SHA作证。
+- **采用门与真实运行**：G19-feedback-gap-adoption/{PLAN,KNOWLEDGE-PLAN,APPROVAL,FREEZE}.json、ADOPTER.diff及runtime-adoption/{INTENT,ADOPTED,备份}。PLAN8f67f067c88de28585adbdd31c97674769504d0f2a0028b5631990896cd6b770；采用器0bb08ddfd366ad479cc020cc08bd682b29a951ed8b4eee5eaafb7b12dee175d2。review/g19-gap-adopter-central/FINAL.json SHAedb2b2967476867b48d866bd0f9aefd0597847ee9a0f2f9bbb36ecc96f877366；13临时用例及fresh独立重建元数据通过。两次prepare仅claiming前置拒绝，原日志保；自然idle后续metadata，无旧KPLAN覆盖。唯一apply exit0，Owner40586/484、knowledge230，G17外部request不移回旧runtime，材料13配置不CAS。
+- **真实缺口入库及保护**：G21-gap-actual/{UI-SUBMIT-INTENT,PREVIEW,STATUS,LIST,INBOX,ORIGINAL-PROPOSAL-PREVIEW}.json及ACTUAL-REOPENED-UI.txt/png。正常UI原9705唯一写入gap c7c33466-00a5-5604-9a0e-adbc51d7fd82，关闭重开仍可发现。G21-gap-actual/ACTUAL-CONCURRENT-EXPORTS.json为新Owner下16读取逐SHA保持。review/g19-feedback-gap-actual/{GAP-DELTA-READBACK,SDK-GAP-READBACK,PROTECTION-READBACK}.json：原知识库仅新增gap1/submission1/evidence3/audit2，全部旧rows保；SDK核原回执/完整事件/三来源及真实意图一致。原PROTECTION-READBACK保留protected1113=false：其中知识DB因本次合法写变动，其他1112路径保持，不能更改旧读回；以最终语义解释及全旧行核验判断本项。最终独审SHA：e85a8ef11f4a81e20624586a679eab64a496ad7948d215a3650f00f8bdc1a2e7。
+- **并行依赖实际与限制**：G19-pro-dependency-prepare/{FREEZE,ACTUAL-COLD-WARM/ACCEPTANCE}.json及COMMANDS.json四次sync计时/结果；冷空cache/新env93.752秒、温另新env/同cache2.525秒，65/29依赖列表一致。review/g19-pro-dependency-prepare/{FINAL,ACTUAL-FINAL}.json，实际最终SHAb8e5a9914179b7563d0fe2c87d5c37f6b04ce69185af74708dcae521b40c2f33。仅候选和独立依赖安装通过，未正式切原绑定、平台登录、Signer服务或OTA。
+- **未验证**：本轮无中央部署、新云ACK、新来源、模型、知识生成/审核/发布、两设备登录恢复或连续OTA；原云57行与101等为历史证据。实验/watchdog保持暂停。完整产品仍进行中。
+
 ## 2026-10-20 16:37 CST｜G14–G17正式采用与真实消费
 
 原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。PRIVATE/assets/SQLite不上传公开仓；在线读者无法读取须标未验证。
