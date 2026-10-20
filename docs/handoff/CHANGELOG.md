@@ -1027,3 +1027,12 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **保护**：采用时五库+知识及双本地native完整行/原身份与进度/评分/云回执/OTA配置、1824原路径保持；中央3业务表及旧claims行hash保持，新增空poll单列。没有新源、新云ACK、知识批准/发布或实验启动。
 - **版本/证据**：G51 FREEZE8326d307、实际8554ca44；G50 V3 a799/C c00dd701；G52 FREEZE7da72416、实际71418829；G53 PLAN0cecd2fe、实际b7eb477e、最终UI附录d8702765。完整路径与SHA见EVIDENCE。
 - **遗留/下一步**：贴吧原session缺安装描述、绑定和account_ref；先按原CookieBridge/SDK补原账号自检与能力，再新任务门取真实ACK。单帖/≤3图/视频未支持、完整Consumer媒体关系、KS、多设备/运行依赖OTA及全M链仍待验。固定handoff已更新；人类知识决定未代办，watchdog/实验不恢复。
+
+## 2026-10-21 05:14 CST｜正式Pro连接状态与原消费链复验
+
+- **接力者/审查者**：root实现与sole apply；central_steps复用采用器、独审KS；native_diagnostics_review独审产品/计划/真实采用；knowledge_reuse_probe实现KS隔离纵切。不是作者自检冒独审。
+- **目标/改动**：保持正式标题、反馈、多项目路径；3生产文件增加只读连接投影及有限提示，修XHS漏捕BridgeError；另3测试。源码73d1d14941f7293958448d3f44ab9d854213d5b5已推。无SDK私码、依赖、身份迁移、来源请求或中央变更。
+- **验证**：G56根RED5缺函数保留；初GREEN15中XHS旧异常失败保留，修复后15及104回归通过、JS8。独审HTTP夹具teardown两次失败保留，补齐原Server生命周期后19通过，不冒产品失败。原G53版本往返不重写；本轮前后各20次正常导出等基线，原反馈/缺口/两提案保持。IAB实际新页面与截图在G56。
+- **正式采用**：G56 Owner-only唯一apply0，6807退出、11570监听45937，488仅3覆盖，M238/K234与配置不改。精确计划51b43587、采用器0206bb87、ADOPTED f1d111dd。独立实际后验04f20633核1824、五库/知识业务行、双native、7会话原字段及16唯一导出；无新ACK或两设备/OTA新验收。
+- **并行/遗留**：G55 KS P1反例及V2修复、原生4PNG字节路径仅隔离；长题文/真实账号/来源/ACK未过门。原31ACK Consumer仅已诊断有父链/图片但HTML平铺，后续最小只读入口待实现。原知识人为决定未收到，不代批；原实验/watchdog继续暂停。
+- **证据**：G56-owner-pro-account-connection、G56-owner-account-connection-adoption及review/g56*；G55-pro-native-media-ks/V2与review/g55-pro-native-media-ks-central/FINAL-V2.json。PRIVATE/原库/原图/Pro源仅本地，外部接力不可访问则标未验证。
