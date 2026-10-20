@@ -13,7 +13,7 @@ import tempfile
 import contextlib
 import fcntl
 import yaml
-from toolbox.knowledge import AuthContext, KnowledgeStore, _candidate_hash
+from toolbox.knowledge import AuthContext, KnowledgeStore, KnowledgeError, _candidate_hash
 from material_bridge import read_bytes
 
 OWNER_SCOPE = 'crowd-owner-main'
@@ -65,7 +65,8 @@ class OwnerKnowledgeBinding:
         if hashlib.sha256(raw).hexdigest() != config_sha256:
             raise BindingError('knowledge_binding_changed')
         config = json.loads(raw)
-        if (type(config) is not dict or set(config) != KEYS
+        if (type(config) is not dict or set(config) not in (KEYS, KEYS | {'proposal_channel'})
+                or config.get('proposal_channel', 'model') not in ('model', 'owner')
                 or config['schema'] != 'crowd-owner-knowledge-binding-v1'
                 or config['owner_scope'] != OWNER_SCOPE
                 or type(config['scope']) is not list or len(config['scope']) != 3
@@ -208,6 +209,21 @@ class OwnerKnowledgeBinding:
         path = directory / (intent_id + '.json')
         if not path.exists() and self.unresolved_decisions():
             raise BindingError('knowledge_decision_outcome_unknown')
+        if not path.exists() and config.get('proposal_channel', 'model') == 'owner':
+            # The fixed proposer can read its own private target before any grant or durable write.
+            try:
+                store = KnowledgeStore(Path(config['workspace']), self._context(), read_only=True)
+                try:
+                    proposal = store.get_proposal(config['proposal_id'])
+                finally:
+                    store.close()
+            except (KnowledgeError, FileNotFoundError):
+                raise BindingError('knowledge_owner_proposal_changed') from None
+            if (proposal['status'] != 'proposed' or proposal['visibility'] != 'private'
+                    or proposal['channel'] != 'owner' or proposal['owner_actor'] != config['manager_actor']
+                    or proposal['base_hash'] != expected_candidate_hash or proposal['version'] != config['target_version']
+                    or proposal['pack_id'] != candidate_pack_id):
+                raise BindingError('knowledge_owner_proposal_changed')
         try:
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         except FileExistsError:
@@ -234,7 +250,9 @@ class OwnerKnowledgeBinding:
         try:
             proposal = reviewer.get_proposal(config['proposal_id'])
             if (proposal['status'] != 'proposed' or proposal['visibility'] != 'private'
-                    or proposal['channel'] != 'model' or proposal['base_hash'] != expected_candidate_hash
+                    or proposal['channel'] != config.get('proposal_channel', 'model')
+                    or (config.get('proposal_channel') == 'owner' and proposal['owner_actor'] != config['manager_actor'])
+                    or proposal['base_hash'] != expected_candidate_hash
                     or proposal['version'] != config['target_version'] or proposal['pack_id'] != candidate_pack_id):
                 raise BindingError('knowledge_proposal_changed')
             result = reviewer.review(config['proposal_id'], decision, reason=reason,

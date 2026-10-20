@@ -1,6 +1,6 @@
 """Compose the reviewed review and publication services on the existing Host CLI."""
 from pathlib import Path
-import hashlib,json,os
+import hashlib,json,os,uuid
 from owner_knowledge_binding import BindingError,canonical,protected_bytes
 from owner_knowledge_service import OwnerKnowledgeService
 from owner_knowledge_publication import OwnerKnowledgePublication,PublicationError,parse
@@ -9,18 +9,32 @@ from material_bridge import read_bytes
 
 KEYS={'review_config','review_sha256','publication_config','publication_sha256'}
 WRITES={'publication_release':'release','publication_pin':'pin','publication_rollback':'rollback'}
+REVIEW_ACTIONS={'preview','decide','status','publication_preview','publication_status','publication_read',*WRITES}
+TARGET_KEYS={'target_service_config','target_service_sha256'}
 class OwnerKnowledgePublicationService:
- def __init__(self,path,sha,client):
+ def __init__(self,path,sha,client,_allow_target=True):
   raw=protected_bytes(path)
   if hashlib.sha256(raw).hexdigest()!=sha:raise BindingError('knowledge_host_config_changed')
   cfg=parse(raw)
-  if set(cfg)not in (KEYS,KEYS|{'material_root'},KEYS|{'material_root','draft_manifest','draft_manifest_sha256'}):raise BindingError('knowledge_host_config_invalid')
+  base=KEYS|{'material_root'};draft={'draft_manifest','draft_manifest_sha256'}
+  if set(cfg)not in (KEYS,base,base|draft,base|TARGET_KEYS,base|draft|TARGET_KEYS,base|{'intake_feedback_intent'})or(not _allow_target and TARGET_KEYS.intersection(cfg)):raise BindingError('knowledge_host_config_invalid')
   self.path,self.sha,self.client=path,sha,client
   self.material_root=cfg.get('material_root')
   self.draft=({key:cfg[key]for key in ('draft_manifest','draft_manifest_sha256')}if 'draft_manifest'in cfg else None)
   self.review=OwnerKnowledgeService(cfg['review_config'],cfg['review_sha256'],client)
   self.publication=OwnerKnowledgePublication(cfg['publication_config'],cfg['publication_sha256'],client)
   if self.review.binding.config_sha256!=self.publication.binding.config_sha256:raise BindingError('knowledge_host_binding_mismatch')
+  self.intake_feedback_intent=cfg.get('intake_feedback_intent')
+  if self.intake_feedback_intent is not None:
+   if self.review.binding.config.get('proposal_channel')!='owner'or type(self.intake_feedback_intent)is not str or str(uuid.UUID(self.intake_feedback_intent))!=self.intake_feedback_intent:raise BindingError('knowledge_target_intake_invalid')
+  self.target=None
+  if 'target_service_config'in cfg:
+   self.target=OwnerKnowledgePublicationService(cfg['target_service_config'],cfg['target_service_sha256'],client,_allow_target=False)
+   original,target=self.review.binding.config,self.target.review.binding.config
+   if (any(original[key]!=target[key]for key in ('endpoint','owner_scope','scope','workspace','manager_actor','reviewer_actor'))
+       or original['proposal_id']==target['proposal_id']or target.get('proposal_channel')!='owner'
+       or original['intents']==target['intents']or self.publication.intents==self.target.publication.intents
+       or self.material_root!=self.target.material_root):raise BindingError('knowledge_target_binding_mismatch')
  def _check(self):
   if hashlib.sha256(protected_bytes(self.path)).hexdigest()!=self.sha:raise BindingError('knowledge_host_config_changed')
   self.review._check_config()
@@ -85,13 +99,30 @@ class OwnerKnowledgePublicationService:
   self._check()
   if type(body)is not dict or set(body)!={'action','payload'}or type(body['action'])is not str or type(body['payload'])is not dict:raise BindingError('knowledge_request_invalid')
   action=body['action']
+  if action in ('target_prepare','target_prepare_status'):
+   if body['payload']!={}:raise BindingError('knowledge_request_invalid')
+   if not self.target or not self.target.intake_feedback_intent or not self.draft:raise BindingError('knowledge_target_not_configured')
+   from owner_target_intake import OwnerTargetIntake
+   intake=OwnerTargetIntake(self.review.binding,self.target.review.binding,self.client,self.material_root,
+     self.draft['draft_manifest'],self.draft['draft_manifest_sha256'],self.target.intake_feedback_intent)
+   return intake.submit()if action=='target_prepare'else intake.status()
+  if action=='proposal_choices':
+   if body['payload']!={}:raise BindingError('knowledge_request_invalid')
+   self.review.binding.authenticate(self.client)
+   items=[{'key':'original','title':'原知识提案（'+self.review.binding.config['target_version']+'）','proposal_id':self.review.binding.config['proposal_id']}]
+   if self.target:items.append({'key':'target','title':'素材反馈提案（'+self.target.review.binding.config['target_version']+'）','proposal_id':self.target.review.binding.config['proposal_id']})
+   return {'state':'knowledge_proposal_choices','items':items,'default_key':'target'if self.target else'original'}
+  if action.startswith('target_')and action[7:]in REVIEW_ACTIONS:
+   if not self.target:raise BindingError('knowledge_target_not_configured')
+   return self.target.request({'action':action[7:],'payload':body['payload']})
   if action=='draft_preview':
    if body['payload']!={}:raise BindingError('knowledge_request_invalid')
    if not self.draft:
     self.review.binding.authenticate(self.client)
     return {'state':'knowledge_draft_preview','items':[],'live_database_changed':False,'decision_available':False}
    from knowledge_draft_preview import preview
-   return preview(self.draft['draft_manifest'],self.draft['draft_manifest_sha256'],self.review.binding,self.client)
+   value=preview(self.draft['draft_manifest'],self.draft['draft_manifest_sha256'],self.review.binding,self.client)
+   return {**value,'prepare_available':bool(getattr(self,'target',None) and self.target.intake_feedback_intent)}
   if action in ('material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox','material_feedback_gap_preview','material_feedback_gap_submit','material_feedback_gap_status','material_feedback_gap_list'):
    if not self.material_root:raise BindingError('material_feedback_not_configured')
    from material_feedback import MaterialFeedback

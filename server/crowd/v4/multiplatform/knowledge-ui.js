@@ -1,27 +1,34 @@
 'use strict';
 // Uses existing host api/node/button helpers and its Owner Origin/CSRF boundary.
 const knowledgeView = (() => {
-  const call = (action, payload = {}) => api('/api/knowledge', {action, payload});
+  let selectedProposal=null,selectedProposalId=null,selector=null;
+  const reviewActions=new Set(['preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read']);
+  const call = (action, payload = {}) => api('/api/knowledge', {action:selectedProposal==='target'&&reviewActions.has(action)?'target_'+action:action, payload});
   const dialog = node('dialog'), body = node('div'), close = button('关闭', () => dialog.close());
   dialog.setAttribute('aria-label', '知识提案审核'); body.className = 'dialog-body';
   const publicationBody = node('div'), feedbackBody = node('section'), gapsBody=node('section');
   dialog.append(close, feedbackBody, gapsBody, body, publicationBody); document.body.append(dialog);
   const draftsBody=node('section');dialog.append(draftsBody);
   let generation = 0, busy = false, current = null, draftReason = '';
-  const storageKey = 'crowd:knowledge:pending-intent';
+  const selectorBody=node('section'),reasons=new Map();
+  const suffix=()=>selectedProposal==='target'?':target:'+selectedProposalId:'';
+  const storageKey = ()=> 'crowd:knowledge:pending-intent'+suffix();
   dialog.addEventListener('close', () => { generation++; current = null; });
   const isCurrent = ticket => ticket === generation && dialog.open;
-  function remembered() { try { return localStorage.getItem(storageKey); } catch { return null; } }
-  function remember(id) { try { localStorage.setItem(storageKey, id); } catch { /* Server intent remains durable. */ } }
+  function remembered() { try { return localStorage.getItem(storageKey()); } catch { return null; } }
+  function remember(id) { try { localStorage.setItem(storageKey(), id); } catch { /* Server intent remains durable. */ } }
   function details(label, value) { const d = node('details'); d.append(node('summary', label), node('pre', typeof value === 'string' ? value : JSON.stringify(value, null, 2))); return d; }
   async function check(id, ticket) {
+    if(!isCurrent(ticket))return;
     try { const result = await call('status', {intent_id:id}); if (isCurrent(ticket)) { body.append(node('p', result.message)); if (result.state === 'accepted') await publication(ticket); } }
     catch { if (isCurrent(ticket)) body.append(node('p', '原决定状态暂时无法读取，请稍后核对；不会自动重发。')); }
   }
   function render(value, ticket) {
-    current = value; body.replaceChildren(node('h2', '查看知识改动'), node('p', value.notice));
+    current = value; body.replaceChildren(selectorBody,node('h2', '查看知识改动'), node('p', value.notice));
     const labels = {address:'地址核验',current_status:'营业核验'};
-    body.append(node('p', '本次影响：'+Object.entries(value.added_unknowns).map(([key,count]) => (labels[key] || key)+'新增'+count+'项待确认').join('；')+'。其他内容是否保持请查看下方证据。'));
+    body.append(node('p', value.unknown_counts_scope==='candidate_unknown_claims_only_not_material_delta'
+      ? '候选中待确认的声明：'+(Object.entries(value.added_unknowns).map(([key,count])=>(labels[key]||key)+' '+count+'项').join('；')||'无')+'。这是候选声明计数，原4条素材的变化见同输入对照。'
+      : '本次影响：'+Object.entries(value.added_unknowns).map(([key,count]) => (labels[key] || key)+'新增'+count+'项待确认').join('；')+'。其他内容是否保持请查看下方证据。'));
     body.append(node('p', '采用仅记录批准。发布生效、结果版本切换另行处理。'));
     body.append(node('p', '本次预览有效5分钟；超时请刷新提案，审核理由保留。'));
     for (const id of value.unresolved_decisions || []) body.append(button('核对原审核决定', () => check(id, ticket)));
@@ -34,20 +41,22 @@ const knowledgeView = (() => {
       if (busy || !isCurrent(ticket)) return;
       if (!reason.value.trim()) { note.textContent = '请填写本次决定的理由。'; reason.focus(); return; }
       draftReason = reason.value; busy = true; buttons.forEach(b => b.disabled = true);
+      if(selector)selector.disabled=true;
       const intent = crypto.randomUUID(); remember(intent);
       const payload = {decision,reason:reason.value.trim(),expected_candidate_hash:value.candidate_hash,preview_token:value.preview_token,intent_id:intent};
       note.textContent = '正在记录决定…';
-      try { const result = await call('decide', payload); if (isCurrent(ticket)) { busy = false; note.textContent = result.message; if (result.state === 'not_submitted') body.append(button('刷新提案（保留理由）', () => show())); await publication(ticket); } }
+      try { const result = await call('decide', payload); if (isCurrent(ticket)) { note.textContent = result.message; if (result.state === 'not_submitted') body.append(button('刷新提案（保留理由）', () => show())); await publication(ticket); } }
       catch { if (isCurrent(ticket)) { note.textContent = '决定结果待核对，请保留原记录；不会自动再次提交。'; body.append(button('核对原决定', () => check(intent, ticket))); } }
-      finally { busy = false; /* A new decision requires reopening a fresh preview. */ }
+      finally { busy = false;if(selector)selector.disabled=false; /* A new decision requires reopening a fresh preview. */ }
     }
     for (const [key, text] of [['approved','采用'],['request_changes','退回修改'],['rejected','不采用']]) {
       const b = button(text, () => decide(key)); b.disabled = !value.decision_available || !value.actions?.[key]?.enabled; buttons.push(b); body.append(b);
     }
   }
-  const publicationKey = 'crowd:knowledge:publication-intent';
-  function publicationIntent() { try { return localStorage.getItem(publicationKey); } catch { return null; } }
+  const publicationKey = ()=> 'crowd:knowledge:publication-intent'+suffix();
+  function publicationIntent() { try { return localStorage.getItem(publicationKey()); } catch { return null; } }
   async function publicationStatus(id, ticket) {
+    if(!isCurrent(ticket))return;
     try {
       const result = await call('publication_status', {intent_id:id});
       if (isCurrent(ticket)) { publicationBody.append(node('p', result.message)); await publication(ticket); }
@@ -70,16 +79,16 @@ const knowledgeView = (() => {
       const controls = [];
       async function write(action) {
         if (busy || !isCurrent(ticket) || !value.actions[action]) return;
-        busy = true; controls.forEach(b => b.disabled = true);
+        busy = true; controls.forEach(b => b.disabled = true);if(selector)selector.disabled=true;
         const intent = crypto.randomUUID();
-        try { localStorage.setItem(publicationKey, intent); } catch { /* Durable server journal remains authoritative. */ }
+        try { localStorage.setItem(publicationKey(), intent); } catch { /* Durable server journal remains authoritative. */ }
         note.textContent = '正在记录本次明确操作…';
         try {
           const result = await call('publication_'+action, {intent_id:intent});
-          if (isCurrent(ticket)) { busy = false; note.textContent = result.message; await publication(ticket); }
+          if (isCurrent(ticket)) { note.textContent = result.message; await publication(ticket); }
         } catch {
           if (isCurrent(ticket)) { note.textContent = '结果待核对；不会自动再发，也不能换请求绕过未知结果。'; publicationBody.append(button('核对原发布操作', () => publicationStatus(intent, ticket))); }
-        } finally { busy = false; }
+        } finally { busy = false;if(selector)selector.disabled=false; }
       }
       for (const [action, text] of [['release','发布已批准知识包'],['pin','切换knowledge pin（消费者不变）'],['rollback','回到原已发布knowledge pin']]) {
         const b = button(text, () => write(action)); b.disabled = !value.actions[action] || busy; controls.push(b); publicationBody.append(b);
@@ -174,6 +183,32 @@ const knowledgeView = (() => {
       if(value.next_cursor)feedbackBody.append(button('下一页反馈',()=>feedbackInbox(ticket,value.next_cursor)));
     } catch {if(valid())feedbackBody.replaceChildren(node('h2','素材反馈待处理'),node('p','反馈列表暂时无法核验；不会把错误显示为没有反馈。'),button('重读反馈列表',()=>feedbackInbox(ticket)));}
   }
+  async function targetIntake(parent,ticket) {
+    const panel=node('section');parent.append(panel);let request=0,settled=false;
+    const valid=version=>isCurrent(ticket)&&version===request;
+    async function load(){
+      const version=++request;panel.replaceChildren(node('p','正在核对草案送审状态…'));
+      try{const result=await call('target_prepare_status');if(valid(version))renderStatus(result);}
+      catch{if(valid(version))unknown();}
+    }
+    function unknown(){panel.replaceChildren(node('p','送审结果待核对；保留原提案编号，不重新提交。'),button('核对送审状态',load));}
+    function renderStatus(result){
+      if(result.state==='target_proposal_recorded'){
+        settled=true;panel.replaceChildren(node('p','草案已进入正式待审提案；尚未批准、发布或切换现有结果。'),button('查看待审素材提案',()=>{if(busy||!isCurrent(ticket))return;selectedProposal='target';return show();}));return;
+      }
+      if(result.state!=='not_prepared'){unknown();return;}
+      const note=node('p','仅提交待审提案；不自动批准、发布或重算原素材。');
+      const submit=button('送审当前草案',async()=>{
+        if(busy||settled||!isCurrent(ticket))return;
+        settled=true;busy=true;++request;submit.disabled=true;if(selector)selector.disabled=true;
+        note.textContent='正在保存正式待审提案…';
+        try{const value=await call('target_prepare');if(isCurrent(ticket))renderStatus(value);}
+        catch{if(isCurrent(ticket))unknown();}
+        finally{busy=false;if(selector)selector.disabled=false;}
+      });submit.disabled=busy||settled;panel.replaceChildren(note,submit);
+    }
+    await load();
+  }
   async function drafts(ticket) {
     draftsBody.replaceChildren(node('h2','知识草案与验证结果'),node('p','正在核对草案证据…'));
     try {
@@ -192,16 +227,36 @@ const knowledgeView = (() => {
         article.append(details('草案内容',row.objects),details('六文件改动',row.diff));
         article.append(details('生成与发布边界',{generation:row.generation,limits:row.limits,next:row.publication_gap}));
         draftsBody.append(article);
+        if(value.prepare_available===true)targetIntake(article,ticket);
       }
     }catch{if(isCurrent(ticket))draftsBody.replaceChildren(node('h2','知识草案与验证结果'),node('p','草案证据暂时无法核验；不显示为没有草案，也不自动审核或发布。'));}
   }
   async function show() {
-    const ticket = ++generation; current = null; body.replaceChildren(node('p', '正在读取知识提案…'));
+    const ticket = ++generation; current = null; body.replaceChildren(selectorBody,node('p', '正在读取知识提案…'));
     if (!dialog.open) dialog.showModal();
-    publication(ticket);feedbackInbox(ticket);gapList(ticket);drafts(ticket);
+    feedbackInbox(ticket);gapList(ticket);drafts(ticket);
+    selectorBody.replaceChildren(node('p','正在核对提案目录…'));publicationBody.replaceChildren();
+    try{
+      const choices=await api('/api/knowledge',{action:'proposal_choices',payload:{}});
+      if(!isCurrent(ticket))return;
+      if(choices.state!=='knowledge_proposal_choices'||!Array.isArray(choices.items)||choices.items.length<1||choices.items.length>2
+        ||choices.items.some(x=>!['original','target'].includes(x.key)||typeof x.title!=='string'||!/^prop:[a-zA-Z0-9:_-]{1,150}$/.test(x.proposal_id))
+        ||new Set(choices.items.map(x=>x.key)).size!==choices.items.length||!choices.items.some(x=>x.key===choices.default_key))throw Error('invalid_proposal_choices');
+      if(!choices.items.some(x=>x.key===selectedProposal))selectedProposal=choices.default_key;
+      const choice=choices.items.find(x=>x.key===selectedProposal);selectedProposalId=choice.proposal_id;
+      selector=node('select');selector.setAttribute('aria-label','待审核知识提案');
+      for(const row of choices.items){const option=node('option',row.title);option.value=row.key;selector.append(option);}
+      selector.value=selectedProposal;selector.disabled=busy;
+      selector.addEventListener('change',()=>{
+        if(busy||!isCurrent(ticket)){selector.value=selectedProposal;return;}
+        reasons.set(selectedProposalId,draftReason);selectedProposal=selector.value;selectedProposalId=choices.items.find(x=>x.key===selectedProposal).proposal_id;draftReason=reasons.get(selectedProposalId)||'';return show();
+      });
+      const label=node('label','待审核知识提案');label.append(selector);selectorBody.replaceChildren(label,node('p','每个提案独立保存审核与发布记录；切换不会合并或重发操作。'));
+    }catch{if(isCurrent(ticket))body.replaceChildren(selectorBody,node('p','提案目录暂时无法核验；不自动切到其他提案。'));return;}
+    publication(ticket);
     const last = remembered(); if (last) body.append(button('核对上次决定', () => check(last, ticket)));
     try { const value = await call('preview'); if (isCurrent(ticket)) { render(value, ticket); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
-    catch { if (isCurrent(ticket)) { body.replaceChildren(node('p', '提案暂时无法读取或权限尚未接通；当前结果与原决定保留。')); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
+    catch { if (isCurrent(ticket)) { body.replaceChildren(selectorBody,node('p', '提案暂时无法读取或权限尚未接通；当前结果与原决定保留。')); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
   }
   return {show};
 })();
