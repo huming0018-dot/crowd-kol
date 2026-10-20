@@ -1,6 +1,18 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-20 15:50 CST｜标题、知识反馈和多项目消费已接入正式工作台
+## 当前状态｜2026-10-20 16:37 CST｜反馈待处理、多项目可见入口与Pro新任务选择已正式采用；原提案预览已恢复
+
+- **正式运行与源码**：本轮源码44f8376（反馈列表/HTTP队列）及9627f1a3cae8a0bdee20ab99346d5af7e074141d（新任务显式Pro/项目入口）已提交。正常45937当前唯一PID29885，Owner不可变 owner-pro-route-project-link-451db484ade4bf18（484文件）；知识脚本仍 knowledge-http-inbox-ee0cc222c76d701c（230文件）。采用按冻结差异，不冒整个HEAD都在运行。material-auto原13字段配置/G11 worker字节不变。
+- **用户入口**：资料库→按项目查看数据与导出→原/data-products，已正常点击打开“软件更新观察”，HTML/JSON/JSONL/CSV均可读；原领域和参与者素材入口保留。知识更新→素材反馈待处理，正常UI可发现原9705346c-d135-4086-aabe-81fa0f8c4282及提交时的原素材版本，无需先知道编号。该列表只覆盖本授权空间本机提交日志，不冒异机全局反馈目录。
+- **原4条标题与版本**：上一轮已完成原19/29各2条的原标题/全文/metadata保真及new→back→new、72次四格式读取；原件和旧版保留。本轮两次正式运行采用后分别正常HTTP并发8/共16读取全部匹配原SHA，独审另作顺序读取保持；没有再采集、重算或重复提交反馈。接收队列5→64修复的有限负载证据不等于无限并发/多用户压测完成。
+- **反馈与预览修复**：分页列表沿原SDK只读核验receipt/payload/event，20条一页、未知仅查原编号、错误不伪空；独审抓到事件hash/提交编号未核后已补。合法反馈更新了活库，旧固定提案preview却pin整库物理hash，故曾400。已复用原G11受审一致备份作固定提案快照：原备份物理SHA不同旧pin，但schema/全部业务rows等原计划；新4个私有assets正常repin配置，不放宽helper哈希、不把活库漂移自签为正确。outer知识配置5键仅request/request_sha变化，当前SHA2a717ffcd4c2c1aab1bf7f2f14ec694fd47e0536dad65ecdf97065bfce66e6dd。Owner未因此重启；实际正常preview HTTP200/6原文件，UI同时显示原反馈及提案差异。
+- **知识边界**：原034仍proposed，唯一反馈为central_owner_service/human_uid:null/pending_feedback。review grants/decisions/releases/pins/attempts均0；没有真人批准、自动生成新提案、发布、评分更新或新知识pin。固定提案快照不是实时多提案目录；决定仍沿原Binding核当前活库/权限。反馈进入生成、真人审核和发布的完整闭环仍未完成。
+- **Pro新任务**：正常新建表单实际默认Pro；正常只读capabilities声明account_verified:false/source_actions_started:0。原UI→Edge合同→Owner持久任务→selection在隔离同输入通过；显式MC及历史无字段任务保持。未接通的Pro平台/模式创建前阻断，不静默回退；本项没有实际新建/派发/采集，不称七平台Pro来源全验收。平台原厂能力与本连接准入不是同一件事。
+- **独审与保护**：formal Python34+UI8通过，路由7命令/HTTP6/项目VM通过；采用器G14 11原+1实际overlay、G16 10、G17 12原+Mac大小写1例均独审。G15采用器两处旧静态后验错误已修；G16首次仅锁忙前置拒绝、无INTENT/旧PID未退，保存原件，确认idle及五锁可用后同计划成功；只有1次实际替换意图。G17 V1大小写备份名在Mac同file，实际写前已拒用，V2改唯一前缀且原RED保留。独审实际Owner484、知识230、五原业务库、知识全业务行、双native、host及账号/配置/原进度均保持；G16直接保护1114，G17除有意切换的知识cfg外1113保持，新增4私有assets。
+- **云及实验**：本轮无中央部署、新来源/新云ACK、模型调用、快照上传/匿名签链、评分/OTA发布或原19/20/29重开。原云57业务行是上一轮已验，本轮未fresh查询，不冒当前新云验收。101/helper59df/runtime9b为历史基线，非本轮新OTA结论；48h实验和watchdog继续暂停。两设备真实静默新采集/同账号恢复、评论分页及媒体字节、连续无人值守runtime OTA与通用新Mac安装仍有未验门。
+- **接力与证据**：先读本段及EVIDENCE本轮条目。原件根为/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry；G15/G16/G17实际独审SHA分别50c11fdb343bbb42042db6bf95cfc1c8274ae8fb2e8cd672dfa437bc8fcb66be/a91d623c548f0f2660fa4658573b35a1846bce2942e7f923fd826b642e964389/f8d11f859ace1ac41f125dcd9be198ed74620ed8267ce7cc0ab51958de494811。每轮回写本入口/模板/日志；私有原件读不到标未验证。下一步按统一计划接原反馈到既有M4候选生成、审核与版本影响（不替真人批准），推进本连接尚未接通的Pro原生能力和原两设备门；不自动重发未知、重开已完成任务或恢复暂停实验。
+
+## 历史快照｜2026-10-20 15:50 CST｜标题、知识反馈和多项目消费已接入正式工作台
 
 - **本轮交付与版本**：crowd-kol/codex/v4.0.6-handoff 主体源码955be7411d064306cf06eb6e2ee314776b2a1344，UI收尾d1c5d66a59aec9835ea8bdc572817178f526d26e，9 个产品文件、6 个可移植回归脚本及 README。正式 Owner 唯一 PID22870，owner-current-version-ui-380041e6d76a09d4（484文件）；处理worker仍指向已验G11 owner-feedback-product-b3ac618683edb9a1，因收尾仅JS变化而保持原配置；知识子进程 knowledge-feedback-product-737a9c4865429085（230文件）。均从原已审不可变运行树精确覆盖，原解释器、规则包、工具箱、知识绑定和原 host 配置保持。源码提交、实际采用与业务验证分开记录，完整产品仍进行中。
 - **原标题与旧版保留**：原 task19/29 共4条 ACK 的标题此前全部被正文片段替代。本轮复用同4条原始回执、原 social-observations 包及051工具箱，正常工作台队列各建1个独立处理 job；未重抓平台、创建新任务或授予知识发布权限。实际新 job 为19=74cbfed2e4210bb726f3a1307cd38a2f93b2ae4c2fe6efbf2edec9cc9633d25a、29=dfe940a78c9d102229fc0c140aee9843c64e8f22ac7f502bddee85eecebe4901。4个原标题、全文正文和完整 metadata.capture 逐条核验；不能把媒体引用视为新下载媒体字节。

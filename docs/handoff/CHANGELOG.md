@@ -1,5 +1,14 @@
 # 交接变更日志
 
+## 2026-10-20 16:37 CST｜正式反馈目录、项目入口、Pro默认与提案快照修复
+
+- **接力者/独审**：root统筹及反馈/入口实现；central_steps负责HTTP和采用；knowledge_reuse_probe负责Pro路由/快照；native_diagnostics_review及非作者交叉独审，作者自检不代独审。
+- **目标/实际改动**：44f8376及9627f1a；5+5受审运行差异，4个私有提案快照assets及知识outer两个配置字段；不新增平台核心/SDK/队列/数据库，不改变身份、进度、评分、云回执或OTA。
+- **验证/实际采用**：formal Python34/UI8；原4条素材旧新结果与72次四格式为上轮已验，本轮两次8并发16请求逐SHA保持；原反馈可见且只读，项目入口实际点击，Pro表单默认值与只读cap实际正常。原preview400→HTTP200/6文件/正常UI。Owner29885/484、knowledge230，G11 worker和13cfg保持；知识5cfg仅request+sha切至4file受审静态快照，Owner不因快照重启。
+- **发现/修复**：事件hash/提交号核验缺口、两处采用静态后验索引错误、活库整库hash误作固定提案输入、Mac大小写备份冲突均有原RED/独审/修复GREEN。G16锁忙在无INTENT/未替换前拒绝，原件保留后在明确idle重试同计划；无UNKNOWN重放。
+- **业务范围**：原反馈仍pending，原034 proposed；review grants/审核决定/release/pin均0。没有新来源/模型/中央部署/新云ACK/OTA/分享。原云57本轮未fresh query；两设备及完整知识生成审核闭环未完成，不启动实验。
+- **证据/下一步**：本轮G14/G15/G16/G17目录及下列EVIDENCE；继续M4反馈候选和Pro/原设备门，沿当前固定入口，不另造交接入口。
+
 当前状态只维护在[固定入口](../HANDOFF.md)，本文件保留重要变化与决定。日期默认Asia/Shanghai。
 
 ## 2026-10-14｜建立固定交接入口，主线继续

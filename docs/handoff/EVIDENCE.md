@@ -1,5 +1,14 @@
 # 交接证据索引
 
+## 2026-10-20 16:37 CST｜G14–G17正式采用与真实消费
+
+原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。PRIVATE/assets/SQLite不上传公开仓；在线读者无法读取须标未验证。
+
+- **HTTP/反馈代码及实际**：G14-http-load/FREEZE.json与review/g14-http-load/FINAL.json；双路线依据G14-http-load-root/REASONING.md、原正式BASELINE-ACTUAL-8.json（14/16）。G15-feedback-inbox/FREEZE-V2.json=5e74f8ebb3ededa4525b1cf6b030ee2d3c2732dd87408d1fca6d7b462d5e7e6c；SDK20/UI8/routes4及独立SQL事件hash反例。正式FORMAL-PYTHON/FORMAL-UI合计34+8通过。G14-http-inbox-adoption-v2/PLAN/APPROVAL/runtime-adoption/ADOPTED，Owner28069；G15 v2/ACTUAL-CONCURRENT-EXPORTS/ACTUAL-INBOX/ACTUAL-UI，16/16、唯一原反馈。实际独审review/g15-feedback-inbox-actual/ACTUAL-FINAL.json SHA50c11fdb343bbb42042db6bf95cfc1c8274ae8fb2e8cd672dfa437bc8fcb66be。此时旧preview400明确保留，后由G17修。
+- **项目/路由代码及实际**：G14-owner-pro-routing/FREEZE与独审，G16-project-entry及非作者RED→GREEN；G16-routing-link-combined/FREEZE=8496a9522df38ce2215fc1381e0e589be55670d554007c1b70af456b346f6b28，保持HTTP64/inbox。正式移植测试owner-pro-tests可复用原Edge/Owner合同；7命令全0、HTTP6及项目VM通过。G16-routing-link-adoption/PLAN/APPROVAL/runtime-adoption/ADOPTED，Owner29885/484、5overlay、1114保护；首轮前置拒绝保存ATTEMPT-1-PREFLIGHT-REFUSAL。G16-routing-link-actual/ACTUAL-{CONCURRENT-EXPORTS,INBOX,PROJECT-UI,PRO-UI,CAPABILITIES}及png；实际项目点击/四格式、默认Pro未create/source。实际独审review/g16-routing-link-actual/ACTUAL-FINAL.json SHAa91d623c548f0f2660fa4658573b35a1846bce2942e7f923fd826b642e964389。
+- **原提案预览修复**：review/g15-actual-preview-diagnosis/ROOT-CAUSE.json及私trace；G17-knowledge-preview-snapshot V1原pin/失败原件保留，不能采用；G17-knowledge-preview-snapshot-v2/FREEZE=2961ed2214ac266c9b27c9555b90c5fc691d2c872fd214d17ce36ac3890c629f。原G11 backup schema/业务rows原计划exact，但物理SHA不同旧pin；4新assets正常重新pin静态快照，不自签活库漂移。12原tests+Mac case1独立RED→GREEN，未改原helper/Binding/权限。V2 PLAN/APPROVAL/RESULT config_switched_preserved；ACTUAL-PREVIEW HTTP200/6files（不记录preview token），ACTUAL-UI.txt/png显示原9705和原提案/无error，未决定。实际独审review/g17-knowledge-preview-snapshot-actual/ACTUAL-FINAL.json SHAf8d11f859ace1ac41f125dcd9be198ed74620ed8267ce7cc0ab51958de494811，1113其他保护、知识230、Owner29885、活库/五库/双native保持，034 proposed/反馈1/审核与发布0。
+- **解释边界**：上轮72格式与本轮16+16是保存ACK的处理/读取，不是新抓取或新云ACK；Pro新默认只验接线与表单/只读cap，尚无本次新来源验收；反馈已入库不等于生成提案/知识批准。旧云57、101 OTA历史不冒本轮fresh，48h/watchdog仍暂停。
+
 更新：2026-10-20。只索引实际存在且本轮读取/核对的材料。状态以各证据的观察日期为准；已有报告用于定位，原始响应、差异和测试输出用于复核。下列 WORKSPACE 指本仓上级目录，AUDIT 指 `WORKSPACE/outputs/collector-adversarial-audit-2026-10-14`，EXEC 指 `WORKSPACE/outputs/unified-distributed-product-2026-10-14/execution`。完整SHA与未提交清单见本地 `2026-10-14-local-inventory.json`，未随Markdown发布。各旧条目为对应时点的历史观察；当前状态以HANDOFF第3节E85为准。下列JSON、运行产物和PRIVATE文件均只在本地，在线读者无法访问原件时必须标未核验。
 
 | ID | 材料、版本与用途 | 实际检查与证据边界 |
