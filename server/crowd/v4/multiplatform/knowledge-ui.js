@@ -4,8 +4,8 @@ const knowledgeView = (() => {
   const call = (action, payload = {}) => api('/api/knowledge', {action, payload});
   const dialog = node('dialog'), body = node('div'), close = button('关闭', () => dialog.close());
   dialog.setAttribute('aria-label', '知识提案审核'); body.className = 'dialog-body';
-  const publicationBody = node('div'), feedbackBody = node('section');
-  dialog.append(close, feedbackBody, body, publicationBody); document.body.append(dialog);
+  const publicationBody = node('div'), feedbackBody = node('section'), gapsBody=node('section');
+  dialog.append(close, feedbackBody, gapsBody, body, publicationBody); document.body.append(dialog);
   let generation = 0, busy = false, current = null, draftReason = '';
   const storageKey = 'crowd:knowledge:pending-intent';
   dialog.addEventListener('close', () => { generation++; current = null; });
@@ -85,6 +85,61 @@ const knowledgeView = (() => {
       }
     } catch { if (isCurrent(ticket)) publicationBody.append(node('p', '发布前置尚未接通或记录待核对；原决定、现有结果保持。')); }
   }
+  const gapTypes={'regression-miss':'回归未覆盖','taxonomy-gap':'分类待补','rubric-gap':'评分规则待补'};
+  let gapsGeneration=0;
+  async function gapList(ticket,after=null){
+    const request=++gapsGeneration,valid=()=>isCurrent(ticket)&&request===gapsGeneration;
+    gapsBody.replaceChildren(node('h2','待处理知识缺口'),node('p','正在核对缺口回执…'));
+    try{
+      const value=await call('material_feedback_gap_list',{after});
+      if(!valid())return;
+      if(value.state!=='material_feedback_gaps'||!Array.isArray(value.items)||value.items.length>20)throw Error('invalid_gap_list');
+      gapsBody.replaceChildren(node('h2','待处理知识缺口'),node('p','转入缺口不等于生成或批准知识改动。此处保留原反馈与素材血缘。'),button('刷新知识缺口',()=>gapList(ticket)));
+      if(!value.items.length)gapsBody.append(node('p','本页暂无已转入的知识缺口。'));
+      for(const row of value.items){
+        const article=node('article'),note=node('p');
+        article.append(node('h3',row.state==='outcome_unknown'?'缺口入库结果待核对':row.title||'待处理知识缺口'));
+        if(row.state==='pending_gap')article.append(node('p',gapTypes[row.gap_type]||row.gap_type),node('p',row.description||''));
+        article.append(details('原反馈、缺口与素材回执',row));
+        article.append(button('核对原缺口',async()=>{try{const result=await call('material_feedback_gap_status',{feedback_intent:row.feedback_intent});if(valid())note.textContent='原缺口状态：'+result.state+'；未审核、发布。';}catch{if(valid())note.textContent='原缺口暂时无法核对；不重新提交。';}}),note);gapsBody.append(article);
+      }
+      if(value.next_cursor)gapsBody.append(button('下一页知识缺口',()=>gapList(ticket,value.next_cursor)));
+    }catch{if(valid())gapsBody.replaceChildren(node('h2','待处理知识缺口'),node('p','知识缺口暂时无法核验；不会当作空列表。'),button('重读知识缺口',()=>gapList(ticket)));}
+  }
+  async function feedbackGap(parent,row,ticket){
+    const panel=node('section'),version=feedbackGeneration;parent.append(panel);const valid=()=>isCurrent(ticket)&&version===feedbackGeneration;
+    panel.replaceChildren(node('p','正在核对原反馈与可转入范围…'));
+    try{
+      const value=await call('material_feedback_gap_preview',{feedback_intent:row.intent_id});
+      if(!valid())return;
+      if(value.state!=='gap_preview'||value.feedback_intent!==row.intent_id||value.kind!=='want_to_know'||!/^[a-f0-9]{64}$/.test(value.feedback_sha256)||JSON.stringify([...(value.allowed_gap_types||[])].sort())!==JSON.stringify(Object.keys(gapTypes).sort()))throw Error('invalid_gap_preview');
+      const note=node('p');note.setAttribute('role','status');
+      async function check(){try{const result=await call('material_feedback_gap_status',{feedback_intent:row.intent_id});if(valid()){note.textContent='原缺口状态：'+result.state+'；未审核、发布。';if(result.state==='pending_gap')await gapList(ticket);}}catch{if(valid())note.textContent='原缺口暂时无法核对；不会重新提交。';}}
+      panel.replaceChildren(node('h4','转入待处理知识缺口'),node('p','请选择缺口类型并确认标题与说明；只保存待处理问题，不调用模型、不审核或发布。'));
+      if(value.existing){panel.append(node('p','已有原缺口记录：'+value.existing.state),button('核对原缺口',check),note);return;}
+      const type=node('select'),title=node('input'),description=node('textarea'),consent=node('input');
+      type.setAttribute('aria-label','知识缺口类型');title.setAttribute('aria-label','知识缺口标题');description.setAttribute('aria-label','知识缺口说明');
+      const empty=node('option','请选择缺口类型');empty.value='';type.append(empty);
+      for(const [key,label]of Object.entries(gapTypes)){const option=node('option',label);option.value=key;type.append(option);}
+      title.value=value.reason.replace(/\s+/g,' ').slice(0,120);title.maxLength=200;description.value=value.reason;description.maxLength=2000;consent.type='checkbox';
+      const permission=node('label','确认仅在原私有空间建立待处理缺口');permission.prepend(consent);let busy=false,settled=false;
+      const submit=button('提交知识缺口',async()=>{
+        if(busy||settled||!valid())return;
+        if(!Object.hasOwn(gapTypes,type.value)||!title.value.trim()||!description.value.trim()||!consent.checked){note.textContent='请选择类型、填写标题与说明，并确认私有保存。';return;}
+        busy=true;submit.disabled=true;note.textContent='正在保存知识缺口…';
+        try{
+          const result=await call('material_feedback_gap_submit',{feedback_intent:row.intent_id,expected_feedback_sha256:value.feedback_sha256,gap_type:type.value,title:title.value.trim(),description:description.value.trim(),consent_private:true});
+          settled=true;if(!valid())return;
+          if(result.state==='not_submitted'){note.textContent='本次缺口未提交，原反馈保持；请刷新反馈列表后核对输入。';return;}
+          note.textContent=result.state==='pending_gap'?'已进入待处理知识缺口；尚未生成或批准知识改动。':'结果待核对；保留原反馈编号，不重复提交。';
+          panel.append(button('核对原缺口',check));await gapList(ticket);
+        }catch{settled=true;if(valid()){note.textContent='结果待核对；请核对原缺口，不重复提交。';panel.append(button('核对原缺口',check));}}
+        finally{busy=false;}
+      });
+      panel.append(type,title,description,permission,submit,note);
+    }catch{if(valid())panel.replaceChildren(node('p','原反馈暂时无法核验或不适用于知识缺口；没有自动转入。'));}
+  }
+
   let feedbackGeneration = 0;
   async function feedbackInbox(ticket,after=null) {
     const request=++feedbackGeneration,valid=()=>isCurrent(ticket)&&request===feedbackGeneration;
@@ -111,7 +166,9 @@ const knowledgeView = (() => {
         article.append(node('p','反馈编号：'+row.intent_id),button('核对原反馈',async()=>{
           try{const result=await call('material_feedback_status',{intent_id:row.intent_id});if(valid())note.textContent='原反馈状态：'+result.state+'；未审核、发布。';}
           catch{if(valid())note.textContent='原反馈暂时无法核对；不自动重发。';}
-        }),note);feedbackBody.append(article);
+        }),note);
+        if(row.state==='pending_feedback'&&row.kind==='want_to_know'){let opened=false;article.append(button('转为知识缺口',()=>{if(opened||!isCurrent(ticket))return;opened=true;return feedbackGap(article,row,ticket);}));}
+        feedbackBody.append(article);
       }
       if(value.next_cursor)feedbackBody.append(button('下一页反馈',()=>feedbackInbox(ticket,value.next_cursor)));
     } catch {if(valid())feedbackBody.replaceChildren(node('h2','素材反馈待处理'),node('p','反馈列表暂时无法核验；不会把错误显示为没有反馈。'),button('重读反馈列表',()=>feedbackInbox(ticket)));}
@@ -119,7 +176,7 @@ const knowledgeView = (() => {
   async function show() {
     const ticket = ++generation; current = null; body.replaceChildren(node('p', '正在读取知识提案…'));
     if (!dialog.open) dialog.showModal();
-    publication(ticket);feedbackInbox(ticket);
+    publication(ticket);feedbackInbox(ticket);gapList(ticket);
     const last = remembered(); if (last) body.append(button('核对上次决定', () => check(last, ticket)));
     try { const value = await call('preview'); if (isCurrent(ticket)) { render(value, ticket); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }
     catch { if (isCurrent(ticket)) { body.replaceChildren(node('p', '提案暂时无法读取或权限尚未接通；当前结果与原决定保留。')); if (last) body.append(button('核对上次决定', () => check(last, ticket))); } }

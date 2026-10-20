@@ -84,7 +84,7 @@ class OwnerKnowledgePublicationService:
   self._check()
   if type(body)is not dict or set(body)!={'action','payload'}or type(body['action'])is not str or type(body['payload'])is not dict:raise BindingError('knowledge_request_invalid')
   action=body['action']
-  if action in ('material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox'):
+  if action in ('material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox','material_feedback_gap_preview','material_feedback_gap_submit','material_feedback_gap_status','material_feedback_gap_list'):
    if not self.material_root:raise BindingError('material_feedback_not_configured')
    from material_feedback import MaterialFeedback
    return MaterialFeedback(self.material_root,self.review.binding,self.client).request(action,body['payload'])
