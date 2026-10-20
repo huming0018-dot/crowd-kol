@@ -95,6 +95,8 @@ const accountView = (() => {
       const checkOnlyActive=session.last_self_check?.check_only===true&&session.last_self_check.phase==='checking'&&session.login_in_progress===true;
       const unavailable=session.platform==='ks'&&session.login_verification_available===false&&session.login_diagnostic?.graphql_errors==='present';
       const row=node('article');row.className='task';row.append(node('h3',platformNames[session.platform]||session.platform),node('p',selfCheckMain(session)||(unavailable?'登录核验接口失败，登录状态尚未确认；已登录者无需重复扫码。':labels[session.state]||session.state)));
+      const connectionMessages={configuration_required:'平台登录记录仍保留；Pro采集连接尚未完成。重复扫码不能修复这项连接。',identity_required:'Pro连接已配置，仍缺原账号的核验记录。',connected_unverified:'Pro连接已配置；开始采集时仍会核验原账号。'};
+      if(Object.hasOwn(connectionMessages,session.pro_connection?.status))row.append(node('p',connectionMessages[session.pro_connection.status]));
       if(unavailable){const diagnostic={schema_validation:'当前核验请求与平台接口不兼容，不能据此认定账号登出。',authentication_required:'接口提示需要登录；原会话与任务保留。',rate_or_permission:'接口返回频率或权限限制，保持暂停。',unknown:'接口错误原因尚未定位，保留原会话与任务。'};row.append(node('p',diagnostic[session.login_diagnostic.graphql_error_kind]||diagnostic.unknown));}
       if(session.login_error_code)row.append(node('p',loginErrors[session.login_error_code]||'登录核验尚未完成。'));
       const diagnostic=proDiagnostic(session.login_diagnostic);if(diagnostic)row.append(node('p',diagnostic));

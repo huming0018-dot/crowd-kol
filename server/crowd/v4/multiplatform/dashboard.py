@@ -706,13 +706,16 @@ class Application:
                 route = self._account_login_route(AccountSessions(matches[0]), value['session_id'], value['platform'], routes)
                 if route is not None:
                     value['login_recovery'] = route
+                from pro_executor import account_connection_status
+                value['pro_connection'] = account_connection_status(matches[0], value)
                 if value['platform']=='xhs':
+                    from mc_runner import BridgeError
                     try:
                         from pro_executor import binding_for,task_installation
                         request={'platform':'xhs','session_id':value['session_id'],'source_executor':'pro'}
                         bound=binding_for(matches[0],request);task_installation(matches[0],request)
                         value['pro_self_check_available']=bound.get('provider') is None
-                    except (ValueError,OSError,SystemExit):value['pro_self_check_available']=False
+                    except (ValueError,OSError,SystemExit,BridgeError):value['pro_self_check_available']=False
             return {'ok': True, 'sessions': sessions}
         if action=='create_browser_session' and set(payload)=={'platform','port','target_id','browser_fingerprint'}:
             return self._prefer_session(AccountSessions(self._roots()[0]).create_browser_session(**payload))

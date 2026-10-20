@@ -12,6 +12,14 @@ class Tests(unittest.TestCase):
  def save(self,wait):self.path.write_text(json.dumps({'waiting_logins':wait}))
  def test_list_projects_exact_server_task_scope_no_credential_fields(self):
   row=self.app.accounts('list',{})['sessions'][0];self.assertEqual(row['login_recovery'],{'kind':'cloud_pro','task_id':self.task,'child_id':self.child,'platform':'bili'});self.assertNotIn('cookies',json.dumps(row))
+ def test_list_connection_is_metadata_only_and_keeps_existing_route(self):
+  before={str(p):p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+  with patch('subprocess.run',side_effect=AssertionError('list cannot start source')):
+   row=self.app.accounts('list',{})['sessions'][0]
+  self.assertEqual(row['pro_connection'],{'status':'configuration_required','missing':['installation','binding','identity'],'authentication_checked':False,'source_collection_started':False})
+  self.assertEqual(row['login_recovery']['task_id'],self.task)
+  self.assertEqual(before,{str(p):p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
+  self.app.cloud_worker.recover_cloud_login.assert_not_called()
  def test_old_open_login_exact_pro_wait_routes_strict_existing_endpoint(self):
   before=self.path.read_bytes()
   with patch.object(AccountSessions,'open_login') as mc:

@@ -268,6 +268,26 @@ def binding_for(root, request):
     return value
 
 
+def account_connection_status(root, session):
+    """Local metadata only; configured does not mean authenticated or ready."""
+    request = {'source_executor': 'pro', 'platform': session['platform'],
+               'session_id': session['session_id']}
+    missing = []
+    for name, reader in (('installation', task_installation), ('binding', binding_for)):
+        try:
+            reader(root, request)
+        except (ValueError, OSError, bridge().BridgeError):
+            missing.append(name)
+    if (type(session.get('generation')) is not int or session['generation'] <= 0
+            or not isinstance(session.get('account_ref'), str)
+            or not re.fullmatch(r'[a-f0-9]{64}', session['account_ref'])):
+        missing.append('identity')
+    status = ('configuration_required' if any(x in missing for x in ('installation', 'binding'))
+              else 'identity_required' if missing else 'connected_unverified')
+    return {'status': status, 'missing': missing, 'authentication_checked': False,
+            'source_collection_started': False}
+
+
 def prepare(root, mc, request, chosen):
     m = bridge()
     if chosen['backend'] != 'pro':
