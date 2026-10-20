@@ -23,12 +23,48 @@ const knowledgeView = (() => {
     try { const result = await call('status', {intent_id:id}); if (isCurrent(ticket)) { body.append(node('p', result.message)); if (result.state === 'accepted') await publication(ticket); } }
     catch { if (isCurrent(ticket)) body.append(node('p', '原决定状态暂时无法读取，请稍后核对；不会自动重发。')); }
   }
+  function reviewImpact(value) {
+    if (!value.same_input_comparison && value.unknown_counts_scope !== 'candidate_unknown_claims_only_not_material_delta') return;
+    const panel=node('section');body.append(panel);panel.append(node('h3','本提案同输入影响'));
+    try {
+      const c=value.same_input_comparison,l=value.source_lineage,scope=value.review_scope;
+      const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(x),hash=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
+      if (!c || c.status!=='OFFLINE_SAME_FOUR_INPUT_PACK_IMPACT_NOT_RELEASED' || c.consumer_pins_changed!==false || c.normal_recompute_not_bypassed!==true
+          || !Array.isArray(scope)||scope.length!==3||scope.some(x=>typeof x!=='string') || !l || JSON.stringify(l.scope)!==JSON.stringify(scope)
+          || !uuid(value.observed_gap)||!uuid(l.gap_id)||l.gap_id!==value.observed_gap
+          || typeof l.feedback_id!=='string'||!l.feedback_id.startsWith('fb:')||!uuid(l.feedback_id.slice(3))
+          || !uuid(l.request)||!hash(l.record_hash)||!hash(l.feedback_sha256)||!hash(l.gap_event_sha256)||!hash(l.job_id)
+          || l.private_feedback_in_model_input!==false
+          || !value.generation_base_ref || value.generation_base_ref.pack_id!==value.pack_id || typeof value.generation_base_ref.version!=='string' || typeof value.version!=='string'
+          || !Array.isArray(c.tasks)||c.tasks.length<1||c.tasks.length>20) throw Error('impact_unverified');
+      const items=[];let linked=0;
+      for (const task of c.tasks) {
+        if (!Number.isSafeInteger(task.task)||task.task<1||!Array.isArray(task.items)||task.items.length<1||task.items.length>2000
+            || !/^[a-f0-9]{64}$/.test(task.old_job)||!['as_of_exact','old_current_state_exact','old_four_formats_readback_exact'].every(k=>typeof task[k]==='boolean')) throw Error('impact_unverified');
+        for (const item of task.items) {
+          if (!['identity_exact','capture_exact','score_exact','evidence_exact'].every(k=>typeof item[k]==='boolean')||typeof item.source_record_id!=='string') throw Error('impact_unverified');
+          if(task.old_job===l.job_id&&item.source_record_id===l.request) linked++;
+          items.push(item);
+        }
+      }
+      if(linked!==1)throw Error('impact_unverified');
+      panel.append(node('p','生成上下文 '+value.generation_base_ref.version+' → 待审核目标 '+value.version+'；尚未发布，也未切换当前 Consumer。'));
+      panel.append(node('p','仅限这批固定输入：原'+items.length+'条、'+c.tasks.length+'批次的隔离同输入对照；不代表所有来源完整或正式重算已完成。'));
+      panel.append(node('p',[['identity_exact','记录身份'],['capture_exact','采集记录'],['evidence_exact','证据引用'],['score_exact','素材追溯评分']].map(([k,label])=>label+' '+items.filter(x=>x[k]===true).length+'/'+items.length).join('；')));
+      panel.append(node('p','旧四格式可回读 '+c.tasks.filter(t=>t.old_four_formats_readback_exact).length+'/'+c.tasks.length+'批；原版本选择保持 '+c.tasks.filter(t=>t.old_current_state_exact).length+'/'+c.tasks.length+'批。'));
+      panel.append(node('p','该对照不构成领域品质或独立用户评价；外部生成产物的执行认证与真人审核状态须另核。'));
+      panel.append(details('生成记录',value.generation));
+      panel.append(details('本提案反馈血缘',{feedback:l.feedback_id,gap:l.gap_id,scope:l.scope,job:l.job_id,request:l.request,record_hash:l.record_hash}));
+      panel.append(details('受核验同输入对照',c));
+    } catch { panel.append(node('p','影响关联未核验；不将缺失或不匹配数据当作保全通过。原审核权限与操作合同保持。')); }
+  }
   function render(value, ticket) {
     current = value; body.replaceChildren(selectorBody,node('h2', '查看知识改动'), node('p', value.notice));
     const labels = {address:'地址核验',current_status:'营业核验'};
     body.append(node('p', value.unknown_counts_scope==='candidate_unknown_claims_only_not_material_delta'
       ? '候选中待确认的声明：'+(Object.entries(value.added_unknowns).map(([key,count])=>(labels[key]||key)+' '+count+'项').join('；')||'无')+'。这是候选声明计数，原4条素材的变化见同输入对照。'
       : '本次影响：'+Object.entries(value.added_unknowns).map(([key,count]) => (labels[key] || key)+'新增'+count+'项待确认').join('；')+'。其他内容是否保持请查看下方证据。'));
+    reviewImpact(value);
     body.append(node('p', '采用仅记录批准。发布生效、结果版本切换另行处理。'));
     body.append(node('p', '本次预览有效5分钟；超时请刷新提案，审核理由保留。'));
     for (const id of value.unresolved_decisions || []) body.append(button('核对原审核决定', () => check(id, ticket)));

@@ -107,7 +107,7 @@ class OwnerKnowledgeService:
         self._save_preview(token, self.previews[token])
         unresolved = self.binding.unresolved_decisions()
         reviewable = not unresolved and data.get('proposal_status', 'proposed') == 'proposed'
-        return {**data, 'preview_token': token, 'preview_fingerprint': self.previews[token]['fingerprint'],
+        return {**data, 'review_scope': list(self.binding.config['scope']), 'preview_token': token, 'preview_fingerprint': self.previews[token]['fingerprint'],
                 'principal_kind': principal['kind'], 'human_uid': None,
                 'role_state': {**data['role_state'], 'central_owner_service_scope_bound': True},
                 'unresolved_decisions': unresolved,
