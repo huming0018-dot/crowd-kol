@@ -1200,3 +1200,40 @@ G79 ROOT-USER-READBACK时间为2026-10-21T00:13:05Z，先于G80；其默认G77�
 
 
 C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `01832ef93b8a7ab21dbb0894a476a1e9c43e1dc7c65770534280ae94c6cc691f`，正文/评论/回执/四格式与保护核查通过，媒体仍HOLD。有限错误跨层传播仍仅实现中，尚未上线。
+
+## 2026-10-21 08:37 CST｜G82中央实际与G83单模块采用（本机C实际门通过）
+
+以下路径均相对固定RUN `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`，私有原件仅本机，不含凭据复制。源码五路径提交`b1cbfc9ae76247f7e32c72172593a863abad97bf`；候选/正式测试/实际部署/本机采用分层如下。
+
+| 范围 | 原件路径 | SHA256 |
+|---|---|---|
+| G82候选冻结 | G82-media-reason-propagation/FREEZE.json | 13e8d1569914ed5fb92321bea321a72bae0e256ec648a7ba8173a75cfcf79e2e |
+| B产品独审 | review/g82-propagation-b/FINAL.json | f5400c4a1ba9732ba5f2d149f7d849ef4885a0c228a9b96c2e48e1a9758ee3f5 |
+| B正式跨层回归 | review/g82-propagation-b/FORMAL-CROSS-LAYER-TEST-FINAL.json | bf587bf6da4d491033de0f5c0a36d471cf0bb859ca120cd1fabe3f624a69dff6 |
+| B提交范围 | review/g82-propagation-b/COMMIT-SCOPE-FINAL.json | e284596ee58ef241edb4f56c204b9d89e65265e5c4d21972fb94c1aef955519f |
+| C中央实际 | review/g82-central-deploy-independent/ACTUAL-FINAL.json | 428bc2ad8f82a265cfb26333d087a7336ba044447474a7fb93f77cea11132925 |
+| 实际迁移账本 | G82-media-reason-propagation/ACTUAL-MIGRATION-LEDGER.json | 8284a41d03a5b8f6c914d7c937b14451f0b6ad4a33c0bf31f2d98bd3d2730a9f |
+| 实际RPC回读 | G82-media-reason-propagation/ACTUAL-RPC-AFTER.json | aad798dad486030dd1adb7a51a338fe047e07bbdfde31c1dc58cea884f522dde |
+| 实际Edge回读 | G82-media-reason-propagation/ACTUAL-EDGE-AFTER.json | e7f8fb709b5a9279fcb03839891e75e943c9361d4fdcb362bba3d9c6c747d29d |
+| G83代码冻结 | G83-owner-finite-diagnostics-adoption/CODE-FREEZE.json | a52c9da5562145b69a0a0860efeaa1ec343766e567b0e51b744c263abe6c620a |
+| C采用器代码 | review/g83-adopter-independent/CODE-FINAL.json | 19f8615a97f121d95cbf5fd53b9beb45af52ee43d6db645788fae43c357a61b6 |
+| G83精确PLAN | G83-owner-finite-diagnostics-adoption/PLAN.json | 1d75c233c376c4e37a44bc5d7f7a2cc7e70b6b98cd91ce0e2f56de27f1192ec9 |
+| C精确PLAN | review/g83-adopter-independent/PLAN-FINAL.json | f82a3064eed5eeae6dbb10e24286b9c1a06f24f38b894dc39381152c91b9c4e9 |
+| root实际采用 | G83-owner-finite-diagnostics-adoption/runtime-adoption/ADOPTED.json | 7a7ed46e90d05181021aecbac0d7fa24effac04a964b5f6db68443a6e007caa7 |
+| 原G80部分成果及媒体HOLD | review/g80-real-partial-independent/FINAL.json | 01832ef93b8a7ab21dbb0894a476a1e9c43e1dc7c65770534280ae94c6cc691f |
+
+中央C实际只证明Edge53旧29文件、steps OID/ACL/security/search_path及指定tasks72/children78/captures1778三表摘要保持，不冒所有云表零变化。G83 C实际门确认493单覆盖、1965保护、五库与知识全部旧行及native保持；同一原G80状态纯函数由unclassified/74改为transport_failed/74，原status和步骤库不追写。正常API原16唯一导出与反馈9705保持，root另核20次导出和当前G80的1正文/1根/1回复。本轮无新source/capture ACK；旧G80的3ACK和流失败不回填成新成功，新有限码真实中央步骤仍未自然观测。
+
+备份与dirty：BACKUP-MANIFEST.json固定本轮开始HEAD/branch及三文档HEAD/working hash；*.HEAD-BEFORE/*.WORKING-BEFORE、THREE-DOCS-DIFF-BEFORE.PRIVATE.patch与INDEX-DIFF-BEFORE.PRIVATE.patch均create-only0600。正式暂存仅HEAD加本轮片段及预算规则，旧dirty单独保持。
+
+预算规划修正：B只读确认原G80保存的15个去重图片项，新下载至少需30次媒体请求，加已发生的Pro8次为下限38，超过root原选30；这是本轮试验额度规划不足，不是Pro缺陷，也不是stream失败原因。下限不保证未来分页/刷新成本；后续正常任务须按完整范围加明确余量，不裁剪评论/媒体或改旧额度。此经验已只追加到AGENTS。网络真实原因仍未知，禁网注入仅复现症状。
+
+| 本轮最终补充 | 原件路径 | SHA256 |
+|---|---|---|
+| C本机实际 | review/g83-adopter-independent/ACTUAL-FINAL.json | 87560f48b09a55880a25c102981aa518a6bc93f17d112fdb3f7384497143e84d |
+| root正常读取 | G83-owner-finite-diagnostics-adoption/ROOT-USER-READBACK.json | 1165c90b38aa972ee8a813829126de3745fa7f69c12748c1676fc8f221e0cfc9 |
+| B媒体有限根因/预算（PRIVATE） | review/g80-media-rootcause-b/FINAL.PRIVATE.json | adde9967cf0fc4d5fac690c21ae61a9683aade9a613aa623557d50c16a6f62ba |
+| 中央新码步骤计数0（只读时点） | G82-media-reason-propagation/ACTUAL-FINITE-STEP-COUNT.json | 99a1703d3b6170a6ee1f714cdf9e389ecec951b8b985d3d0d93f039f6a2f467f |
+| 规则追加及原像 | G84-handoff/AGENTS-CHANGE-FINAL.json | 1312cf7580beef444fa030655126fc7d6a98284f23d4c2f0592fd9056480f696 |
+
+原位测试第一次仅CROWD_TEST_TOOLS路径误写，保留FIRST-FORMAL-TEST-ENV-FAIL；复用既有`.crowd-launch/test-tools`后通过，无新依赖或断言放宽。
