@@ -12,7 +12,7 @@ import uuid
 from urllib.parse import urlsplit,urlunsplit
 from types import SimpleNamespace
 from media_cloud import _url as existing_storage_url
-from saved_media_attachments import verify_source,read,decode_bytes,canonical,sha,MIMES,safe_path,parse_json_object,_sidecar,_media_record
+from saved_media_attachments import verify_source,read,decode_bytes,canonical,sha,MIMES,safe_path,parse_json_object,_sidecar,_media_record,native_attachment_transport
 from results_store import _record
 
 BUCKET='crowd-machine-media'
@@ -63,7 +63,7 @@ def validate_manifest(value):
             parts=[x for x in url.path.split('/') if x]
             if parts:parts[0]='large'
             transport='https://i1.wp.com/'+url.netloc+('/'+'/'.join(parts) if parts else url.path)
-        if value['source_url_sha256']!=sha(ref['url']) or value['transport_url_sha256']!=sha(transport):raise ValueError()
+        if value['source_url_sha256']!=sha(ref['url']) or value['transport_url_sha256'] not in ({sha(transport),sha(ref['url'])} if version==1 else {sha(transport)}):raise ValueError()
     except (ValueError,TypeError,UnicodeError,RecursionError):raise ValueError('invalid_image_manifest') from None
     try:
         source_text=value['source_record_canonical']
@@ -129,6 +129,8 @@ def prepare_image(adapter,run_id,virtual_path,capture):
     if not all(uid(receipt.get(k)) for k in ('task_id','child_id','run_id','capture_id')) or type(receipt.get('lease_epoch')) is not int or not 1<=receipt['lease_epoch']<=2147483647 or not isinstance(receipt.get('envelope_hash'),str) or not HEX.fullmatch(receipt['envelope_hash']):raise ValueError('image_source_binding_denied')
     data,asset_generation=_snapshot(asset,WB_LIMIT if ref['platform']=='weibo' else LIMIT);decoded=decode_bytes(data);mime,_=MIMES[decoded['format']]
     expected_sidecar=_sidecar(run_id,sidecar['media_id'],ref,body,files,data,decoded)
+    if canonical(sidecar)!=canonical(expected_sidecar):
+        expected_sidecar=_sidecar(run_id,sidecar['media_id'],ref,body,files,data,decoded,transport=native_attachment_transport(run,ref))
     if canonical(sidecar)!=canonical(expected_sidecar) or expected_sidecar['path']!=virtual_path or sidecar.get('asset_file')!=asset.name:
         raise ValueError('image_attachment_binding_changed')
     media=_media_record(expected_sidecar,ref,body);version_hash=_record({**media,'kind':'media'})[3]

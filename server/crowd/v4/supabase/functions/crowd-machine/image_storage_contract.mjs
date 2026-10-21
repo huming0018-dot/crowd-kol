@@ -34,8 +34,9 @@ export async function imageManifest(value){
  const raw=ref.url.match(/^https?:\/\/[^/?#]+([^?#]*)(\?[^#]*)?$/);assert(raw,'invalid_image_manifest');
  let transport=url.protocol==='http:'?'https://'+url.hostname+raw[1]+(raw[2]||''):ref.url;
  if(wb){const parts=url.pathname.split('/').filter(Boolean);if(parts.length)parts[0]='large';transport='https://i1.wp.com/'+url.host+(parts.length?'/'+parts.join('/'):url.pathname);}
- assert(await sha(canonical(ref.url))===value.source_url_sha256&&await sha(canonical(transport))===value.transport_url_sha256,'invalid_image_manifest');
+ assert(await sha(canonical(ref.url))===value.source_url_sha256&&(await sha(canonical(transport))===value.transport_url_sha256||version===1&&await sha(canonical(ref.url))===value.transport_url_sha256),'invalid_image_manifest');
  let source;try{source=strictJSON(value.source_record_canonical);}catch{throw new Error('invalid_image_manifest');}assert(source&&typeof source==='object'&&!Array.isArray(source)&&new TextEncoder().encode(value.source_record_canonical).length<=131072&&sourceCanonical(source)===value.source_record_canonical&&await sha(value.source_record_canonical)===value.source_record_hash&&!Object.hasOwn(source,'record_hash'),'invalid_image_manifest');
+ if(!wb&&value.transport_url_sha256!==await sha(canonical(transport)))assert(source.origin?.executor==='mediacrawler_pro'&&source.origin.run_id===value.local_run_id&&source.origin.operation_id===value.local_run_id&&Array.isArray(source.media)&&source.media.filter(x=>canonical(x)===canonical(ref)).length===1,'invalid_image_manifest');
  const canonical_manifest=canonical(value);return {...value,canonical_manifest,manifest_hash:await sha('crowd-media-image-v'+version+'\n'+canonical_manifest)};
 }
 export async function verifyImageBytes(data,manifest,decode=decodeImage){
