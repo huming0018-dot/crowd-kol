@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 from pro_tieba_adapter import TiebaStop
+from pro_ks_entry import KuaishouStop
 import re
 import resource
 import sqlite3
@@ -69,6 +70,9 @@ def supports_tieba_detail(request):
 
 def explicit_unsupported(request, environ=None, *, native_comments=None):
     """Explicit task engines never silently substitute a different collector."""
+    if request.get('platform') == 'ks':
+        from pro_ks_entry import supports
+        return None if supports(request) else 'pro_ks_selected_scope_unsupported'
     if request.get('platform') == 'tieba':
         return None if supports_tieba_detail(request) else 'pro_tieba_candidate_scope_unsupported'
     if request.get('platform')=='dy' and request.get('mode') in ('homefeed','trending'):
@@ -397,6 +401,10 @@ def observations(run, manifest):
 
 def completion(run, manifest, summary):
     """Local commit is checked separately from delivery; it is NEVER a cloud ACK."""
+    if manifest['request']['platform']=='ks':
+        from pro_ks_entry import read_scope
+        scope,_=read_scope(run,manifest,sys.modules[__name__])
+        return {'operation_id':manifest['run_id'],'local_committed':True,'task_scope_committed':True,'platform_exhausted':True,'cloud_ack':False,'content_count':1,'comment_count':scope['source_rows']-1,'coverage':'exhausted'}
     if manifest['request']['platform']=='tieba':
         from pro_tieba_entry import read_scope
         scope=read_scope(run,manifest,sys.modules[__name__])
@@ -452,6 +460,10 @@ def import_records(run, manifest, *, include_media_summary=True):
     """Reuse the established normalizer and retain Pro-specific public fields."""
     m = bridge()
     p = manifest['request']['platform']
+    if p=='ks':
+        from pro_ks_entry import read_scope
+        scope,result=read_scope(run,manifest,sys.modules[__name__])
+        return result['records'],[],{'executor':'mediacrawler_pro','protocol':PROTOCOL,'operation_id':manifest['run_id'],'local_committed':True,'task_scope_committed':True,'cloud_ack':False,'pagination':{'coverage':'exhausted'},'media_evidence':'references_only_no_download_or_transcript','media_references':scope['media_references']}
     cp = checkpoint(run, manifest)
     rows = observations(run, manifest)
     records, media = [], []
@@ -597,6 +609,9 @@ def pinned_ids(value):
 
 
 def pagination_summary(run, manifest):
+    if manifest['request']['platform']=='ks':
+        from pro_ks_entry import summary
+        return summary(run,manifest,sys.modules[__name__])
     if manifest['request']['platform']=='tieba':
         from pro_tieba_entry import summary
         return summary(run,manifest,sys.modules[__name__])
@@ -1250,6 +1265,10 @@ def execute(run, manifest, *, mc_root=None):
                 import acquisition_protocol
                 from pro_weibo_adapter import prepare as prepare_weibo
                 prepare_weibo(config,acquisition_protocol,request)
+            if request['platform']=='ks':
+                import acquisition_protocol
+                from pro_ks_entry import register_observations
+                register_observations(acquisition_protocol)
             if request['platform']=='tieba':
                 import acquisition_protocol
                 from pro_tieba_adapter import register_observations
@@ -1260,7 +1279,8 @@ def execute(run, manifest, *, mc_root=None):
                        'dy': ('media_platform.douyin.client', 'DouYinApiClient'),
                        'wb': ('media_platform.weibo.client','WeiboClient'),
                        'zhihu':('media_platform.zhihu.client','ZhiHuClient'),
-                       'tieba':('media_platform.tieba.client','BaiduTieBaClient')}
+                       'tieba':('media_platform.tieba.client','BaiduTieBaClient'),
+                       'ks':('media_platform.kuaishou.client','KuaiShouApiClient')}
             import importlib
             module, name = clients[request['platform']]
             client_type = getattr(importlib.import_module(module), name)
@@ -1322,6 +1342,10 @@ def execute(run, manifest, *, mc_root=None):
             else:
                 account_hook=install_pro_account_hooks(run.parent.parent,request['session_id'],request['platform'],
                     manifest['run_id'],account_event,httpx,client_type)
+            if request['platform']=='ks':
+                from pro_ks_entry import install_detail
+                from media_platform.kuaishou.handlers.detail_handler import DetailHandler
+                pagination_hook=install_detail(run,manifest,sys.modules[__name__],DetailHandler,client_type)
             if manifest.get('participant_pro') is not None:
                 if request['platform']!='xhs':raise SystemExit(78)
                 from participant_pro_hooks import from_context
@@ -1338,6 +1362,9 @@ def execute(run, manifest, *, mc_root=None):
             signer = contextlib.nullcontext() if dy_sign is not None else owned_signer(run,request,{'platform':'zhihu','sign_url':'http://127.0.0.1:8990'} if native_provider and request['platform']=='zhihu' else selected['binding'])
             with signer:
                 asyncio.run(run_upstream_bounded(upstream,request['timeout_seconds']))
+            if request['platform']=='ks':
+                pagination_hook.rethrow()
+                result=completion(run,manifest,sink.summary);m.write(run/'pro-completion.json',result);sink.update(**result);return
             if dy_scope_bound(manifest) and pagination_hook is not None:pagination_hook.rethrow()
             if request['platform']=='tieba':
                 from pro_tieba_entry import summary as tieba_summary,finalize_scope
@@ -1376,6 +1403,8 @@ def execute(run, manifest, *, mc_root=None):
         sink.update(phase='failed',failure_reason='pro_account_changed');raise SystemExit(85)
     except DouyinStop as error:
         sink.update(phase='failed',failure_reason=error.reason,coverage='partial');raise SystemExit(74)
+    except KuaishouStop as error:
+        sink.update(phase='failed',failure_reason=error.reason if re.fullmatch(r'ks_[a-z_]{1,80}',error.reason) else 'ks_capture_unknown',coverage='partial');raise SystemExit(74)
     except TiebaStop as error:
         denied=error.reason=='tieba_content_access_denied'
         sink.update(phase='failed',failure_reason='pro_content_access_denied' if denied else error.reason if re.fullmatch(r'tieba_[a-z_]{1,80}',error.reason) else 'tieba_task_scope_partial',coverage='partial');raise SystemExit(87 if denied else 74)
