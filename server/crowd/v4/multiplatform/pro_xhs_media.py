@@ -5,7 +5,7 @@ import hashlib,json,os,re,stat,subprocess,sys,uuid
 from pathlib import Path
 MANAGER_SHA='8fe88ee05ac91fa7e256be921b67e6fcb9396f337fed0a92f8ca12ea45e5c84e'
 ENGINE='native_pro_downloader'
-DRIVER_SHA='94db31fb6086b44eb7423b30a9ec98170088532bb9abe3ee8103cf09df5e7be8'
+DRIVER_SHA='0c17dc057b90e847285beaf10b7982ecdb3c5a33bd36f1d081baf13c54d6596b'
 AXIOS_INVENTORY_SHA='7341217843184a92af65c4a7125094242d5fe52c48f035740e7ab62fb89f85ba'
 
 def digest(value):
@@ -110,9 +110,18 @@ def dependency_binding(root):
 
 FAILURE_REASONS=frozenset(('xhs_media_http_rejected','xhs_media_transport_timeout','xhs_media_transport_failed','xhs_media_unknown_failure','xhs_media_http_status','xhs_media_type_invalid','xhs_media_size_invalid','xhs_media_stream_invalid','xhs_media_length_mismatch','xhs_media_timeout','xhs_media_output_invalid','xhs_media_output_exists','xhs_media_context_changed','xhs_media_budget_exhausted','xhs_media_stopped','xhs_media_guard_failed','xhs_manager_changed','xhs_manager_import_changed'))
 
+TRANSPORT_ERRNOS=frozenset(('ETIMEDOUT','ECONNABORTED','ECONNRESET','ENOTFOUND','EAI_AGAIN','ECONNREFUSED'))
+
 def _failure_shape(value):
- if (type(value)is not dict or set(value)!={'schema','stage','reason','http_status'}
-     or value['schema']!='crowd-xhs-media-failure-v1' or type(value['stage'])is not str
+ if type(value)is not dict:raise ValueError('xhs_media_failure_diagnostic_invalid')
+ version=value.get('schema')
+ keys={'schema','stage','reason','http_status'}
+ if version=='crowd-xhs-media-failure-v2':
+  keys|={'transport_errno','stream_bytes'}
+  errno=value.get('transport_errno');count=value.get('stream_bytes')
+  if not(errno is None or type(errno)is str and errno in TRANSPORT_ERRNOS)or not(count is None or type(count)is int and 0<=count<=9007199254740991):raise ValueError('xhs_media_failure_diagnostic_invalid')
+ if (set(value)!=keys
+     or version not in ('crowd-xhs-media-failure-v1','crowd-xhs-media-failure-v2') or type(value['stage'])is not str
      or value['stage']not in ('head','get','stream','write','manager','unknown')
      or type(value['reason'])is not str or value['reason']not in FAILURE_REASONS
      or not(value['http_status']is None or type(value['http_status'])is int and 100<=value['http_status']<=599)):
@@ -149,9 +158,8 @@ def read_failure(run,manifest):
  p=safe_path(p,run);info=p.stat()
  if info.st_uid!=os.getuid()or info.st_mode&0o077 or info.st_nlink!=1:raise ValueError('xhs_media_failure_diagnostic_invalid')
  value=read_json_object(p,2048)
- if (set(value)!={'schema','stage','reason','http_status','run_id','request_hash'}
-     or value['run_id']!=run.name or manifest.get('run_id')!=run.name
-     or value['request_hash']!=request_fingerprint(manifest['request'])):raise ValueError('xhs_media_failure_scope_invalid')
+ if (value.get('run_id')!=run.name or manifest.get('run_id')!=run.name
+     or value.get('request_hash')!=request_fingerprint(manifest['request'])):raise ValueError('xhs_media_failure_scope_invalid')
  _failure_shape({k:v for k,v in value.items()if k not in ('run_id','request_hash')})
  return value
 

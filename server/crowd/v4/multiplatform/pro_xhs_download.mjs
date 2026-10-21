@@ -17,21 +17,24 @@ export function imageURL(value){
 // Finite metadata only: never serialize raw errors, URLs, headers or response bodies.
 export function failureDiagnostic(error){
  const allowed=new Set(['xhs_media_http_status','xhs_media_type_invalid','xhs_media_size_invalid','xhs_media_stream_invalid','xhs_media_length_mismatch','xhs_media_timeout','xhs_media_output_invalid','xhs_media_output_exists','xhs_media_context_changed','xhs_media_budget_exhausted','xhs_media_stopped','xhs_media_guard_failed','xhs_manager_changed','xhs_manager_import_changed']);
- const status=Number.isInteger(error?.response?.status)&&error.response.status>=100&&error.response.status<=599?error.response.status:null;
+ const validStatus=value=>Number.isInteger(value)&&value>=100&&value<=599;
+ const status=validStatus(error?.response?.status)?error.response.status:validStatus(error?.xhsMediaResponseStatus)?error.xhsMediaResponseStatus:null;
+ const transport_errno=['ETIMEDOUT','ECONNABORTED','ECONNRESET','ENOTFOUND','EAI_AGAIN','ECONNREFUSED'].includes(error?.code)?error.code:null;
+ const stream_bytes=Number.isSafeInteger(error?.xhsMediaStreamBytes)&&error.xhsMediaStreamBytes>=0?error.xhsMediaStreamBytes:null;
  let reason=allowed.has(error?.message)?error.message:'xhs_media_unknown_failure';
  if(status!==null&&status!==200)reason='xhs_media_http_rejected';
  else if(['ETIMEDOUT','ECONNABORTED'].includes(error?.code))reason='xhs_media_transport_timeout';
  else if(['ECONNRESET','ENOTFOUND','EAI_AGAIN','ECONNREFUSED'].includes(error?.code))reason='xhs_media_transport_failed';
  const stage=['head','get','stream','write','manager'].includes(error?.xhsMediaStage)?error.xhsMediaStage:'unknown';
- return {schema:'crowd-xhs-media-failure-v1',stage,reason,http_status:status};
+ return {schema:'crowd-xhs-media-failure-v2',stage,reason,http_status:status,transport_errno,stream_bytes};
 }
 export async function downloadImages({source,axios,items,root,guard,stopCheck=()=>{},limit=2097152,timeout=30000}){
  requireValue(typeof guard==='function'&&typeof stopCheck==='function'&&limit===2097152&&Number.isInteger(timeout)&&timeout>0&&timeout<=30000,'xhs_media_contract_invalid');
  const raw=fs.readFileSync(source);requireValue(sha(raw)===MANAGER_SHA,'xhs_manager_changed');
  requireValue(Array.isArray(items)&&items.length>0&&fs.lstatSync(root).isDirectory()&&!fs.lstatSync(root).isSymbolicLink(),'xhs_media_plan_invalid');
  const ids=new Set();for(const item of items){requireValue(item&&Object.keys(item).sort().join(',')==='content_id,media_id,url'&&/^[0-9a-f]{24}$/.test(item.content_id)&&typeof item.media_id==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(item.media_id)&&!ids.has(item.media_id),'xhs_media_plan_invalid');ids.add(item.media_id);imageURL(item.url)}
- let manager,current,failure=null;const streams=new Set(),writers=new Set(),tokens=new Set(),updates=[];
- const fail=error=>{error.xhsMediaStage??='manager';failure??=error;for(const token of tokens)token.cancel('owned_xhs_media_stopped');const task=manager?.downloads.get(current);if(task)task.status='cancelled'};
+ let manager,current,currentStream=null,failure=null;const streams=new Set(),writers=new Set(),tokens=new Set(),updates=[];
+ const fail=error=>{if(!failure&&currentStream){const observation=currentStream();error.xhsMediaResponseStatus=observation.status;error.xhsMediaStreamBytes=observation.bytes}error.xhsMediaStage??='manager';failure??=error;for(const token of tokens)token.cancel('owned_xhs_media_stopped');const task=manager?.downloads.get(current);if(task)task.status='cancelled'};
  const bounded=async(method,url,opts)=>{
   try{
    stopCheck();requireValue(url===items.find(x=>x.media_id===current)?.url,'xhs_media_request_scope');
@@ -44,6 +47,7 @@ export async function downloadImages({source,axios,items,root,guard,stopCheck=()
    if(method==='HEAD')return response;
    requireValue(response.data&&typeof response.data.pipe==='function','xhs_media_stream_invalid');
    let count=0;const boundedStream=new Transform({transform(chunk,encoding,callback){try{stopCheck();count+=chunk.length;requireValue(count<=limit,'xhs_media_size_invalid');callback(null,chunk)}catch(e){e.xhsMediaStage='stream';fail(e);callback(e)}},flush(callback){try{requireValue(count>0&&(length===null||count===Number(length)),'xhs_media_length_mismatch');callback()}catch(e){e.xhsMediaStage='stream';fail(e);callback(e)}}});
+   const responseStatus=response.status;currentStream=()=>({status:responseStatus,bytes:count});
    streams.add(response.data);streams.add(boundedStream);response.data.on('error',e=>{e.xhsMediaStage='stream';fail(e);boundedStream.destroy(e)});boundedStream.on('error',e=>{fail(e);response.data.destroy()});
    return {...response,data:response.data.pipe(boundedStream)};
   }catch(e){e.xhsMediaStage=method==='HEAD'?'head':'get';fail(e);throw e}
@@ -59,7 +63,7 @@ export async function downloadImages({source,axios,items,root,guard,stopCheck=()
  const assets=[];
  try{
   for(const item of items){
-   current=item.media_id;stopCheck();const filename=sha(Buffer.from(current))+'.png';const destination=path.join(root,item.content_id,filename);requireValue(!fs.existsSync(destination),'xhs_media_output_exists');
+   current=item.media_id;currentStream=null;stopCheck();const filename=sha(Buffer.from(current))+'.png';const destination=path.join(root,item.content_id,filename);requireValue(!fs.existsSync(destination),'xhs_media_output_exists');
    await manager.addDownload('xhs',current,item.url,filename,root,item.content_id);
    const deadline=Date.now()+timeout;
    while(!failure&&!updates.some(x=>x.id===current&&x.status==='completed')){stopCheck();requireValue(Date.now()<deadline,'xhs_media_timeout');await new Promise(resolve=>setTimeout(resolve,5))}

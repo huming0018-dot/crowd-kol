@@ -8,10 +8,10 @@ try{
  let failure;try{await own.downloadImages({source,axios,items:[{content_id:'a'.repeat(24),media_id:'synthetic-image',url:'https://ci.xhscdn.com/fixture'}],root,guard:async()=>{},timeout:1000})}catch(e){failure=e}
  assert(failure);assert.deepEqual(calls,['HEAD','GET']);const files=fs.readdirSync(path.join(root,'a'.repeat(24)));assert.equal(files.length,1);assert.equal(fs.statSync(path.join(root,'a'.repeat(24),files[0])).size,0);
  console.log('REPRO_ORIGINAL_MANAGER_HEAD_OK_GET_FAILED_ZERO_BYTE_NO_NETWORK');
- assert.equal(typeof own.failureDiagnostic,'function');assert.deepEqual(own.failureDiagnostic(failure),{schema:'crowd-xhs-media-failure-v1',stage:'get',reason:'xhs_media_http_rejected',http_status:403});
+ assert.equal(typeof own.failureDiagnostic,'function');assert.deepEqual(own.failureDiagnostic(failure),{schema:'crowd-xhs-media-failure-v2',stage:'get',reason:'xhs_media_http_rejected',http_status:403,transport_errno:null,stream_bytes:null});
  assert(!JSON.stringify(own.failureDiagnostic(failure)).includes('private'));assert(!JSON.stringify(own.failureDiagnostic(failure)).includes('secret'));
  for(const code of ['ETIMEDOUT','ECONNABORTED'])assert.equal(own.failureDiagnostic({code}).reason,'xhs_media_transport_timeout');
- assert.deepEqual(own.failureDiagnostic(Error('https://token@private')), {schema:'crowd-xhs-media-failure-v1',stage:'unknown',reason:'xhs_media_unknown_failure',http_status:null});
+ assert.deepEqual(own.failureDiagnostic(Error('https://token@private')), {schema:'crowd-xhs-media-failure-v2',stage:'unknown',reason:'xhs_media_unknown_failure',http_status:null,transport_errno:null,stream_bytes:null});
  assert.equal(own.failureDiagnostic(Error('xhs_media_type_invalid')).reason,'xhs_media_type_invalid');assert.equal(own.failureDiagnostic({response:{status:true}}).http_status,null);
  console.log('PASS_FINITE_DIAGNOSTIC_NO_RAW_ERROR_NO_NETWORK');
 }finally{fs.rmSync(root,{recursive:true,force:true})}
