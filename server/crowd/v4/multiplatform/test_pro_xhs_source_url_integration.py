@@ -8,7 +8,24 @@ import saved_media_attachments as attachment
 import pro_executor as pro
 import mc_runner as m
 from results_store import ResultsStore
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import patch
+import time
+
+@contextmanager
+def fixed_export_clock():
+ # openpyxl 3.1.5 core/save clocks and ZipFile writestr/from_file timestamps.
+ class FixedDateTime(datetime):
+  @classmethod
+  def now(cls,tz=None):return cls(2026,1,1,tzinfo=timezone.utc).astimezone(tz) if tz else cls(2026,1,1)
+ clock=SimpleNamespace(datetime=FixedDateTime,timezone=timezone)
+ zip_clock=SimpleNamespace(time=time.time,localtime=lambda *args:(2026,1,1,0,0,0,3,1,0))
+ with patch('openpyxl.packaging.core.datetime',clock),patch('openpyxl.writer.excel.datetime',clock),patch('zipfile.time',zip_clock):yield
+
 class NativeSourceURL(unittest.TestCase):
+ @fixed_export_clock()
  def check(self,legacy):
   f=base.Media('test_four_images_and_original_refs_no_target_increment');f.setUp()
   try:
