@@ -5,7 +5,7 @@ import hashlib,json,os,re,stat,subprocess,sys,uuid
 from pathlib import Path
 MANAGER_SHA='8fe88ee05ac91fa7e256be921b67e6fcb9396f337fed0a92f8ca12ea45e5c84e'
 ENGINE='native_pro_downloader'
-DRIVER_SHA='0c17dc057b90e847285beaf10b7982ecdb3c5a33bd36f1d081baf13c54d6596b'
+DRIVER_SHA='7671a2fe9203d95992b9763008f835a36ab131c53e997130a32db9e48552e3b4'
 AXIOS_INVENTORY_SHA='7341217843184a92af65c4a7125094242d5fe52c48f035740e7ab62fb89f85ba'
 
 def digest(value):
@@ -15,6 +15,17 @@ def digest(value):
 def supports(request):
  return (request.get('platform')=='xhs' and request.get('source_executor')=='pro' and request.get('media') is True
   and request.get('mode') in ('search','detail','creator') and request.get('platform_options',{})=={} and request.get('wordcloud',False) is False)
+
+TRANSPORT_POLICY='native_source_url_v1'
+
+def transport_policy(run):
+ from saved_media_attachments import safe_path,read_json_object
+ p=Path(run)/'xhs-pro-media-intent.json'
+ if not p.exists()and not p.is_symlink():return TRANSPORT_POLICY
+ value=read_json_object(safe_path(p,run),1048576)
+ if 'transport_policy'not in value:return 'legacy_https_v1'
+ if value['transport_policy']!=TRANSPORT_POLICY:raise ValueError('xhs_media_transport_policy_invalid')
+ return TRANSPORT_POLICY
 
 def plan(run,manifest):
  from pro_executor import import_records
@@ -29,10 +40,10 @@ def plan(run,manifest):
   if ref.get('kind') not in ('image','comment_image','cover'):raise ValueError('xhs_media_video_not_adapted')
   mid=ref['media_id'];cid=ref['content_id']
   if not re.fullmatch('[0-9a-f]{64}',mid) or not re.fullmatch('[0-9a-f]{24}',cid) or mid in seen:raise ValueError('xhs_media_reference_invalid')
-  seen.add(mid);url=reference_transport(ref)
+  seen.add(mid);url=ref['url'] if transport_policy(run)==TRANSPORT_POLICY else reference_transport(ref)
   from urllib.parse import urlsplit
   u=urlsplit(url)
-  if u.scheme!='https' or u.username or u.password or u.fragment or u.port not in (None,443) or not any(u.hostname==d or (u.hostname or '').endswith('.'+d) for d in ('xhscdn.com','xhsimg.com')):raise ValueError('xhs_media_reference_invalid')
+  if u.scheme not in ('http','https') or u.username or u.password or u.fragment or u.port not in ((None,80)if u.scheme=='http'else(None,443)) or not any(u.hostname==d or (u.hostname or '').endswith('.'+d) for d in ('xhscdn.com','xhsimg.com')):raise ValueError('xhs_media_reference_invalid')
   result.append({'content_id':cid,'media_id':mid,'url':url})
  return result
 
@@ -174,7 +185,7 @@ def execute_payload(payload,*,launch=None):
  expected_topics=[row for kind,_,row in rows if kind=='topic']
  if payload.get('note')!=expected_topics or payload.get('response')!={'xhs_plan_sha256':digest(items)}:raise ValueError('xhs_media_source_changed')
  binding=dependency_binding(run.parent.parent);context=identity(run,manifest)
- intent={'run_id':manifest['run_id'],'request_hash':payload['request_hash'],'plan':items,'identity':context,'dependency_binding_sha256':binding['binding_sha256'],'retry_unknown_forbidden':True}
+ intent={'run_id':manifest['run_id'],'request_hash':payload['request_hash'],'plan':items,'identity':context,'dependency_binding_sha256':binding['binding_sha256'],'retry_unknown_forbidden':True,'transport_policy':TRANSPORT_POLICY}
  fd=os.open(run/'xhs-pro-media-intent.json',os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_WRONLY,0o600)
  with os.fdopen(fd,'w') as f:json.dump(intent,f);f.flush();os.fsync(f.fileno())
  check_context(run,manifest,intent)

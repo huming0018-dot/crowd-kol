@@ -126,8 +126,27 @@ def reference_transport(ref):
     return urlunsplit(('https',url.hostname,url.path,url.query,'')) if url.scheme=='http' else ref['url']
 
 
-def _sidecar(run_id,media_id,ref,body,files,data,decoded):
-    transport=reference_transport(ref)
+def native_attachment_transport(run,ref):
+    # Legacy sidecars retain exactly their old projection. New native XHS requires
+    # the committed original child proof; never trust a receipt/sidecar policy flag.
+    if ref['platform']=='xiaohongshu':
+        intent=Path(run)/'xhs-pro-media-intent.json'
+        if intent.exists()or intent.is_symlink():
+            value=read_json_object(safe_path(intent,run),1048576)
+            if 'transport_policy'in value:
+                from pro_xhs_media import TRANSPORT_POLICY
+                if value['transport_policy']!=TRANSPORT_POLICY:raise ValueError('attachment_transport_policy_invalid')
+                from pro_media_integration import summary
+                result=summary(run,read_json_object(Path(run)/'manifest.json',1048576))
+                if not isinstance(result,dict)or result.get('state')!='completed':raise ValueError('attachment_native_incomplete')
+                matches=[a for a in result.get('assets',[])if isinstance(a,dict)and a.get('source_media_id')==ref['media_id']and a.get('content_id')==ref['content_id']and a.get('original_url')==ref['url']and a.get('transport_url')==ref['url']]
+                if len(matches)!=1:raise ValueError('attachment_native_binding_invalid')
+                return ref['url']
+    return reference_transport(ref)
+
+
+def _sidecar(run_id,media_id,ref,body,files,data,decoded,*,transport=None):
+    transport=reference_transport(ref)if transport is None else transport
     identity={'run_id':run_id,'media_id':media_id,'normalized_sha256':files['normalized.json'],'asset_sha256':sha(data)}
     aid=sha(identity);mime,suffix=MIMES[decoded['format']];filename=sha(data)+suffix
     return {'schema':SCHEMA,**identity,'path':'attachments/'+aid+'/'+filename,'asset_file':filename,
@@ -182,8 +201,9 @@ class SavedMediaAttachments:
         if ref['platform']=='xiaohongshu':assets=[a for a in assets if a.get('source_media_id')==media_id and a.get('media_engine')=='native_pro_downloader']
         if len(assets)!=1:raise ValueError('attachment_native_ambiguous')
         a=assets[0];asset=safe_path(run/a['path'],run);data=read(asset,reference_limit(ref));decoded=decode_bytes(data)
-        if a.get('transport_url')!=reference_transport(ref) or a.get('sha256')!=sha(data) or a.get('bytes')!=len(data):raise ValueError('attachment_native_binding_invalid')
-        receipt={'state':'downloaded_not_imported_or_cloud_saved','source_files_unchanged':True,'run_id':run_id,'media_id':media_id,'platform_http_requests':None,'native_stage_verified':True,'cloud_ack':False,'reference_sha256':sha(ref),'source_record_hash':body['record_hash'],'asset_file':asset.name,'asset_sha256':sha(data),'bytes':len(data),'url_sha256':sha(ref['url']),'transport_url_sha256':sha(reference_transport(ref)),'normalized_sha256':files['normalized.json'],'manifest_sha256':files['manifest.json'],'status_sha256':files['status.json'],'content_type':MIMES[decoded['format']][0]}
+        transport=native_attachment_transport(run,ref)
+        if a.get('transport_url')!=transport or a.get('sha256')!=sha(data) or a.get('bytes')!=len(data):raise ValueError('attachment_native_binding_invalid')
+        receipt={'state':'downloaded_not_imported_or_cloud_saved','source_files_unchanged':True,'run_id':run_id,'media_id':media_id,'platform_http_requests':None,'native_stage_verified':True,'cloud_ack':False,'reference_sha256':sha(ref),'source_record_hash':body['record_hash'],'asset_file':asset.name,'asset_sha256':sha(data),'bytes':len(data),'url_sha256':sha(ref['url']),'transport_url_sha256':sha(transport),'normalized_sha256':files['normalized.json'],'manifest_sha256':files['manifest.json'],'status_sha256':files['status.json'],'content_type':MIMES[decoded['format']][0]}
         return self._attach_verified(run_id,media_id,asset,receipt,native_verified=True)
 
     def _attach_verified(self,run_id,media_id,asset_path,receipt,*,native_verified=False):
@@ -191,7 +211,7 @@ class SavedMediaAttachments:
         if not isinstance(receipt,dict):raise ValueError('attachment_receipt_invalid')
         asset=safe_path(asset_path);data=read(asset,reference_limit(ref))
         if not data or receipt.get('state')!='downloaded_not_imported_or_cloud_saved' or receipt.get('source_files_unchanged') is not True or receipt.get('run_id')!=run_id or receipt.get('media_id')!=media_id or not ((native_verified is True and ref['platform'] in ('weibo','xiaohongshu') and receipt.get('native_stage_verified') is True and receipt.get('platform_http_requests') is None) or (ref['platform']!='weibo' and type(receipt.get('platform_http_requests')) is int and receipt['platform_http_requests']==1)) or receipt.get('cloud_ack') is not False or receipt.get('reference_sha256')!=sha(ref) or receipt.get('source_record_hash')!=body['record_hash'] or receipt.get('asset_file')!=asset.name or receipt.get('asset_sha256')!=sha(data) or type(receipt.get('bytes')) is not int or receipt['bytes']!=len(data):raise ValueError('attachment_receipt_invalid')
-        transport=reference_transport(ref)
+        transport=native_attachment_transport(run,ref)if native_verified else reference_transport(ref)
         if receipt.get('url_sha256')!=sha(ref['url']) or receipt.get('transport_url_sha256')!=sha(transport):raise ValueError('attachment_transport_binding_invalid')
         if any(receipt.get(field)!=files[name] for name,field in [('normalized.json','normalized_sha256'),('manifest.json','manifest_sha256'),('status.json','status_sha256')]):raise ValueError('attachment_source_changed')
         decoded=decode_bytes(data)
@@ -204,7 +224,7 @@ class SavedMediaAttachments:
             fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
             target=safe_path(folder/aid);target.mkdir(mode=0o700,exist_ok=True)
             filename=sha(data)+suffix;virtual='attachments/'+aid+'/'+filename
-            sidecar=_sidecar(run_id,media_id,ref,body,files,data,decoded)
+            sidecar=_sidecar(run_id,media_id,ref,body,files,data,decoded,transport=transport)
             self._publish(target/filename,data);self._publish(target/'attachment.json',(canonical(sidecar)+'\n').encode())
             # Recheck all immutable originals before the local results transaction.
             if verify_source(run,media_id)[2]!=files:raise ValueError('attachment_source_changed')
@@ -225,6 +245,8 @@ class SavedMediaAttachments:
         sidecar=read_json_object(folder/'attachment.json',1024*1024);ref,body,files=verify_source(run,sidecar.get('media_id'))
         asset=safe_path(folder/filename,self.root);data=read(asset,reference_limit(ref));actual_decode=decode_bytes(data)
         expected=_sidecar(run_id,sidecar['media_id'],ref,body,files,data,actual_decode)
+        if canonical(sidecar)!=canonical(expected):
+            expected=_sidecar(run_id,sidecar['media_id'],ref,body,files,data,actual_decode,transport=native_attachment_transport(run,ref))
         if canonical(sidecar)!=canonical(expected) or expected['path']!=virtual:
             raise ValueError('attachment_binding_changed')
         try:registration=read_json_object(folder/'registration.json',65536)

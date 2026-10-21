@@ -12,7 +12,7 @@ const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 function requireValue(ok,code){if(!ok)throw Error(code)}
 export function imageURL(value){
  requireValue(typeof value==='string'&&value.length<=8192,'xhs_media_url_invalid');
- const u=new URL(value);requireValue(u.protocol==='https:'&&!u.username&&!u.password&&!u.hash&&(!u.port||u.port==='443')&&(/(^|\.)xhscdn\.com$/.test(u.hostname)||/(^|\.)xhsimg\.com$/.test(u.hostname)),'xhs_media_url_invalid');return u.href;
+ const u=new URL(value);requireValue(['http:','https:'].includes(u.protocol)&&!u.username&&!u.password&&!u.hash&&(!u.port||u.port===(u.protocol==='http:'?'80':'443'))&&(/(^|\.)xhscdn\.com$/.test(u.hostname)||/(^|\.)xhsimg\.com$/.test(u.hostname)),'xhs_media_url_invalid');return u.href;
 }
 // Finite metadata only: never serialize raw errors, URLs, headers or response bodies.
 export function failureDiagnostic(error){
