@@ -93,7 +93,14 @@ def run_media_child(run,note,response,headers,*,python,mc_root,runtime_root,budg
   signal.signal(signal.SIGTERM,prior_handler)
  if done.returncode==77:raise ValueError('hybrid_media_access_denied_not_login_proof')
  if done.returncode in (73,74,79,80,81,82):raise SystemExit(done.returncode)
- if done.returncode!=0:raise ValueError('hybrid_media_failed_or_unknown')
+ if done.returncode!=0:
+  if request['platform']=='xhs'and done.returncode==87:
+   from pro_xhs_media import read_failure
+   diagnostic=read_failure(run,manifest)
+   if diagnostic is not None:
+    from mc_runner import BridgeError
+    raise BridgeError(diagnostic['reason'])
+  raise ValueError('hybrid_media_failed_or_unknown')
  from analysis_artifact import _read
  result=_read(run/'hybrid-media-result.json',1048576)[0]
  if result.get('run_id')!=run.name or result.get('request_hash')!=payload['request_hash']:raise ValueError('hybrid_media_result_binding_invalid')

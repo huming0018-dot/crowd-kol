@@ -14,13 +14,24 @@ export function imageURL(value){
  requireValue(typeof value==='string'&&value.length<=8192,'xhs_media_url_invalid');
  const u=new URL(value);requireValue(u.protocol==='https:'&&!u.username&&!u.password&&!u.hash&&(!u.port||u.port==='443')&&(/(^|\.)xhscdn\.com$/.test(u.hostname)||/(^|\.)xhsimg\.com$/.test(u.hostname)),'xhs_media_url_invalid');return u.href;
 }
+// Finite metadata only: never serialize raw errors, URLs, headers or response bodies.
+export function failureDiagnostic(error){
+ const allowed=new Set(['xhs_media_http_status','xhs_media_type_invalid','xhs_media_size_invalid','xhs_media_stream_invalid','xhs_media_length_mismatch','xhs_media_timeout','xhs_media_output_invalid','xhs_media_output_exists','xhs_media_context_changed','xhs_media_budget_exhausted','xhs_media_stopped','xhs_media_guard_failed','xhs_manager_changed','xhs_manager_import_changed']);
+ const status=Number.isInteger(error?.response?.status)&&error.response.status>=100&&error.response.status<=599?error.response.status:null;
+ let reason=allowed.has(error?.message)?error.message:'xhs_media_unknown_failure';
+ if(status!==null&&status!==200)reason='xhs_media_http_rejected';
+ else if(['ETIMEDOUT','ECONNABORTED'].includes(error?.code))reason='xhs_media_transport_timeout';
+ else if(['ECONNRESET','ENOTFOUND','EAI_AGAIN','ECONNREFUSED'].includes(error?.code))reason='xhs_media_transport_failed';
+ const stage=['head','get','stream','write','manager'].includes(error?.xhsMediaStage)?error.xhsMediaStage:'unknown';
+ return {schema:'crowd-xhs-media-failure-v1',stage,reason,http_status:status};
+}
 export async function downloadImages({source,axios,items,root,guard,stopCheck=()=>{},limit=2097152,timeout=30000}){
  requireValue(typeof guard==='function'&&typeof stopCheck==='function'&&limit===2097152&&Number.isInteger(timeout)&&timeout>0&&timeout<=30000,'xhs_media_contract_invalid');
  const raw=fs.readFileSync(source);requireValue(sha(raw)===MANAGER_SHA,'xhs_manager_changed');
  requireValue(Array.isArray(items)&&items.length>0&&fs.lstatSync(root).isDirectory()&&!fs.lstatSync(root).isSymbolicLink(),'xhs_media_plan_invalid');
  const ids=new Set();for(const item of items){requireValue(item&&Object.keys(item).sort().join(',')==='content_id,media_id,url'&&/^[0-9a-f]{24}$/.test(item.content_id)&&typeof item.media_id==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(item.media_id)&&!ids.has(item.media_id),'xhs_media_plan_invalid');ids.add(item.media_id);imageURL(item.url)}
  let manager,current,failure=null;const streams=new Set(),writers=new Set(),tokens=new Set(),updates=[];
- const fail=error=>{failure??=error;for(const token of tokens)token.cancel('owned_xhs_media_stopped');const task=manager?.downloads.get(current);if(task)task.status='cancelled'};
+ const fail=error=>{error.xhsMediaStage??='manager';failure??=error;for(const token of tokens)token.cancel('owned_xhs_media_stopped');const task=manager?.downloads.get(current);if(task)task.status='cancelled'};
  const bounded=async(method,url,opts)=>{
   try{
    stopCheck();requireValue(url===items.find(x=>x.media_id===current)?.url,'xhs_media_request_scope');
@@ -32,14 +43,14 @@ export async function downloadImages({source,axios,items,root,guard,stopCheck=()
    const rawLength=response.headers?.['content-length'];const length=rawLength===undefined?null:String(rawLength);requireValue(length===null||/^[1-9][0-9]*$/.test(length)&&Number(length)<=limit,'xhs_media_size_invalid');
    if(method==='HEAD')return response;
    requireValue(response.data&&typeof response.data.pipe==='function','xhs_media_stream_invalid');
-   let count=0;const boundedStream=new Transform({transform(chunk,encoding,callback){try{stopCheck();count+=chunk.length;requireValue(count<=limit,'xhs_media_size_invalid');callback(null,chunk)}catch(e){fail(e);callback(e)}},flush(callback){try{requireValue(count>0&&(length===null||count===Number(length)),'xhs_media_length_mismatch');callback()}catch(e){fail(e);callback(e)}}});
-   streams.add(response.data);streams.add(boundedStream);response.data.on('error',e=>{fail(e);boundedStream.destroy(e)});boundedStream.on('error',e=>{fail(e);response.data.destroy()});
+   let count=0;const boundedStream=new Transform({transform(chunk,encoding,callback){try{stopCheck();count+=chunk.length;requireValue(count<=limit,'xhs_media_size_invalid');callback(null,chunk)}catch(e){e.xhsMediaStage='stream';fail(e);callback(e)}},flush(callback){try{requireValue(count>0&&(length===null||count===Number(length)),'xhs_media_length_mismatch');callback()}catch(e){e.xhsMediaStage='stream';fail(e);callback(e)}}});
+   streams.add(response.data);streams.add(boundedStream);response.data.on('error',e=>{e.xhsMediaStage='stream';fail(e);boundedStream.destroy(e)});boundedStream.on('error',e=>{fail(e);response.data.destroy()});
    return {...response,data:response.data.pipe(boundedStream)};
-  }catch(e){fail(e);throw e}
+  }catch(e){e.xhsMediaStage=method==='HEAD'?'head':'get';fail(e);throw e}
  };
  function guarded(opts){return bounded('GET',opts.url,opts)}guarded.head=(url,opts)=>bounded('HEAD',url,opts);guarded.CancelToken={source(){const token=axios.CancelToken.source();tokens.add(token);return token}};
  const safeOutput=file=>{requireValue(path.resolve(root)===fs.realpathSync(root)&&path.dirname(file).startsWith(root+path.sep),'xhs_media_output_invalid');for(let p=path.dirname(file);p!==root;p=path.dirname(p)){const st=fs.lstatSync(p);requireValue(st.isDirectory()&&!st.isSymbolicLink(),'xhs_media_output_invalid')}};
- const fsFacade={...fs,mkdirSync(folder,opts){requireValue(path.dirname(folder)===root&&/^[a-f0-9]{24}$/.test(path.basename(folder)),'xhs_media_output_invalid');return fs.mkdirSync(folder,{...opts,mode:0o700})},createWriteStream(file,...args){safeOutput(file);const w=fs.createWriteStream(file,{flags:fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,mode:0o600});writers.add(w);w.on('error',fail);return w}};
+ const fsFacade={...fs,mkdirSync(folder,opts){requireValue(path.dirname(folder)===root&&/^[a-f0-9]{24}$/.test(path.basename(folder)),'xhs_media_output_invalid');return fs.mkdirSync(folder,{...opts,mode:0o700})},createWriteStream(file,...args){safeOutput(file);const w=fs.createWriteStream(file,{flags:fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,mode:0o600});writers.add(w);w.on('error',e=>{e.xhsMediaStage='write';fail(e)});return w}};
  const context=vm.createContext({console:{log(){},warn(){},error(){}},Buffer,setTimeout,clearTimeout,process:{platform:process.platform}});
  const module=new vm.SourceTextModule(stripTypeScriptTypes(raw.toString(),{mode:'transform'}),{context,identifier:source});
  const imports={events:{EventEmitter},path,fs:fsFacade,axios:{default:guarded,CancelToken:guarded.CancelToken},child_process:{spawn(){throw Error('xhs_media_spawn_forbidden')}},electron:{BrowserWindow:class{},WebContents:class{}}};
@@ -72,5 +83,5 @@ if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(i
   const require=createRequire(import.meta.url);const axios=require(path.join(binding.axios_root,'node_modules/axios'));
   const assets=await downloadImages({source:binding.manager_path,axios,items:payload.items,root:payload.root,timeout:payload.timeout,stopCheck,guard:row=>{try{execFileSync(payload.python,['-B',payload.guard_module,'--guard',payload.run],{input:JSON.stringify(row),stdio:['pipe','pipe','ignore'],timeout:5000,maxBuffer:1024})}catch(e){if(e.status===73)throw Error('xhs_media_budget_exhausted');if(e.status===74)throw Error('xhs_media_stopped');throw Error('xhs_media_guard_failed')}}});
   process.stdout.write(JSON.stringify(assets));
- }catch(e){process.exitCode=e.message==='xhs_media_budget_exhausted'?73:e.message==='xhs_media_stopped'?74:87}
+ }catch(e){process.stdout.write(JSON.stringify(failureDiagnostic(e)));process.exitCode=e.message==='xhs_media_budget_exhausted'?73:e.message==='xhs_media_stopped'?74:87}
 }

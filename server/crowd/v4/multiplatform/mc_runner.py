@@ -1111,6 +1111,7 @@ def import_output(root,payload):
                 if len(records)>10000: fail('output_limit')
     media=list(pro_media)
     media_bytes=0
+    rejected_media_files=0
     artifacts=[]
     artifact_bytes=0
     bili_identities,bili_identity_sha=({},None)
@@ -1125,6 +1126,9 @@ def import_output(root,payload):
             if temporary_media_path(path.relative_to(folder).parts):continue
             if path.is_file() and path.suffix.lower() in ('.jpg','.jpeg','.png','.webp','.gif','.mp4','.m4a','.mp3','.aac','.wav','.webm','.flv','.mov') and not path.is_symlink() and path.resolve().is_relative_to(output.resolve()):
                 size=path.stat().st_size
+                if size==0:
+                    rejected_media_files+=1
+                    continue  # Retain the original failed/partial file; it is not downloaded media.
                 media_bytes+=size
                 audio_only=p=='bili' and manifest['request'].get('platform_options',{}).get('long_audio') and path.name=='audio.m4a'
                 native_media=p in ('dy','ks','bili') and manifest['request'].get('media') is True
@@ -1169,7 +1173,7 @@ def import_output(root,payload):
         for record in records:
             # Metadata is outside the established normalized record_hash; the capture hash covers it.
             record['discovery_kind'] = discovery_kind
-    data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'discovery':discovery,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'coverage':'unverified','run_state':s['state']}
+    data={'schema':'crowd_mc_import_v1','run_id':manifest['run_id'],'source_kind':'mediacrawler_api','reward_eligible':False,'source':manifest['source'],'records':records,'media':media,'artifacts':artifacts,'discovery':discovery,'wordcloud_status':s.get('wordcloud_status','not_requested' if not manifest['request'].get('wordcloud') else 'unverified'),'files':files,'rejected_records':rejected,'rejected_media_files':rejected_media_files,'coverage':'unverified','run_state':s['state']}
     if pro_evidence is not None:data['pro_acquisition']=pro_evidence
     if manifest.get('source_continuation') is not None:
         from source_continuation import split_import
@@ -1179,7 +1183,7 @@ def import_output(root,payload):
         data['source_reuse']=split['reuse_evidence']
         records=data['records']
     write(run/'normalized.json',data)
-    return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'dynamics':sum(r['kind']=='dynamic' for r in records),'media_files':len(media),'rejected_records':rejected,'coverage':'unverified'}}
+    return {**data,'normalized_path':str(run/'normalized.json'),'summary':{'records':len(records),'contents':sum(r['kind']=='content' for r in records),'comments':sum(r['kind']=='comment' for r in records),'dynamics':sum(r['kind']=='dynamic' for r in records),'media_files':len(media),'rejected_records':rejected,'rejected_media_files':rejected_media_files,'coverage':'unverified'}}
 
 def main():
     os.umask(0o077)

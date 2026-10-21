@@ -5,7 +5,7 @@ import hashlib,json,os,re,stat,subprocess,sys,uuid
 from pathlib import Path
 MANAGER_SHA='8fe88ee05ac91fa7e256be921b67e6fcb9396f337fed0a92f8ca12ea45e5c84e'
 ENGINE='native_pro_downloader'
-DRIVER_SHA='4d862e2741cbe07481713684fbdb7706ad6f57b5b4a41b33e36e2682935d8bea'
+DRIVER_SHA='94db31fb6086b44eb7423b30a9ec98170088532bb9abe3ee8103cf09df5e7be8'
 AXIOS_INVENTORY_SHA='7341217843184a92af65c4a7125094242d5fe52c48f035740e7ab62fb89f85ba'
 
 def digest(value):
@@ -108,6 +108,53 @@ def dependency_binding(root):
  if json.loads(read(axios_root/'node_modules/axios/package.json',1048576)).get('version')!='0.21.4' or json.loads(read(axios_root/'node_modules/follow-redirects/package.json',1048576)).get('version')!='1.15.9':raise ValueError('xhs_media_dependency_version_changed')
  return {**value,'binding_path':str(p),'binding_sha256':digest(p.read_bytes())}
 
+FAILURE_REASONS=frozenset(('xhs_media_http_rejected','xhs_media_transport_timeout','xhs_media_transport_failed','xhs_media_unknown_failure','xhs_media_http_status','xhs_media_type_invalid','xhs_media_size_invalid','xhs_media_stream_invalid','xhs_media_length_mismatch','xhs_media_timeout','xhs_media_output_invalid','xhs_media_output_exists','xhs_media_context_changed','xhs_media_budget_exhausted','xhs_media_stopped','xhs_media_guard_failed','xhs_manager_changed','xhs_manager_import_changed'))
+
+def _failure_shape(value):
+ if (type(value)is not dict or set(value)!={'schema','stage','reason','http_status'}
+     or value['schema']!='crowd-xhs-media-failure-v1' or type(value['stage'])is not str
+     or value['stage']not in ('head','get','stream','write','manager','unknown')
+     or type(value['reason'])is not str or value['reason']not in FAILURE_REASONS
+     or not(value['http_status']is None or type(value['http_status'])is int and 100<=value['http_status']<=599)):
+  raise ValueError('xhs_media_failure_diagnostic_invalid')
+ return value
+
+def record_node_failure(run,manifest,raw):
+ """Finite metadata only. Original intent/partial files and budget remain intact."""
+ from shared_request_budget import request_fingerprint
+ from saved_media_attachments import safe_path
+ run=safe_path(run)
+ if len(raw)>2048:raise ValueError('xhs_media_failure_diagnostic_invalid')
+ def unique(pairs):
+  result={}
+  for k,v in pairs:
+   if k in result:raise ValueError('xhs_media_failure_diagnostic_invalid')
+   result[k]=v
+  return result
+ value=_failure_shape(json.loads(raw,object_pairs_hook=unique))
+ if manifest.get('run_id')!=run.name or str(uuid.UUID(run.name))!=run.name:raise ValueError('xhs_media_failure_scope_invalid')
+ record={**value,'run_id':run.name,'request_hash':request_fingerprint(manifest['request'])}
+ fd=os.open(run/'pro-xhs-media-failure.json',os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_WRONLY,0o600)
+ with os.fdopen(fd,'w')as f:json.dump(record,f,separators=(',',':'));f.flush();os.fsync(f.fileno())
+ directory=os.open(run,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+ try:os.fsync(directory)
+ finally:os.close(directory)
+ return record
+
+def read_failure(run,manifest):
+ from shared_request_budget import request_fingerprint
+ from saved_media_attachments import safe_path,read_json_object
+ run=safe_path(run);p=run/'pro-xhs-media-failure.json'
+ if not p.exists()and not p.is_symlink():return None
+ p=safe_path(p,run);info=p.stat()
+ if info.st_uid!=os.getuid()or info.st_mode&0o077 or info.st_nlink!=1:raise ValueError('xhs_media_failure_diagnostic_invalid')
+ value=read_json_object(p,2048)
+ if (set(value)!={'schema','stage','reason','http_status','run_id','request_hash'}
+     or value['run_id']!=run.name or manifest.get('run_id')!=run.name
+     or value['request_hash']!=request_fingerprint(manifest['request'])):raise ValueError('xhs_media_failure_scope_invalid')
+ _failure_shape({k:v for k,v in value.items()if k not in ('run_id','request_hash')})
+ return value
+
 def execute_payload(payload,*,launch=None):
  """Explicit own child entry. Tests may inject transport, main has no such flag."""
  from mc_runner import read,write
@@ -136,7 +183,10 @@ def execute_payload(payload,*,launch=None):
   own={'run':str(run),'root':str(folder),'items':items,'binding':binding,'identity':context,'python':sys.executable,'guard_module':str(Path(__file__).resolve()),'timeout':min(30000,int(request['timeout_seconds']*1000))}
   done=subprocess.run(command,input=json.dumps(own).encode(),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,timeout=request['timeout_seconds'])
   if done.returncode in (73,74):raise SystemExit(done.returncode)
-  if done.returncode!=0 or len(done.stdout)>1048576:raise ValueError('xhs_media_failed_or_unknown')
+  if done.returncode!=0:
+   if done.returncode==87:record_node_failure(run,manifest,done.stdout)
+   raise ValueError('xhs_media_failed_or_unknown')
+  if len(done.stdout)>1048576:raise ValueError('xhs_media_failed_or_unknown')
   assets=json.loads(done.stdout)
  else:assets=launch(items,folder)
  check_context(run,manifest,intent);assets=verify_assets(run,manifest,assets)
