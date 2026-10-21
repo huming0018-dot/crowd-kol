@@ -1,6 +1,16 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 06:03 CST｜正式消费冷启动已修复，原四素材版本往返通过
+## 当前状态｜2026-10-21 08:01 CST｜标题、反馈与多项目正式复验通过；Pro新试媒体未通过
+
+- **正式用户路径**：原45937已实际接入原标题/全文、知识反馈及按项目消费。G76采用后，原19/29四条素材各新→旧→新，24份HTML/JSON/JSONL/CSV逐字节与固定原件相同，最终回到原74cb/dfe94新版；另外20次导出（16唯一URL，含软件项目与六店）保持。B实后只读再核16唯一导出、原4题文/recordhash、旧31不可变四格式及原图；全局默认素材已合法指向新3条，旧31只按archive核验，不冒默认仍为旧项目。原9705反馈仍在原SDK活库pending_feedback，c7缺口保持；没有为演示重复提交。只证明这些既有项目，不冒任意新项目或知识已批准发布。
+- **实际运行**：源码072933b7cee00d251e0830c8fc4df12f6f677148及本轮4396666/b4506ac/c190520/2cd5cc1/b92aed4已推原分支。唯一Owner33977，owner-pro-preflight-recovery-bacc56e397263ee7，493文件/8覆盖（6替换2新增）/485原件保持；旧491树保留。M238/K234及原配置不换。原身份、进度、评分、outbox、既有云回执与OTA保持，不称整个Git HEAD都在运行。
+- **中央与恢复已实跑**：原项目Edge52/30文件及迁移20261020231043已上线，RPC仍OID31987，MD5 10b5d3a23faa7bd0c3e5e510254b89f2，原ACL/owner/search_path/security保持。G73失败任务e427…的原运行、unknown和未知请求次数保持；正式入口status→park→UI唯一reconcile已获真实audit0ee91c22…，全30计入、释放0，本地idle/nolease，原任务stopped/childfailed。没有重开、换key或重采G73。
+- **独审与边界**：目录持久化、媒体真实文件名/SQLite残留及非dict结果回归已保RED并修复；C最终8source与类型增量、采用器/PLAN/实际park/实际云账务独审通过。组合116测试含重复继承用例，不能算116项新增覆盖；正式25+3及UI8、类型/原route4另核。采用瞬间1840保护项/五库/知识全行保持；park只追加一条已核监控事件。解锁后whole cloud-state摘要变化无raw前像，精确差异未归因，不冒全程字节不变；其余原业务和当前精确任务上下文独核保持。
+- **Pro新真实试验未完成**：G77采用原第二条完整平台链接，是与G73不同的逻辑输入，正常preview ready、唯一create200、自动领取。dispatch c1e8e0c6…/task8577e136…/localrun b9567f45…，原Pro已落正文和评论；共享预算记录10次（8 pro/2 media）。媒体失败exit74/pro_executor_error，仅0字节PNG，无已核图片结果；正文1/评论2共3capture已收到真实云端回执和finish_hash，child failed/已计10次请求/预留额度0；root随后正常停止该新任务，原失败与3份回执保留。新Consumer HTML/JSON/JSONL/CSV实际只含这3条，记录逐值、原标题/正文与ProDB及ACK相同；评论1页终止、has_more=false、回复0。媒体仍FAIL。另有0字节PNG被通用扫描器误标为downloaded_by_external_executor的真实缺陷，正在作仅future拒零修复，不能冒6图成功。本次source合法改变2个既有路径：全局素材项目指针和同账号授权/核验state；其余1838保护SHA保持，旧4条固定版本保持。A核现有state/identity/binding与本次媒体intent pin相等，不能把媒体失败猜成账号变化。不能说媒体、全链或新完整业务验收通过；原意图不复用，子代理仅禁网诊断。
+- **安装/参与端分层**：crowd-pages a28ce6c九路径正式安装源码通过52及旧包测试；G69V3独立重建122文件runtime ZIP仍未发布安装。G70只在Owner新增0600私有引用并复用既有53公开依赖，原native仍120/5d292、EXT102/helpera04fec，普通参与端图片领取未放开。两份native账本仍属同一Mac，不能冒两设备、连续runtime OTA或全新安装已验。
+- **下一步**：先按G77现有产物核正文/分页/媒体失败原因及真实云回执，优先修Pro接线和有限错误诊断，不重写下载器、不盲重试未知请求；再沿正常新任务/预算验证。原completed19/20/29、其他UNKNOWN、身份/评分/OTA保护不变。48h实验/watchdog继续暂停；知识0.1.2仍待本人明确决定，不代批/release/pin。完整U01–U22仍进行中，每轮继续更新此入口。
+
+## 历史快照｜2026-10-21 06:03 CST｜正式消费冷启动已修复，原四素材版本往返通过
 
 - **正式运行**：源码a814a1a、1fe23f1、fa0ceba22da3ce1b50b093ab585baa5fdd55ac18及0038cef05bce2d25bdcda88a6073072956c6175e已推原分支。45937唯一Owner18810 / owner-source-origin-label-93fdb8a5360b9c31；G59四文件接入后G66两Python修复、G68单JS来源标签实际采用。当前489文件，最后一次仅JS覆盖、其余488保持；原运行树保留。M238/K234及两原配置未换，不冒整个Git HEAD都在运行。
 - **用户三项正式复验**：原标题/全文、知识反馈及多项目入口均在原工作台。正常/api/cloud对原19/29各新版→旧版→原新版，24份HTML/JSON/JSONL/CSV逐字节与原件匹配，最终74cb/dfe94新版。采用前后原四素材、软件项目及六店20次读回/16唯一URL保持；不是任意新增项目已接入。原9705反馈仍pending_feedback、c7缺口仍在原SDK活库；未为演示重复提交，反馈不等于审核/知识发布或改分。原四素材原标题及全文与原Pro record再核。

@@ -1144,3 +1144,31 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 - **B完整活读索引**：`review/g66-formal-three-path-b/FINAL-INDEX.json` SHAcefb357559d7f10803b89e155d9af61001c99400c6ca5250626a825e9d88ec37；G68实际JS回验`FINAL-G68.json` SHA00ded07ecc2abec6281f18c973bdf1475546d499583a16fd81900579ebf307e3；`SDK-LINEAGE.json`五份stored payload及血缘/accepted提交分别核验，未改变待审语义。作者边界见原件，不能凭代理名字不同认定独审。
 
 - **A标题/导出非作者实核**：`review/g66-user-three-central/FINAL.json` SHAaebee31102fdbaa44a3d95731d3ff7fe699e40ddd95b9088aac49a00c59cbf77；`FINAL-ADDENDUM.json` SHA8819f49b776ab0e712980087d2a59458fe9c0c456377a1aed8c637042e6a51d3。独立24唯一GET=16当前+8固定旧版，四原title/drafttitle/fullbody/capture及root24往返逐hash/bytes相等，catalog最终new；原反馈/缺口只读耐久复核，A为原G11反馈作者，不能冒其实现独审。
+
+## 2026-10-21 07:57 CST｜G69–G77正式接线、真实未知账务恢复与媒体未验
+
+原件根仍为 /Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。PRIVATE、SDK、原素材与DB不提交。表内均为实际存在原件；无法读取时标未验证。
+
+| 范围 | 原件相对路径 | SHA256 |
+|---|---|---|
+| 原四素材正式版本/24导出 | G76-owner-preflight-recovery-adoption/ROOT-ACTUAL-VERSION-ROUNDTRIP.json | 0cf1fc33e5f10a793d349f075eb4b75d4f76faa163c3c9f3514afb40830ce4cf |
+| 31原字段/原图/20导出/反馈 | G76-owner-preflight-recovery-adoption/ROOT-ACTUAL-COLD-READBACK.json | abda17a9fe83bb94534b4effe9c83634fceec2821bcf1717902750da9147a9ce |
+| 8产品组合独审 | review/g76-owner-recovery-independent/FINAL-V3-COMBINED.json | f7914b8fca7ed6a1376ef40ea91b0dab0bfd9254c58ed738b6dda98c711063b4 |
+| 类型边界增量独审 | review/g76-owner-recovery-independent/FINAL-V4-TYPE-GUARD.json | 0ba71d37695d06f123c57f9a8131c023c7f5ae054dcec523a46b279a6068f91f |
+| 精确采用计划独审 | review/g76-maintenance-adopter-independent/PLAN-FINAL-V4.json | 453f8c7ee890e4dde4beea108c13f1878ba1a722fd8e8db5b9f8003a13eb39cd |
+| Owner实际493采用 | G76-owner-preflight-recovery-adoption/runtime-adoption/ADOPTED.json | 01c033f7f3bf1a8c703db4540b6c2bb9c9bdd148ba7ff17b22c8ef15105e9290 |
+| 分层实际采用/未归因边界 | review/g76-maintenance-adopter-independent/ACTUAL-STAGED-INTERPRETATION.json | 700346c8525ce8db230b8ad2165d2368794ad8b5db7260783dc763967eca1521 |
+| 实际暂停/监控原704保留 | review/g76-maintenance-adopter-independent/ACTUAL-PARK-FINAL.json | 48280c77659a3d078f8d35b12aa1a0baad713a831ae7fe49aa5531355ed499fd |
+| 真实云审计/idle恢复 | review/g76-maintenance-adopter-independent/ACTUAL-RECONCILE-FINAL.json | 349e0192461f4df9ca94cf4556990a1f5ca165b9cf81f67340b2894415920d15 |
+| Edge52/RPC/旧中央数据独审 | review/g76-central-actual-b/ACTUAL-FINAL.json | 3aee994c999b7fcacee1e211b95e22bb30b9fcc11e1531cee44283fb2bea0cf8 |
+| Owner私有引用实际后验 | review/g70-downloader-installer-independent/ACTUAL-FINAL.json | 25679619765e75ff3c3d7e343388f8d2aabf7c00ee6b229540462dec99107149 |
+| 122候选包独立重建 | review/g69-runtime-resource-independent/FINAL-V3-PACKAGE.json | ec96bae5703699aed41ec302274dcb80854bb2d9c5cf1a29b6aa7a8d79ab62d9 |
+| 不同逻辑输入条件独审 | review/g77-input-b/INPUT-FINAL.json | 146f2107f47e36d98f9ef2d174d16a5be169dadea574184f7d5ee68a3a3f7b7e |
+
+版本：crowd-kol 072933b7cee00d251e0830c8fc4df12f6f677148、crowd-pages a28ce6c1af52e65dcc55752c6214d28ad368566c；Edge52及迁移20261020231043实际回读。G73旧失败原意图不重放，G77新输入已有正文/评论但媒体0字节FAIL，真实3capture回执已正常读回，媒体仍失败，完整性另续证，不能以create200算采集完成。
+
+验证环境：Owner与采用器实际Python3.12；系统3.9只读校验曾拒，两个表ASCII JSON跨版本摘要相同，repr受Unicode版本影响，未改断言。组合第一轮45秒外层超时保留，原MC CLI测试本身58秒；第二轮仅放足编排时限120秒，116通过，无改产品断言。实际采用锁内whole-state严格校验，但解锁后摘要差异缺raw前像，未归因。新G76账务有raw前后与云audit证据，不能倒推补写旧前像。
+
+G77正常新任务回读：`G77-pro-xhs-new-input/ACTUAL-TASK-STATUS.PRIVATE.json` SHA 93dbb8359cbe2b24ccfd35e18687355ee0484d6daeb94b37f0631fe7726c1753；`STOP-RESULT.PRIVATE.json` SHA ffaeaec525af62fc92e9bf5ca6c095c6f29383dcaf25a8b8090a4b24e7a3eadc。task停止/child失败、3capture/预算10记录保持；无图片成功结论。
+
+原三项实后独审：`review/g76-user3-actual-b/CURRENT-USER3-ACTUAL-FINAL.json` SHA 235feaf626093798fcbf19553fdec2a77791ad24c733356fd0a50508a3383a28。16唯一HTTP/原4题文/旧31不可变4格式/原图/原9705与c7/SDK15表旧行子集均核；新3条使默认project pointer合法改变，不能假称默认仍旧31。G77 Consumer四格式实际新3与Pro/ACK一致，但媒体FAIL，独审最终原件补后续条目。
