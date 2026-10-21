@@ -1122,3 +1122,11 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 验证：G108同输入44.895276秒/15有效图1688530B/正文评论3真实ACK/四格式同源，独审d35941cb126f1223f13cd177924f23f47be03536f2dccc7a0cb39a8f8a8f8739；root导出补核5159210c…。G107采用实际独审dc46d89d…。原103单次RO读取0600、身份及定位匹配，实际独审0faa2fca…。没有让用户找面板或重复登录。
 - 未完成：首图attach200而cloud_status400已留原件，15图尚未云存回取；普通参与端G105400、native not_ready根因继续定位；原两设备/native连续OTA未验。48h保持暂停。
 - 证据：runtime-2026-10-18/pro-participant-native-entry/ 的 G107-bounded-adoption-locks、G108-pro-concurrent-real-media、G106-participant103-package、G107-worker-readonly103及对应review目录。固定入口同步更新，未发布凭据/Pro源码。
+
+## 2026-10-21 15:54 CST｜root / A / B / C｜原参与端自助恢复及真实任务；15图私有云存回取
+
+- 改动：G109云图合同两源修复正式7a2c757，Edge54/Owner81853已部署采用；G112 V2 OTA恢复通过源码独审，104包通过独审，未让在途task30升级。原私Pro源码和凭据不公开。
+- 真实路径：单次恢复原控制页与正常Start→fresh原节点capable60→原G105同keycreate200/task30→原Pro source completed/10请求；回传却因关键词误拒而delivery_unknown。已证实际body两词皆有而旧anchor拼接整串不含；不把本地source完成冒回执成功，A修复中。
+- 完整媒体：G10815原图正常云保存/回取全部已核SHA/bytes/PIL/RGBA，总1688530B/0新来源请求。原两次前写拒绝与纯只读核对保留，正常not_saved后唯一续接；最终15图独审67bdb1bcedd818945ecad3539a2716cfa8b6fdab442f986d2fb60209ac44ccc4通过。前12媒体记录/回执不重写。
+- 证据根：G109-native-image-cloud-binding/actual-cloud-roundtrip/FINAL.json及各INTENT/RESULT/VERIFIED/回取原件；G110 runtime-adoption/ADOPTED及review/g110两份实际门；G107-normal-start103真实RESULT、G107-worker-readonly103后读；G105 same-key-retry与native-task30-readonly；G111-participant-anchor-whitespace。
+- 遗留：task30正文/评论云回执及自动停止未通过；已知拒绝的正常恢复未接通；原两设备/native连续OTA与完整产品未验。48h/watchdog暂停。下一步先交付原已采数据，不再重采绕错。

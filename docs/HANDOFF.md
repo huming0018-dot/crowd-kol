@@ -1,6 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 15:38 CST｜Pro完整15图本机通过；云图片兼容与原参与端启动继续修复
+## 当前状态｜2026-10-21 15:54 CST｜15图已实际云存回取；原参与端已领任务30，相关性误拒在修复
+
+- **无需用户找插件**：root通过原103 worker只读诊断定位旧not_ready/native_unavailable，正常后台恢复原Chrome一个不聚焦控制窗口，再从真实controller发送一次正常Start。原身份/进度未改；新只读状态为idle/waiting_task/绑定原身份，中央原节点capable60=true。旧无phase错误跨OTA未恢复的缺口已有G112 V2单源修复（20测试），C先以foreign installation反例拦V1，V2明确核当前cached node后通过。未伪造HELLO或sender，未要求用户重新登录。
+- **原参与端新任务已实际领取**：G105按原key和原请求正常重试一次，原400回滚和空lookup保留；fresh能力后create200，task30/dispatch74c77c7c-3ef8-41ed-bc28-eb59e6bc1ff7绑定原subject/node/126/60，原Pro新run6d72fbbd-0226-4311-8ff5-716f370f9652完成，实际10/60。正文回传被unrelated_note拒绝，评论仍pending，当前delivery_unknown；不是云回执或自动停止验收通过。独立证据确认正文含上海与咖啡，中央anchor为“上海 咖啡”，旧SQL拼为必须连续“上海咖啡”造成误拒。A正在做同查询tokens AND/anchors OR的最小服务器修复和正常已知拒绝恢复；不重采、不篡旧拒绝/评分或手改outbox。
+- **完整15图云链路实际完成并通过独审**：G109正常Owner API已对G108原15图全部保存至原私有crowd-machine-media并下载回验，15份received及逐文件SHA/字节/解码/尺寸/RGBA一致，总1688530B，没有新来源请求。独审报告review/g109-image-cloud-independent/ACTUAL-CLOUD15-FINAL.json/67bdb1bc…确认实际image_get→签名远端HTTPGET回取，无本地fallback。原索引2 status400 generation_changed、索引12 save400 capture_binding_changed均发生上传前，原错误保留；纯只读准备及正常status not_saved核对后才按唯一持久意图续接，不重发未知PUT。历史具体瞬态字段原因未证，不冒已根治该瞬态。
+- **正式部署与运行**：crowd-kol7a2c757两源已推；Edge54 ACTIVE/30文件仅image_storage_contract变化，29原件/auth保持。Owner81853/owner-native-image-cloud-a945a2c1bf6a33f2，493文件只更新image_cloud.py，492保持。独审源码269674e…、实际采用b34ebb…/394001…通过。原标题/正文/评论3回执及四格式沿G108同输入证据保持。
+- **104发布边界**：G113 extension67ae6a9b…/180188B、完整包c381679f…/1060738B，158成员/139INSTALL；原helper/runtime126597b/60/权限保持，20+10测试与解包检查通过，C包审d5a8bda…通过。源码62040ceefafd882f4bae516efe7346496f0fbb89、PAGES静态资产ec21264c065f015c9ba9702d3294459047d43766已发布，PUBLIC-READBACK9.json/6c678175…确认9件公开回读精确；通道尚未签发；task30在途未知尚未解除，不自动安装打断。原Mac103扩展实际自动更新证据仍有效，不冒原两设备/native连续OTA完成。
+- **下一步与总边界**：先修中央关键词误拒并通过正常合同交付原task30已采数据及完成状态，再在原native空闲/无pending时接104通道与自动恢复验收。原身份/旧任务/进度/评分/回执/OTA保留；0.1.2 accepted而未release/pin；48h实验/watchdog暂停，全U01–U22未完成。
+
+## 历史快照｜2026-10-21 15:38 CST｜Pro完整15图本机通过；云图片兼容与原参与端启动继续修复
 
 - **实际运行**：G107正式采用成功，Owner79226 / owner-native-xhs-concurrent-659fe568d9c36f80，493运行文件仅两媒体源更新，其余491保持。原两次G100采用均因取锁失败在INTENT前退出；后续只读采样见Owner持有worker.lock并间歇释放，未逐次确认失败锁。G107有限等待/释放/重试锁解决，未杀进程或绕锁。代码与实际采用分别独审通过。
 - **同输入真实采集G108**：正常唯一任务cadf9fff-7560-4876-af12-73e39114b91b，原Pro正文1、根评1及嵌回复1共3份真实云回执；15份计划图片全部取得有效字节，总1688530B，独立核SHA、解码及原生proof，耗时44.895276秒。预算160、实际60（Pro8/媒体52）、预留0，parent/child completed；desired_state仍running，不冒已手动stop。HTML/JSON/JSONL/CSV三条原题文/父链/回执一致。不是两设备或普通参与端搜索验收。
