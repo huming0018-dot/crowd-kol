@@ -1298,3 +1298,14 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 完整媒体：G10815原图正常云保存/回取全部已核SHA/bytes/PIL/RGBA，总1688530B/0新来源请求。原两次前写拒绝与纯只读核对保留，正常not_saved后唯一续接；最终15图独审67bdb1bcedd818945ecad3539a2716cfa8b6fdab442f986d2fb60209ac44ccc4通过。前12媒体记录/回执不重写。
 - 证据根：G109-native-image-cloud-binding/actual-cloud-roundtrip/FINAL.json及各INTENT/RESULT/VERIFIED/回取原件；G110 runtime-adoption/ADOPTED及review/g110两份实际门；G107-normal-start103真实RESULT、G107-worker-readonly103后读；G105 same-key-retry与native-task30-readonly；G111-participant-anchor-whitespace。
 - 遗留：task30正文/评论云回执及自动停止未通过；已知拒绝的正常恢复未接通；原两设备/native连续OTA与完整产品未验。48h/watchdog暂停。下一步先交付原已采数据，不再重采绕错。
+
+## 2026-10-21 16:39 CST｜G111–G116 原参与者真实回传与104后台采用
+
+证据根：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry/`。以下是代码、部署、真实执行与独审分层证据，不是bot自述。
+
+- G111：`G111-participant-anchor-whitespace/ACTUAL-AFTER.PRIVATE.json`、原迁移账本20261021075650；正式迁移在`server/crowd/v4/supabase/migrations/20261021075650_participant_pro_whitespace_anchors.sql`，源码c11433c。实际独审SHA6537d8fabebe3efa58b9478ddaf03d0e1a8af6b2b68b11f51ca3808842873ddc。只改相关性谓词、无业务DML。
+- G112实际：`G112-known-unrelated-delivery-repair/repair-once/RESULT.json` SHA2a23b299843bd58bdad493a0d1c4c3f1076ab46c4c467f0153d8a9058ca80d71；task30 complete/source_startedfalse，13正常RPC；原3receipt delivered/pending0。B`review/g112-delivery-repair-b/ACTUAL-FINAL.json` SHA68085bf3fb9fa49984df8bf5a4954e3af96c4a2b8511867a6cab5639ed12d72a。
+- 正常Stop：`G112-known-unrelated-delivery-repair/normal-stop-once/`及`G107-worker-readonly103/READ103-STOPPED.json`；C`review/g112-known-rejection-repair-independent/ACTUAL-STOP-FINAL.json` SHAf2e18602987a3c30fb4dc88338e9dc8935a236616233c75ace4d3a57a16a9dc3。root显式Stop，不是自动Stop验收。
+- G109十五云图：`G109-native-image-cloud-binding/actual-cloud-roundtrip/FINAL.json`及逐图意图/回取/校验；C`review/g109-image-cloud-independent/ACTUAL-CLOUD15-FINAL.json` SHA67bdb1bcedd818945ecad3539a2716cfa8b6fdab442f986d2fb60209ac44ccc4；15/15、1688530B，原生字节与私桶远端回取一致。
+- G113发布：`G113-participant104-package/PUBLIC-READBACK9.json`、`ACTIVE104-READBACK.json`；active通道SHA8dbb10f3f748a0b2235cd647ef9d4c23f1fbc9206a0aa3f27a4c78fafba02825。包审d5a8bda…，通道B审c708fce…，源G112 V2审32fa1c…；源码62040cee…、包ec21264c…、通道86fd1bac…分别已推。`alarm-test-once/INTENT.json`/`RESULT.json`为一次加速现有alarm、period60保持，B gate1ee4e4a…/10离线案例。C实际独审`review/g113-package-independent/ACTUAL104-FINAL.json` SHA32198c3b3cf49bd12ce563aa7854ac2c0ea047a8ef578b7d9f5ca1a305a4c865：helper104/applied、33安装成员逐hash相等、身份/权限字段保持、原task30 complete/三条delivered。不得把旧pollbusy当新错误或自然周期通过。
+- 异机有界只读：`review/g115-other-device-readonly/FINAL.PRIVATE.json` SHA0411f33625cd8a8a47b75e343d1dd7424190d8a9a31df103ae5021522397fa68；`OTA-FINAL.PRIVATE.json` SHA7851215543c8a5b6f86f2c6b9ddee23dcfd267aad7a802feafebf83fa135aafd。93在线/停止/Pro能力空，最新OTA skipped原因未知；无异机操作与新采集。

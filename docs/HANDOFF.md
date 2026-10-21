@@ -1,6 +1,17 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 15:54 CST｜15图已实际云存回取；原参与端已领任务30，相关性误拒在修复
+## 当前状态｜2026-10-21 16:39 CST｜原任务30云回传完成；104已实际采用；异机仍未验收
+
+- **用户无需操作窗口**：root复用原Chrome资料/原103 worker，只恢复一个不聚焦控制窗口，并通过真实controller正常Start；未伪造身份、HELLO或发送者。原参与身份、历史进度、评分保持。G112 V2修复旧版本无phase的native_unavailable跨OTA不能恢复；同一安装绑定、每release一次、Stop/UNKNOWN/pending保护，20项测试和独审通过。未人为重造旧状态来冒自动恢复真实验收。
+- **中央误拒已正式修复**：原查询“上海 咖啡”被旧SQL删除空白后要求连续匹配，造成已采正文误拒。G111仅改同一anchor内tokens AND、不同anchors OR；迁移20261021075650_participant_pro_whitespace_anchors已部署，函数OID46052保持、MD5由8ad52b95b316eea0eefc27bf67bd5b9f改为515256f1e2f6ea99ca2ce419fe7961a8，ACL/权限等保持。20项PG测试、实际独审6537d8fa…；正式SQL提交c11433c已推送，不重复执行迁移。
+- **原task30真实云交付完成**：原key/request/原身份、lease、node_run及Pro run6d72fbbd-0226-4311-8ff5-716f370f9652保持。原采集实际10/60；已知unrelated_note拒绝留审计后，经正常同任务claim/guard及原receipt-first合同恢复，未重采、未重写评分、未重放未知请求。G112修复操作13次正常RPC，原正文、实际评论及评论采集记录三个outbox全部delivered/pending0；中央finish complete/received1/rewardeligiblefalse。第三条是采集记录，不是第二条评论。B实际独审68085bf3…通过。此为特定已知拒绝的维护操作，不能冒通用Owner恢复入口已完成。
+- **停止事实**：交付完成后root通过原controller显式正常Stop，返回ok；当前原参与端stopped/desiredfalse/idle，助手busyfalse/stopped，task30 complete/三条delivered。C实际独审f2e18602…通过。不得称本次自动批次停止已通过；维护作用域退出曾显示participant_writer_busy，原错误保留，不能用服务端complete掩盖端侧状态。
+- **完整媒体链路已实际完成**：G108原Pro正文/评论/回复三ACK与15份有效图保留；44.895276秒、1688530B。G109十五图全部正常保存至原私有crowd-machine-media并通过远端签名HTTPGET回取，SHA/字节/解码/尺寸/RGBA一致，C实际独审67bdb1bc…通过，不是本地fallback。两次上传前binding拒绝保留；具体历史瞬态字段未知，不冒根治。正式Owner81853/owner-native-image-cloud-a945a2c1bf6a33f2、Edge54、源码7a2c757保持，未重复旧导出或全库校准。
+- **104正式发布与本机采用分层**：extension源码62040ceefafd882f4bae516efe7346496f0fbb89已推；PAGES包ec21264c065f015c9ba9702d3294459047d43766、仅native-v2通道86fd1bac1cbb31e427a0ad081062b7bc507e5ba8已推。extension ZIP67ae6a9b…/180188B，完整包c381679f…/1060738B；原helper/runtime126/60预算/权限保持，20+10测试、解包和独审通过。active通道实际回读8dbb10f3…已为104。经独审的一次性操作提前既有crowd_update闹钟15秒、原60分钟周期保持，走正常onAlarm/check/签名/忙碌保护，无直接apply；本机helper现loaded_version4.2.104/statusapplied/sequence20261021104。这是加速后台验收，不是自然小时触发证明；poll_status/errorbusy为旧记录，不据此断言新失败。C实际独审review/g113-package-independent/ACTUAL104-FINAL.json（32198c3b…）确认helper applied、33安装成员逐hash匹配审定ZIP、身份与权限字段保持、原task30 complete/三条delivered。
+- **另一台与未完成**：2026-10-21 16:02只读原设备元数据：version4.2.93、心跳仅6秒前、enabledfalse、登录unknown、Pro能力空。不是离线或身份丢失证据。最新OTA事件6543/seq897为skipped、errornull，缺helper/channel字段，跳过原因未知。未向异机新派任务、换身份或触发更新。原两设备Pro/登录恢复/连续OTA、自然周期、通用恢复入口、其余平台完整链路及U01–U22仍未验完；48h实验/watchdog暂停。新Mac仍需合法Pro SDK/私有descriptor，公开包不含私SDK。
+- **接力下一步**：先核104实际采用独审及原身份/停止状态；针对异机93的现有OTA通道/助手诊断补充最小可观测字段，不重装或重报名、不假设离线。把本次特定已知拒绝恢复收敛为正式Owner入口前须保同任务/同回执/不重采与UNKNOWN保护；继续按Pro原生能力接其余平台，保持同输入正文、评论分页、媒体、导出验收。知识0.1.2 accepted但未release/pin；不擅自启动实验或恢复暂停任务。
+
+## 历史快照｜2026-10-21 15:54 CST｜15图已实际云存回取；原参与端已领任务30，相关性误拒在修复
 
 - **无需用户找插件**：root通过原103 worker只读诊断定位旧not_ready/native_unavailable，正常后台恢复原Chrome一个不聚焦控制窗口，再从真实controller发送一次正常Start。原身份/进度未改；新只读状态为idle/waiting_task/绑定原身份，中央原节点capable60=true。旧无phase错误跨OTA未恢复的缺口已有G112 V2单源修复（20测试），C先以foreign installation反例拦V1，V2明确核当前cached node后通过。未伪造HELLO或sender，未要求用户重新登录。
 - **原参与端新任务已实际领取**：G105按原key和原请求正常重试一次，原400回滚和空lookup保留；fresh能力后create200，task30/dispatch74c77c7c-3ef8-41ed-bc28-eb59e6bc1ff7绑定原subject/node/126/60，原Pro新run6d72fbbd-0226-4311-8ff5-716f370f9652完成，实际10/60。正文回传被unrelated_note拒绝，评论仍pending，当前delivery_unknown；不是云回执或自动停止验收通过。独立证据确认正文含上海与咖啡，中央anchor为“上海 咖啡”，旧SQL拼为必须连续“上海咖啡”造成误拒。A正在做同查询tokens AND/anchors OR的最小服务器修复和正常已知拒绝恢复；不重采、不篡旧拒绝/评分或手改outbox。

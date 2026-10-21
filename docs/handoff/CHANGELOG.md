@@ -1130,3 +1130,11 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 完整媒体：G10815原图正常云保存/回取全部已核SHA/bytes/PIL/RGBA，总1688530B/0新来源请求。原两次前写拒绝与纯只读核对保留，正常not_saved后唯一续接；最终15图独审67bdb1bcedd818945ecad3539a2716cfa8b6fdab442f986d2fb60209ac44ccc4通过。前12媒体记录/回执不重写。
 - 证据根：G109-native-image-cloud-binding/actual-cloud-roundtrip/FINAL.json及各INTENT/RESULT/VERIFIED/回取原件；G110 runtime-adoption/ADOPTED及review/g110两份实际门；G107-normal-start103真实RESULT、G107-worker-readonly103后读；G105 same-key-retry与native-task30-readonly；G111-participant-anchor-whitespace。
 - 遗留：task30正文/评论云回执及自动停止未通过；已知拒绝的正常恢复未接通；原两设备/native连续OTA与完整产品未验。48h/watchdog暂停。下一步先交付原已采数据，不再重采绕错。
+
+## 2026-10-21 16:39 CST｜root + central_steps / knowledge_reuse_probe / native_diagnostics_review
+
+- 目标/实际：无需用户寻找插件，恢复原端正常Start；上线空白anchor分词修复并恢复原task30既有数据回传；十五云图保存回取完成；104正式通道与原Mac后台采用。保原身份、历史进度、评分、原回执与OTA。
+- 文件/版本：crowd-kol迁移c11433c，之前媒体两源7a2c757；extension62040cee…；PAGES包ec21264c…/通道86fd1bac…。本次仅更新固定HANDOFF/EVIDENCE/CHANGELOG片段，不夹带预存未提交文档和代码。
+- 验证：相关性20PG、恢复20/启动10、包解包检查、alarm10；每项源码/实际独审。task30三记录delivered、中央complete；15云图远端回取精确；本机helper104/applied。停止是root正常Stop、OTA为提前既有alarm验收，二者均不冒自然自动门禁。
+- 部署：SQL迁移20261021075650实际生效；Owner81853/Edge54沿本轮已采用源；104包/通道已发布且本机采用。异机93仍未验，48h/watchdog暂停。
+- 风险/下一步：异机最新OTA skipped原因未知；通用Owner恢复入口与完整多平台/两设备验收未完成。读本条证据入口后继续，禁止未知请求重发或重采冒修复。
