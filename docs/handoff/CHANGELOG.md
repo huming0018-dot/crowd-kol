@@ -1088,3 +1088,12 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - **状态更新位置**：固定HANDOFF/EVIDENCE/CHANGELOG及AGENTS追加规则；三文档HEAD/working已create-only备份，按HEAD加本轮片段暂存，原dirty另保。
 
 预算规划修正：B只读确认原G80保存的15个去重图片项，新下载至少需30次媒体请求，加已发生的Pro8次为下限38，超过root原选30；这是本轮试验额度规划不足，不是Pro缺陷，也不是stream失败原因。下限不保证未来分页/刷新成本；后续正常任务须按完整范围加明确余量，不裁剪评论/媒体或改旧额度。此经验已只追加到AGENTS。网络真实原因仍未知，禁网注入仅复现症状。
+
+## 2026-10-21 12:39 CST｜正式流观测、真实部分回执及KS资产
+
+- root接线/CAS/正式采用/唯一正常同输入任务及原中央只读核验；A实现观测和URL候选/采用器；B实现KS接线、测试闭包并非作者审G89；C独审源码、正式采用、真实结果、KS及URL反例。
+- 源码49e0f11与fd43d3c已推并在线逐文件匹配；Owner47260/493仅2媒体观测源更新。身份/进度/评分/native120/OTA保持；没有将KS源码提交冒成当前运行或账号ready。
+- G87新同输入验收正常预算60/唯一create200，原SDK正文1/根评1/回复1共3真实ACK，四格式与题文父链匹配。最后failed/74，媒体15引用/0图，200/ECONNRESET/0bytes；实际请求10/预留0，root正常stop200。旧G73UNKNOWN/G77/G80与原额度不改。
+- 正常20次旧导出及非作者16唯一URL保持；原9705仅1条pending_feedback、知识旧行和五库旧业务行保持。合法新增capture3/observation18/version16、结果revision91→92单列，不冒全库字节未变。
+- 中央6条自然有限错误event已fresh限定SELECT匹配本机ACK；不只依赖bot陈述或本机错误文案。独审和原件见本轮EVIDENCE。
+- G88单scheme候选V1被真实generic附件反例拒绝，未正式采用，V2待修；G89仅成熟采用器code门，无最终PLAN/采用。KS126包闭包候选未安装发布；48h/watchdog暂停、知识真人决定仍pending。继续修原Pro接线兼容后同输入验收，不用媒体引用或更快运行替代完整性。

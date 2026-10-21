@@ -1,6 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 08:44 CST｜有限媒体原因白名单已上线；Owner已采用，实际新码回执未验
+## 当前状态｜2026-10-21 12:39 CST｜正式工作台保护复验通过；新实际媒体失败已定位到流阶段
+
+- **原标题、反馈与多项目消费**：这三项仍在原45937正式工作台。此前原19/29四条新→旧→新、24份四格式逐字节回验保留；G86采用后root正常用户入口再次20次导出/16唯一URL与原件相同。原反馈9705仍为原SDK的pending_feedback，不为演示重投、不冒审核发布或评分改变。不是仅隔离测试通过。
+- **本机已采用**：自有有限流观测源码49e0f113c98464ed85974a9a590618286bf19c3e已推并五文件在线逐字节回验；Owner47260 / owner-xhs-stream-observation-d39a093d5181a386，493文件仅2覆盖、491原件保持，M238/K234和配置不换。C实际门323560b5…确认1965保护项、extra76、五库/知识旧行、原身份/进度/评分/native120/OTA保持；锁内cloud前后和采用后当前raw相同。新schema v2只增加有限errno/已收字节；旧v1不追写，不代表网络已修。
+- **新的同输入真实验收G87**：原Pro返回的同一内容完整链接/原会话不变，明确作为新审版本的同输入重复验收，预算60经正常中央准入、唯一create200。taskb960bf50…/localrunf751f5be…最终failed/exit74；已接受媒体GET HTTP200，stream/ECONNRESET/stream_bytes0，使用10（8Pro+2媒体）、预留0，不是额度耗尽。15计划图、0有效图片、无hybrid-media-result，媒体仍FAIL。正常stop200；旧G73 UNKNOWN、G77/G80失败和原额度/回执不改。不能把此次错误倒写成旧失败原因。
+- **真实交付与监控分层**：G87正文1、根评1、回复1共3份新真实云回执；Consumer HTML/JSON/JSONL/CSV分别200且原题文/父链可核，媒体未交付。新有限原因已自然写入中央6条step_events（本机ACK与原项目只读新鲜SELECT分别核），error_code/exit74/run/epoch/sequence808–813一致；不是伪造事件。正文/评论部分通过与完整采集不混同。
+- **快手资产**：fd43d3c正式合入原Pro Client/Extractor/Handler/SQLite的自有接线，保RAW完整caption与原native500投影、根回复父链及两媒体引用。独审16投影/5 SDK场景/12导出和95旧禁网回归通过；原金样明确synthetic。实际账号缺可信self/Pro绑定，SUPPORTED/UI/中央/参与端未开放；没有真实KS媒体字节/云ACK。当前Owner尚未采用KS模块；运行包闭包正在补，不能冒快手已可采。
+- **下一步与限制**：实际15原URL为HTTP，自有intent全部升级HTTPS，path/query逐项相同；这是真实接线差异，尚未证为重置原因。先只对原生URL策略做兼容候选及独审，旧附件收据仍按旧策略核验，不同时改Axios/redirect/proxy/size/retry。G88 V1已被独审真实反例拦下：新run使用原通用HTTPS附件收据时被错误拒绝；未采用，待V2保原generic路径后重审。G89仅采用器代码骨架通过，尚无最终组件或PLAN；采用后才可走正常同输入预算/唯一意图门。G87实际独审6cebac10…已确认原9705仍1条、旧16导出保持；五库全部旧行保持，Results revision91→92为本次新增，1965中仅账号授权state/当前素材指针两路径因正常source改变。原两设备、连续runtime OTA、全平台与完整U01–U22未完成；知识0.1.2仍等真人审核，48h/watchdog暂停。
+
+## 历史快照｜2026-10-21 08:44 CST｜有限媒体原因白名单已上线；Owner已采用，实际新码回执未验
 
 - **正式源码与本机**：crowd-kol `b1cbfc9ae76247f7e32c72172593a863abad97bf` 五个白名单路径已提交推送。root唯一采用G83已成功：Owner44030 / `owner-finite-media-diagnostics-0e518ce80d7d9018`，493文件仅覆盖`run_diagnostics.py`、其余492保持；M238/K234与原配置不换。C本机实际门87560f48…确认1965保护项、extra76、五库/知识全部旧行、原配置及native保持；锁内raw前后相同。解锁后仅participant_pro_cursor变化，原因未证，不写全程字节不变。
 - **中央真实上线**：Edge53/30文件仅`machine_steps.mjs`变化，原29原件保持；迁移`20261021003100`已在原账本回读。steps RPC仍OID40854，MD5由`65dfd220ea17878edb63fa28f3ffd2e5`变为`e1f94ee7eb2632d2cbde945f86f0fe09`，owner/ACL/search_path/security保持。C实际独审`428bc2ad…`通过；任务72、children78、captures1778三表全行摘要前后相同，不外推为所有云表未变。

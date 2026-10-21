@@ -1237,3 +1237,22 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 | 规则追加及原像 | G84-handoff/AGENTS-CHANGE-FINAL.json | 1312cf7580beef444fa030655126fc7d6a98284f23d4c2f0592fd9056480f696 |
 
 原位测试第一次仅CROWD_TEST_TOOLS路径误写，保留FIRST-FORMAL-TEST-ENV-FAIL；复用既有`.crowd-launch/test-tools`后通过，无新依赖或断言放宽。
+
+## 2026-10-21 12:39 CST｜G85–G87正式采用与同输入真实部分验收
+
+原件根沿用本文件既有RUN；PRIVATE/素材/SDK/DB不公开。
+
+| 范围 | 原件 | SHA256/结果 |
+|---|---|---|
+| G85正式源及在线 | G85-xhs-stream-observation/FORMAL-CAS.json、ONLINE-READBACK.json；review/g85-stream-observation-independent/FORMAL-FINAL.json | 正式49e0f113c98464ed85974a9a590618286bf19c3e，5文件逐字节；独审3459dc0911ae17b873df6efd0f4a3b86f65f3b75f07bee23bd966d5a952531b8；23Py/新旧Node/原16通过 |
+| G86正式采用 | G86-stream-observation-adoption/runtime-adoption/ADOPTED.json；review/g86-adopter-independent/ACTUAL-FINAL.json | 47260/493，两overlay/491原件；独审323560b5defdcd13949cb958f0b2fc30b67e66185264aed8a19e2dc0595de577 |
+| 原消费保护 | G86-stream-observation-adoption/ROOT-USER-READBACK.json | 20次/16唯一URL原四素材及项目导出hash/bytes保持；不是新增素材或新反馈写 |
+| G87唯一正常调用 | G87-pro-xhs-same-input-full-media/REQUEST-INDEPENDENT-GATE.json、PREVIEW.PRIVATE.json、CREATE-INTENT.PRIVATE.json、CREATE-RESULT.PRIVATE.json | 请求门4ef8824a553b29831ec84ebc0cb91b26458bf4455ce659470808b400f78a62fb；ready60/唯一create200；新key声明同输入重复验收；首次gate未落盘于INTENT前拒绝原件保留 |
+| G87真实验收 | review/g87-real-partial-independent/FINAL.json；同目录consumer四格式/PROTECTION.json/原反馈inbox | 6cebac107e7220dc1bb6b03f4dd885576c6ebf26e38a79bbd4cc2e73f3ab1227；Pro题9/文137/根评20/回复21逐值与3ACK/四格式同；15引用/0有效图，媒体FAIL |
+| 真实有限码中央行 | G87-pro-xhs-same-input-full-media/CENTRAL-FINITE-STEPS.READONLY.json；review/g87-real-partial-independent/NATURAL-FINITE-STEPS.PRIVATE.json | 仅原run限定只读SELECT，6eventID/sequence808–813/run/epoch/error_code/exit74同local ACK；无伪造或回写旧错误 |
+| 本次媒体原因与差异 | review/g87-stream-observation-central/ACTUAL-FAILURE.PRIVATE.json、NATIVE-DIFFERENCES.json | 本次200/ECONNRESET/0bytes，10次未达60；原15HTTP被自有改HTTPS，只证明差异未证因果；旧G80原因不反推 |
+| KS正式资产/独审 | G84-ks-formal-tests/ONLINE-READBACK.json；review/g84-ks-formal-tests-independent/FORMAL-CAS-FINAL.json | fd43d3cd41b2594365fe716287b11b99870754bc六文件；f01e74b24d4180d80036b6f40ef5c42a675d47050840911f442d9fb992597f11；synthetic16/SDK5/12格式/旧95通过，不是KS实际来源或当前Owner采用 |
+| G88候选真实回归 | review/g88-source-url-independent/independent_generic_attach.py、BASELINE-GENERIC.log、CANDIDATE-GENERIC.log | 原generic附件baseline通过、V1候选拒绝attachment_transport_binding_invalid；HOLD不采用，待V2 |
+| G89代码骨架 | review/g89-adopter-code-b/CODE-FINAL.json | 5f301bddbcbac295c6d35124351f0e5fa284b2145ed7435461dc07cd477e8c4f；14temp/只读inspect，通过不等于最终PLAN或采用 |
+
+原题文/反馈/四素材版本及导出正式实测沿既有G53/G76保留；本轮不重投9705、不代批0.1.2、不重开已完成任务/UNKNOWN或48h实验。KS包闭包126仅候选，native仍120；原两设备/连续runtime OTA与完整U01–U22未完成。
