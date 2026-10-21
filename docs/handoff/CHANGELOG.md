@@ -1097,3 +1097,12 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 正常20次旧导出及非作者16唯一URL保持；原9705仅1条pending_feedback、知识旧行和五库旧业务行保持。合法新增capture3/observation18/version16、结果revision91→92单列，不冒全库字节未变。
 - 中央6条自然有限错误event已fresh限定SELECT匹配本机ACK；不只依赖bot陈述或本机错误文案。独审和原件见本轮EVIDENCE。
 - G88单scheme候选V1被真实generic附件反例拒绝，未正式采用，V2待修；G89仅成熟采用器code门，无最终PLAN/采用。KS126包闭包候选未安装发布；48h/watchdog暂停、知识真人决定仍pending。继续修原Pro接线兼容后同输入验收，不用媒体引用或更快运行替代完整性。
+
+## 2026-10-21 13:03 CST｜原生图片地址正式采用、部分真实媒体与人工知识批准
+
+- **人员**：root正式CAS/唯一采用、正常新任务/stop、依人类授权唯一审核；A原地址策略与成熟采用器/原生恢复诊断，B KS组装与非作者采用器/恢复计划审，C源/实际/知识审核独审。作者不冒独审。
+- **版本/范围**：crowd-kol0e7c261八文件已推/在线同字节，Owner51831仅三媒体源采用，原490/身份/进度/评分/OTA保；PAGESf6edb64仅组装器+测试源，不装新包。原G88V1 generic附件反例保RED，V2原样反例GREEN/真实两原附件只读字节保持后采用。
+- **真实结果**：G90同输入/预算60正常唯一创建，正文1+评论2共3新ACK/Consumer4/原16导出精确；15图中1份145382B解码有效，第二项200后reset0，无全native proof。用12/预留0，root正常stop，旧各失败/UNKNOWN/额度保。完整媒体仍HOLD。
+- **人类决定与实际入库**：用户明确批准call_5f536…所述0.1.2；按精确012/candidate2d488正常target_decide一次200accepted，grant1/decision1/audit2，原034proposed和9705/c7/六candidate保持，release/pin0。SDK固定服务主体与human_uidnull事实单列，不伪装真人UID。未发布/切Consumer/重算评分。
+- **验证/证据**：V2正式16Py+Node回归、采用2045/extra126、真实G90cf146与实际批准275cd分别独审；原项目20次导出再次同原字节。合法源数据追加和知识审批delta分别核，不称全库物理字节未变。详见本轮EVIDENCE。
+- **下一步/风险**：原类重试诊断发现默认恢复被禁用且原stream有假completed竞态，B有限计划门通过，A离线实现候选中，未采用重试/重采。原2MiB/100MiB/预算Stop优先，保145KB部分文件不伪nativeACK。旧126ZIP需按V2重组，不发旧包冒最新；全平台、原两设备/连续runtime OTA、知识发布与完整U01–U22未完，48h/watchdog暂停。

@@ -1256,3 +1256,21 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 | G89代码骨架 | review/g89-adopter-code-b/CODE-FINAL.json | 5f301bddbcbac295c6d35124351f0e5fa284b2145ed7435461dc07cd477e8c4f；14temp/只读inspect，通过不等于最终PLAN或采用 |
 
 原题文/反馈/四素材版本及导出正式实测沿既有G53/G76保留；本轮不重投9705、不代批0.1.2、不重开已完成任务/UNKNOWN或48h实验。KS包闭包126仅候选，native仍120；原两设备/连续runtime OTA与完整U01–U22未完成。
+
+## 2026-10-21 13:03 CST｜G88V2/G89正式采用、G90真实部分与G91人工批准
+
+原件根沿本索引既有RUN。PRIVATE/SDK/DB/素材/preview_token不公开；在线接力者读不到原件须标未验证。
+
+| 范围 | 可复核原件 | SHA256/结果 |
+|---|---|---|
+| 原地址策略V2/正式 | G88-native-xhs-source-url-v2/FORMAL-CAS.json、ONLINE-READBACK.json；review/g88-source-url-v2-independent/FINAL-SCOPE-EXACT.json、FORMAL-FINAL.json | source0e7c261c2949355226d27044e023c962faeff54e八文件；独审c5eac5e2b635daa4bd64ae6a6c16bb7b2f0a6e4f703228e1a0134ce855361065/formald8931a26543ed6eb30c839d16734432da2964e9c227c4bdfa94222675f1ae831 |
+| 成熟三源采用 | G89-native-source-url-adoption/runtime-adoption/ADOPTED.json；review/g89-adopter-independent/ACTUAL-FINAL.json | 51831/493/3覆盖490保持；3862b8413d6a4fd8c469d178d6e080637e962c963bb47beef8a440a0461afecb |
+| 正常原素材消费 | G89-native-source-url-adoption/ROOT-USER-READBACK.json | 原四素材及项目20次/16唯一URL导出hash/bytes同原件；G90独审另核旧16与新Consumer4 |
+| G90唯一实际调用 | G90-pro-native-source-url-acceptance/REQUEST-INDEPENDENT-GATE.json、PREVIEW.PRIVATE.json、CREATE-INTENT.PRIVATE.json、CREATE-RESULT.PRIVATE.json、STOP-RESULT.PRIVATE.json | 请求门011422796e739c6aa0437001ae38a3dcc0d4fc2d0282cc81f46626289874ea0e；正常ready60/唯一create200/正常stop200。原初闲置断言拒绝未保raw故原因未知，后仅加只读trace核同次idle再通过，未改断言/伪造状态 |
+| G90实际有限门 | review/g90-real-partial-independent/FINAL.json、ACTUAL-CHECKS.json、consumer四格式 | cf1465523042c959cc72c13b84399d99fc1bd240f7c5993dda664b7ebb180f5d；题9/文137/评论20+21/3ACK/四格式exact；1份145382B已解码WEBP，完整15失败 |
+| 用户授权与唯一知识审核 | G91-social-target-approval-plan/HUMAN-AUTHORIZATION.PRIVATE.json、ROOT-DECISION-INTENT.PRIVATE.json、DECISION-REQUEST.PRIVATE.json、ACTUAL-DECISION-RESULT.PRIVATE.json | 原人类call/答复关联exact012与candidate2d488…；intent3ffd97f0-ff7f-44cb-a56f-4671d39f8edb/decisionrev:48ad8e1595fc56e8；正常HTTP200 accepted，未release/pin |
+| 人工批准实际独审 | review/g91-target-approval-independent/ACTUAL-FINAL.json | 275cd27497befdfcb336e27c4895ce9b6ca8cda22d82f42e43495806ad1e6876；grant1/decision1/audit2仅目标status变化，旧034/9705/c7/六candidate及消费保持，SDK human UIDnull |
+| KS组装闭包 | G84-ks-runtime-closure/FORMAL-CAS.json、ONLINE-READBACK.json、FORMAL-11-ROOT.log；review/g84-ks-runtime-closure-independent/FINAL.json | PAGES f6edb6453cc575f31664444003407e1a33d8de4e；独审c5f4c7069869b01bc5738e8062cf4f6fa5a0d74941a7c21a4a62fe3b0af22b68；4新+7旧，126runtime/158ZIP成员独立重建同字节，仍旧G85代码候选不安装 |
+| 原生恢复诊断/双路线 | G91-native-retry-diagnosis/FREEZE.json、PLAN.md、WEB-EVIDENCE.md、test_native_retry.mjs；review/g91-native-retry-b/FINAL.json | freeze0189daea986f82af5b1ae38090349ea288179698e0a2ff358df27f28c68e3d3e；B b38ab645f533553d95d2d8743a5fe0229f8db4fe9dd6c6dd26ea5636e60dd858；HEAD重试可恢复、stream假completed反例，只有计划/原类禁网证据，不冒产品或真实恢复 |
+
+根环境失败保持：组装正式重跑最初漏原extension/helper两个测试输入，未改产品/断言，读取原builder已核hash的固定输入后11项全过；初次交接脚本默认python3编码拒绝无文件改动，实际Owner3.12通过。不能以这些本地测试启动错误推断线上产品故障。当前结论以实际gate和真实回执分层，不抹失败。

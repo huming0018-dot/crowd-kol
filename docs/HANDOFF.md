@@ -1,6 +1,16 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 12:39 CST｜正式工作台保护复验通过；新实际媒体失败已定位到流阶段
+## 当前状态｜2026-10-21 13:03 CST｜正式消费保持；0.1.2已按用户批准入库；完整媒体仍HOLD
+
+- **用户三项正式路径**：原标题/全文、知识反馈、多项目消费仍在原45937资料库/知识更新/项目页。原19/29四素材新→旧→新及24次四格式原件对照沿G53/G76实际证据；G89采用后正常20次导出/16唯一URL再次保持。G90实际新正文1/根评1/回复1共3云回执，Consumer HTML/JSON/JSONL/CSV题文及父链与原Pro逐值相同；原9705反馈仍1、没有为演示重投。不冒任意新项目/异机消费完成。
+- **0.1.2最新决定（覆盖旧‘等真人批准’状态）**：本轮用户对call_5f53677ba9d64762b287f806fb62e265明确回复“批准这份提案”。root经独审后唯一正常target_decide200，prop:g26-owner-social-target-012/social-observations0.1.2/candidate2d4886ce…已accepted；intent3ffd97f0…/decisionrev:48ad8e1595fc56e8。C实际275cd274…确认仅新增grant1/decision1/audit2，原034仍proposed、六candidate原件/9705/c7/Consumer四格式保持，release/pin/attempt仍0。只是批准，未发布/切版本/重算评分；SDK human_uid仍null，不能把聊天中的真人授权冒成SDK已核真人UID。授权与原请求/意图/结果私存关联。
+- **源码与当前运行**：crowd-kol 0e7c261c2949355226d27044e023c962faeff54e八文件已推/在线逐字节回读；Owner51831 / owner-native-xhs-source-url-bbfbd1a877bd4398，493文件仅3媒体源更新、490保持，M238/K234和配置不换。C采用门3862b841…确认2045保护项/extra126/五库/知识/native120保持；锁内cloud raw前后同，解锁后仅cursor变化，原因不推断。不是整个Git HEAD均在运行，KS新源未入Owner。
+- **G90新实际结果**：明确的新审版本同输入重复验收，正常预算60/唯一create200，taskc095a35c…/localrune97e7dc0…最终failed/74，root正常stop200。15媒体项全保原HTTP地址；第1图145382B/WEBP1080×1440已独立解码和SHA核，第2图0B拒纳，其余未下载；失败项仍stream/HTTP200/ECONNRESET/0bytes。实际12=8Pro+4媒体，预留0，未耗尽60。没有hybrid完成全资产proof或登记附件，1份实字节不等于native/云媒体ACK，更不是15图通过。旧G73UNKNOWN/G77/G80/G87和所有额度/回执不回写、不重开。
+- **完整性保护及监控**：G90独审cf146552…核原五库旧业务行保持，Results revision92→93及本次capture3/observation19/version17为合法新增；2045中2043保持，仅同账号授权state/当前素材指针两路径合法变化。G87首次6条自然有限错误已与中央fresh只读SELECT逐event/run/epoch/sequence核合；不伪造事件或追写旧原因。G88 V1通用HTTPS附件回归被独审拦住，V2修复并验证当前2原附件98878B/4284573B的字节/sidecar/DB保持；后才采用G89。
+- **快手/包分层**：fd43d3c六文件仅正式资产，RAW caption、原500投影、根回复/媒体引用通过synthetic+原SDK离线独审；真实KS self/绑定仍未接通，SUPPORTED/UI/中央/参与端未放开。PAGES f6edb6453cc575f31664444003407e1a33d8de4e只修组装器排除测试probe，保旧124+KS2=126/上限128，4新+7旧回归和独立全ZIP重建通过；没有安装/签发新通道。该126隔离包仍旧G85媒体源，后续必须按G88V2新pin重组装，不能发布旧包冒最新。原native仍120，双native账本仍同一Mac。
+- **下一步**：原Pro default3恢复被当前glue禁用，但直接打开会触发原类流错误→0B假completed；原类禁网诊断和B有限计划门b38ab645…已验证两者，尚非重试产品。A正在独立候选实现原handler/每attempt隔离/成功屏障，原2MiB单项、100MiB总量、预算/Stop/身份优先保留，无自写重试循环、不重放旧run；完整15媒体仍HOLD。后续候选须独审→正式采用→正常同输入预算门→真实字节/四格式/云回执，不能再把日志细化或更快运行当通过。知识发布/Consumer pin需另行明确操作；48h/watchdog继续暂停，原两设备/连续runtime OTA与完整U01–U22仍未完成。
+
+## 历史快照｜2026-10-21 12:39 CST｜正式工作台保护复验通过；新实际媒体失败已定位到流阶段
 
 - **原标题、反馈与多项目消费**：这三项仍在原45937正式工作台。此前原19/29四条新→旧→新、24份四格式逐字节回验保留；G86采用后root正常用户入口再次20次导出/16唯一URL与原件相同。原反馈9705仍为原SDK的pending_feedback，不为演示重投、不冒审核发布或评分改变。不是仅隔离测试通过。
 - **本机已采用**：自有有限流观测源码49e0f113c98464ed85974a9a590618286bf19c3e已推并五文件在线逐字节回验；Owner47260 / owner-xhs-stream-observation-d39a093d5181a386，493文件仅2覆盖、491原件保持，M238/K234和配置不换。C实际门323560b5…确认1965保护项、extra76、五库/知识旧行、原身份/进度/评分/native120/OTA保持；锁内cloud前后和采用后当前raw相同。新schema v2只增加有限errno/已收字节；旧v1不追写，不代表网络已修。
