@@ -1115,3 +1115,10 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 已发布：PAGES5546c9c8…只新增稳定ZIP/SHA/README三件，G103-product-release-materials/publication/PUBLIC-READBACK.json，3GET exact；不含私SDK，不改既有通道。crowd-kol a4256d5…G99V2六源公开exact但Owner未采用；V1正式失败保留、V2正式11项通过。
 - 失败与下一步：G105唯一正常create HTTP400、body未保存；同keyreconcile200/dispatches[]。未重发、无新ACK；A与C独立定位真实create分支，修后继续正常用户路径。不是完整交付，也不启动48h。
 - 证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry/ 下G98、G101、G103、G104、G105及review/g103-stable-package-independent/ACTUAL-INSTALL-FINAL.json。原G96媒体缺口与G99V1失败不覆盖。无凭据随文档发布。
+
+## 2026-10-21 15:38 CST｜root / A / B / C｜完整原生媒体实际通过；自助读取原插件并继续云兼容
+
+- 实际改动：G107两媒体源正式采用，G106扩展103与已签native-v2通道已发布并在原Mac实际生效。G109云图片兼容仍候选，不冒已部署。原参与者身份和旧进度保留。
+- 验证：G108同输入44.895276秒/15有效图1688530B/正文评论3真实ACK/四格式同源，独审d35941cb126f1223f13cd177924f23f47be03536f2dccc7a0cb39a8f8a8f8739；root导出补核5159210c…。G107采用实际独审dc46d89d…。原103单次RO读取0600、身份及定位匹配，实际独审0faa2fca…。没有让用户找面板或重复登录。
+- 未完成：首图attach200而cloud_status400已留原件，15图尚未云存回取；普通参与端G105400、native not_ready根因继续定位；原两设备/native连续OTA未验。48h保持暂停。
+- 证据：runtime-2026-10-18/pro-participant-native-entry/ 的 G107-bounded-adoption-locks、G108-pro-concurrent-real-media、G106-participant103-package、G107-worker-readonly103及对应review目录。固定入口同步更新，未发布凭据/Pro源码。

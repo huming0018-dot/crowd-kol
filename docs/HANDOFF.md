@@ -1,6 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 14:37 CST｜正式126安装与开始已通过；新任务创建400正在修复
+## 当前状态｜2026-10-21 15:38 CST｜Pro完整15图本机通过；云图片兼容与原参与端启动继续修复
+
+- **实际运行**：G107正式采用成功，Owner79226 / owner-native-xhs-concurrent-659fe568d9c36f80，493运行文件仅两媒体源更新，其余491保持。原两次G100采用均因取锁失败在INTENT前退出；后续只读采样见Owner持有worker.lock并间歇释放，未逐次确认失败锁。G107有限等待/释放/重试锁解决，未杀进程或绕锁。代码与实际采用分别独审通过。
+- **同输入真实采集G108**：正常唯一任务cadf9fff-7560-4876-af12-73e39114b91b，原Pro正文1、根评1及嵌回复1共3份真实云回执；15份计划图片全部取得有效字节，总1688530B，独立核SHA、解码及原生proof，耗时44.895276秒。预算160、实际60（Pro8/媒体52）、预留0，parent/child completed；desired_state仍running，不冒已手动stop。HTML/JSON/JSONL/CSV三条原题文/父链/回执一致。不是两设备或普通参与端搜索验收。
+- **云图片未完成**：首图正常image_attach_native已200、局部登记成功；image_cloud_status真实400/image_capture_binding_changed。已定位云保存仍硬套旧HTTPS侧车/transport合同，未兼容Pro原地址proof。G109正在做Python/Edge最小兼容及反例测试，尚未部署采用、尚无15图私桶回执或回取，不把本机有效图冒云图。
+- **原Mac扩展已真实自动更新103**：正式EXTWT源码2c993cbe6bdd6bd207e5ddd48af4e5082fcfab5f，PAGES资产daff44bce1feac0e5e4c9bada6c52c872551c8c9及随后native-v2通道103已发布回读。原助手state loaded_version4.2.103/status applied，中央原节点version103。根未点检查更新；原126runtime/60预算和身份保持。此证据仅原Mac扩展OTA，不冒异机或native runtime连续OTA。
+- **原参与端阻塞仍在**：G105唯一create400（57014位于machine_fallback INSERT），同key正常查询空；不换key盲重发。原capability仍null/capable60=false。用户不需找窗口：G107单次只读原103 worker实际读取成功，身份匹配，desired_running=true，not_ready/participant_native_unavailable，phase=null、保存capabilities存在、当前binding=null。phase缺失不能确定新103已执行过启动或错误源，更不能猜TCC；B继续本机只读定位。原controller页缺失、CUA超时，不能伪造HELLO/claim或重建身份。
+- **保留与下一步**：原身份、旧任务/进度/评分/outbox与回执保持；知识0.1.2已经真人批准accepted，release/pin仍0。先修并采用G109云图兼容完成正常保存/回取，同时解决原参与端真实启动与中央领取；随后补原两设备恢复及连续升级。48h实验/watchdog暂停，全U01–U22未完成。不重复旧20导出/全库校准。
+
+## 历史快照｜2026-10-21 14:37 CST｜正式126安装与开始已通过；新任务创建400正在修复
 
 - **交付方向**：按用户要求，以安装→开始→自动领取→Pro采集→云回执→停止及升级的实际用户路径推进。复用已有证据，只检查本次受影响路径；每项实质改动仍独审。同输入正文/评论分页/媒体/导出不能以更快为由删减。48h实验和watchdog保持暂停，全U01–U22未完成。
 - **实际安装与Start**：G103稳定包已从正式入口安装；扩展4.2.102、126自有runtime/manifest597b61fe…、本机明确配置60，后续无flag升级保留60；旧设置14及task29完成记录、原身份/评分/outbox保持。非作者实际独审9297f13f…通过。原Chrome正常“继续采集”后显示“已开启自动领取，目前没有可执行任务”，未重开旧21–28/29；旧21–28已只读证为user_stopped且dispatch_allowed=false，不重复校准。
