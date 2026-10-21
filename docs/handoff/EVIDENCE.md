@@ -1172,3 +1172,31 @@ E71发布与界面补记：e71-runtime-continuation/OWNER-SOURCE-PUBLISH.json记
 G77正常新任务回读：`G77-pro-xhs-new-input/ACTUAL-TASK-STATUS.PRIVATE.json` SHA 93dbb8359cbe2b24ccfd35e18687355ee0484d6daeb94b37f0631fe7726c1753；`STOP-RESULT.PRIVATE.json` SHA ffaeaec525af62fc92e9bf5ca6c095c6f29383dcaf25a8b8090a4b24e7a3eadc。task停止/child失败、3capture/预算10记录保持；无图片成功结论。
 
 原三项实后独审：`review/g76-user3-actual-b/CURRENT-USER3-ACTUAL-FINAL.json` SHA 235feaf626093798fcbf19553fdec2a77791ad24c733356fd0a50508a3383a28。16唯一HTTP/原4题文/旧31不可变4格式/原图/原9705与c7/SDK15表旧行子集均核；新3条使默认project pointer合法改变，不能假称默认仍旧31。G77 Consumer四格式实际新3与Pro/ACK一致，但媒体FAIL，独审最终原件补后续条目。
+
+## G79实际采用与用户回验｜本轮补充索引
+
+原件根沿固定HANDOFF；PRIVATE、原素材/SDK/DB不提交。以下SHA为当前实存字节，不以作者自测替独审。
+
+| 范围 | 原件相对路径 | SHA256 |
+|---|---|---|
+| G79采用原件 | G79-owner-media-diagnostics-adoption/runtime-adoption/ADOPTED.json | 04f8cdbda5c18a857925aba22faabff55573e38733e0e08b2df3d5effc9a79e1 |
+| C分层实际采用门 | review/g79-media-adopter-independent/ACTUAL-STAGED-FINAL.json | 4957bc438b7bf0a4173392c9dc16cfc97e5fb7c6006937d16d1efa1e9a9ff1ca |
+| C首次HOLD原件保留 | review/g79-media-adopter-independent/ACTUAL-FINAL.json | 456212d13cb3475ddc5c972dc106cf6f8f529ee670bd6031679b8bbb0e548502 |
+| root正常只读回验 | G79-owner-media-diagnostics-adoption/ROOT-USER-READBACK.json | 5c90628971496b4f6668bc47c396ab7059f5e7b823c177fc33446704d438aa6d |
+| C G77部分真实验收 | review/g77-real-partial-independent/FINAL.json | d5d73c12fc65e56f8f6fb3b288bce134a1e10fb3ec99ff038dc03f4f17274d3c |
+| C零文件候选独审 | review/g78-zero-media-independent/FINAL.json | 048b18645fb18f796fd008ec848d9c42c03cafe09f0c6df9d6733eb0f343d39c |
+
+G79 ROOT-USER-READBACK时间为2026-10-21T00:13:05Z，先于G80；其默认G77状态不是G80后的当前默认。
+
+下列为root新实际原件；C已实际交叉核到3ACK/预算/停止、Consumer四格式、1883保持及2合法变化，最终报告原件/SHA见下；不宣媒体成功。
+
+| 范围 | 原件相对路径 | SHA256 |
+|---|---|---|
+| G80唯一创建原件 | G80-pro-xhs-other-original/CREATE-RESULT.PRIVATE.json | 39bf0e255e6aafbe0ac31d1f5767c8977e96356b54d2b17890120556da340bae |
+| G80实际任务状态（root） | G80-pro-xhs-other-original/ACTUAL-TASK-STATUS.PRIVATE.json | a4f2bad1342a408df7b23d5e25a837845ba01a9ac19b01673adc390e1029da86 |
+| G80正常停止INTENT | G80-pro-xhs-other-original/STOP-INTENT.PRIVATE.json | 904b9e5d4939ab840d1f290a795e8f5aefad3a5e12a46eb6e78aaedbe37f7f69 |
+| G80正常停止结果 | G80-pro-xhs-other-original/STOP-RESULT.PRIVATE.json | 3be097a7af2b6d0b9c951f91165eb04396d94502ea113fa481c313b9b0eb0a3b |
+| G80有限终态/预算原件 | G80-pro-xhs-other-original/TERMINAL-WORKER.PRIVATE.json | 0b5d72fcec1d21ce7f65e97b1e62b053d945aca205de11f491a919fe0ab7eed5 |
+
+
+C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `01832ef93b8a7ab21dbb0894a476a1e9c43e1dc7c65770534280ae94c6cc691f`，正文/评论/回执/四格式与保护核查通过，媒体仍HOLD。有限错误跨层传播仍仅实现中，尚未上线。

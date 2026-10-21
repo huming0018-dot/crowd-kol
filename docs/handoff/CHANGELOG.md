@@ -1054,3 +1054,20 @@ E71结束前14:16补记：发布V2仅后端候选，冻dfd34b7c5062b40cedf034954
 - **问题/修复**：V1自锁/目录fsync、真实媒体文件名/SQLite残留遗漏及非dict入口回归均留RED并最小修复；3.9/3.12 repr校验差异保记录而不放宽门。解锁后whole-state差异无旧raw证据，不补写原因。
 - **当前未完**：新G77 Pro正文/评论已取得，但媒体exit74仅0byte文件，已收到正文1/评论2共3capture云回执，root正常停止新任务；媒体完整性独审及future拒零/有限诊断继续；不重试原intent、不冒完整通过。原native120保持，122包未发布安装；连续OTA/第二设备/完整U01–U22未完成。知识人工审批与48h/watchdog维持原暂停/待审。
 - **下一步/交接**：媒体真实错误有限诊断与原Pro流程接线、同输入完整性和新正常任务云回执；每轮更新本固定入口/证据/日志。读取不到原件先说明缺口。
+
+## 2026-10-21｜G79有限诊断采用与G80部分真实回执（媒体失败）
+
+- **接力者 / bot / 独立审查者**：root实际执行；A媒体有限诊断；B拒零候选及本交接草稿；C源/采用/实际独审，G80实际已交叉核，最终报告SHA见下。
+- **目标与范围**：保留原标题/反馈/多项目消费，有限诊断与未来拒零；不重放旧失败。
+- **实际改动**：G79四源已采用；G80仅正常新逻辑输入唯一创建与停止，非媒体完成。
+- **修改文件 / 组件 / 数据**：Owner493/4覆盖/489保持；原G77历史保；G80新增3ACK、默认Consumer新3。
+- **版本**：crowd-kol fd1b0510371b62cf99e513a58106249452fdea0f已推；Owner40149 / owner-pro-media-diagnostics-e2ab75cf18bf463b；M238/K234不换。
+- **验证**：G79原20次导出及反馈只读PASS在G80之前；锁内raw相同、1885保护/五库/知识行保持；G80 stream/exit74/mediaFAIL，原件见本轮EVIDENCE。
+- **独立审查**：C G79实际4957bc43…/G77部分d5d73c12…；G80 C已实核3ACK/预算/停止/四格式/1883保护，最终报告SHA见下；不冒媒体成功，作者不自审替代。
+- **部署 / 线上生效**：仅G79本机Owner已采用；本条无中央部署或native/package更新。
+- **业务验收**：G80 root确认1正文/1根/1回复共3ACK，预算10/15refs/1空文件拒/无hybrid结果/正常stop200；图片与完整性未通过。
+- **风险 / 阻塞 / 下一步**：中央有限错误白名单未贯通；不重发原INTENT；native120/122未装、人审待决定、48h继续暂停。
+- **可复核证据**：G79 ROOT-USER-READBACK、C ACTUAL-STAGED-FINAL，G80 CREATE-RESULT/ACTUAL-TASK-STATUS/STOP-INTENT/STOP-RESULT/TERMINAL-WORKER。
+- **状态更新位置**：本轮G81片段已按HEAD加本轮内容暂存至固定HANDOFF、EVIDENCE与CHANGELOG；原未提交差异另保。
+
+C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `01832ef93b8a7ab21dbb0894a476a1e9c43e1dc7c65770534280ae94c6cc691f`，正文/评论/回执/四格式与保护核查通过，媒体仍HOLD。有限错误跨层传播仍仅实现中，尚未上线。

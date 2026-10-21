@@ -1,6 +1,17 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 08:01 CST｜标题、反馈与多项目正式复验通过；Pro新试媒体未通过
+## 当前状态｜2026-10-21 08:25 CST｜G79有限诊断与拒零已采用，原媒体失败仍保留
+
+- **正式运行**：fd1b0510371b62cf99e513a58106249452fdea0f 已推。Owner40149 / owner-pro-media-diagnostics-e2ab75cf18bf463b，493文件仅4覆盖，其余489原件保持；旧树保留。M238/K234及原配置、身份/进度/评分/outbox/既有回执与OTA保护不变，不称整个HEAD均在运行。
+- **真实采用与独审**：C分层实际门4957bc43…确认1885保护项、五业务库schema/全部行、知识全部行、双native和26额外原件保持；锁内cloud raw前后完全相同且idle。首次解锁后whole-hash不等的HOLD原件保留，后续只读差异定位到participant_pro_cursor；无对应feed原始响应，确切原因未证，不冒全程字节不变或做游标修复。
+- **正式用户回验**：G79采用后、G80开始前（2026-10-21 08:13 CST），root正常API确认当时默认G77的1正文/2根评论题文精确，verified_images=0；原四素材、软件项目、六店20次四格式导出（16唯一URL）hash仍同基线，原9705反馈/c7缺口不变，无重复提交。该回验发生在G80之前；后续合法新ACK已将当前默认Consumer更新到G80新3条。旧31归档与原4固定版本独立保留，不能把默认指针变化说成旧素材丢失。
+- **媒体边界**：C G77 d5d73c12…只通过真实正文/评论3份ACK及Consumer四格式，媒体仍FAIL。原0字节PNG及其旧错误下载元数据不改、不重入库；G79拒零和有限错误诊断只作用未来处理，不代表旧图修好、6图成功或完整采集通过。有限错误中央白名单尚未贯通，不能宣跨层诊断已完整。
+- **G80部分实际结果（C已实核，最终报告SHA见下）**：唯一正常create200，dispatch79a0b5cc…/task56f2ec64…/localrun087472ea…；最终failed/exit74，有限诊断stage=stream、reason=xhs_media_transport_failed、http=null，不能猜HTTP或账号原因。真实3ACK为1正文/1根评论/1回复，预算10（8pro/2media）；15媒体引用、1个空文件拒纳、无hybrid-media-result。root随后正常stop200/desiredstopped。当前默认Consumer合法更新为G80新3条，不能称图片/完整采集成功；原失败、原INTENT和回执保留。C已实际核parentstopped/desiredstopped、childfailed/received3/spent10/reserved0/finish30cbad…；当前confirmed56f2…的Consumer四格式均200且只含3items，旧16唯一导出SHA/bytes保持。1885保护项仅accountstate与globalmaterialpointer因合法source变化，其余1883保持；五库旧row、知识和native120保持，ResultsStore revision90→91为合法新增。C最终报告原件/SHA见下，不将该部分通过说成媒体或全链完整成功。
+- **未验/下一步**：原G73/G77失败不换key重试；新操作仍须fresh normal preview ready、idle、原任务stopped、固定O_EXCL持久INTENT及root唯一执行。native仍120，122候选包未发布安装；普通参与端媒体领取、两设备/连续runtime OTA未验。知识0.1.2仍等本人明确决定，不代批/release/pin；48h/watchdog继续暂停，完整目标继续。
+
+C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `01832ef93b8a7ab21dbb0894a476a1e9c43e1dc7c65770534280ae94c6cc691f`，正文/评论/回执/四格式与保护核查通过，媒体仍HOLD。有限错误跨层传播仍仅实现中，尚未上线。
+
+## 历史快照｜2026-10-21 08:01 CST｜标题、反馈与多项目正式复验通过；Pro新试媒体未通过
 
 - **正式用户路径**：原45937已实际接入原标题/全文、知识反馈及按项目消费。G76采用后，原19/29四条素材各新→旧→新，24份HTML/JSON/JSONL/CSV逐字节与固定原件相同，最终回到原74cb/dfe94新版；另外20次导出（16唯一URL，含软件项目与六店）保持。B实后只读再核16唯一导出、原4题文/recordhash、旧31不可变四格式及原图；全局默认素材已合法指向新3条，旧31只按archive核验，不冒默认仍为旧项目。原9705反馈仍在原SDK活库pending_feedback，c7缺口保持；没有为演示重复提交。只证明这些既有项目，不冒任意新项目或知识已批准发布。
 - **实际运行**：源码072933b7cee00d251e0830c8fc4df12f6f677148及本轮4396666/b4506ac/c190520/2cd5cc1/b92aed4已推原分支。唯一Owner33977，owner-pro-preflight-recovery-bacc56e397263ee7，493文件/8覆盖（6替换2新增）/485原件保持；旧491树保留。M238/K234及原配置不换。原身份、进度、评分、outbox、既有云回执与OTA保持，不称整个Git HEAD都在运行。
