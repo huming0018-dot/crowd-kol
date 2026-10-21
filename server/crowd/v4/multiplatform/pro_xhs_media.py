@@ -5,7 +5,7 @@ import hashlib,json,os,re,stat,subprocess,sys,uuid
 from pathlib import Path
 MANAGER_SHA='8fe88ee05ac91fa7e256be921b67e6fcb9396f337fed0a92f8ca12ea45e5c84e'
 ENGINE='native_pro_downloader'
-DRIVER_SHA='87154b1117c308c8e33bcaa5c65f758da01327d38486d86a0cb1533068759de8'
+DRIVER_SHA='056c4a28fbee3975ad0d36427ef655979c6c324356aa06723b8d102d4ddeb66f'
 AXIOS_INVENTORY_SHA='7341217843184a92af65c4a7125094242d5fe52c48f035740e7ab62fb89f85ba'
 
 def digest(value):

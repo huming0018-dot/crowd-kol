@@ -70,7 +70,10 @@ class Media(unittest.TestCase):
    payload={'binding':binding,'identity':context,'root':str(folder),'items':items,'run':str(self.run),'python':sys.executable,'guard_module':str(MP/'pro_xhs_media.py'),'timeout':3000}
    done=subprocess.run([os.environ['CROWD_PRO_NODE'],'--experimental-vm-modules','--require',str(BASE/'test_https_fixture.cjs'),str(MP/'pro_xhs_download.mjs')],input=json.dumps(payload).encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env,timeout=10)
    self.assertEqual(done.returncode,0,done.stderr.decode());return json.loads(done.stdout)
-  result=native.execute_payload(self.payload,launch=launch);self.assertEqual(len(result['assets']),4);self.assertEqual(self.ledger.snapshot()['used'],8);actual=[json.loads(l) for l in calls.read_text().splitlines()];self.assertEqual([r['method'] for r in actual],['HEAD','GET']*4)
+  result=native.execute_payload(self.payload,launch=launch);self.assertEqual(len(result['assets']),4);self.assertEqual(self.ledger.snapshot()['used'],8);actual=[json.loads(l) for l in calls.read_text().splitlines()];self.assertEqual(len(actual),8);by_path={}
+  for row in actual:by_path.setdefault(row['path'],[]).append(row['method'])
+  self.assertEqual(len(by_path),4)
+  for methods in by_path.values():self.assertEqual(methods,['HEAD','GET'])
  def test_typed_normal_no_image_needs_no_transport(self):
   self.row['image_list']='';self.save_row();self.payload['note']=[self.row];self.payload['response']={'xhs_plan_sha256':native.digest([])}
   result=native.execute_payload(self.payload,launch=lambda *_:self.fail('no HTTP for zero references'));self.assertEqual(result['assets'],[]);self.assertEqual(self.ledger.snapshot()['used'],0)
