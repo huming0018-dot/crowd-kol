@@ -1274,3 +1274,12 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 | 原生恢复诊断/双路线 | G91-native-retry-diagnosis/FREEZE.json、PLAN.md、WEB-EVIDENCE.md、test_native_retry.mjs；review/g91-native-retry-b/FINAL.json | freeze0189daea986f82af5b1ae38090349ea288179698e0a2ff358df27f28c68e3d3e；B b38ab645f533553d95d2d8743a5fe0229f8db4fe9dd6c6dd26ea5636e60dd858；HEAD重试可恢复、stream假completed反例，只有计划/原类禁网证据，不冒产品或真实恢复 |
 
 根环境失败保持：组装正式重跑最初漏原extension/helper两个测试输入，未改产品/断言，读取原builder已核hash的固定输入后11项全过；初次交接脚本默认python3编码拒绝无文件改动，实际Owner3.12通过。不能以这些本地测试启动错误推断线上产品故障。当前结论以实际gate和真实回执分层，不抹失败。
+
+## 2026-10-21 14:37 CST｜root｜稳定126实际安装、中央准入与正式入口发布；派单400未解决
+
+- 目标：减少重复校准，推进真实安装/Start/任务/回传/停止。AGENTS追加交付优先规则；保留Pro优先、原身份/进度/评分/OTA及独审门。
+- 已部署：G98中央准入，迁移20261021060414，实际独审ACTUAL-FINAL.json/9fb0fb6e…；本地迁移SQL仅导出，不再执行。
+- 已采用：G101安装五脚本已正式PAGES4184c656…/公开8件；G103实际原Mac安装126/60，C实际独审9297f13f…；G104真实UI Start已开启等待，不伪造heartbeat/claim。
+- 已发布：PAGES5546c9c8…只新增稳定ZIP/SHA/README三件，G103-product-release-materials/publication/PUBLIC-READBACK.json，3GET exact；不含私SDK，不改既有通道。crowd-kol a4256d5…G99V2六源公开exact但Owner未采用；V1正式失败保留、V2正式11项通过。
+- 失败与下一步：G105唯一正常create HTTP400、body未保存；同keyreconcile200/dispatches[]。未重发、无新ACK；A与C独立定位真实create分支，修后继续正常用户路径。不是完整交付，也不启动48h。
+- 证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry/ 下G98、G101、G103、G104、G105及review/g103-stable-package-independent/ACTUAL-INSTALL-FINAL.json。原G96媒体缺口与G99V1失败不覆盖。无凭据随文档发布。

@@ -1,6 +1,17 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 13:03 CST｜正式消费保持；0.1.2已按用户批准入库；完整媒体仍HOLD
+## 当前状态｜2026-10-21 14:37 CST｜正式126安装与开始已通过；新任务创建400正在修复
+
+- **交付方向**：按用户要求，以安装→开始→自动领取→Pro采集→云回执→停止及升级的实际用户路径推进。复用已有证据，只检查本次受影响路径；每项实质改动仍独审。同输入正文/评论分页/媒体/导出不能以更快为由删减。48h实验和watchdog保持暂停，全U01–U22未完成。
+- **实际安装与Start**：G103稳定包已从正式入口安装；扩展4.2.102、126自有runtime/manifest597b61fe…、本机明确配置60，后续无flag升级保留60；旧设置14及task29完成记录、原身份/评分/outbox保持。非作者实际独审9297f13f…通过。原Chrome正常“继续采集”后显示“已开启自动领取，目前没有可执行任务”，未重开旧21–28/29；旧21–28已只读证为user_stopped且dispatch_allowed=false，不重复校准。
+- **中央已部署**：G98仅为原pro_node_capable(uuid,uuid,integer)追加精确126 manifest，迁移账本20261021060414/participant_runtime126_admission；OID46770，定义MD5dc7db8d44c1a15e06dc385306b37511f，ACL/search_path/security等保持，实际独审9fb0fb6e…通过。已导出同字节SQL到server/crowd/v4/supabase/migrations/20261021060414_participant_runtime126_admission.sql，不重复执行。
+- **当前真实阻塞G105**：原参与者search“上海 咖啡”/1正文/comments20+replies/预算60，无media；正常preview200/ready/participant_extension。唯一create返回HTTP400，外层脚本没有保存响应body，具体原因尚未知。原同key正常unified_dispatches只读200/dispatches[]；不换key、不盲重发。实际日志确认57014发生于machine_fallback的机器任务INSERT；06:38原节点在线但capabilities/at均null、capable60=false，当前无目标锁等待，不能反推当时无锁。原Chrome也显示Pro助手未就绪；C定位助手，A查中央create。此任务尚无领取、正文、评论或云ACK，不能冒产品闭环通过。
+- **正式安装包已发布**：PAGES5546c9c814147c377994675456f89a8f7cdfafbf仅新目录v4/releases/participants/native-v2-runtime126/的ZIP/SHA/README三文件，公开回读3件exact。ZIP42a04f94fcff4c1a2ee9822bea79a91afa388df69000cdcd8516d6ff55274e5e/1060098B；未重建、未改原120通道。不含私SDK/凭据，新设备仍需要合法Pro SDK及私有descriptor，不称任意新Mac开箱即用。扩展OTA不等于native runtime OTA。
+- **源码与Owner分别记录**：crowd-kol a4256d5052694ba2bc2fc45695a19ab79cd5d1e7已推，G99V2六源在线exact；原生3并发及失败写流drain，V1的ERR_STREAM_DESTROYED失败仍保留；V2独审52项、正式3+8通过。尚未采用该V2至Owner。当前Owner仍57384/G95/493文件两媒体源覆盖，其余491保持，正式已运行8ac0b7c3…原生重试。G100 V2仅已prepare，PLAN0eeffc76…/FREEZE-V2 76a7a005…待独立最终计划门，未apply、未Owner采用；不把源码发布冒正式运行。
+- **现有业务与未完成**：正式标题保真/反馈/多项目消费沿G95真实20导出及旧4素材往返证据，不反复重验；0.1.2已真人批准accepted、未release/pin。G96实际正文1/根评1/嵌回复1共3ACK，但15图只10份有效字节，wall_timeout74，root正常stop；不是完整媒体云交付。普通参与端仅XHS search/comments，Owner高级detail/media分开。其他平台、原两设备、新native连续OTA、完整媒体与48h实验仍未验完。
+- **下一步**：先定位并修复G105创建阻塞，独审后接入正式中央/Owner适用层，再用同一意图的正常协议完成原参与者领取、Pro正文/评论回传与自动停止；随后采用已审V2并跑完整媒体，不让高级媒体反复调试阻断基础产品交付。原身份、旧进度和未知旧请求保留。
+
+## 历史快照｜2026-10-21 13:03 CST｜正式消费保持；0.1.2已按用户批准入库；完整媒体仍HOLD
 
 - **用户三项正式路径**：原标题/全文、知识反馈、多项目消费仍在原45937资料库/知识更新/项目页。原19/29四素材新→旧→新及24次四格式原件对照沿G53/G76实际证据；G89采用后正常20次导出/16唯一URL再次保持。G90实际新正文1/根评1/回复1共3云回执，Consumer HTML/JSON/JSONL/CSV题文及父链与原Pro逐值相同；原9705反馈仍1、没有为演示重投。不冒任意新项目/异机消费完成。
 - **0.1.2最新决定（覆盖旧‘等真人批准’状态）**：本轮用户对call_5f53677ba9d64762b287f806fb62e265明确回复“批准这份提案”。root经独审后唯一正常target_decide200，prop:g26-owner-social-target-012/social-observations0.1.2/candidate2d4886ce…已accepted；intent3ffd97f0…/decisionrev:48ad8e1595fc56e8。C实际275cd274…确认仅新增grant1/decision1/audit2，原034仍proposed、六candidate原件/9705/c7/Consumer四格式保持，release/pin/attempt仍0。只是批准，未发布/切版本/重算评分；SDK human_uid仍null，不能把聊天中的真人授权冒成SDK已核真人UID。授权与原请求/意图/结果私存关联。

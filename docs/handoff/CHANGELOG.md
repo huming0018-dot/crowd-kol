@@ -1106,3 +1106,12 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - **人类决定与实际入库**：用户明确批准call_5f536…所述0.1.2；按精确012/candidate2d488正常target_decide一次200accepted，grant1/decision1/audit2，原034proposed和9705/c7/六candidate保持，release/pin0。SDK固定服务主体与human_uidnull事实单列，不伪装真人UID。未发布/切Consumer/重算评分。
 - **验证/证据**：V2正式16Py+Node回归、采用2045/extra126、真实G90cf146与实际批准275cd分别独审；原项目20次导出再次同原字节。合法源数据追加和知识审批delta分别核，不称全库物理字节未变。详见本轮EVIDENCE。
 - **下一步/风险**：原类重试诊断发现默认恢复被禁用且原stream有假completed竞态，B有限计划门通过，A离线实现候选中，未采用重试/重采。原2MiB/100MiB/预算Stop优先，保145KB部分文件不伪nativeACK。旧126ZIP需按V2重组，不发旧包冒最新；全平台、原两设备/连续runtime OTA、知识发布与完整U01–U22未完，48h/watchdog暂停。
+
+## 2026-10-21 14:37 CST｜root｜稳定126实际安装、中央准入与正式入口发布；派单400未解决
+
+- 目标：减少重复校准，推进真实安装/Start/任务/回传/停止。AGENTS追加交付优先规则；保留Pro优先、原身份/进度/评分/OTA及独审门。
+- 已部署：G98中央准入，迁移20261021060414，实际独审ACTUAL-FINAL.json/9fb0fb6e…；本地迁移SQL仅导出，不再执行。
+- 已采用：G101安装五脚本已正式PAGES4184c656…/公开8件；G103实际原Mac安装126/60，C实际独审9297f13f…；G104真实UI Start已开启等待，不伪造heartbeat/claim。
+- 已发布：PAGES5546c9c8…只新增稳定ZIP/SHA/README三件，G103-product-release-materials/publication/PUBLIC-READBACK.json，3GET exact；不含私SDK，不改既有通道。crowd-kol a4256d5…G99V2六源公开exact但Owner未采用；V1正式失败保留、V2正式11项通过。
+- 失败与下一步：G105唯一正常create HTTP400、body未保存；同keyreconcile200/dispatches[]。未重发、无新ACK；A与C独立定位真实create分支，修后继续正常用户路径。不是完整交付，也不启动48h。
+- 证据根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry/ 下G98、G101、G103、G104、G105及review/g103-stable-package-independent/ACTUAL-INSTALL-FINAL.json。原G96媒体缺口与G99V1失败不覆盖。无凭据随文档发布。
