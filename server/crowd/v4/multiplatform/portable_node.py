@@ -9,6 +9,10 @@ import os
 from pathlib import Path, PurePosixPath
 import platform
 import stat
+import signal
+import subprocess
+import sys
+import time
 import tarfile
 import urllib.request
 
@@ -24,6 +28,7 @@ LINUX_ARCHIVES={
 TRUSTED_ARM64_BINARY='18e387c90ab8a8400183e8bdd396376e1e875b91b4c874b894dcade7b35bf572'
 MAX_ARCHIVE=80*1024*1024
 MAX_FILE=160*1024*1024
+DOWNLOAD_DEADLINE=120
 
 def need(ok,reason='node_resource_invalid'):
  if not ok:raise ValueError(reason)
@@ -89,11 +94,41 @@ def check(helper,*,arch=None,system=None):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
  def redirect_request(self,*args,**kwargs):raise ValueError('node_download_redirected')
 
-def fetch(url):
+def _download(url):
  request=urllib.request.Request(url,headers={'User-Agent':'CrowdV4-node-dependency'})
- with urllib.request.build_opener(NoRedirect()).open(request,timeout=120) as response:
+ with urllib.request.build_opener(NoRedirect()).open(request,timeout=DOWNLOAD_DEADLINE) as response:
   need(response.url==url,'node_download_redirected');raw=response.read(MAX_ARCHIVE+1)
  need(len(raw)<=MAX_ARCHIVE,'node_archive_too_large');return raw
+
+def download_url(url):
+ return type(url)is str and url in {'https://nodejs.org/download/release/%s/node-%s-%s-%s.tar.gz'%(VERSION,VERSION,system,arch)for system in('darwin','linux')for arch in ARCHIVES}
+
+def fetch(url):
+ need(download_url(url),'node_download_url_invalid')
+ # A socket timeout resets on incoming bytes and cannot bound DNS or drip reads.
+ # The one-shot child writes no files; kill+wait prevents late resource promotion.
+ deadline=time.monotonic()+DOWNLOAD_DEADLINE
+ with subprocess.Popen([sys.executable,'-I',str(Path(__file__).resolve()),'--fetch-worker',url],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)as child:
+  try:raw,_=child.communicate(timeout=max(0,deadline-time.monotonic()))
+  except BaseException as error:
+   child.kill();child.wait()
+   if isinstance(error,subprocess.TimeoutExpired):raise ValueError('node_download_deadline')from None
+   raise
+  errors={-signal.SIGALRM:'node_download_deadline',3:'node_download_redirected',4:'node_archive_too_large'}
+  need(child.returncode==0,errors.get(child.returncode,'node_download_failed'))
+ need(len(raw)<=MAX_ARCHIVE,'node_archive_too_large')
+ return raw
+
+def _fetch_worker(url):
+ need(download_url(url),'node_download_url_invalid')
+ # Only this isolated child owns SIGALRM; a terminated parent cannot leave an
+ # indefinitely dripping download. The caller's handlers/threads stay unchanged.
+ signal.signal(signal.SIGALRM,signal.SIG_DFL)
+ signal.setitimer(signal.ITIMER_REAL,DOWNLOAD_DEADLINE)
+ try:sys.stdout.buffer.write(_download(url));sys.stdout.buffer.flush()
+ except ValueError as error:return {'node_download_redirected':3,'node_archive_too_large':4}.get(str(error),2)
+ except Exception:return 2
+ return 0
 
 def prepare(helper,*,arch=None,system=None,offline=False,fetch=fetch):
  system=operating_system(system);arch=arch or architecture();dest=target(helper,arch,system=system)
@@ -127,3 +162,7 @@ def from_runtime(runtime,*,arch=None):
   helper=Path.home()/('Library/Application Support/CrowdV4Updater' if system=='darwin' else '.local/share/CrowdV4Updater')
  else:raise ValueError('node_runtime_layout_invalid')
  return check(helper,arch=arch,system=system)
+
+if __name__=='__main__':
+ if len(sys.argv)!=3 or sys.argv[1]!='--fetch-worker' or not download_url(sys.argv[2]):raise SystemExit(2)
+ raise SystemExit(_fetch_worker(sys.argv[2]))
