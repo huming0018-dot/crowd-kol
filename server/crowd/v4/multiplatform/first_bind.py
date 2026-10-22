@@ -2,6 +2,7 @@
 No cloud RPC, scheduler, source collection, account copy or relay is performed.
 """
 import argparse,fcntl,hashlib,json,os,re,socket,subprocess,sys,uuid
+import urllib.request
 from pathlib import Path
 from install_machine_node import installed,private,write_once,encode,need,sha
 ENROLL_SHA='7c39217c54063e5621edc585ad94412649d1742e1b5e749a949d87892603cbd8'
@@ -20,7 +21,7 @@ def existing(collector,client_id):
   identity=json.loads(private(session/'identity.json'))
   if identity.get('platform')!='xhs':continue
   bound=json.loads(private(session/'pro-binding.json'))
-  need(bound.get('client_id')==client_id,'existing_xhs_binding_conflict')
+  need(client_id is None or bound.get('client_id')==client_id,'existing_xhs_binding_conflict')
   value=store.status(session.name,'xhs');matches.append(value)
  need(len(matches)<=1,'existing_xhs_binding_ambiguous')
  return matches[0]if matches else None
@@ -28,12 +29,37 @@ def usable(value):
  return bool(value and value.get('state')in('authenticated','resumed')and value.get('identity_status')=='authenticated_self_id'and value.get('login_verified')is True and value.get('recovering')is False and value.get('login_in_progress')is False and type(value.get('generation'))is int and value['generation']>=1 and type(value.get('account_ref'))is str and re.fullmatch('[a-f0-9]{64}',value['account_ref']))
 def result(value):
  return {'state':'bound','session_id':value['session_id'],'generation':value['generation'],'identity_basis':'cached_original_pro_official_self','reused':True,'source_collection_started':False}
-def bind(root,client_id,*,status=False,invoke=subprocess.run,connect=socket.create_connection):
- need(type(client_id)is str and re.fullmatch('[A-Za-z0-9_-]{1,128}',client_id)is not None,'invalid_local_client_id')
+def choose_client():
+ class NoRedirect(urllib.request.HTTPRedirectHandler):
+  def redirect_request(self,*args,**kwargs):return None
+ opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+ try:
+  with opener.open('http://127.0.0.1:8274/api/accounts',timeout=3)as response:
+   need(response.status==200,'cookiebridge_accounts_unavailable');raw=response.read(262145)
+  need(len(raw)<=262144,'cookiebridge_accounts_unavailable');value=json.loads(raw)
+ except (OSError,ValueError):raise ValueError('cookiebridge_accounts_unavailable')from None
+ need(type(value)is dict and value.get('biz_code')==0 and value.get('isok')is True,'cookiebridge_accounts_unavailable')
+ data=value.get('data');need(type(data)is dict,'cookiebridge_accounts_unavailable')
+ accounts=data.get('accounts');need(type(accounts)is list and len(accounts)<=256,'cookiebridge_accounts_unavailable')
+ ids=[]
+ for account in accounts:
+  need(type(account)is dict,'cookiebridge_accounts_unavailable')
+  client=account.get('client_id');need(type(client)is str and re.fullmatch('[A-Za-z0-9_-]{1,128}',client)is not None,'cookiebridge_accounts_unavailable')
+  platforms=account.get('platforms');need(type(platforms)is dict,'cookiebridge_accounts_unavailable')
+  xhs=platforms.get('xhs',{});need(type(xhs)is dict,'cookiebridge_accounts_unavailable')
+  if account.get('connected')is True and xhs.get('has_cookies')is True:ids.append(client)
+ need(len(ids)==len(set(ids)),'cookiebridge_accounts_unavailable')
+ need(len(ids)==1,'cookiebridge_xhs_client_ambiguous'if ids else'cookiebridge_xhs_login_required')
+ return ids[0]
+def bind(root,client_id=None,*,status=False,invoke=subprocess.run,connect=socket.create_connection):
+ need(client_id is None or(type(client_id)is str and re.fullmatch('[A-Za-z0-9_-]{1,128}',client_id)is not None),'invalid_local_client_id')
  root,record,collector=context(root);value=existing(collector,client_id)
  if usable(value):return result(value)
  if status:return {'state':'unbound_or_unverified','source_collection_started':False}
  need(value is None,'existing_session_unverified_do_not_rebind')
+ from local_cookiebridge import ensure
+ ensure(collector)
+ if client_id is None:client_id=choose_client()
  # Before creating any plan/intent, give the operator a finite actionable error.
  try:
   with connect(('127.0.0.1',8274),timeout=2):pass
@@ -63,11 +89,16 @@ def bind(root,client_id,*,status=False,invoke=subprocess.run,connect=socket.crea
  finally:os.close(fd)
 def reason(error):
  value=str(error)
- allowed={'invalid_local_client_id','first_bind_requires_one_registered_collector','existing_xhs_binding_conflict','existing_xhs_binding_ambiguous','existing_session_unverified_do_not_rebind','cookiebridge_not_running_start_original_local_server','pro_dependencies_unavailable_run_install','enrollment_source_changed','first_bind_plan_changed','first_bind_pending_or_unknown_do_not_retry','first_bind_failed_or_unknown_inspect_local_enrollment','first_bind_official_self_unverified','unsafe_session_path'}
+ allowed={'cookiebridge_accounts_unavailable','cookiebridge_xhs_client_ambiguous','cookiebridge_xhs_login_required','invalid_local_client_id','first_bind_requires_one_registered_collector','existing_xhs_binding_conflict','existing_xhs_binding_ambiguous','existing_session_unverified_do_not_rebind','cookiebridge_not_running_start_original_local_server','pro_dependencies_unavailable_run_install','enrollment_source_changed','first_bind_plan_changed','first_bind_pending_or_unknown_do_not_retry','first_bind_failed_or_unknown_inspect_local_enrollment','first_bind_official_self_unverified','unsafe_session_path'}
  return value if value in allowed else 'local_binding_unavailable'
 def main():
- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--root',type=Path,required=True);parser.add_argument('--client-id',required=True,help='Client ID shown by your original local CookieBridge extension; never a Cookie');parser.add_argument('--status',action='store_true',help='Read cached local status only; no connection, auth or write');a=parser.parse_args()
- try:value=bind(a.root,a.client_id,status=a.status)
+ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--root',type=Path,required=True);parser.add_argument('--client-id',help='Optional local Client ID; existing binding or unique connected XHS client is selected automatically');parser.add_argument('--ensure-bridge',action='store_true',help='Start only the separately installed original loopback Bridge; no self check');parser.add_argument('--status',action='store_true',help='Read cached local status only; no connection, auth or write');a=parser.parse_args()
+ try:
+  need(not(a.status and a.ensure_bridge),'invalid_binding_action')
+  if a.ensure_bridge:
+   from local_cookiebridge import ensure
+   _,_,collector=context(a.root);print(json.dumps(ensure(collector)));return 0
+  value=bind(a.root,a.client_id,status=a.status)
  except (ValueError,OSError):print(json.dumps({'state':'not_ready','reason_code':reason(sys.exc_info()[1]),'source_collection_started':False}));return 2
  print(json.dumps(value));return 0 if value['state']=='bound'else 2
 if __name__=='__main__':raise SystemExit(main())

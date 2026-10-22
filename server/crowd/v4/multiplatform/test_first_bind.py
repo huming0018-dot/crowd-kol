@@ -6,7 +6,7 @@ import pro_bridge_enroll as E
 from account_sessions import AccountSessions
 class Tests(unittest.TestCase):
  def setUp(self):
-  self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name).resolve();self.collector=self.root/'collector';self.collector.mkdir();(self.collector/'sessions').mkdir();(self.collector/'runs').mkdir();self.client='synthetic_local_client';self.record={'runtime':str(Path(__file__).parent),'collector_roots':[str(self.collector)]};self.bound={'platform':'xhs','client_id':self.client,'cookiebridge_url':'http://127.0.0.1:8274','sign_url':'http://127.0.0.1:8990'};self.patches=[patch.object(F,'context',return_value=(self.root,self.record,self.collector)),patch('pro_executor.task_installation',return_value={'root':'/licensed/fixture','python':'/selected/pro/python'}),patch('pro_executor.probe',return_value={})]
+  self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name).resolve();self.collector=self.root/'collector';self.collector.mkdir();(self.collector/'sessions').mkdir();(self.collector/'runs').mkdir();self.client='synthetic_local_client';self.record={'runtime':str(Path(__file__).parent),'collector_roots':[str(self.collector)]};self.bound={'platform':'xhs','client_id':self.client,'cookiebridge_url':'http://127.0.0.1:8274','sign_url':'http://127.0.0.1:8990'};self.patches=[patch.object(F,'context',return_value=(self.root,self.record,self.collector)),patch('pro_executor.task_installation',return_value={'root':'/licensed/fixture','python':'/selected/pro/python'}),patch('pro_executor.probe',return_value={}),patch('local_cookiebridge.ensure',return_value={'state':'reused'})]
   for p in self.patches:p.start()
  def tearDown(self):
   for p in self.patches:p.stop()
@@ -43,4 +43,17 @@ class Tests(unittest.TestCase):
   with patch('pro_executor.probe',side_effect=OSError('/private/path')):
    with self.assertRaisesRegex(ValueError,'pro_dependencies_unavailable'):F.bind(self.root,self.client,connect=MagicMock())
   self.assertEqual(F.reason(ValueError('/private/path')),'local_binding_unavailable')
+ def test_existing_identity_auto_selected_without_bridge(self):
+  sid=str(uuid.uuid4());self.authenticate(sid);before={str(p):p.read_bytes()for p in self.root.rglob('*')if p.is_file()}
+  with patch.object(F,'choose_client',side_effect=AssertionError('metadata network')):
+   value=F.bind(self.root,invoke=MagicMock(side_effect=AssertionError('self again')))
+  self.assertEqual(value['session_id'],sid);self.assertEqual(before,{str(p):p.read_bytes()for p in self.root.rglob('*')if p.is_file()})
+ def test_status_without_client_is_readonly(self):
+  with patch.object(F,'choose_client',side_effect=AssertionError('network')):
+   self.assertEqual(F.bind(self.root,status=True)['state'],'unbound_or_unverified')
+  self.assertFalse((self.root/'binding-plans').exists())
+ def test_auto_client_ambiguity_never_creates_plan(self):
+  with patch.object(F,'choose_client',side_effect=ValueError('cookiebridge_xhs_client_ambiguous')):
+   with self.assertRaisesRegex(ValueError,'ambiguous'):F.bind(self.root)
+  self.assertFalse((self.root/'binding-plans').exists())
 if __name__=='__main__':unittest.main()

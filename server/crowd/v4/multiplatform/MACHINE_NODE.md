@@ -13,9 +13,17 @@
 
 上述 Linux 验收仅为 `xhs_detail_body_comments_v1`：指定单篇、评论及回复最多 200、media=false，不能外推所有平台、媒体或 300 台实际终端。最终状态和审计原件见[固定交接](../../../../docs/HANDOFF.md)。本轮测试节点验收结束后正常停止，原命名卷、身份和 outbox 保留，不冒长期生产常驻证明。
 
+## 常用安装入口
+
+发行包内执行 `sh install-linux.sh`；标准安装会自动取包清单摘要和默认目录，不需要填写 runtime SHA、uv 或 Python 路径。已有节点可运行 `sh install-linux.sh --root /原安装目录 --check`，从原安装记录读取 Pro、Signer、Python 和采集目录，不重复下载工具或重做登录。`sh bind-linux.sh --root /原安装目录 --status` 会直接复用原 SID；不再要求手填 ClientID。首次绑定在原本地 Bridge 中只有一个已连接小红书客户端时自动选择，有歧义则保留状态并提示选择，不能猜账号。
+
+缺失 uv / Python 3.12 时，入口使用固定发布摘要的公共工具及受管 Python，可接受校验过的 `--bootstrap-cache`。已有工具优先复用，不修改 shell profile。Git 仅在已有 root 或无密码 sudo 权限时由原系统包管理器安装，不索密码；本轮空容器的 apt 联网未成功，不能把它称作已验证的新机全依赖安装。
+
+Owner 仍需通过正常配对提供该节点的私有配置，并在本机准备合法 Pro / Signer / CookieBridge；安装器会自动发现支持的目录和原安装记录，但不会公开附带私仓、复制其他节点账号或静默新建身份。缺少这些输入时会明确停止；普通参与者的新机零准备流程和 Windows 宿主尚未验收。下面是 Owner 的高级输入说明，已有节点不需逐项填写。
+
 ## 安装输入与启动
 
-使用 Owner 组装并给出准确 `NODE-RUNTIME.json` SHA256 的完整包，不在不完整的源码目录直接执行发行入口。终端须已有 Python 3.12、uv、git，以及合法本地 Pro Python / Signer 源目录；私有 SDK、Cookie 和密钥不随本仓公开分发。安装器按原 `uv.lock` 配依赖，使用 copy 模式，Node 从固定官方地址与摘要安装。
+使用 Owner 组装并给出准确 `NODE-RUNTIME.json` SHA256 的完整包，不在不完整的源码目录直接执行发行入口。入口会检查并在具备权限和下载条件时补公共工具；合法本地 Pro Python / Signer 源目录仍由 Owner 准备；私有 SDK、Cookie 和密钥不随本仓公开分发。安装器按原 `uv.lock` 配依赖，使用 copy 模式，Node 从固定官方地址与摘要安装。
 
 Owner 经正常 `worker_pair` 创建独立机器身份，配置文件只含 `endpoint`、`project_key`、新 `worker_key`，权限 0600。不要复制另一节点的配置或参与身份，也不要放入 `owner_key`。以下路径和摘要均由该节点的实际配置提供：
 
@@ -32,7 +40,7 @@ Owner 经正常 `worker_pair` 创建独立机器身份，配置文件只含 `end
 
 安装成功不等于已登录。先在该终端自己的浏览器加载已授权 CookieBridge、仅同步本机，运行 `bind-linux.sh`，由原 Pro 官方 self / AccountSessions 流程生成该节点独立 SID 的认证记录；不能手填 account_ref、复制其他节点状态或伪造 ready。本轮 Docker 复用了宿主原登录，使用审过的临时匿名管道，仅是同机验收设施，不是跨设备 Cookie 共享服务，也不随普通包自动启用。
 
-CookieBridge 本地服务也须按你已购买的原组件说明安装并启动：先 `cd /本机CookieBridge/server`，执行 `uv sync` 后，运行 `uv run python app.py --host 127.0.0.1 --port 8274`。组件和浏览器扩展不随机器节点包分发。`ClientID` 是本机扩展标识，不是 Cookie。已认证的同一绑定直接复用；`bind --status` 仅读原状态，不发 HTTP、不重新认证、不写身份。未核验或结果未知时不会重建 SID 或自动重试认证。
+正常入口会按已配置的本地组件准备 Bridge 依赖并复用／启动原服务。仅供 Owner 手工排查：在 `/本机CookieBridge/server` 按原组件说明安装依赖后，使用 `APP_HOST=127.0.0.1 APP_PORT=8274 uv run python app.py`。已核原 app.py 定义 Tornado 选项但未解析命令行，不能靠 `--host` 保证回环监听；新入口使用原环境变量。组件和浏览器扩展不随机器节点包分发。`ClientID` 是本机扩展标识，不是 Cookie。已认证的同一绑定直接复用；`bind --status` 仅读原状态，不发 HTTP、不重新认证、不写身份。未核验或结果未知时不会重建 SID 或自动重试认证。
 
 `--check` 只作本地预检，不启动调度或采集；正常 start 沿既有领取循环上报能力、自动领任务和保存回执。SIGTERM 正常关闭调度，保留耐久数据；不要删除 `node-install.json`、身份、outbox 或旧任务来绕过安装冲突。运行日志由启动者保存；本轮私有验收记录和恢复命令在固定交接证据中。当前未提供 systemd / Windows 开机自启或跨 OS OTA 的已验收声明。
 
