@@ -1,6 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-22｜改为逐项验收：Pro直采与本地SQL通过，中央直接入库待补
+## 当前状态｜2026-10-22｜分阶段验收：原Pro直采、本地SQLite与中央Postgres入库查回已实跑
+
+- **顺序**：先原Pro数据能力与SQL，再派单，再桥接/参与者与OTA。当前不新增来源任务、不安装runtime、不Stop/Cancel31，48h实验/watchdog保持暂停。保留原身份、进度、评分、回执和既有升级通道。
+- **阶段1a**：原Pro clean d32dd565原CLI固定输入6.136秒，SQLite正文1、根评论1、回复1、15图片引用；独审494b86a2通过。原始has_more未保存，高评论跨页、媒体bytes与导出不能由此推定通过。
+- **阶段2真实通过**：同一固定SQLite备份snapshot d00306ab…经正常Owner Application.cloud/原CloudClient唯一put、随后get，中央batch 4276dff7-d215-4df7-bc39-c3ff6308e67d，batch hash c1f6cf58…；3条记录回取与提交payload exact，正文/评论列类型、父链保持。只对三行note_url去query/fragment，记录原row/URL哈希和移除键名；原SQLite不改、不上传凭据。15refs仍不是媒体文件。
+- **部署/测试**：迁移20261022005312_owner_native_saved新增独立append-only batch/record及Owner RPC；Edge55 ACTIVE，31文件回读exact，29旧文件不变、仅core接线与新增native_saved；Owner/Worker认证保持。中央17实际PGlite测试、本地17标准库测试与源码独审通过。不是参与者capture/verified/评分回执，reward_eligible=false；服务端哈希核对不是平台真实性证明。
+- **运行边界**：正式源码已采用本地两个模块，原45937 HTTP/UI进程未加载新路由；实际调用正式Application.cloud方法，__new__只绑定原配置以避免启动scheduler。不能冒工作台UI或派单/两设备Pro已验收。中央实际独审结果见本轮EVIDENCE。
+- **已知局限/下一步**：本地回执校验对未来无query的合法URL会误判redacted_fields；本次三行均有query，不影响固定样本。先补清Pro数据能力门（高评论分页终止、媒体字节、四格式导出，复用同输入已有有效证据）；数据门明确后才走中央派单、终端桥接、登录恢复、自停与OTA，逐项独审。旧task31和G119候选保持原状态。
+
+## 历史快照｜2026-10-22｜改为逐项验收：Pro直采与本地SQL通过，中央直接入库待补
 
 - **用户最新主线**：不要把引擎、数据库、派单、桥接和OTA混验。当前先原Pro固定输入→本地SQL→中央正常入库/回取；之后才继续派单、终端桥接、自停与OTA。停止新增参与者任务、runtime安装、Stop31和中央runtime准入；旧候选只保留，不当当前主线。原身份、历史进度、评分、回执保持，不重采旧未知任务。48h实验/watchdog仍暂停。
 - **阶段1a实际已通过**：用Git clean的已购Pro Python本地版本d32dd565277116ba4880c28ccd417a7c376cb62d原main CLI，固定G108原完整URL，1篇/评论20/含回复，原CookieBridge账号池、原Signer、全新工作目录与SQLite；没有participant/派单/Worker接线。唯一实际运行6.136秒，summary completed/exit0；新xhs_note正文1、xhs_note_comment根1/回复1、父链正确、标题原UTF-8“上海探店｜鮨水月🍣”、正文137字/hash0ef49862…、15唯一图片引用。C独立实际审494b86a2…通过。本机原生SQLite成功，不是中央Postgres成功。

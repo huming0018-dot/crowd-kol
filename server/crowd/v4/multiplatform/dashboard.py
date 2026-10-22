@@ -196,6 +196,10 @@ class Application:
     def cloud(self, action, payload):
         if not isinstance(payload, dict):
             raise ValueError('invalid_cloud_request')
+        if action in ('native_saved_put','native_saved_get'):
+            if self.cloud_client is None or getattr(self.cloud_client,'role',None)!='owner':raise ValueError('owner_authorization_required')
+            from owner_native_saved import dispatch
+            return {'ok':True,'storage_scope':'cloud',**dispatch(self,action,payload)}
         if action in ('material_feedback_preview','material_feedback_submit','material_feedback_status'):
             if self.cloud_client is None or getattr(self.cloud_client,'role',None)!='owner':raise ValueError('owner_authorization_required')
             return self.knowledge_request({'action':action,'payload':payload})

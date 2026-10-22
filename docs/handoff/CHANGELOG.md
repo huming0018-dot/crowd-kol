@@ -1146,3 +1146,11 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 版本与范围：extension兼容资产a46a39c，PAGES包4b648eb…/旧通道ccee53f…；未换104/native-v2或发布私SDK。candidate新runtime、SQL草稿、Stop31全HOLD，没有部署或中央写。
 - 当前缺口：没有正常Owner原Pro结果直入中央PG的入口。下一步只以阶段1a固定快照补owner native_saved intake及幂等/回取验证；原captures授权/FK/评分保持。阶段完成后才恢复派单桥接逐项验收。
 - 证据：本轮EVIDENCE及上述独立报告。保原身份/旧进度/旧回执；未有评分前像不冒全量前后exact。48h/watchdog仍暂停。DevSpace两次open内部错误无workspaceId，不影响本机CLI验证。
+
+## 2026-10-22｜root / A中央 / B本地 / C独审｜顺序验收第二步：SQL真实入库与查回
+
+- 目标/实际：原Pro固定SQLite结果经正常Owner接口入中央Postgres并查回；1正文/根1/回复1、15refs，同payload精确，不再新增采集。
+- 修改：core/native_saved与SQL新迁移；本地owner_native_saved及dashboard四行dispatch、对应测试。原task/capture/评分表不改；固定受保护descriptor仅本地，原身份/进度/OTA保持。
+- 验证：中央17 PGlite、本地17通过；中央和本地由未实现者C独审。migration20261022005312、Edge55真实回读31件exact，唯一batch4276dff7…三条回取。代码提交号以本条所属commit核对。
+- 运行/验收：中央已部署生效；正常正式Application.cloud实际put/get；原45937 HTTP/UI未采用。不是参与者奖励、平台完备性、派单或两设备Pro成功。
+- 风险/下一步：未来canonical URL回执误判待修；高评论分页、媒体bytes、导出单独验，之后才派单/桥接。旧31/G119候选及暂停实验/watchdog保持。证据见EVIDENCE本轮，不公开PRIVATE原件或私SDK。

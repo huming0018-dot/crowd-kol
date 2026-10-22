@@ -1320,3 +1320,13 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 原异机自然105：`review/g118-legacy105-b/POST105-ACTUAL-FINAL.json` SHAf29ecc5dee531ad5ce53bbc9b6f9aeef84f2e044fe65efb603fcd4f248f8e3b6及3份精确node/OTA/diagnostic原MCP回包。event904 serverreceived2026-10-21 09:31:43.848294UTC，实际查询16:12:49–51UTC，二者不得混称查询09:32已执行。原version105/releasef94b863…，原参与者subject/node exact；没有远程点击/源请求。签通道实际回读`G118-original-device-ota/CHANNEL-PUBLIC-READBACK2.json` active/immutable同21c11271…，原6其他通道保持。
 - task31实际失败`review/g117-autostop-independent/TASK31-ACTUAL-DIAGNOSIS.json` SHAb40f407f368dd5004367615e9ec2d5c26b4311762c56bd8af3edf80c63ffd3c2；source10/60完成但CommentError前delivery0，中央received0，不把本地pending0冒已成功。
 - G119 V1独审HOLD d403076f…；V2`G119-empty-comment-contract-v2/FREEZE.json`75fabf…及C`review/g119-empty-comment-independent/V2-FINAL.json` SHAa9ca01b5bff454c4acafc50ddfe5b39955eb97f484a56f541320ac6c415b57fa只源码PASS。暂停候选`review/g118-legacy105-b/PAUSED-CANDIDATES.json` SHAfbfb3f84ea274e3114fa291184744ad150306ba0389e031fd5c25b5b0dd94656，无正式runtime/中央采用。
+
+## 2026-10-22｜G121/G122 固定Pro原生结果中央入库查回
+
+根目录沿上述runtime。中央源码独审 review/g121-native-saved-central-independent/SOURCE-FINAL.json SHA c5b8ca632d7f108bf0474e79e3389af791d8f1408d0fa2625ed3bae00028b5a8；本地源码独审 review/g121-native-saved-local-independent/SOURCE-FINAL.json SHA d87f3c22d8c7450fe1ddd5fa69ca17e761b266876d19b00c8d896eb34b92e9a0。
+
+- G122-native-saved-live/SQL-DEPLOYED-SUMMARY.json：实际ledger20261022005312、两表RLS/ACL、RPC及0初始行；EDGE-DEPLOYED-SUMMARY.json：54到55、31件exact、29旧件不变。
+- G121-owner-native-saved-local/ACTUAL-FINAL.json SHA 266dd0bf852bc91077206d6afce2e307bafb3aaa7e1e7696d8e05b5dc86714a9：唯一正常put及get，snapshot d00306…/batch c1f6…，三行固定内容exact；完整响应与意图PRIVATE仅本地0600。正式17测试及CAS记录同目录。
+- 工作台HTTP/UI未重启采用，非参与者奖励回执；未来无query URL局限及未验完整数据门见HANDOFF，不冒全面通过。
+
+中央实际独审：review/g121-native-saved-central-independent/ACTUAL-STAGE2-FINAL.json SHA256 99d1e5e58ae540ebfbca5736b0554df0d67875aec7d1c37f6fb85e0b2fc7d8c9；fresh Edge55/31件、真实SQL定义/ACL/append-only、精确batch3条及receipt与固定payload一致，限定阶段2PASS。
