@@ -1,5 +1,30 @@
 # 交接证据索引
 
+## 2026-10-23 00:10 CST｜G135正式批回传与G136安装升级
+
+本轮证据根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`，性能源码 `d5c6ccc1f7601154a01e81fc9c05011249ffc273`、bootstrap源码 `17a1e9e2a66f402d14a555b10fd5c61b389ea398` 已推原分支。私有原件保本机，索引只记路径/摘要，不含凭据或Pro源码。
+
+- G135 `EDGE-FREEZE.json` / `PYTHON-FREEZE.json` / `FORMAL-CAS.json`：A新11+原57 Python回归、13个真实Edge→现RPC0f93场景通过；原flush AST不变。C源审 `PYTHON-SOURCE-FINAL.json` SHA d8ca21d5692373545c891a6142ce4385549a3ca0310e96cd84ac9bb5acdf4e43；`EDGE-SOURCE-FINAL.json` SHA f8781d585dcd2b83a233b084262974c854e7108d25ce248d566b6e24e6e97d5e。
+- G135 `central-deployment/DEPLOY-RESULT.json`、`ACTUAL-READBACK.json`：57ACTIVE/33files/31原件保留，无SQL。C fresh实际 `EDGE-ACTUAL-FINAL.json` SHA f94910da797d6f4362d80889a9be1c81c2ca7f757ef1ece33ad3bb18c62db428。
+- G135 `owner-adoption/PLAN.json`、`runtime-adoption/ADOPTED.json`：PID1750/497仅cloud变/496保，锁内五库及原保护。C实际 `OWNER-ACTUAL-FINAL.json` SHA1197b3dab677eae1f37743980996ed21ecbea044eb580e789f0f8d48e36c4845。
+- G135 `live/LINUX-RUNTIME-PLAN.json`、`LINUX-UPGRADE-RESULT.json`：原133仅2覆盖；原record仅entry/runtime/runtime_sha256三字段变，原身份/config/outbox保持。C实际 `LINUX-UPGRADE-ACTUAL-FINAL.json` SHA f820bd7fd518ac8cc0cc1c984770c6c1d52a3a7c0c34e405dff119b162cf2e91。
+- G135 `live/performance/observations/{recovered-LOCAL.PRIVATE.json,recovered-CLOUD.PRIVATE.json,PERFORMANCE-VERIFIED.json}`：96完整记录、24链、46API、单source、正常自动领取/finish/idle、首末ACK66.054707秒。C离线重核实际 `PERFORMANCE-ACTUAL-FINAL.json` SHA eda1d6087cdf741ebc31aeef5390eb6d6e79a4928ac5d11fbba5a14af1acb439。不把与旧Mac174秒的跨宿主单样本比较冒受控benchmark。
+- G135 `live/offline-recovery/NETWORK-FAULT-{INTENT,RESULT}.json` / `observations/VERIFIED.json`：原network回接，保存result20.1338816秒；3阶段source/IDs/digests exact，最终96ACK自然完成。C实际 `FAULT-ACTUAL-FINAL.json` SHA d5074a6df63f4396278923f30c3ca7bbcfebc70007009018a4ae7e0c18277867。
+- G135 `live/NODE-CLEANUP-RESULT.json` / `RELAY-STOP-RESULT.json` / raw relay log：正常终止本轮idle719和匿名pipe1359，guest8274释放，2次BridgeGET/0Cookie落盘；不动原hostBridge/旧task31/卷/身份。C实际 `CLEANUP-ACTUAL-FINAL.json` SHA a3a7c3c85edea729c442b28b8ba750c503f78995239412fd30ad27a8418157d2。
+- G135固定只读verifier由原G133复用：动态native完整集合代替硬96/95，额外集合断言防遗漏，原exporter及13测试不变，新2共15过。C `DYNAMIC-VERIFIER-FINAL.json` SHA68efe3438fe15eda4ea9390976a8926dbd4ab86f048fe1533d8caaf3aa6ba501；纯性能不伪造fault三阶段。
+- G136 `upgrade-v2/FREEZE.json`、`UPGRADE-FORMAL-CAS.json`：原fsync反例V1失败保留，V2 INTENT父目录先持久化再切换指针，12测试通过。C `UPGRADE-V2-SOURCE-FINAL.json` SHA2afa6ff836cac3936cd3434177252c8c99c7a4494b6ace4ce03c530517af1321。
+- G136 `download-cache-a/PUBLIC-CACHE-VERIFIED.json`：uv与Astral python-build-standalone两公开归档47,789,028字节，fresh GitHub发布元数据size/SHA exact；`ACTUAL-BOOTSTRAP-OFFICIAL-CACHE.log` 无工具Linux实际装uv/Python3.12.14退出0。完整bootstrap与包已通过下述门并发布，git apt联网安装未通过。下载缓存不是包含Pro私库的发行包。
+
+C报告目录均 `review/g135-throughput-independent`。源码8路径最终范围审6b468481c291f943276cbcdeb88810af7d8b971b6e37b013a17a5c3993192288，root23正式子集测试通过；不把重复测试相加冒新增覆盖。下一节历史证据保留。
+
+- G136 `bootstrap-v3/FREEZE.json` / `BOOTSTRAP-FORMAL-CAS.json`：7prod/4test、32测试、3shell语法、--root=原反例通过；C源门 `BOOTSTRAP-V3-SOURCE-FINAL.json` SHA5c444dc1cce99ce0de1111681df0b124cad1e6dc64e9448dfaad4a4526c32444。
+- G136 `PACKAGE-V3.json` / 原最短check/status日志及固定identity/pro-binding2file：同原SID/gen1、cachedself、不重认证。C正式/包实际门 `BOOTSTRAP-PACKAGE-V3-FINAL.json` SHAbbc1272604e14f6ccacc21024c1d4243e873c875a3d3fb667ac47cc1d9074ece；后源checkpoint范围门c70a3b7dfccf67c565463f35baa6778e2a9719963f0351e032562ea00ef57a11。冻包shell一处非功能尾空格令cachedcheck报P3，独审明确保留，不假报检查0。
+- G136 `PUBLICATION-PLAN.json` / `public-readback/VERIFIED.json`与四原件：crowd-pages 5406da5cf36c646da2467050956598211355910b，tar524567B/147files/SHA309e5da1ec7395bf29df6922fb2d346180b30d76a9613d5e4f62df002278e678；publicraw逐bytes exact。C发布实际门 `PUBLICATION-ACTUAL-FINAL.json` SHAf62e31b17cfff26b17c75871c83be6cbc3382e5b784c959310cc7ccf7920dc4d。
+- G135 `live/performance/END-TO-END-TIMING.json` 同服务端claim→lastACK105.636942秒/claim→finish107.031638秒，firstplatformHTTP未测；不把66秒称整任务wall。
+- 双路线采用/舍弃/回滚与边界见 `G135-delivery-throughput/OPTIMIZATION_PLAN.md`；集中非作者报告索引 `pushpull/outputs/mediacrawler-execution/reviews/G135-G136-20261023-index.md`。
+
+- G136原Bridge组件实际冻结 SHA348e2c9fb067e78ff2a9bc4a46db304f7118acdeb285fc5853301ec37a03cf7b、result SHA236b717b8e90952616eb1a1470889c0ad32898ef00ead89654d9454049fd9fda：独立空HOME/networknone容器真实安装6项锁定公共依赖、原app启动、仅loopback监听、空accounts、ensure复用、prepare只校验、正常SIGTERM/waitpid与端口释放。C `BRIDGE-COMPONENT-ACTUAL-FINAL.json` SHA6ec0ffb200a3dd4220abcc5ee59ff80a5cfe298189ea3532d49e46a38d092eec；不含浏览器新登录、self、来源、云或完整新worker验收。
+
 ## 2026-10-22 17:55 CST｜G129–G134 实际运行与独审
 
 证据根目录：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`。以下为原件及非作者审查，私有配置/正文不进仓库。源码提交986b0ed、9a29fa2、a711416及后续本轮G134检查点。

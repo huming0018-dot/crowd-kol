@@ -1,5 +1,17 @@
 # 交接变更日志
 
+## 2026-10-23 00:10 CST｜Codex root / A性能与B安装 / C非作者审查｜G135–G136正式性能及安装包交付
+
+- 目标：继续压缩96回传耗时，补自动依赖/安装与原登录复用，保原身份/进度/评分/OTA。
+- 代码：批量最多4条仅首次投递，服务端逐项原HB+capture、独立ACK，未知/前缀保留原恢复；新增固定动作进程内耗时摘要。Linux显式原节点升级只3运行字段，修复崩溃时INTENT目录未先持久化问题。性能8文件d5c6ccc及安装12文件17a1e9e均推原分支，未夹旧dirty。
+- 正式采用：Edge57ACTIVE无SQL改；原Owner PID1750单cloud overlay；原Linux133仅2文件更新，原config/SID/outbox留存。详细hash及独审见EVIDENCE。
+- 实际验收：正常Linux新task自动Pro46API/正文1+评论95→96云ACK/首末66.054707秒；第二正常新task在72ACK24pending断自有网络20.134秒后同批96ACK/自然completed idle，无重采；每项非作者复核。两轮后正常停自有测试进程/relay，卷和身份保，48h/watchdog仍暂停。
+- 安装交付：公共uv/Python发布摘要缓存已在空工具容器实装，已有节点从包直接check/status0、原SID复用不重auth；32项+shell3及独审通过。机器节点包147file/524567B已由crowd-pages5406da5公开发布并4件HTTP200回验。git apt连接/cleanhost完整登录/Windows仍未通过，不冒全面零准备安装。
+- 取舍/风险：不盲删外层续租或扩大batch追数字，需保持过期/UNKNOWN恢复；66与旧Mac174秒不是同宿主受控比较。Windows/物理Linux/手机/跨OS OTA未验；本轮媒体false，机器回执非评分奖励验收。
+- 下一步：补cleanhost完整worker安装与浏览器登录、系统git可联网安装及Windows/物理Linux验收；不替换旧native31 unknown或重建参与身份来凑通过。
+
+- 最后组件门：原CookieBridge在独立空HOME容器实际安装/启动/loopback健康/复用/正常停止独审通过（6ec0ffb2）；完整新worker与浏览器登录仍未验。
+
 ## 2026-10-22 17:55 CST｜Codex root + 并行子代理｜G129–G134
 
 - 目标：定位96条回传7分钟，落地Linux/Windows入口并验证真实云回执与断网恢复。

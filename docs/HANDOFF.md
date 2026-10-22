@@ -1,6 +1,18 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-22 17:55 CST｜96条回传提速已运行；Linux真实采集及断网恢复通过
+## 当前状态｜2026-10-23 00:40 CST｜66秒真实回传及断网恢复通过；自动依赖/账号复用包已发布
+
+- **已部署/已运行/源码**：性能/升级 `d5c6ccc1f7601154a01e81fc9c05011249ffc273` 与自动安装/登录复用 `17a1e9e2a66f402d14a555b10fd5c61b389ea398` 已推原crowd-kol分支。中央crowd-machine Edge57 ACTIVE，原32文件仅core替换+新增capture_batch成33，其余31含Owner校验入口逐字节保持，verify_jwt=false不变，无SQL改动。原Owner45937运行 `owner-delivery-throughput-v2-cf4f6d8e09a02dd4` / PID1750，497文件仅cloud_sync替换、原496保；五库、素材配置与旧native31 unknown均保持。
+- **性能真实验收**：Linux原节点正常自动领取新task `0c392fbb-8459-4041-8ffb-503c94b25d0b`，原Pro一次46API采得1正文+44根评+51回复，24分页链/SQLite/normalized/96逐条中央ACK exact，任务completed/idle。服务端首末ACK窗 **66.054707秒**；同服务端从claim到最后ACK105.636942秒、到finish107.031638秒，第一平台HTTP时间未单测。旧Mac同输入为173.984471秒，最初419.695849秒；不同宿主/时间单样本，不是受控benchmark或SLA，不能夸为通用提升比例或瞬时回传。
+- **机制与保留合同**：最多4条/300000字节仅pristine首投合并一次外网请求；服务端每条仍顺序原heartbeat授权再原capture并返回独立ACK。前缀提交后失败不假回滚，响应丢失走原receipt-first，不自动重发整批。普通capture、UNKNOWN、停止/租约、参与者身份/进度/评分/OTA保留。当前66秒中组内ACK间隔合26.636秒、组间39.419秒，不能把后者全归外层heartbeat；直接删除外层renew会改变过期租约恢复，已否决盲删，后续另做窄证据。
+- **断网真实验收**：第二正常新task `e2433342-a540-4fb4-93e1-2ce9abe46520`，源同范围；72ACK/24pending时仅断同一自有Linux容器网络约20.134秒，保存的三阶段同source/SQLite/normalized/capture IDs和digest均不变，自然恢复96ACK/0pending/completed/idle，一次Source46API，无重采/手填回执。故障轮不用于纯性能数字。
+- **原节点升级与收尾**：原Linux133文件运行包b487→12d03bd2，仅cloud_sync和安装器两变，其余131保。原显式upgrade在stopped/typed idle/全ACK/原worker与SID锁内只改运行record三个字段，原其余6配置/身份/outbox SHA不变，未重建身份。两任务后正常SIGTERM停本轮测试scheduler/匿名pipe，卷/原身份/outbox留存，原hostBridge没动，能力报告会自然过期；不是长期常驻生产验收。
+- **安装与原登录复用已接正式源码并发布**：G136 V3自动检查/缺失时公共工具bootstrap、受管解释器启动/绑定闭包、合法本地Pro/Signer/Bridge发现及原SID/唯一ClientID选择已独审。已有节点从发行包直接 `install-linux.sh --root 原目录 --check` 与 `bind-linux.sh --root 原目录 --status` 真实退出0，不再填SDK/ClientID/包摘要，不重self、不启动调度。原SID/generation1及固定identity/pro-binding两文件与原证据exact；不把采集中可变化的state/outbox拿来作错误静态对照。
+- **发行证据**：crowd-pages原分支新commit `5406da5cf36c646da2467050956598211355910b`，仅新 `v4/releases/machine-nodes/2026-10-23/` 的tar/README/SHA256SUMS/release.json四件，原Mac/OTA渠道无变。147个普通文件包524567B，SHA309e5da1ec7395bf29df6922fb2d346180b30d76a9613d5e4f62df002278e678；公网raw四件HTTP200逐字节回验exact，非本机候选。包内133runtime精确本轮已验12d03，其余outer helpers完整。
+- **自动安装实际范围**：无Python/uv/curl/git独立Linux容器通过发布摘要校验的公共缓存实际安装uv0.12.7/Astral Python3.12.14。Git在线apt安装仍未通过；原Pro授权组件与独立配对配置需Owner本机提供，不含私有SDK、Cookie或Owner密钥，不冒所有新机零准备成功。独立空HOME容器中的原CookieBridge已真实安装6项锁定依赖、启动、核验仅127.0.0.1:8274监听与空accounts、重复启动复用、重复prepare只校验及正常停止释放端口，非作者审查通过；没有浏览器新登录、Cookie或来源调用，首次平台登录和Windows仍待真实证据，原已有账号复用已实测。
+- **范围与下一步**：精确已验仍是Linux arm64 Docker/XHS单篇正文+评论/回复、最多200、media=false；Windows WSL2宿主、物理Linux、原生Windows、手机、跨端自动OTA、媒体本轮均未验。继续验新机完整worker安装与浏览器登录、可联网系统git安装及Windows/物理Linux；对真实缺项给Owner恢复动作，不让参与者手动拼命令。原48h实验及watchdog仍暂停，原native31不得Stop或重放。
+
+## 历史快照｜2026-10-22 17:55 CST｜96条回传提速已运行；Linux真实采集及断网恢复通过
 
 - **正式源码及运行**：`986b0ed` 连接复用、`9a29fa2` 素材结果读取界限、`a711416` Linux机器节点已推原分支。原45937现运行 `owner-material-read-deadline-7f34be3425b52b1e` / PID77550；本次497文件仅dashboard改读取期限，其余496保持，已采用的连接复用保留。稳定素材入口已接入；除素材入口配置4字段及指针2字段外，其余配置、五库、身份、进度、评分、知识、OTA和旧native31 unknown保留；未Stop或重放旧任务。G134首次绑定和读取期限源码以随后本轮提交及EVIDENCE为准。
 - **96条提速真实证据**：G130正常统一新任务 `37c33b5a-8fc0-4181-b8f1-3803ee7fdd00`，原Pro同输入31.564秒、46次API；1正文+95评论/回复，原SQLite、分页父链、normalized、中央GET和96个ACK逐值核对。服务端首末ACK窗419.695849→173.984471秒，缩短58.545%，2.412倍；根因是逐条请求反复建TLS连接，改为固定端点按线程复用，保留每条停止/续租/回执检查。单次同输入前后结果，不是网络受控benchmark或容量SLA；串行回传仍近3分钟。
