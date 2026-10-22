@@ -1,5 +1,18 @@
 # 交接证据索引
 
+## 2026-10-23 03:16 CST｜G139 Windows原件、最小Bridge修复与私有安装准备
+
+证据根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry/`。
+
+- G139-windows-live/{DIAGNOSTIC-TRANSFER,DIAGNOSTIC-REMOTE-HASH,REPORT-TRANSFER,REPORT-REMOTE-HASH,REPORT-RESULT,REPORT-READBACK}.png 与 inspection-result.json：真实Windows传入/只读执行/回取，1278B/SHA9d5b93a0…；C G139-independent-review/WINDOWS-EXISTING-STATE-ACTUAL-FINAL.json SHAd74061e3…。
+- G139-windows-install-preparation/bridge-discovery/formal-adoption/{CAS.json,DIFF.patch,RESULT.json}：正式10tests、原6不变；C BRIDGE-DISCOVERY-FORMAL-FINAL.json SHA30d0cb1c821c09285229f4db979f9dd9cf64c4364e48511d218c37033b3a4bb2；源commit019b5bd。
+- G139-wsl-package/ 与C PACKAGE-INCREMENTAL-FINAL.json SHAdbdca9cd…；G139-wsl-receiver/v2/FREEZE.json SHA b568dd6e…与C WSL-RECEIVER-V2-SOURCE-FINAL.json SHAe8003a6d…；仅包/接收候选，不冒Windows安装。
+- G139-windows-install-preparation/licensed-private-kit/：kit4f096774…/11591680B/525regular；C LICENSED-LOCAL-KIT-ACTUAL-FINAL.json SHA1497ef5c…；本地私有，尚未Windows传输。G139-wsl-inbox-staging/FREEZE.json SHA40d4c110…，C LOCAL-INBOX-STAGING-ACTUAL-FINAL.json SHA7e203fed…；7件本机ready。
+- G139-windows-live/DOWNLOADS-ACL.png、USER-ACL.png、INBOX-PREPARE-HASH.png：实际Windows额外read ACL及原用户simon；PrepareInbox哈希exact。脚本禁止执行原错误在本轮CUA记录，未永久改策略。C PRIVATE-INBOX-ACL-SOURCE-FINAL.json SHAb344a4ae…只源码语法，不冒WinACL生效。
+- G139-windows-live/handoff-before/ 保留本轮修改前3文档工作树全文与SHA；原他人dirty和历史尾部保持。
+
+- G139-windows-live/{PAGES-COPY.json,public-readback/VERIFIED.json}与四个raw原件：正式pages91034183064edbf7438cac2c61480d07a6333313仅新目录4件，公网HTTP200/长度/SHA/Gitblob exact；公共发行候选C2451388通过，不含私有kit。
+
 ## 2026-10-23 02:11 CST｜G138正式安装器修复、发行与Windows只读实机
 
 证据根 `pro-participant-native-entry/`；非作者审查在 `G138-independent-review/`。源码b1b5814/pagesbb7bbdd已推原分支；无运行节点或云schema变更。

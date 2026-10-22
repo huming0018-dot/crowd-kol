@@ -1,6 +1,14 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-23 02:11 CST｜G138下载总期限与WSL默认目录已发布；Windows实机预检通过，安装及回执未验
+## 当前状态｜2026-10-23 03:16 CST｜G139原Windows诊断完成；Bridge目录发现修复已提交；Windows脚本策略待确认
+
+- **Windows真实新增证据**：用户确认结束并发ToDesk操作后，root重新接管Windows-H2J0L1；通过ToDesk文件传输将已审V1 helper和report包装送到原Windows Downloads，分别certutil SHA与批准81a0a423…/efa351b9…完全一致。已实际执行read-only helper，report退出0、1278B/SHA9d5b93a0825dbba6a7af83386b748df7a7d24e15ca17fb6585ec12187b40d2d0，回取文件同字节同SHA。原2Chrome资料无本产品storage、crowd-ext不存在；原Ubuntu默认CrowdWorker及5markers不存在，实际x86_64/uid1000/Python3.14.4/Git2.53.0。只覆盖固定位置，不等于全设备没有其他身份；无配对、任务、平台登录或云回执。C实际薄审d74061e3…通过。V1对Bridge目录标记有误，空候选列表不能推断Bridge不存在。
+- **故障定位纠正**：先前ToDesk窗口变化确有用户并发操作，64像素浮窗只是旧假设，未证明根因。独占后普通短键命令/文件传输实际可用，但重定向与部分组合键出现旧历史拼接；错误行均截图拦下、清空或关闭闲置终端，未提交执行。停止巨长终端payload，使用已审短脚本和文件传输。不能把输入尝试称安装完成。
+- **正式源码已修**：仅install-linux.py与test_linux_discovery.py两文件，Bridge从错误统一pyproject标记改原版server/app.py；Pro/Signer规则不变，原6测试保留+4新增，正式10通过，C正式采用审30d0cb1c…通过。commit019b5bd38bad8a1a6903d7c2b5585071bab28346；原仓分支推送已成功。新包cf3cf9f2719f9b7d2cae640a69bf8980b62fb762d64c1bc1377f4c455a8e2ecb/527652B，只outer installer及manifest两变/145同件，133runtime仍63073；C增量dbdca9cd…通过，公共发行已发布至crowd-pages commit91034183064edbf7438cac2c61480d07a6333313的新2026-10-23-bridge-discovery目录，四件raw HTTP200且长度/SHA/Gitblob exact；尚未Windows安装。
+- **安装准备与具体阻塞**：合法Pro3组件精确上游tip制作仅本地私有kit4f096…，不含原Mac凭据/身份/Cookie，不公开分发；x64公共uv/Python/Node三归档SHA和ELF已核，不冒实际运行。7件本机私有staging及V2接收器已独审，只接收至新独占HOME目录、不自动安装/pair/start。Windows Downloads实际额外有CodexSandboxUsers RX，未往该目录传私有SDK。已审PrepareInbox脚本远端hash139694…一致，但Windows PowerShell因禁止脚本执行拒绝，尚未创建私有inbox。已请求仅本次进程RemoteSigned明确许可，未设置永久策略，未换方法绕过；依赖动作等待答复。
+- **保护/下一步**：原身份/进度/评分/outbox/旧UNKNOWN/OTA保持，未新建云任务/配对、未改SQL/Edge/原Owner/原Mac节点；48h实验与watchdog仍暂停。得到脚本执行许可后先创建核验私有inbox，再私传已审7件、逐SHA接收及原Pro依赖安装；身份覆盖/正常配对与本设备浏览器登录实际核验后，沿正常任务验自动领取、真实ACK、限定故障恢复和自动停止。不得拿原G137 Linux96ACK替代Windows证据。
+
+## 历史快照｜2026-10-23 02:11 CST｜G138下载总期限与WSL默认目录已发布；Windows实机预检通过，安装及回执未验
 
 - **源码与发行已发布**：正式crowd-kol `b1b5814363333afb3dbcc55b4c4020ad7015e768` 仅4路径（2源2测试），原分支推送成功。crowd-pages `bb7bbdd847d8387e7d094ebcc11dbd7882fb7cbd` 仅新增 `v4/releases/machine-nodes/2026-10-23-linux-wsl/` 四件，公网四HTTP200/长度/SHA与Git blob及已审本地件一致。新包147普通文件/527574B/SHA `31b2d6bb59724db7c30be067673bfc66ef4403a184eb136403f1dc897f4750e3`；runtime `63073aea928a3107a463c6150677738afb9de48628ecb6dcc1b600fb2024a20a`。对G137包仅两产品源、两manifest和README共5变，其余142相同；133运行源仅portable_node变，其余132保持。新包未实装，不称原Owner或节点已采用。
 - **无缓存下载修复已独审/回归**：原socket timeout可被持续滴流延长（0.08秒每读上界，0.03秒滴字节，0.371秒才完成，违0.18秒总界，RED保留）。原固定官方URL下载改唯一自有子进程，父单调时钟120秒剩余预算、异常kill/wait，子自有SIGALRM限定父退出后的残留；TLS/noRedirect/80MiB/SHA/成员/LICENSE和原INTENT/UNKNOWN保持。新8+原11正式测试通过；真实官方下载56,749,972B/7.327秒/SHA013b与原资源契约一致。不是整个安装120秒或硬实时保证；POSIX路径，父SIGTERM后child可能剩自身最多120秒。
