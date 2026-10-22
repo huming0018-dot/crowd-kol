@@ -1,6 +1,17 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-23 00:40 CST｜66秒真实回传及断网恢复通过；自动依赖/账号复用包已发布
+## 当前状态｜2026-10-23 01:29 CST｜Linux新安装、登录复用与断网云回执通过；Windows待正确远程窗口
+
+- **正式源码/发行**：本轮4路径源码 `959da4f48866aa9033567659a5bbb71fc2883e90` 已推原crowd-kol分支；原crowd-pages新增发行 `f5c7285bc89e275149f0b5931d1339d74366e929`，四件公网HTTP200/字节与哈希回验一致。最终147文件包525703B/SHA `27e414f1e6c67376c1f08aa13872048a6f7810bac2b0a5a08b7ef068891bf9c5`，相对实装0d1b包仅README/manifest更新，其余145同件、133运行时仍12d03。原Owner、Edge接口沿用G135，本轮没有部署SQL或改变Mac/OTA渠道，不称整个Git HEAD均在运行。
+- **依赖自动安装**：默认Debian源仅本次临时同源HTTPS副本，原Signed-By/系统源保留、自定义源不改、索引错误停止。APT索引180/安装600/单连接20秒；独立缺工具容器确认Git2.47.3/curl8.14.1/CA安装及工具检查成功；该次工具测试整体记录33.47秒，随后主动中止后续下载，整shell为exit2，不冒完整安装成功；原依赖再次检查1.04秒。uv/Python/Node邻接 `bootstrap-cache` 自动发现、显式参数优先；Node仍经原资源哈希/成员/许可证校验。无缓存Node的120秒仍仅网络读取期限，未修整个下载上界。
+- **完整新安装实际**：新HOME/独立卷、已有系统Python/Git，Owner已提供合法Pro/Signer/Bridge和正常worker-only配置；同发行入口无手填cache参数，真实安装29.094秒/exit0，check0、绑定前status2如实未认证。不能把此证据与另一空工具容器拼成“空OS一次零前置全装”。第一轮网络Node下载超3分钟，仅正常终止自有installer，原失败HOME/卷/INTENT均保留；未删失败或复制旧依赖状态。
+- **本机原登录复用**：正常新worker9d70f831-1969-4e7c-a2a3-9b6f21c7d71f配对一次，原Pro官方self正常绑定新SID d9975609-0ca6-423d-b90d-ea6aefb56dc0/gen1，6.944秒，不扫码；随后普通bind/status/check均0，bind0.533秒且同SID/gen1/reused=true，两身份绑定文件SHA exact，relay无新增请求。Cookie仅同机原Bridge/匿名pipe内存复用，未复制旧worker、SID、profile或Cookie文件；不是另一设备首次浏览器登录证明。
+- **真实自动领取/云/断网/结束**：正常新task5470fd22-5615-4ed4-8b09-67cf94015ee6，dispatch62ca320b-86c3-4ec9-a316-e0a048bc475e，自动领取原Pro一次46API，1正文+44根评+51回复、24分页链，原SQL→normalized→云GET/96独立ACK的ID/digest exact。source完整后同自有CID断网20.1297秒并回原network，local4ACK92pending→12/84→96/0，无重采/换key/重置；正常completed/idle/nolease，pending_deliveries及waiting_logins空。故障恢复仍走原receipt-first/逐条路径，不能套用G135无故障66秒性能口径。
+- **收尾与保护**：仅本轮测试node367与relay16565在完成后正常SIGTERM/EOF，卷/新身份/outbox保留，原hostBridge/旧节点/原参与者身份、进度、评分、回执和OTA未更换，旧native31未Stop/重放。四publictools容器经docker stop20秒超时退出137后保留，不能称优雅退出。48h实验及watchdog仍暂停。
+- **Windows事实/阻塞**：用户已给ToDesk Windows-H2J0L1，设备列表见online；当前原生控制绑定的是另一台Deuce的Mac mini，输入被窗口变更保护拒绝，没有在那台Mac执行命令。已请求将正确Windows远程桌面置前；尚未在Windows执行任何预检/安装/采集，不能称无设备或已支持实机。下一步先运行G137/windows只读PRECHECK，再依实际WSL/权限/合法组件准备安装与同输入任务；不要复制Mac身份或绕过平台登录。
+- **下一步/精确范围**：Windows正确窗口/现有接入到位后继续实机；补物理Linux/x64、普通参与者跨端OTA及完整新浏览器登录。当前新证据仅Linux arm64 Docker、本机已有登录、XHS单篇正文/评论回复≤200/media=false；媒体/其他平台/数百真实节点不由此验收。原件根仍pro-participant-native-entry；读取不到PRIVATE原件须标未验证，主要改动后沿固定模板更新。
+
+## 历史快照｜2026-10-23 00:40 CST｜66秒真实回传及断网恢复通过；自动依赖/账号复用包已发布
 
 - **已部署/已运行/源码**：性能/升级 `d5c6ccc1f7601154a01e81fc9c05011249ffc273` 与自动安装/登录复用 `17a1e9e2a66f402d14a555b10fd5c61b389ea398` 已推原crowd-kol分支。中央crowd-machine Edge57 ACTIVE，原32文件仅core替换+新增capture_batch成33，其余31含Owner校验入口逐字节保持，verify_jwt=false不变，无SQL改动。原Owner45937运行 `owner-delivery-throughput-v2-cf4f6d8e09a02dd4` / PID1750，497文件仅cloud_sync替换、原496保；五库、素材配置与旧native31 unknown均保持。
 - **性能真实验收**：Linux原节点正常自动领取新task `0c392fbb-8459-4041-8ffb-503c94b25d0b`，原Pro一次46API采得1正文+44根评+51回复，24分页链/SQLite/normalized/96逐条中央ACK exact，任务completed/idle。服务端首末ACK窗 **66.054707秒**；同服务端从claim到最后ACK105.636942秒、到finish107.031638秒，第一平台HTTP时间未单测。旧Mac同输入为173.984471秒，最初419.695849秒；不同宿主/时间单样本，不是受控benchmark或SLA，不能夸为通用提升比例或瞬时回传。

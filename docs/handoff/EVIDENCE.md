@@ -1,5 +1,26 @@
 # 交接证据索引
 
+## 2026-10-23 01:29 CST｜G137新机安装与真实回传闭环
+
+证据根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`；本轮 source959da4f、pagesf5c7285。PRIVATE/原Pro/浏览器凭据不公开；以下是保存的实际原件与非作者审查。
+
+| 已验证项 | 原件 | C独审SHA256 |
+|---|---|---|
+| Git依赖/入口 | G137-git-bootstrap/v2/FREEZE、ACTUAL600-TOOLS/REUSE、FORMAL-CAS；原默认源/签名不变；原12测试保+新3，共15 | 3d5ce070a6bc3a111de5532a38c0503878e62d59ef974b3230506b8771dc7a8e |
+| Node缓存/原资源校验 | G137-fresh-linux-install/node-cache/FREEZE、BASELINE-RED、GREEN-4.log、ACTUAL-RESOURCE-FINAL、FORMAL-CAS；4通过，坏hash拒且INTENT保 | 8f0febb2d0b9ed4de157b0557ee558c63542d06a853b081c72e0a7412aef89bd |
+| 源码精确4路径 | G137-independent-review/SOURCE-CHECKPOINT-SCOPE-FINAL；122+/8-；旧dirty不入；cachedcheck唯一script48原尾空格P3，实际exit2未假报0 | 66627732cf480f1b6a436addae51d8889be419e6f739bac36abb68dd8c3c2365 |
+| 正常新配对 | G137-fresh-linux-install/execution/PAIR-INTENT/RESULT；只新worker9d70/newkey，无Ownerkey/预造SID/task；UNKNOWN只lookup | 6438c14c4de045c05861f238650f42ab0bb5605c5ee94f6fa89f6a3030114b4d |
+| 同包新HOME完整安装 | INSTALL-V2-INTENT/RESULT/FRESH-INSTALL-ACTUAL、check0/status2；29.094秒，已有systemPyGit、SDK/Signer/Bridge OwnerRO、本轮新venv，未混空OS | c6be49220a5aaa806c9d5e0a411b4f4243cef6aa50916f4b5f9c6713fd1e91c0 |
+| 原self及再次复用 | FIRST-BIND-INTENT/RESULT与reuse-check/RESULT：新SIDd997/gen1；6.944秒首次、0.533秒复用、两文件hash/relay IO稳定 | e2300eef0eccb45d59e447502625ee585f4e0615d7a4175dcc0de9355d82f37b |
+| 实际单task/断网/96ACK | G137-fresh-install/live/REQUEST/TASK-PLAN/CREATE-INTENT/RESULT/RUN-IDS；observations三阶段/VERIFIED、NETWORK-FAULT-RESULT，20.129691708秒、96ACK、单46API source、completed/idle | ce71be0996acdc0ec911f48d02012f20baa919da2264b3bdf9385f3c1b524957 |
+| 最终包文档/发布计划 | G137-git-bootstrap/DOCUMENTATION-DELTA-FREEZE-V2、PUBLICATION-PLAN-FINAL-V2；最终27e414/525703B/147，仅README/manifest相对实装变，其余145保 | a7c11eba8af810455a77a3f00e31535cb95d54039eb5116d87a9cbacf9fbc6b3 |
+| 已发布四件公网回验 | G137-git-bootstrap/public-readback/VERIFIED与四raw；Git f5c7285仅新四路径/HTTP200/hash bytes exact/旧OTA不改 | 51ee8a04adaf647846738133f70ad367ffde8c12742616eacf191d826524bcc2 |
+
+C原件统一在 `G137-independent-review/`，非root自审；任务后node/relay cleanup实际门见本节末附录。G137-fresh-install/OPTIMIZATION_PLAN.md保官方WSL/Astral及独立推演路线、采用/舍弃/回滚。Windows有设备但正确远程窗口未接到，PRECHECK未执行；空OS/物理Linux/x64/跨OSOTA/媒体本轮均未验。
+
+- 公共工具实际有限附录：`G137-independent-review/TOOLS600-ACTUAL-ADDENDUM.json` SHA793aef1d55bf71194d40843f6bb5929bdd72bc5f7501d5337bb463a48956c084；六pin原件/raw setup完整，tools_check0/重复APT1.042秒0，33.468秒是工具测试整体记录、不是独立APT性能benchmark；主动终止后整shell exit2/uv_archive_changed保留，不冒全装成功。
+- 完成后清理实际：`NODE-RELAY-CLEANUP-ACTUAL-FINAL.json` SHA756324d76685118ed537f11118a3a6b38fc3d9a73cfeea520f99fd7606c1c6ab，idle/全96ACK/所有pending及waitinglogin空后node367正常TERM、relay16565正常TERM/EOF总5请求，卷/身份保。四tools容器另属stop20秒后exit137，原件不能混称优雅退出。
+
 ## 2026-10-23 00:10 CST｜G135正式批回传与G136安装升级
 
 本轮证据根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`，性能源码 `d5c6ccc1f7601154a01e81fc9c05011249ffc273`、bootstrap源码 `17a1e9e2a66f402d14a555b10fd5c61b389ea398` 已推原分支。私有原件保本机，索引只记路径/摘要，不含凭据或Pro源码。

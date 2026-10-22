@@ -1,5 +1,14 @@
 # 交接变更日志
 
+## 2026-10-23 01:29 CST｜root / A安装与B公共工具 / C独立审查｜G137新安装闭环
+
+- 目标：新机依赖自动检查/安装、本机原登录复用、正常云任务与断网恢复；Windows实机不拿容器代替。
+- 实改：正式4路径install-linux.py/sh、test_linux_bootstrap.py、新test_node_bootstrap_cache.py；默认Debian临时同源HTTPS/索引严格错误、APT合理总期限、邻接cache自动发现与原Node资源校验。源码959da4f已推；无SQL迁移、平台核心重写、原Owner或MacOTA换版。
+- 失败与修复：保HTTP主索引失败/180秒工具安装失败；V2只在证据明确处修入口。第一次完整Node慢下载仅终止新installer，保旧HOME/INTENT；新独立v2装29.094秒。未用删状态/旧venv制造成功。
+- 验证：新身份正常配对、原self6.944秒/重复bind0.533秒同SID/gen1；同新节点自动领task5470，原Pro46API/正文1+根44+回复51/24链/96云ACK。断自有网20.1297秒，同source/captures自然96ACK/0pending/completedidle；仅testnode/relay完成后正常停，原身份进度评分/云回执/OTA及旧native31保持。
+- 发布：原crowd-pages f5c7285四新文件、公网回取exact，包27e414/525703B/147。相对实际安装包只有README/manifest差异，145源字节同件；不因文案重装/重采。每阶段C非作者报告见EVIDENCE。
+- 未验/下一步：Windows-H2J0L1经ToDesk在线，但控制接口选中另一Mac窗口且拒输入，等正确Windows窗口置前后先只读预检。已准备本地PRECHECK，无Windows实际命令。物理Linux/x64/跨OSOTA、新浏览器首登仍未验；Linux新HOME既有PyGit与另一空工具fixture不拼空OS证据；无缓存Node仍无整个下载总期限，故障恢复串行延迟仍待独立优化。48h/watchdog不恢复。
+
 ## 2026-10-23 00:10 CST｜Codex root / A性能与B安装 / C非作者审查｜G135–G136正式性能及安装包交付
 
 - 目标：继续压缩96回传耗时，补自动依赖/安装与原登录复用，保原身份/进度/评分/OTA。
