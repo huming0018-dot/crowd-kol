@@ -91,7 +91,8 @@ class Application:
             worker_client = CloudClient(cloud_config, 'worker')
             self.cloud_worker = CloudWorker(self.root, worker_client, self.task_run,
                                            self._cloud_session, self._cloud_existing,
-                                           postprocessing_callback=self._light_postprocessing, capability_provider=self._source_capabilities)
+                                           postprocessing_callback=self._light_postprocessing, capability_provider=self._source_capabilities,
+                                           readiness_provider=self._source_readiness)
             self.cloud_worker.start_scheduler()
         else:
             from owner_tasks import OwnerTasks
@@ -115,6 +116,10 @@ class Application:
         try:values.extend(tieba_source_capabilities(self))
         except (ValueError,OSError,SystemExit):pass
         return values
+
+    def _source_readiness(self):
+        from pro_source_readiness import produce
+        return produce(self)
 
     def health(self):
         value = self.health_events.status()
@@ -196,6 +201,27 @@ class Application:
     def cloud(self, action, payload):
         if not isinstance(payload, dict):
             raise ValueError('invalid_cloud_request')
+        if action == 'worker_capabilities':
+            if set(payload) - {'limit', 'after_worker_id'} or 'limit' in payload and (type(payload['limit']) is not int or not 1 <= payload['limit'] <= 100):
+                raise ValueError('invalid_cloud_request')
+            if 'after_worker_id' in payload:
+                candidate = payload['after_worker_id']
+                if not isinstance(candidate, str) or str(uuid.UUID(candidate)) != candidate:
+                    raise ValueError('invalid_cloud_request')
+            if self.cloud_client is None:
+                return {'ok': True, 'available': False, 'reason': 'not_connected'}
+            if getattr(self.cloud_client, 'role', None) != 'owner':
+                raise ValueError('owner_authorization_required')
+            from cloud_sync import CloudError
+            try:
+                value = self.cloud_client.call(action, payload)
+            except CloudError as error:
+                if str(error) not in ('invalid_action', 'principal_denied', 'unknown_action', 'unsupported_action'):
+                    raise
+                return {'ok': True, 'available': False, 'reason': 'upgrade_or_access_required'}
+            if not isinstance(value, dict) or value.get('schema') != 'crowd-worker-capabilities-page-v1':
+                return {'ok': True, 'available': False, 'reason': 'upgrade_required'}
+            return {**value, 'ok': True, 'available': True, 'storage_scope': 'cloud'}
         if action in ('native_saved_put','native_saved_get'):
             if self.cloud_client is None or getattr(self.cloud_client,'role',None)!='owner':raise ValueError('owner_authorization_required')
             from owner_native_saved import dispatch
@@ -1293,7 +1319,7 @@ def make_server(app, port=45937):
             if path == '/':
                 document = (HERE / 'dashboard.html').read_text()
                 return self.send(document.replace('__NONCE__', app.token), html=True)
-            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js', '/accounts-ui.js', '/cloud-ui.js', '/fleet-ui.js', '/knowledge-ui.js'):
+            if path in ('/analysis-ui.js', '/owner-ui.js', '/results-ui.js', '/media-ui.js', '/accounts-ui.js', '/cloud-ui.js', '/fleet-ui.js', '/node-capabilities-ui.js', '/knowledge-ui.js'):
                 data = (HERE / path[1:]).read_bytes()
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/javascript; charset=utf-8')

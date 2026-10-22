@@ -223,7 +223,7 @@ class CloudClient:
                 if (attempt + 1 < attempts and not http_response
                         and isinstance(error, (urllib.error.URLError, TimeoutError))):
                     continue
-                code = 'cloud_read_unavailable' if self.role == 'owner' and action in ('participant_pro_receipts', 'task_list', 'task_status', 'continue_failed_source_preview', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches') else 'cloud_outcome_unknown'
+                code = 'cloud_read_unavailable' if (self.role == 'owner' and action in ('participant_pro_receipts', 'task_list', 'task_status', 'continue_failed_source_preview', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches', 'worker_capabilities') or self.role == 'worker' and action == 'worker_capability_status') else 'cloud_outcome_unknown'
                 raise CloudError(code) from None
 
 
@@ -542,9 +542,13 @@ class CloudOutbox:
 
 class CloudWorker:
     """One durable dispatch controller, backed by cloud leases and the existing runner."""
-    def __init__(self, root, client, runner_callback, session_selector=None, existing_reader=None, interval=5, postprocessing_callback=None, capability_provider=None):
+    def __init__(self, root, client, runner_callback, session_selector=None, existing_reader=None, interval=5, postprocessing_callback=None, capability_provider=None, readiness_provider=None):
         self.capability_provider = capability_provider
         self.root = _private_root(root, 'cloud-worker')
+        self.readiness_reporter = None
+        if readiness_provider is not None:
+            from worker_readiness import ReadinessReporter
+            self.readiness_reporter = ReadinessReporter(self.root, client, readiness_provider)
         self.path = self.root / 'state.json'
         self.lock_path = self.root / 'worker.lock'
         _private_file(self.lock_path)
@@ -1122,13 +1126,19 @@ class CloudWorker:
                     self._save(state)
                     break
         if state['phase'] == 'idle':
+            capability_report_id = None
+            if getattr(self, 'readiness_reporter', None) is not None:
+                try: capability_report_id = self.readiness_reporter.current()
+                except (CloudError, OSError, ValueError): pass
             state = {'phase': 'claiming', 'claim_id': str(uuid.uuid4()), 'waiting_logins': waiting,
-                     'unavailable_platforms': sorted({v['lease']['platform'] for v in waiting if v.get('desired_state','running') == 'running'})}
+                     'unavailable_platforms': sorted({v['lease']['platform'] for v in waiting if v.get('desired_state','running') == 'running'}),
+                     **({'capability_report_id':capability_report_id} if capability_report_id else {})}
             self._save(state)
         if state['phase'] == 'claiming':
             response = self.client.call('claim', {'claim_id': state['claim_id'],
                                                 'unavailable_platforms': state.get('unavailable_platforms', []),
-                                                'source_capabilities': self.capability_provider() if self.capability_provider else []})
+                                                'source_capabilities': self.capability_provider() if self.capability_provider else [],
+                                                **({'capability_report_id':state['capability_report_id']} if state.get('capability_report_id') else {})})
             lease = response.get('lease')
             if lease is None:
                 self._save({'phase': 'idle', 'waiting_logins': waiting})
@@ -1207,6 +1217,14 @@ class CloudWorker:
                     if session:
                         request['session_id'] = mc_runner.uid(session)
                 try:
+                    if state.get('capability_report_id') and lease['platform']=='xhs' and request.get('source_executor')=='pro':
+                        try:
+                            matches = (getattr(self,'readiness_reporter',None) is not None and
+                                       self.readiness_reporter.matches(state['capability_report_id'],request.get('session_id','')))
+                        except (ValueError, OSError):
+                            mc_runner.fail('worker_capability_changed')
+                        if not matches:
+                            mc_runner.fail('worker_capability_changed')
                     request = mc_runner.validate(request)
                 except mc_runner.BridgeError:
                     # Validation ran before dispatch: there is no unknown source call.
