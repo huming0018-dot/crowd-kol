@@ -1,6 +1,25 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-22｜G123同样本数据门通过；进入中央派单隔离验收
+## 当前状态｜2026-10-22｜节点能力与Pro派单已正式接通；300模拟节点与本机真实回执已独审通过
+
+- **正式源码/部署/运行分开记录**：源码 `db1b39b1e55641d41d8c6433e89feeca8f67d48a` 已推原分支；迁移账本 `20261022060846_worker_readiness_registry` 已执行，原machine RPC OID31987保持、定义MD5变为 `0f93bd82da56e1b8758c6f63156e6fa5`，ACL/invoker/search_path/owner保持。Edge56 ACTIVE，32文件回读exact，仅core变化和新增worker_capabilities，其余30含真实认证入口不变。不是只改本地候选。
+- **原本机已采用**：正式45937切到 `owner-pro-readiness-d03bbc06933d6e37` / PID43043 / 497文件；7覆盖、旧490保持。原六锁及五库、身份配置、知识与native任务保护通过；原task31仍unknown/busytrue，不Stop、不重放。中央实际独审280a8b09…、Owner实际独审a3e228c6…通过。原普通参与者协议、评分和OTA未替换。
+- **自动能力与Owner实际可见**：原机器节点正常领取周期自然上报，Owner正常HTTP与实页可见OS/架构、Pro版本、精确scope、原因及分页。新合同为XHS单篇正文+评论/回复、最多200评论、media=false。采用时保留原缓存日期；本轮真实运行后原账号自检更新身份记录，仍明确cached_authenticated_self_id，不把上报时间冒成官方登录时间。120秒有效期、同报告重放不续期、最新not-ready覆盖旧ready、领取前/来源前绑定检查已实施。执行期间声明可过期，回到idle后自然新报告恢复；本次完成后seq8/assignable1已读取。
+- **本机真实统一任务闭环已跑通**：唯一新dispatch `4b627f4a-c851-44df-aba8-86e8bacc9f93` / task `10e217a0-d62b-4da3-8716-1a00395737fd`，正常unified_preview→create→自动claim→原Pro→原outbox→中央results/finish。原会话无需重新登录或新窗口；1正文、44根评+51回复，96份逐条云ACK，与新SDK SQLite/normalized题文和父链exact。API46/80、原Proexit0；正常task completed、Worker idle；非参与者奖励（reward_eligible=false），不是普通扩展端整体已验。非作者实际独审bf65331d…通过；原coverage仍unverified，不冒平台全量。新scope未请求媒体，沿用G123同输入媒体/四格式已核证据，不冒本次媒体采集。
+- **300隔离结果**：G127V3实际PASS_CLEANED，300合成登记/Owner三页可见300，200ready正例、50not-ready+50未上报拒领、200同claim重放、8并发同capture仅1行；1263次实际Edge→PG16请求，23.351秒，claim P95 705.02ms。最多16客户端+1观察者，network none/无端口/只读容器已清理；不是300同时连接、300真设备、Windows/Linux安装或生产17容量证明。V1数据库就绪/清理误报、V2测试payload额外SQL字段失败均保留；回G124已过fixture定位后才修V3，不放宽生产校验。实际独审51bf604f…有限通过。
+- **性能余项**：Pro来源约31.03秒；96份云回执首末相隔419.695849秒，现逐条回传仍明显偏慢。未为压时间跳过回执、并发改写在途outbox或宣称高吞吐完成。最终核验V1曾把route.received误当96；正式SQL该值是正文数1，V2修准确语义且保全部96记录/回执断言，旧脚本与响应保留。
+- **跨端尚未业务验收**：Windows当前包装有POSIX锁/Node资源阻塞，Linux未有本产品安装/登录/后台/OTA真机证据；手机控制与手机本机执行分别未验，不能冒支持。Pro原有跨OS启动资产先复用，付费私仓不随公开包分发。另有只读环境布局CLI候选不等于可用安装包。数百台异构目标不缩减，两Mac不代表总交付；本轮仅原Owner机器XHS精确范围。
+- **下一步与禁止项**：本轮G127/G128实际收据已独审通过；优先修跨OS依赖与锁/Node发行链，分别用合法Pro环境验Windows/Linux安装、开始/停止、原登录、断网回传及OTA，手机单独定执行能力；同时优化已测云ACK瓶颈。其余平台/媒体scope需原Pro接通、同输入完整性及独审后逐项放开。保持旧UNKNOWN和身份/进度/评分/回执；不擅自恢复48h实验或watchdog。每轮继续固定handoff，读不到本地原件必须标未验证。
+
+## 历史快照｜2026-10-22｜异构众包范围确认；Pro派单能力门发现实际缺口
+
+- **产品目标不缩减**：数百台、环境不一致的Windows/macOS/Linux/虚拟机及手机终端；两台Mac仅回归样本。PRODUCT-PLAN §1.1已列交付要求，不是支持声明。手机控制端与手机本机执行分别验收；真实跨OS安装、后台执行、登录恢复及OTA尚未证明。
+- **新增证据**：G124在本机隔离PostgreSQL16.15用两条真实连接验证同任务竞争、原claim重取、重复capture同回执、变更hash拒绝，独审5df3a43f…有限通过，测试容器已删除。此为默认MC任务的SQL锁与幂等基线，无采集引擎执行，不代表Pro派单、统一参与者路由、300节点或生产17.6容量通过。下一并发测试须保留有限原始pg_stat_activity及容器策略投影；本次仅保存派生断言，不为补记录重跑已通过基线。
+- **明确失败，线上尚未修复**：G125正式Edge与原SQL隔离测试中，显式source_executor=pro的小红书detail任务，被只声明platforms且未提供source_capabilities或提供空数组的节点领到；平台不匹配、过期、禁用节点会拒领。现wire也拒绝未经定义的Pro小红书能力名，故不能靠随意加标签宣布支持。未执行平台请求或生产写入。最窄queued防误派候选已在隔离SQL通过，非作者重跑独审93542266…通过；它会暂缓缺能力合同的其他新Pro任务，必须等合法readiness生产者/精确scope正例与Owner可见性闭合后一起审部署，不能把“都不派”当完整修复或单独上线。当前正式源码仍c5374fb，候选未采用。
+- **安装接入真实缺口**：本地源码审计发现当前自有helper/安装链依赖Swift Darwin、LaunchAgents、Mac路径及Darwin-only Node资源；Windows旧BAT不等于当前Pro原生包，Linux原生发行链未验。Pro已有CLI/Signer/Bridge及Downloader跨OS构建资产应先复用；这些上游资产不证明本产品已支持异构。详见G125/PORTABILITY-AUDIT.md（逐项实际路径与行号），手机桌面扩展不能混算为手机本机执行。
+- **下一步**：先补Pro任务领取前的实际能力匹配，连接现有安装/readiness与领取/执行合同；保旧MC行为、inflight、UNKNOWN、身份、进度、评分和OTA。正反例独审后才做隔离规模/故障测试及各端接入。原生数据门沿用下列G123证据，不重复采集。48h实验与watchdog保持暂停。
+
+## 历史快照｜2026-10-22｜G123同样本数据门通过；进入中央派单隔离验收
 
 - **执行顺序**：当前仅验同一份小红书样本的Pro原生数据/SQL与导出；数据门通过后再验中央派单及终端桥接，不并行铺平台、OTA或新参与者任务。旧task31/G119候选保持，原身份、进度、评分、回执和OTA不改。48h实验/watchdog仍暂停。
 - **评论跨页实际通过**：原SDK d32dd565原main，独立新SQLite，唯一直采31.075秒/exit0/completed；根5页、回复15页（14链），全部15条分页链关联/推进并显式has_more=false。实际1正文、44根评、51回复共96行；95个评论ID/父链与全部响应（含内嵌回复）exact，SQLite integrity通过。当前声明95与SQL95；历史94不猜原因。C实际32ffb9a5…通过；普通CLI顶层managed flags仍false，未冒参与者任务成功。

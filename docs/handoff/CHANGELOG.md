@@ -1,5 +1,25 @@
 # 交接变更日志
 
+## 2026-10-22｜G126正式接通节点能力与Pro派单；G127/G128执行验收
+
+- **接力者/分工**：root正式发布、Owner采用、实页/真实派单与收据、Git及交接；central_steps中央合同/SQL与隔离测试器；knowledge_reuse_probe终端能力生产者/跨OS布局候选；未参与实现的native_diagnostics_review逐源、计划、中央/Owner实际独审。作者自检不算独审。
+- **目标/实际改动**：在原机器领取周期加入耐久能力报告与准确匹配，Owner新增云读分页；不重写Pro平台核心，不换原身份/进度/评分/回执/OTA。正式15文件782增/11删，提交db1b39b并已推原crowd-kol分支；其他既有dirty不夹带。
+- **正式采用**：原Supabase迁移20261022060846/Edge56已生效，原Owner PID43043/owner-pro-readiness-d03bbc06933d6e37已运行；原RPC OID/权限/五库/原native31未知状态保护证据见EVIDENCE。不是仅本地通过。
+- **验证**：formal107节点Edge→PGlite、终端84/UI10等已审；300合成节点真实PG16/Edge最终23.351s、200合格claim/100拒领、8并发capture1行，容器安全删除；实际同样本正常云任务自动Pro正文1+评论95→96真实回执/回取exact→completed/idle。规模及真实任务分别由C实际独审51bf604f…/bf65331d…有限通过，不由root自述替代。
+- **定位与修复**：V1规模测试错把初始化pg_isready当目标DB就绪、清理报错大小写误判；V2接近末尾额外canonical_envelope被正常Edge白名单拒绝。原失败保留，回G124已过fixture独立真实Edge复现后只改测试器/请求，生产校验不放宽。真实核验脚本把route正文数误当回执总数也保留，V2保96条全部断言后修正为正文1。
+- **余项/下一步**：跨OS安装及手机执行、其他精确scope、普通参与端Pro整体升级未完成；逐条云回执耗时约7分钟仍待优化。本轮实际独审已完成；沿原Pro成熟入口补Windows/Linux依赖/锁/Node发行并分别真机验收；不恢复48h/watchdog，不重放旧UNKNOWN，不公开私SDK或凭据。每轮更新原固定HANDOFF。
+
+## 2026-10-22｜异构众包交付范围确认与Pro派单能力缺口
+
+- **接力者/审查**：root核对规则、正式HEAD、当前计划及G124/G125原件；central_steps复现G125；native_diagnostics_review已独审G124，正在独立核G125方案。
+- **改动**：仅更新HANDOFF、EVIDENCE和本日志；保留原有未提交改动。当前正式HEAD c5374fb，分支codex/v4.0.6-handoff。PRODUCT-PLAN §1.1既有范围明确数百异构终端，未将两Mac回归外推成产品完成。
+- **实际验证**：G124独立报告确认真实PG16.15双连接竞争与幂等，并确认仅本次容器已删除；原pg_stat_activity未完整留存、非Pro/容量证据。G125原Edge/SQL隔离RED显示legacy/空能力节点可领显式Pro XHS detail；禁止以新增能力标签代替实际readiness。详见EVIDENCE。本轮未重跑采集或已通过数据门。
+- **部署/业务**：无部署、线上配置、参与者任务、来源请求或实验启动。跨OS真实安装、手机本机采集、300节点容量、Pro派单完整闭环均未验收。
+- **下一步**：独审最小兼容能力合同后修Pro误领，再隔离规模测试、各端桥接验收；保持旧身份/进度/评分/回执/OTA及UNKNOWN保护，每轮继续更新固定handoff。
+- **本轮补充**：跨端只读审计与非作者关键源码抽核通过；最窄queued防误派SQL候选13场景离线通过（FREEZE e971615b…），仍未正式采用。保留三次夹具失败，C核准原DY精确输入后第四次才通过。候选不能单独部署，须先闭合法readiness/Owner可见性；完整异构众包仍未交付。
+- **独审补记**：C按冻结字节独立重跑，FAILCLOSED-FIRST-FINAL 93542266…有限通过；确认夹具纠正有原合同依据且关键断言保留、SQL仅新queued过滤，部署HOLD。正式版本、线上及原设备状态本轮不变。
+
+
 ## 2026-10-20 22:22 CST｜正式待审知识入口、原4素材版本与多项目消费验收
 
 - **接力/独审**：root接线、实际采用、正常UI送审与消费验证；central_steps采用器/配置/目录初始化；knowledge_reuse_probe原生组合及root Python、实际DB独审；native_diagnostics_review组合/UI/采用/实际与目录修复独审。B所写原生模块由C审，不自审冒独审。

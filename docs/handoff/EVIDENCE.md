@@ -1,5 +1,29 @@
 # 交接证据索引
 
+## 2026-10-22｜G126正式能力登记/Owner采用、G127规模测试及G128真实派单
+
+原件根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`；私人SDK、数据库、完整来源URL及HTTP数据保本机，不随源码公开。无法访问原件者标未验证。
+
+- **正式源码**：`db1b39b1e55641d41d8c6433e89feeca8f67d48a`，15文件；根源/终端/UI/107节点实际SQL测试、正式20261022060846迁移及README。原62回归+22新增、UI10及HTTP路由检查见独审冻结，不以测试数代替业务验收。
+- **中央正式**：`G126-pro-readiness-registry/deployment/{INTENT.json,RPC-FRESH-BEFORE.json,MIGRATION-RESULT.json,EDGE55-MAP.json,EDGE56-DEPLOY-RESULT.json,EDGE56-EXACT-READBACK.json}`；`review/g126-readiness-independent/CENTRAL-ACTUAL-FINAL.json` SHA `280a8b0900af5250c954184db29293cb8faf8ea0fc12b9632936d7a699324d90`。非作者fresh元数据、原RPC OID/ACL、七函数定义SHA、账本、Edge全部32files回读核对通过。
+- **Owner实际**：`G126-owner-readiness-adoption/runtime-adoption/ADOPTED.json`、`OWNER-LIVE-READ.json`；`review/g126-readiness-independent/OWNER-ACTUAL-FINAL.json` SHA `a3e228c67f40a231dbc971d10787e724f49a189b1127ce9a63840c92deb63b59`。497树/七覆盖、旧490/原配置/native31等保持，保护/五库使用锁内实际收据；不为当前合法新任务重扫制造差异。`CACHED-CHECKPOINT-FINAL.json` SHA `294f12f5e69857f5dffc568cea1699f9b2d5ffadf1f6d71e214632aa14390903`。
+- **300规模原件**：`G127-300-node-isolation-v3/execution-once/{INTENT.json,POLICY.json,DATABASE-READY.json,DATABASE.json,WIRE-RESULT.json,ASSERTIONS.json,CLEANUP.json,RESULT.json}`；原始pg_stat_activity在ASSERTIONS中，容器身份与策略投影保留。V3源门 `review/g127-fleet-operator-independent/V3-SOURCE-FINAL.json` SHA `100e1f1ea94cf0d2721e0ebea97654f4f97d50b8523522c3a3fcd18e5ec3e7be`；实际独审 `review/g127-fleet-operator-independent/V3-ACTUAL-FINAL.json` SHA `51bf604f22e0ab2ac303e954447d12420c7a7a2fade19b16d528dc596e57b957` 有限通过；独立核13原始pgstat快照和精确CID已不存在。V1、V2原execution-once/FAILED/WIRE保留。
+- **真实新派单**：`G128-live-pro-dispatch/{REQUEST.PRIVATE.json,PREVIEW.PRIVATE.json,CREATE-INTENT.json,CREATE-RESULT.PRIVATE.json,NODE-AFTER-COMPLETION.json}`及`verification-v2/{CLOUD-FINAL-GET.PRIVATE.json,DISPATCH-FINAL.PRIVATE.json,VERIFIED.json}`。源run `c46aa0e5-5e94-4306-9c87-8a4a0bc0c5b7` / cloud run `8780f781-29f6-4d2d-829e-f6a47d7ba1dc`。正常Owner GET 96记录逐项等于新normalized，原SDK SQLite标题/正文/95评论全文父链、96原outbox receipt/digest对应；task completed/Worker idle。V1核验脚本末条断言语义错误保在 `VERIFICATION-V1-FAILURE.md`，V2不重采/不重写云。实际独审 `review/g128-live-pro-dispatch-independent/ACTUAL-FINAL.json` SHA `bf65331da0dbd2efc29fd8d9cf4414406ea43f0db93998121b38db3bc38bd5ba` 通过；C独立核43分页journal/15链终止、原SQLite全文父链/95ID与96云回执，原coverage仍unverified，不冒平台全量。
+- **边界**：新machine scope无媒体、无新普通参与者升级包、无Windows/Linux/手机真机验收；G123媒体与四格式原证据继续有效。48h/watchdog暂停。Pro采集约31.03秒但云ACK窗419.695849秒，吞吐优化仍待办，不把23.351秒隔离控制测试当采集性能。
+
+## 2026-10-22｜G124有限并发基线与G125 Pro能力门RED
+
+原件根：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`。不含新平台采集或生产修改。
+
+- `G124-central-dispatch-isolation/docker-two-connections/execution-once/RESULT.json`：真实PG16.15双连接测试完成且本次容器删除；通用machine_worker默认MC，未运行引擎。
+- `review/g124-docker-operator-independent/ACTUAL-FINAL.json`：SHA256 `5df3a43f7e95c03f33b88039aee3ba311c67f0a38bfaf2575a3c4b44283760cd`；有限独审通过，包含原件哈希及证据局限。不是300节点、Pro或生产容量验收。
+- `G125-pro-dispatch-capability-gate/ACTUAL-RPC-RED.log`及`pro-gate-cases.mjs`：正式RPC MD5 `10b5d3a23faa7bd0c3e5e510254b89f2`与Edge隔离执行；显式Pro XHS detail被legacy/空能力节点领取，断言失败原件保留。尚未修复/部署，独审进行中。
+- `G125-pro-dispatch-capability-gate/PORTABILITY-AUDIT.md`：SHA256 `93d86820981edc9797837bc508fdaf05ab8b50030a76c9aafe0f556694b315de`，有限只读跨端资产审计；逐项源码位置，不是安装或真实运行验收。Google官方扩展说明已读取，Apple后台策略正文未完整读取，后者不可作已核实手机运行机制依据。
+- `review/g125-pro-capability-independent/PORTABILITY-SPOTCHECK-FINAL.json`：SHA256 `012887aab0d0aa9973b2920c095052bd49be227b90fc35c3efb7f6277ddd9b6a`，非作者亲读关键Mac固化点、旧Windows脚本与原Pro构建资产，有限源码抽核通过。
+- `review/g125-pro-capability-independent/FAILCLOSED-FIRST-FINAL.json`：SHA256 `935422667ef73d383f33814361eb85150a23751482967bcd69029efbe91408a0`；非作者重跑13场景、非法DY零任务/claim、原inflight逐行/同claim及unknown额度保护、CAS重复拒绝，有限独审通过，部署HOLD。候选仅queued新claim谓词，不修改正式源码或证明跨端已接通。
+- `G125-pro-dispatch-capability-gate/failclosed-first/FREEZE.json`：SHA256 `e971615bf7a3ebce1ad8ed1c3076e58f9768b6a439ad32736b7f4a8254a6b7da`。最窄queued防误派SQL与13场景测试候选；`TEST-RUN-4.log`才是最终PASS，原FIRST/SECOND-FIXTURE-FAIL/FINAL-GREEN三文件实际失败且保留，最后一份文件名不代表结果。前两次夹具误读旧child/默认source，第三次DY输入不符原精确scope；停扩场景后由独审亲核合法DY输入再跑，通过且未改生产谓词。未采用正式源码、未部署，不代表合法XHS readiness或跨端派单已接通；独审结果另补。
+
+
 ## 2026-10-20 22:22 CST｜G27正式目标提案与原4素材真实消费
 
 原件根：/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry。以下是本轮可复核原件，PRIVATE/DB/素材不提交或公开；只读者无法访问必须标未验证。
