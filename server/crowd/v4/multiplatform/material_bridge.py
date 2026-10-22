@@ -226,7 +226,7 @@ def read_publication(request,fmt='json'):
   if hashlib.sha256(read_bytes(installed_pack/name,MAX_SNAPSHOT)).hexdigest()!=request['pack_sha256'][name]:raise MaterialError('material_pack_changed')
  # pack_path and runtime_root/runtime_cloud_sha256 are build-only provenance;
  # read trusts exact installed six-file pack bytes, not a mutable source path.
- result=read_json(output/'result.json',65536)
+ result=read_json(output/'result.json',MAX_SNAPSHOT)
  if result.get('snapshot_sha256')!=request['snapshot_sha256']or result.get('as_of')!=request['as_of']:raise MaterialError('material_read_binding_changed')
  dbpath=output/manifest.storage['path'];read_bytes(dbpath,64*1024*1024);db=SqliteStorage(dbpath,read_only=True)
  try:data=Consumer(manifest,contract,db,request['as_of']).current()

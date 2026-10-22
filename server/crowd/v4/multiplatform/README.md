@@ -299,6 +299,9 @@ Owner 标准 HTTP 接收队列容量为64，以承载并发导出及页面轮询
 
 正常入口为既有 Origin/CSRF 保护内的 `POST /api/material-source`，载荷只允许 `{}`。它读取 `material-runtime.json` 当前发布，不接浏览器文件路径、项目根、参与者批次或素材版本参数；原参与者 Pro 素材与其他项目仍使用各自现有版本和导出入口。该只读视图不重采、重算、建立附件或发布快照，四格式导出保持原件。详情先在本地核对登记附件与摘要；明确下载时才通过原 `/api/media` 返回已登记字节。
 
+素材结果与快照共用既有 8MiB 读取上限；完整 JSON、哈希、来源映射与 Consumer 校验保持。较大的评论批次不再被旧 64KiB 结果读取门误拒。
+纯边界回归运行 `python3 -m unittest test_material_result_read_bound`。真实已完成产物只读集成验证单独运行 `integration/check_completed_material_result.py`，显式设置 `PYTHONPATH=.`、`CROWD_MATERIAL_COMPLETED_REQUEST` 和 `CROWD_MATERIAL_BRIDGE` 为本机已完成请求及受审桥接路径，并使用原 toolbox Python。该验证不创建任务或重建产物；缺失私有输入则失败，不能当普通 CI 或采集验收。
+
 ## Pro 原生小红书图片接线
 
 `pro_xhs_media.py` / `pro_xhs_download.mjs` 复用本机另行安装、固定摘要的已购 Pro DownloadManager；本仓只包含自有接线，不包含该私有源码。仅适配 `source_executor=pro`、普通图文的 search/detail/creator，逐张保留原引用与字节证据。视频、未知帖子类型及超过每图 2MiB 的内容明确拒绝，不能当作零媒体成功。原管理器每张图片先 HEAD 再 GET，两次都计入原任务共享请求预算；不新建平台请求器或静默回退其他核心。
