@@ -311,3 +311,7 @@ Owner 标准 HTTP 接收队列容量为64，以承载并发导出及页面轮询
 可复跑的自有集成测试在 `tests/pro-xhs-images/`，只生成临时合成数据并禁止 socket；真实 Axios HTTP adapter 在测试专用 HTTPS 替身上运行，不能当作新平台采集。显式运行 `python3 tests/pro-xhs-images/run_tests.py /本机私有测试环境.json`。环境对象提供 `python`、`legacy_python`、`CROWD_XHS_MP`（本目录）、`CROWD_XHS_SDK`、`CROWD_XHS_AXIOS_ROOT`、`CROWD_PRO_DOWNLOAD_MANAGER`、`CROWD_PRO_NODE`；只填本机已合法安装文件的路径，不放 Cookie/密钥。缺少依赖失败退出，不跳过验证；原 83 项回归在正式源码目录运行。
 
 Linux / Windows WSL2 机器节点安装、精确已验范围及未验项见 [MACHINE_NODE.md](MACHINE_NODE.md)。
+
+机器回传的正常首次投递最多合并4条、总请求不超过300000字节；服务端对每条顺序执行原 heartbeat 授权与 capture，仍返回逐条独立回执。前缀已提交后错误不假回滚；响应丢失或非首次记录回到原 receipt-first 路径，不能自动重发整批。原 SQL、参与者评分与 OTA 不改。`CloudWorker.status().delivery_performance` 只包含固定动作的进程内计数/耗时，不含正文、URL、ID或凭据；不是耐久遥测，也不据此声称已测Linux前台HTTP数量。
+
+Linux运行版本升级通过 `install_machine_node.py install --upgrade` 显式接入：原worker须已正常停止、typed idle且outbox全ACK，取得原worker及会话锁后只切换三个运行版本字段，保留原身份、配置、已安装版本及恢复记录。不是跨OS自动OTA已验收声明。真实耗时、断网恢复及安装包状态以固定HANDOFF为准。

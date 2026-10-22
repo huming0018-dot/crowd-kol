@@ -227,8 +227,27 @@ class CloudClient:
             raise CloudError('active_project_publishable_key_required')
         self.headers = {'Content-Type': 'application/json', 'apikey': project_key,
                         'X-Crowd-' + role.title() + '-Key': key}
+        self._performance_lock=threading.Lock()
+        self._performance={}
         self._transport = _KeepAliveHTTP(self.endpoint)
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect(), self._transport)
+
+    def capture_batch(self, payload):
+        return self.call('capture_batch',payload)
+
+    def delivery_performance(self):
+        with self._performance_lock:
+            return {'schema':'crowd-delivery-http-timing-v1','actions':{key:dict(value)for key,value in self._performance.items()}}
+
+    def _record_performance(self, action, began, opened, read_at, succeeded):
+        if self.role!='worker' or action not in ('heartbeat','capture','capture_batch','receipt','finish'):return
+        elapsed=max(0,time.monotonic()-began)
+        with self._performance_lock:
+            item=self._performance.setdefault(action,{'requests':0,'successful_responses':0,'elapsed_seconds':0,'max_seconds':0,'headers_observed':0,'headers_seconds':0,'bodies_observed':0,'body_seconds':0})
+            item['requests']+=1;item['successful_responses']+=int(succeeded)
+            item['elapsed_seconds']+=elapsed;item['max_seconds']=max(item['max_seconds'],elapsed)
+            if opened is not None:item['headers_observed']+=1;item['headers_seconds']+=max(0,opened-began)
+            if read_at is not None:item['bodies_observed']+=1;item['body_seconds']+=max(0,read_at-opened)
 
     def call(self, action, payload=None):
         body = canonical({'action': action, 'payload': payload or {}}).encode('utf8')
@@ -239,6 +258,7 @@ class CloudClient:
         pro_feed = self.role == 'owner' and action == 'participant_pro_receipts'
         response_limit = 8 * 1024 * 1024 + 128 if pro_feed else 2000000
         for attempt in range(attempts):
+            began=time.monotonic();opened=None;read_at=None;succeeded=False
             http_response = False
             read_stage = 'connection'
             try:
@@ -249,15 +269,18 @@ class CloudClient:
                         _log_publication_read_failure('http_response', error)
                     response = error
                     http_response = True
+                opened=time.monotonic()
                 with response:
                     read_stage = 'body_read'
                     raw = response.read(response_limit + 1)
+                    read_at=time.monotonic()
                     if len(raw) > response_limit:
                         raise CloudError('cloud_response_size_limit')
                     result = _strict_json(raw, max_nodes=1000000 if pro_feed else 100000)
                 if not isinstance(result, dict) or result.get('ok') is not True or not isinstance(result.get('result'), dict):
                     code = result.get('error') if isinstance(result, dict) else None
                     raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
+                succeeded=True
                 return result['result']
             except CloudError:
                 self._transport.discard()
@@ -271,6 +294,8 @@ class CloudClient:
                     continue
                 code = 'cloud_read_unavailable' if (self.role == 'owner' and action in ('participant_pro_receipts', 'task_list', 'task_status', 'continue_failed_source_preview', 'transcript_get', 'participant_health', 'unified_status', 'node_events', 'machine_events', 'unified_preview', 'unified_dispatches', 'worker_capabilities') or self.role == 'worker' and action == 'worker_capability_status') else 'cloud_outcome_unknown'
                 raise CloudError(code) from None
+            finally:
+                self._record_performance(action,began,opened,read_at,succeeded)
 
 
 class CloudOwnerAdapter:
@@ -438,6 +463,81 @@ class CloudOutbox:
                 db.execute('INSERT INTO capture_delivery(id) VALUES(?)', (capture_id,))
                 db.execute('INSERT INTO capture_first_delivery VALUES(?,?,1)', (capture_id, _hash(SCHEMA, envelope)))
         return list(dict.fromkeys(ids))
+
+    def flush_pristine(self, lease, prepare):
+        """At most four first sends; uncertain batches always re-enter receipt-first flush."""
+        if not callable(getattr(self.client,'capture_batch',None)):return None
+        with self._db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            rows=db.execute('SELECT c.id,c.envelope,c.digest FROM captures c LEFT JOIN capture_delivery d ON d.id=c.id WHERE c.state=? AND c.run_id=? AND coalesce(d.quarantined,0)=0 AND coalesce(d.next_attempt_at,0)<=? ORDER BY coalesce(d.total_attempts,0),coalesce(d.last_attempt_at,0),c.rowid LIMIT 4',('pending',lease['run_id'],time.time())).fetchall()
+            if not rows:return None
+            items=[]
+            for identity,encoded,digest in rows:
+                history=db.execute('SELECT attempts,next_attempt_at,quarantined,total_attempts,last_attempt_at,requeues,last_error,attempt_token FROM capture_delivery WHERE id=?',(identity,)).fetchone()
+                proof=db.execute('SELECT digest,pristine FROM capture_first_delivery WHERE id=?',(identity,)).fetchone()
+                state=db.execute('SELECT receipt,error FROM captures WHERE id=?',(identity,)).fetchone()
+                if history!=(0,0,0,0,0,0,None,None) or proof!=(digest,1) or state!=(None,None):return None
+                try:
+                    envelope=_strict_json(encoded)
+                    if (canonical(envelope)!=encoded or _hash(SCHEMA,envelope)!=digest or envelope.get('capture_id')!=identity
+                            or type(envelope.get('lease_epoch'))is not int
+                            or any(envelope.get(k)!=lease[k]for k in ('run_id','task_id','child_id','lease_epoch'))):return None
+                    candidate=[*items,{'sequence':9007199254740991,'envelope':envelope,'envelope_hash':digest}]
+                    probe={**{k:lease[k]for k in ('run_id','task_id','child_id','worker_id','lease_epoch')},'local_run_id':'00000000-0000-4000-8000-000000000001','items':candidate}
+                    if len(canonical({'action':'capture_batch','payload':probe}).encode())>300000:break
+                    items=candidate
+                except (CloudError,ValueError,TypeError,KeyError,mc_runner.BridgeError):
+                    break
+            if not items:return None
+            binding=prepare(len(items))
+            if (not isinstance(binding,dict)or set(binding)!={'run_id','task_id','child_id','worker_id','lease_epoch','local_run_id','sequences'}
+                    or any(binding[k]!=lease[k]for k in ('run_id','task_id','child_id','worker_id','lease_epoch'))
+                    or mc_runner.uid(binding['local_run_id'])!=binding['local_run_id']
+                    or not isinstance(binding['sequences'],list)or len(binding['sequences'])!=len(items)
+                    or any(type(v)is not int or not 1<=v<=9007199254740991 for v in binding['sequences'])
+                    or any(b!=a+1 for a,b in zip(binding['sequences'],binding['sequences'][1:]))):
+                raise CloudError('invalid_cloud_lease')
+            tokens={};now=time.time()
+            for item,sequence in zip(items,binding['sequences']):
+                item['sequence']=sequence;identity=item['envelope']['capture_id'];token=str(uuid.uuid4());tokens[identity]=token
+                db.execute('UPDATE capture_first_delivery SET pristine=0 WHERE id=?',(identity,))
+                db.execute('UPDATE capture_delivery SET attempts=1,total_attempts=1,last_attempt_at=?,next_attempt_at=?,attempt_token=? WHERE id=?',(now,now+90,token,identity))
+        payload={k:v for k,v in binding.items()if k!='sequences'};payload['items']=items
+        accepted=[];failure=None
+        try:
+            response=self.client.capture_batch(payload)
+            if (not isinstance(response,dict)or set(response)!={'schema','run_id','lease_epoch','receipts','error'}
+                    or response['schema']!='crowd-machine-capture-batch-result-v1' or response['run_id']!=lease['run_id']
+                    or type(response['lease_epoch'])is not int or response['lease_epoch']!=lease['lease_epoch']
+                    or not isinstance(response['receipts'],list)or len(response['receipts'])>len(items)):
+                raise CloudError('invalid_cloud_ack')
+            for receipt,item in zip(response['receipts'],items):
+                envelope=item['envelope'];expected={k:envelope[k]for k in ('capture_id','task_id','child_id','run_id','lease_epoch')}
+                expected.update(envelope_hash=item['envelope_hash'],status='received',source_kind='machine_api',reward_eligible=False)
+                if (not isinstance(receipt,dict)or type(receipt.get('lease_epoch'))is not int
+                        or any(canonical(receipt.get(k))!=canonical(v)for k,v in expected.items())):raise CloudError('invalid_cloud_ack')
+            error=response['error'];count=len(response['receipts'])
+            if error is None:
+                if count!=len(items):raise CloudError('invalid_cloud_ack')
+            elif (not isinstance(error,dict)or set(error)!={'capture_id','envelope_hash','code'}or count>=len(items)
+                    or error['capture_id']!=items[count]['envelope']['capture_id']or error['envelope_hash']!=items[count]['envelope_hash']
+                    or not isinstance(error['code'],str)or not re.fullmatch('[a-z_]{1,80}',error['code'])):
+                raise CloudError('invalid_cloud_ack')
+            accepted=response['receipts'];failure=error['code']if error else None
+        except (CloudError,ValueError,TypeError)as error:
+            failure=str(error)if re.fullmatch('[a-z_]{1,80}',str(error))else'cloud_outcome_unknown'
+        with self._db()as db:
+            db.execute('BEGIN IMMEDIATE')
+            for index,item in enumerate(items):
+                identity=item['envelope']['capture_id'];token=tokens[identity]
+                if index<len(accepted):
+                    db.execute('UPDATE captures SET state=?,receipt=?,error=NULL WHERE id=? AND digest=? AND state=? AND EXISTS(SELECT 1 FROM capture_delivery d WHERE d.id=captures.id AND d.attempt_token=?)',('acknowledged',canonical(accepted[index]),identity,item['envelope_hash'],'pending',token))
+                    db.execute('UPDATE capture_delivery SET next_attempt_at=0,quarantined=0 WHERE id=? AND attempt_token=?',(identity,token))
+                else:
+                    code=failure if index==len(accepted)else'cloud_outcome_unknown'
+                    db.execute('UPDATE captures SET error=? WHERE id=? AND digest=? AND state=? AND EXISTS(SELECT 1 FROM capture_delivery d WHERE d.id=captures.id AND d.attempt_token=?)',(code,identity,item['envelope_hash'],'pending',token))
+                    db.execute('UPDATE capture_delivery SET next_attempt_at=0,last_error=?,quarantined=? WHERE id=? AND attempt_token=?',(code,int(code in self.PERMANENT_DELIVERY_ERRORS),identity,token))
+        return self.stats(lease['run_id'])
 
     def flush(self, run_id=None, limit=2000, before_send=None):
         if type(limit) is not int or not 1 <= limit <= 2000:
@@ -698,6 +798,14 @@ class CloudWorker:
         self._save(state)
         return updated
 
+    def _prepare_capture_batch(self, state, count):
+        if self.closed.is_set():raise DeliveryLeaseError('cloud_delivery_lease_denied')
+        first=state.get('sequence',0)+1
+        state['sequence']=first+count-1
+        self._save(state)
+        return {**{k:state['lease'][k]for k in ('run_id','task_id','child_id','worker_id','lease_epoch')},
+                'local_run_id':state['local_run_id'],'sequences':list(range(first,first+count))}
+
     def _renew_delivery(self, state):
         try:
             if state.get('delivery_manifest'):
@@ -937,6 +1045,8 @@ class CloudWorker:
             summary={'phase':phase, 'waiting_login_count':count, 'last_error':self.last_error or observation_error,
                     'local_run_id':state.get('local_run_id'), 'outbox':self.outbox.stats(),
                     'workflow_monitor_error': self.workflow_events.error, 'central_steps':self.machine_steps.status()}
+            if callable(getattr(self.client,'delivery_performance',None)):
+                summary['delivery_performance']=self.client.delivery_performance()
             last=self._stop_summary(self.last_stop or state.get('last_stop'))
             if last:summary['last_stop']=last
             return {**summary, **self.scheduler_status()}
@@ -1367,8 +1477,13 @@ class CloudWorker:
                     return self._park_delivery(state)
                 raise
             acknowledged_before = self.outbox.stats(state['lease']['run_id'])['acknowledged']
-            status = self.outbox.flush(state['lease']['run_id'], limit=4,
-                                       before_send=lambda: self._renew_delivery(state))
+            status = None
+            if (state.get('outcome')=='completed' and state.get('local_run_id')
+                    and not state.get('delivery_manifest') and not state.get('delivery_only')):
+                status=self.outbox.flush_pristine(state['lease'],lambda count:self._prepare_capture_batch(state,count))
+            if status is None:
+                status = self.outbox.flush(state['lease']['run_id'], limit=4,
+                                           before_send=lambda: self._renew_delivery(state))
             try:self.machine_steps.observe(state, acknowledged=status['acknowledged'], pending=status['pending'])
             except (ValueError,OSError,sqlite3.Error):self.machine_steps.error='machine_steps_store_failed'
             if status['pending']:
