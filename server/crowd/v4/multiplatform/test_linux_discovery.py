@@ -14,6 +14,27 @@ class Tests(unittest.TestCase):
    for h in homes:(h/'MediaCrawlerPro-Python').mkdir(parents=True);(h/'MediaCrawlerPro-Python/pyproject.toml').write_text('synthetic')
    with self.assertRaisesRegex(ValueError,'ambiguous'):L.local_project(None,'MediaCrawlerPro-Python',homes)
    self.assertEqual(L.local_project(homes[0]/'MediaCrawlerPro-Python','MediaCrawlerPro-Python',homes),homes[0]/'MediaCrawlerPro-Python')
+ def test_original_bridge_server_layout_discovered_without_pyproject(self):
+  with tempfile.TemporaryDirectory()as d:
+   home=Path(d).resolve();project=home/'MediaCrawlerPro-CookieBridge';(project/'server').mkdir(parents=True);(project/'server/app.py').write_text('synthetic original layout only')
+   self.assertFalse((project/'pyproject.toml').exists());self.assertEqual(L.local_project(None,project.name,[home]),project);self.assertFalse((project/'pyproject.toml').exists())
+ def test_bridge_pyproject_alone_is_not_original_server(self):
+  with tempfile.TemporaryDirectory()as d:
+   home=Path(d).resolve();project=home/'MediaCrawlerPro-CookieBridge';project.mkdir();(project/'pyproject.toml').write_text('not the original Bridge marker')
+   with self.assertRaisesRegex(ValueError,'missing_or_ambiguous'):L.local_project(None,project.name,[home])
+ def test_ambiguous_bridge_server_layout_requires_explicit_path(self):
+  with tempfile.TemporaryDirectory()as d:
+   homes=[Path(d).resolve()/n for n in ('a','b')]
+   for home in homes:
+    project=home/'MediaCrawlerPro-CookieBridge';(project/'server').mkdir(parents=True);(project/'server/app.py').write_text('synthetic original layout only')
+   with self.assertRaisesRegex(ValueError,'ambiguous'):L.local_project(None,'MediaCrawlerPro-CookieBridge',homes)
+   chosen=homes[0]/'MediaCrawlerPro-CookieBridge';self.assertEqual(L.local_project(chosen,chosen.name,homes),chosen)
+ def test_server_app_does_not_replace_python_signer_marker(self):
+  with tempfile.TemporaryDirectory()as d:
+   home=Path(d).resolve()
+   for name in ('MediaCrawlerPro-Python','MediaCrawlerPro-SignSrv'):
+    project=home/name;(project/'server').mkdir(parents=True);(project/'server/app.py').write_text('synthetic')
+    with self.assertRaisesRegex(ValueError,'missing_or_ambiguous'):L.local_project(None,name,[home])
  def accounts(self,rows):
   response=MagicMock();response.status=200;response.read.return_value=json.dumps({'biz_code':0,'isok':True,'data':{'accounts':rows}}).encode();response.__enter__.return_value=response
   opener=MagicMock();opener.open.return_value=response;return patch.object(F.urllib.request,'build_opener',return_value=opener)

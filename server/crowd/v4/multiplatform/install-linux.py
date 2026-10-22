@@ -13,7 +13,8 @@ def same_or_once(path,value):
     else:write_once(path,raw)
 def local_project(explicit,name,homes):
     if explicit is not None:return explicit.absolute()
-    matches={str((home/name).resolve())for home in homes if(home/name/'pyproject.toml').is_file()}
+    marker='server/app.py' if name=='MediaCrawlerPro-CookieBridge' else 'pyproject.toml'
+    matches={str((home/name).resolve())for home in homes if(home/name/marker).is_file()}
     need(len(matches)==1,'licensed_'+name+'_missing_or_ambiguous_supply_local_path')
     return Path(matches.pop())
 
