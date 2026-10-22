@@ -17,6 +17,10 @@ ARCHIVES={
  'arm64':'61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6',
  'x64':'58e99022c2ff89395576cc7fd4d98cea24bb68081475d5f88b801ee8729fb026',
 }
+LINUX_ARCHIVES={
+ 'arm64':'013b59cfd2819703a6f4a14ab891fc46fc2a4e3f5bcd92de3fb4929b43e35b30',
+ 'x64':'b294a556e639d64338823920e5866c21c02741742d2e1529ee1a225c1ec9252a',
+}
 TRUSTED_ARM64_BINARY='18e387c90ab8a8400183e8bdd396376e1e875b91b4c874b894dcade7b35bf572'
 MAX_ARCHIVE=80*1024*1024
 MAX_FILE=160*1024*1024
@@ -24,9 +28,12 @@ MAX_FILE=160*1024*1024
 def need(ok,reason='node_resource_invalid'):
  if not ok:raise ValueError(reason)
 def sha(raw):return hashlib.sha256(raw).hexdigest()
+def operating_system(system=None):
+ system=system or {'Darwin':'darwin','Linux':'linux'}.get(platform.system())
+ need(system in ('darwin','linux'),'node_architecture_unsupported');return system
 def architecture():
- need(platform.system()=='Darwin','node_architecture_unsupported')
- arch={'arm64':'arm64','x86_64':'x64'}.get(platform.machine())
+ operating_system()
+ arch={'arm64':'arm64','aarch64':'arm64','x86_64':'x64'}.get(platform.machine())
  need(arch in ARCHIVES,'node_architecture_unsupported');return arch
 def private_dir(path):
  path=Path(path);need(path.is_absolute() and path.resolve()==path and path.is_dir())
@@ -47,12 +54,13 @@ def read(path,limit=MAX_FILE):
   with os.fdopen(fd,'rb',closefd=False) as f:raw=f.read(limit+1)
   e=os.fstat(fd);need(len(raw)==s.st_size and (s.st_size,s.st_mtime_ns,s.st_ctime_ns)==(e.st_size,e.st_mtime_ns,e.st_ctime_ns));return raw
  finally:os.close(fd)
-def target(helper,arch):
- need(arch in ARCHIVES,'node_architecture_unsupported')
- return private_dir(helper)/'node-runtime'/('%s-darwin-%s'%(VERSION,arch))
-def resource(raw,arch):
- need(sha(raw)==ARCHIVES[arch],'node_archive_changed')
- prefix='node-%s-darwin-%s/'%(VERSION,arch);files={}
+def target(helper,arch,*,system=None):
+ system=operating_system(system);need(arch in ARCHIVES,'node_architecture_unsupported')
+ return private_dir(helper)/'node-runtime'/('%s-%s-%s'%(VERSION,system,arch))
+def resource(raw,arch,*,system=None):
+ system=operating_system(system);hashes=ARCHIVES if system=='darwin' else LINUX_ARCHIVES
+ need(arch in hashes,'node_architecture_unsupported');need(sha(raw)==hashes[arch],'node_archive_changed')
+ prefix='node-%s-%s-%s/'%(VERSION,system,arch);files={}
  with tarfile.open(fileobj=io.BytesIO(raw),mode='r:gz') as t:
   for m in t:
    p=PurePosixPath(m.name)
@@ -62,14 +70,19 @@ def resource(raw,arch):
     need(m.isfile() and 0<m.size<=MAX_FILE and relative not in files,'node_archive_member_invalid')
     files[relative]=t.extractfile(m).read()
  need({'bin/node','LICENSE'}<=set(files),'node_archive_member_invalid')
- if arch=='arm64':need(sha(files['bin/node'])==TRUSTED_ARM64_BINARY,'node_binary_changed')
+ if system=='darwin' and arch=='arm64':need(sha(files['bin/node'])==TRUSTED_ARM64_BINARY,'node_binary_changed')
  return files
-def contract(arch):return {'schema':'crowd-node-resource-v1','version':VERSION,'arch':arch,'archive_sha256':ARCHIVES[arch]}
-def check(helper,*,arch=None):
- arch=arch or architecture();dest=target(helper,arch)
+def contract(arch,*,system=None):
+ system=operating_system(system);hashes=ARCHIVES if system=='darwin' else LINUX_ARCHIVES
+ need(arch in hashes,'node_architecture_unsupported')
+ value={'schema':'crowd-node-resource-v1','version':VERSION,'arch':arch,'archive_sha256':hashes[arch]}
+ if system=='linux':value['system']='linux'
+ return value
+def check(helper,*,arch=None,system=None):
+ system=operating_system(system);arch=arch or architecture();dest=target(helper,arch,system=system)
  private_dir(dest.parent);private_dir(dest);private_dir(dest/'bin')
- need(read(dest/'RESULT.json',4096)==json.dumps(contract(arch),sort_keys=True).encode(),'node_attempt_unknown')
- files=resource(read(dest/'archive.tar.gz',MAX_ARCHIVE),arch)
+ need(read(dest/'RESULT.json',4096)==json.dumps(contract(arch,system=system),sort_keys=True).encode(),'node_attempt_unknown')
+ files=resource(read(dest/'archive.tar.gz',MAX_ARCHIVE),arch,system=system)
  for name,raw in files.items():need(read(dest/name)==raw,'node_binary_changed' if name=='bin/node' else 'node_license_changed')
  node=dest/'bin/node';need(os.access(node,os.X_OK));return node
 
@@ -82,33 +95,35 @@ def fetch(url):
   need(response.url==url,'node_download_redirected');raw=response.read(MAX_ARCHIVE+1)
  need(len(raw)<=MAX_ARCHIVE,'node_archive_too_large');return raw
 
-def prepare(helper,*,arch=None,offline=False,fetch=fetch):
- arch=arch or architecture();dest=target(helper,arch)
+def prepare(helper,*,arch=None,system=None,offline=False,fetch=fetch):
+ system=operating_system(system);arch=arch or architecture();dest=target(helper,arch,system=system)
  if dest.exists():
   private_dir(dest)
-  need((dest/'RESULT.json').exists(),'node_attempt_unknown');return check(helper,arch=arch)
+  need((dest/'RESULT.json').exists(),'node_attempt_unknown');return check(helper,arch=arch,system=system)
  need(not offline,'node_offline_missing')
  if not dest.parent.exists():dest.parent.mkdir(mode=0o700);syncdir(dest.parent.parent)
  private_dir(dest.parent);dest.mkdir(mode=0o700);syncdir(dest.parent)
- once(dest/'INTENT.json',json.dumps(contract(arch),sort_keys=True).encode())
+ once(dest/'INTENT.json',json.dumps(contract(arch,system=system),sort_keys=True).encode())
  # Unknown acquisition/install is durable. Only a complete RESULT permits reuse.
- name='node-%s-darwin-%s.tar.gz'%(VERSION,arch)
- raw=fetch('https://nodejs.org/download/release/%s/%s'%(VERSION,name));files=resource(raw,arch)
+ name='node-%s-%s-%s.tar.gz'%(VERSION,system,arch)
+ raw=fetch('https://nodejs.org/download/release/%s/%s'%(VERSION,name));files=resource(raw,arch,system=system)
  once(dest/'archive.tar.gz',raw)
  (dest/'bin').mkdir(mode=0o700);syncdir(dest)
  for name,data in files.items():once(dest/name,data,0o700 if name=='bin/node' else 0o600)
- once(dest/'RESULT.json',json.dumps(contract(arch),sort_keys=True).encode())
- return check(helper,arch=arch)
+ once(dest/'RESULT.json',json.dumps(contract(arch,system=system),sort_keys=True).encode())
+ return check(helper,arch=arch,system=system)
 
 def from_runtime(runtime,*,arch=None):
- runtime=Path(runtime)
+ system=operating_system();runtime=Path(runtime)
  need(runtime.is_absolute() and runtime.resolve()==runtime,'node_runtime_layout_invalid')
  if runtime.parent.name=='pro-runtime' and len(runtime.name)==64 and all(c in '0123456789abcdef' for c in runtime.name):
   helper=runtime.parent.parent
+ elif runtime.parent.name=='node-revisions' and len(runtime.name)==64 and all(c in '0123456789abcdef'for c in runtime.name):
+  helper=Path.home()/('Library/Application Support/CrowdV4Updater' if system=='darwin' else '.local/share/CrowdV4Updater')
  elif (tuple(runtime.parts[-4:])==('server','crowd','v4','multiplatform')
        or (runtime.name=='pro-runtime' and runtime.parent.name=='.crowd-support')):
   # Owner checkout and verified installer preconfigure use the same per-user resource.
   # It never resolves a browser-provided path or falls back to legacy NODE-SHA.
-  helper=Path.home()/'Library/Application Support/CrowdV4Updater'
+  helper=Path.home()/('Library/Application Support/CrowdV4Updater' if system=='darwin' else '.local/share/CrowdV4Updater')
  else:raise ValueError('node_runtime_layout_invalid')
- return check(helper,arch=arch)
+ return check(helper,arch=arch,system=system)
