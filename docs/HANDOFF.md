@@ -1,6 +1,17 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-21 16:39 CST｜原任务30云回传完成；104已实际采用；异机仍未验收
+## 当前状态｜2026-10-22｜改为逐项验收：Pro直采与本地SQL通过，中央直接入库待补
+
+- **用户最新主线**：不要把引擎、数据库、派单、桥接和OTA混验。当前先原Pro固定输入→本地SQL→中央正常入库/回取；之后才继续派单、终端桥接、自停与OTA。停止新增参与者任务、runtime安装、Stop31和中央runtime准入；旧候选只保留，不当当前主线。原身份、历史进度、评分、回执保持，不重采旧未知任务。48h实验/watchdog仍暂停。
+- **阶段1a实际已通过**：用Git clean的已购Pro Python本地版本d32dd565277116ba4880c28ccd417a7c376cb62d原main CLI，固定G108原完整URL，1篇/评论20/含回复，原CookieBridge账号池、原Signer、全新工作目录与SQLite；没有participant/派单/Worker接线。唯一实际运行6.136秒，summary completed/exit0；新xhs_note正文1、xhs_note_comment根1/回复1、父链正确、标题原UTF-8“上海探店｜鮨水月🍣”、正文137字/hash0ef49862…、15唯一图片引用。C独立实际审494b86a2…通过。本机原生SQLite成功，不是中央Postgres成功。
+- **阶段1a边界**：原CLI没有160硬请求预算，不假称已强制；只限1篇/20评论与120秒外层超时。原单篇checkpoint正文/评论success=true、saved_comment_count2；顶层is_completed/acquisition_committed=false、原始has_more响应未留，不能宣独立原始分页穷尽证明或高评论跨页已验。15链接不是15份媒体字节，原Downloader单独阶段。未新增付费模型/公开私SDK/上传凭据。
+- **阶段2确定缺口，尚未实现**：现Owner import只进本地ResultsStore；中央captures严格绑定worker/task/child/run/lease，Owner无合法直接导入原ProSQLite入口。不得直接INSERT或伪造任务、租约、参与者回执/评分。A/B正准备最小Owner native_saved intake：复用Owner认证、规范化/敏感字段检查与幂等回执，独立append-only batch/record表；用阶段1a同份SQLite RO backup固定快照（含WAL）回取验收；除3行note_url去临时query/fragment并记录原URLhash/已移除键名外，其余列typedraw与父链/hash保真，原SQLite不改、不上传db或URLtoken。此为计划/实施中，未部署、未中央写入。
+- **另一台93问题实际已解决为兼容105**：原普通通道长期latest93，真实旧93 updater只有helper current同版本才报skipped；不是用户没点更新。兼容105包经独立重建/权限身份/原旧协议核验，源码compat a46a39c、PAGES资产4b648eb946953df6d6583730a907474e84a5c860、签原channel-participants的ccee53f488ba672f1010354784862b2e5074cc8a已发布；其余6通道不变。原异机在2026-10-21 09:31:43 UTC自然周期OTA event904 completed，version105/releasef94b863a…、原subject/node保持；后续自然检查current/skipped无error。B实际审f29ecc5d…通过。105是旧助手兼容扩展，不含Pro SDK/runtime，不能冒远端Pro采集通过。当前received摘要3与历史口述2不同，无完整前像不猜原因/不冒评分回执前后逐项exact。
+- **原本机task31失败保留**：正常104 Start→原同owner/node/runtime126新task31/dispatch49f43f96-e9f3-43de-954a-85ef720ec653，source runec8f7163-4701-4950-b829-318e4c54c8d2 completed/10of60/正文1评论0；自有空评论分页校验抛CommentError，发生在任何delivery staging前，中央received0/本机delivery0；被native泛catch误标RPC outcome unknown。不能凭该标签宣云写未知或冒真实回传/自停。原31/原artifact未改、未重发、未Stop/Cancel。当前参与端曾unknown/helperbusy；本轮未替用户重开或清进度。
+- **修复资产保留但停止采用**：G119 V1模拟Manager语义不等价，被C真实SDK反例拦住；V2两源仅合法首根显式空终页且实际SDK检查点匹配时投影null/空串，CommentError映合同拒绝。6+3测试/真实SDK反例V1RED→V2GREEN，C源码审a9ca01b5…通过；未正式合源/部署/安装。V1 runtime发行127标签/真实126成员、SQL草稿与Stop31脚本全部HOLD，暂停清单fbfb3f84…；不得套用task30维护工具到31。旧task30已交付、15云图既有证据仍保留，避免重复校准。
+- **接力下一步**：只推进阶段2固定原Pro结果→正常Owner中央导入→原字段和幂等回执查回，先独审再部署；不同时修派单桥接/OTA，不重跑旧20导出或全库摘要。阶段结果如实分层，原Pro完整多平台、高评论分页、媒体bytes/中央数据库/两设备Pro与自动停止均不能混称全部完成。DevSpace open_workspace两次Internal error、无workspaceId，实际原生CLI与文件验证用现有本机工具继续，未伪称连接成功。
+
+## 历史快照｜2026-10-21 16:39 CST｜原任务30云回传完成；104已实际采用；异机仍未验收
 
 - **用户无需操作窗口**：root复用原Chrome资料/原103 worker，只恢复一个不聚焦控制窗口，并通过真实controller正常Start；未伪造身份、HELLO或发送者。原参与身份、历史进度、评分保持。G112 V2修复旧版本无phase的native_unavailable跨OTA不能恢复；同一安装绑定、每release一次、Stop/UNKNOWN/pending保护，20项测试和独审通过。未人为重造旧状态来冒自动恢复真实验收。
 - **中央误拒已正式修复**：原查询“上海 咖啡”被旧SQL删除空白后要求连续匹配，造成已采正文误拒。G111仅改同一anchor内tokens AND、不同anchors OR；迁移20261021075650_participant_pro_whitespace_anchors已部署，函数OID46052保持、MD5由8ad52b95b316eea0eefc27bf67bd5b9f改为515256f1e2f6ea99ca2ce419fe7961a8，ACL/权限等保持。20项PG测试、实际独审6537d8fa…；正式SQL提交c11433c已推送，不重复执行迁移。

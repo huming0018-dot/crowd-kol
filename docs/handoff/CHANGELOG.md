@@ -1138,3 +1138,11 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 验证：相关性20PG、恢复20/启动10、包解包检查、alarm10；每项源码/实际独审。task30三记录delivered、中央complete；15云图远端回取精确；本机helper104/applied。停止是root正常Stop、OTA为提前既有alarm验收，二者均不冒自然自动门禁。
 - 部署：SQL迁移20261021075650实际生效；Owner81853/Edge54沿本轮已采用源；104包/通道已发布且本机采用。异机93仍未验，48h/watchdog暂停。
 - 风险/下一步：异机最新OTA skipped原因未知；通用Owner恢复入口与完整多平台/两设备验收未完成。读本条证据入口后继续，禁止未知请求重发或重采冒修复。
+
+## 2026-10-22｜root与原三代理｜按用户校准分阶段验收
+
+- 实际：原异机93旧通道修复后自然OTA105通过；原本机31新任务卡本地空评论合同、delivery0/未自停；V2修复只候选通过，保失败原件。随后用户要求先Pro→SQL、再派单桥接，已暂停新增派单/runtime/Stop31/准入扩展。
+- 阶段1a：原SDK clean d32dd565…原CLI唯一直采同输入6.136s，新的SQLite正文1/根1/回复1/15refs，C独审494b86a2…通过；原题/137字/hash/parent链可核。不是中央PG或图片bytes、高评论分页验收。
+- 版本与范围：extension兼容资产a46a39c，PAGES包4b648eb…/旧通道ccee53f…；未换104/native-v2或发布私SDK。candidate新runtime、SQL草稿、Stop31全HOLD，没有部署或中央写。
+- 当前缺口：没有正常Owner原Pro结果直入中央PG的入口。下一步只以阶段1a固定快照补owner native_saved intake及幂等/回取验证；原captures授权/FK/评分保持。阶段完成后才恢复派单桥接逐项验收。
+- 证据：本轮EVIDENCE及上述独立报告。保原身份/旧进度/旧回执；未有评分前像不冒全量前后exact。48h/watchdog仍暂停。DevSpace两次open内部错误无workspaceId，不影响本机CLI验证。
