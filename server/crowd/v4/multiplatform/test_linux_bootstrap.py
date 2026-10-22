@@ -1,4 +1,4 @@
-import hashlib,os,subprocess,sys,tempfile,unittest
+import hashlib,os,shutil,subprocess,sys,tempfile,unittest
 from pathlib import Path
 class Tests(unittest.TestCase):
  def setUp(self):
@@ -39,4 +39,37 @@ class Tests(unittest.TestCase):
   run=self.run_script
   self.run_script=lambda *args:run('--root='+str(args[1]),*args[2:])
   self.test_existing_node_bypasses_uv_download_before_reuse()
+
+
+ def test_adjacent_cache_forwarded_without_manual_flag(self):
+  kit=self.root/'kit';kit.mkdir();script=kit/'install-linux.sh';script.write_bytes(self.script.read_bytes());(kit/'bootstrap-cache').mkdir();self.script=script
+  self.tool('uv','exit 90');self.tool('python3.12','printf "%s\\n" "$*" >>"$TRACE";exit 0')
+  p=self.run_script('--root',self.root/'new');self.assertEqual(p.returncode,0,p.stderr);self.assertIn('--bootstrap-cache '+str(kit/'bootstrap-cache'),self.trace.read_text())
+ def test_explicit_cache_takes_priority_over_adjacent(self):
+  kit=self.root/'kit';kit.mkdir();script=kit/'install-linux.sh';script.write_bytes(self.script.read_bytes());(kit/'bootstrap-cache').mkdir();self.script=script
+  explicit=self.root/'explicit';explicit.mkdir();self.tool('uv','exit 90');self.tool('python3.12','printf "%s\\n" "$*" >>"$TRACE";exit 0')
+  p=self.run_script('--root',self.root/'new','--bootstrap-cache',explicit);self.assertEqual(p.returncode,0,p.stderr);trace=self.trace.read_text();self.assertIn('--bootstrap-cache '+str(explicit),trace);self.assertNotIn(str(kit/'bootstrap-cache'),trace)
+
+class GitTests(unittest.TestCase):
+ def setUp(self):
+  self.t=tempfile.TemporaryDirectory();self.r=Path(self.t.name).resolve();self.bin=self.r/'bin';self.bin.mkdir();self.apt=self.r/'apt';(self.apt/'sources.list.d').mkdir(parents=True);self.home=self.r/'home';self.home.mkdir();self.trace=self.r/'trace';self.source=Path(__file__).with_name('install-linux.sh');self.env={'HOME':str(self.home),'PATH':str(self.bin),'TRACE':str(self.trace)}
+  for name in('find','grep','sed','mktemp','rm','chmod','mkdir','dirname','env'):os.symlink(shutil.which(name),self.bin/name)
+  self.tool('uname','echo Linux');self.tool('id','echo 0');self.tool('timeout','printf "timeout:%s\\n" "$1" >>"$TRACE";shift;exec "$@"');self.tool('uv','exit 90');self.tool('python3.12','exit 0')
+  self.tool('apt-get','printf "%s\\n" "$*" >>"$TRACE"; for arg in "$@"; do case "$arg" in Dir::Etc::sourcelist=*) cat "${arg#*=}" >>"$TRACE";; esac; done; case "$*" in *update*) [ "${FAIL_INDEX:-}" != 1 ] || exit 100;; esac; exit 0')
+  os.symlink(shutil.which('cat'),self.bin/'cat')
+  self.original='Types: deb\nURIs: http://deb.debian.org/debian\nSuites: trixie\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n';(self.apt/'sources.list.d/debian.sources').write_text(self.original)
+ def tearDown(self):self.t.cleanup()
+ def tool(self,n,s):p=self.bin/n;p.write_text('#!/bin/sh\n'+s+'\n');p.chmod(0o700)
+ def run_script(self,fail=False):
+  # Only system path relocation for this fixture; production has no source override flag.
+  script=self.r/'install.sh';script.write_text(self.source.read_text().replace('/etc/apt',str(self.apt)));script.chmod(0o700)
+  return subprocess.run(['/bin/sh',str(script)],env={**self.env,'FAIL_INDEX':'1'if fail else''},capture_output=True)
+ def test_default_debian_transport_uses_temporary_https_preserving_signature(self):
+  p=self.run_script();self.assertEqual(p.returncode,0,p.stderr);trace=self.trace.read_text();self.assertIn('Dir::Etc::sourcelist=',trace);self.assertIn('https://deb.debian.org/debian',trace);self.assertIn('Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg',trace);self.assertEqual((self.apt/'sources.list.d/debian.sources').read_text(),self.original)
+ def test_custom_sources_not_dropped_or_rewritten(self):
+  (self.apt/'sources.list.d/custom.list').write_text('deb https://example.invalid stable main\n');p=self.run_script();self.assertEqual(p.returncode,0,p.stderr);self.assertNotIn('Dir::Etc::sourcelist=',self.trace.read_text());self.assertEqual((self.apt/'sources.list.d/debian.sources').read_text(),self.original)
+ def test_any_index_error_stops_before_install(self):
+  p=self.run_script(True);self.assertEqual(p.returncode,2);trace=self.trace.read_text();self.assertIn('APT::Update::Error-Mode=any',trace);self.assertNotIn('install -y',trace);self.assertIn(b'system_package_index_unavailable',p.stderr)
+ def test_install_has_bounded_download_budget_separate_from_index(self):
+  p=self.run_script();self.assertEqual(p.returncode,0,p.stderr);trace=self.trace.read_text();self.assertIn('timeout:180',trace);self.assertIn('timeout:600',trace)
 if __name__=='__main__':unittest.main()

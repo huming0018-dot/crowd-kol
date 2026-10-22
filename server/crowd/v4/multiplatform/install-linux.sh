@@ -45,14 +45,15 @@ if [ -f "$NODE_ROOT/node-install.json" ]; then
   PYTHON=$(sh "$SCRIPT_DIR/install-linux.sh" --python-path)
   exec "$PYTHON" -B "$SCRIPT_DIR/install-linux.py" "$@"
 fi
-UV=''; CACHE=''; previous='' 
+UV=''; CACHE=''; CACHE_EXPLICIT=false; previous='' 
 for arg in "$@"; do
   if [ "$previous" = --uv ]; then UV=$arg; fi
   case "$arg" in --uv=*) UV=${arg#--uv=} ;; esac
-  if [ "$previous" = --bootstrap-cache ]; then CACHE=$arg; fi
-  case "$arg" in --bootstrap-cache=*) CACHE=${arg#--bootstrap-cache=} ;; esac
+  if [ "$previous" = --bootstrap-cache ]; then CACHE=$arg; CACHE_EXPLICIT=true; fi
+  case "$arg" in --bootstrap-cache=*) CACHE=${arg#--bootstrap-cache=}; CACHE_EXPLICIT=true ;; esac
   previous=$arg
 done
+if [ "$CACHE_EXPLICIT" = false ] && [ -d "$SCRIPT_DIR/bootstrap-cache" ]; then CACHE="$SCRIPT_DIR/bootstrap-cache"; fi
 if [ -n "$UV" ]; then [ -x "$UV" ] || fail explicit_uv_unavailable
 elif command -v uv >/dev/null 2>&1; then UV=$(command -v uv); fi
 TOOLS=''
@@ -65,8 +66,29 @@ if [ -n "$TOOLS" ]; then
   elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then privilege='sudo -n';
   else fail "system_tools_need_existing_admin_permission: install missing git/curl using your distro package manager"; fi
   if command -v apt-get >/dev/null 2>&1; then
-    $privilege timeout 180 env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::Retries=0 update -qq || fail system_package_index_unavailable
-    $privilege timeout 180 env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::Retries=0 install -y --no-install-recommends $TOOLS || fail system_package_install_failed
+    APT_SOURCE=''; APT_TEMP=''
+    # Preserve custom repositories. For the original single Debian source only,
+    # prefer the same signed archive over HTTPS without editing system sources.
+    if [ -f /etc/apt/sources.list.d/debian.sources ] && [ ! -L /etc/apt/sources.list.d/debian.sources ] && [ ! -e /etc/apt/sources.list ]; then
+      OTHER=$(find /etc/apt/sources.list.d -mindepth 1 -maxdepth 1 \( -name '*.list' -o -name '*.sources' \) ! -name debian.sources -print -quit)
+      if [ -z "$OTHER" ] && grep -q '^URIs: http://deb.debian.org/' /etc/apt/sources.list.d/debian.sources; then
+        APT_TEMP=$(mktemp -d); trap 'rm -rf "$APT_TEMP"' EXIT HUP INT TERM
+        APT_SOURCE="$APT_TEMP/debian.sources"
+        sed 's|http://deb.debian.org/|https://deb.debian.org/|g' /etc/apt/sources.list.d/debian.sources > "$APT_SOURCE"
+      fi
+    fi
+    apt_get() {
+      APT_LIMIT=180
+      if [ "${1:-}" = install ]; then APT_LIMIT=600; fi
+      if [ -n "$APT_SOURCE" ]; then
+        $privilege timeout "$APT_LIMIT" env DEBIAN_FRONTEND=noninteractive apt-get -o Dir::Etc::sourcelist="$APT_SOURCE" -o Dir::Etc::sourceparts=- -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::Retries=0 -o APT::Update::Error-Mode=any "$@"
+      else
+        $privilege timeout "$APT_LIMIT" env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::Retries=0 -o APT::Update::Error-Mode=any "$@"
+      fi
+    }
+    apt_get update -qq || fail system_package_index_unavailable
+    apt_get install -y --no-install-recommends $TOOLS || fail system_package_install_failed
+    if [ -n "$APT_TEMP" ]; then rm -rf "$APT_TEMP"; trap - EXIT HUP INT TERM; fi
   elif command -v dnf >/dev/null 2>&1; then $privilege timeout 180 dnf install -y $TOOLS || fail system_package_install_failed
   else fail unsupported_system_package_manager_install_git_curl; fi
 fi
@@ -125,4 +147,5 @@ if [ "${1:-}" = --bootstrap-only ]; then
   "$PYTHON" -I -c 'import json,sys;print(json.dumps({"state":"python_tools_ready","python":sys.executable,"version":sys.version.split()[0],"source_or_identity_started":False}))'
   exit 0
 fi
+if [ -n "$CACHE" ]; then exec "$PYTHON" -B "$SCRIPT_DIR/install-linux.py" --uv "$UV" --bootstrap-cache "$CACHE" "$@"; fi
 exec "$PYTHON" -B "$SCRIPT_DIR/install-linux.py" --uv "$UV" "$@"

@@ -17,6 +17,21 @@ def local_project(explicit,name,homes):
     need(len(matches)==1,'licensed_'+name+'_missing_or_ambiguous_supply_local_path')
     return Path(matches.pop())
 
+def prepare_node(helper,cache):
+    from portable_node import prepare,architecture,VERSION,MAX_ARCHIVE
+    if cache is None:return prepare(helper)
+    name='node-'+VERSION+'-linux-'+architecture()+'.tar.gz'
+    archive=cache/name
+    def cached(url):
+        need(url=='https://nodejs.org/download/release/'+VERSION+'/'+name,'node_archive_cache_url_changed')
+        need(archive.exists(),'node_archive_cache_missing')
+        need(not archive.is_symlink()and archive.is_file(),'node_archive_cache_unsafe')
+        need(archive.stat().st_size<=MAX_ARCHIVE,'node_archive_too_large')
+        with archive.open('rb')as stream:raw=stream.read(MAX_ARCHIVE+1)
+        need(len(raw)<=MAX_ARCHIVE,'node_archive_too_large')
+        return raw  # Original prepare/resource still verifies pinned archive, files and licenses.
+    return prepare(helper,fetch=cached)
+
 def existing_dependencies(root,sdk,signer,collector):
     record=installed(root)
     need(record['mc_root']==str(sdk)and record['collector_roots']==[str(collector)],'existing_node_configuration_conflict')
@@ -55,7 +70,6 @@ def main():
     from mc_runner import source_info
     from pro_signer_server import verify_source
     info=source_info(args.sdk_root);need(info['commit']==PINNED_COMMIT and not info['dirty'],'pro_source_changed');verify_source(args.signer_root)
-    from portable_node import prepare as node_prepare
     if old:
         record=existing_dependencies(args.root,args.sdk_root,args.signer_root,collector)
         if args.check:
@@ -68,7 +82,7 @@ def main():
         print(json.dumps({**result,'existing_identity_preserved':True,'scheduler_started':False}));return 0
     need(not args.check,'node_not_installed_run_install')
     need(args.uv is not None,'uv_required')
-    helper=Path.home()/'.local/share/CrowdV4Updater';helper.mkdir(mode=0o700,parents=True,exist_ok=True);node_prepare(helper)
+    helper=Path.home()/'.local/share/CrowdV4Updater';helper.mkdir(mode=0o700,parents=True,exist_ok=True);prepare_node(helper,args.bootstrap_cache)
     prepared=prepare(args.root,{'pro':args.sdk_root,'signer':args.signer_root},Path(sys.executable),args.uv)
     collector.mkdir(mode=0o700,parents=True,exist_ok=True)
     for name in ('runs','sessions'):(collector/name).mkdir(mode=0o700,exist_ok=True)
