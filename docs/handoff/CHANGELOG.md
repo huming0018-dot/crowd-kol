@@ -1,5 +1,13 @@
 # 交接变更日志
 
+## 2026-10-23 02:11 CST｜root/A总超时/B安装入口/C独审｜G138
+
+- 目标：Windows-H2J0L1实际安装/原登录复用/自动任务回执和断网停止，修无缓存整体下载期限及参与者默认路径。
+- 实改：portable_node.py固定官方子进程总120秒、windows-wsl.ps1补原HOME默认root，新增test_node_download_deadline.py及test_windows_wsl_launcher.ps1；4路径b1b5814已推。两个bug各先RED、独立C审源/正式采用后通过，19正式Python+11真实PowerShell离线fixture；未把mockWSL冒真机。
+- 发行：pagesbb7bbdd新增四件，新包31b2d6bb/527574B/147；对原包142同件，新runtime63073只portable源变/其余132保。四raw已回验C独审。新包未在节点实装、原Owner/MacOTA无变。
+- 实机：正确Windows终端已自行找到，实际Ubuntu2/x86_64/用户simon/Python3.14.4/Git2.53.0，C有独立截图；先前“不知正确窗口”已更新。控制接口随后反复焦点跳变/旧剪贴板拼接/变更保护，错误输入未执行，短只读查询曾成功；不得声称完整安装通过。
+- 未验/下一步：Windows下载安装/独立身份/Pro原登录/任务/真实ACK/断网/自动停均未跑，先恢复稳定终端定位再沿本包验收；x64官方缓存和契约已核但不冒实跑。原身份/进度/评分/outbox/回执/OTA及旧UNKNOWN保持；无新增云任务或配对，不恢复48h/watchdog。
+
 ## 2026-10-23 01:29 CST｜root / A安装与B公共工具 / C独立审查｜G137新安装闭环
 
 - 目标：新机依赖自动检查/安装、本机原登录复用、正常云任务与断网恢复；Windows实机不拿容器代替。

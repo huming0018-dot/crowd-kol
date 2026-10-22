@@ -1,6 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-23 01:29 CST｜Linux新安装、登录复用与断网云回执通过；Windows待正确远程窗口
+## 当前状态｜2026-10-23 02:11 CST｜G138下载总期限与WSL默认目录已发布；Windows实机预检通过，安装及回执未验
+
+- **源码与发行已发布**：正式crowd-kol `b1b5814363333afb3dbcc55b4c4020ad7015e768` 仅4路径（2源2测试），原分支推送成功。crowd-pages `bb7bbdd847d8387e7d094ebcc11dbd7882fb7cbd` 仅新增 `v4/releases/machine-nodes/2026-10-23-linux-wsl/` 四件，公网四HTTP200/长度/SHA与Git blob及已审本地件一致。新包147普通文件/527574B/SHA `31b2d6bb59724db7c30be067673bfc66ef4403a184eb136403f1dc897f4750e3`；runtime `63073aea928a3107a463c6150677738afb9de48628ecb6dcc1b600fb2024a20a`。对G137包仅两产品源、两manifest和README共5变，其余142相同；133运行源仅portable_node变，其余132保持。新包未实装，不称原Owner或节点已采用。
+- **无缓存下载修复已独审/回归**：原socket timeout可被持续滴流延长（0.08秒每读上界，0.03秒滴字节，0.371秒才完成，违0.18秒总界，RED保留）。原固定官方URL下载改唯一自有子进程，父单调时钟120秒剩余预算、异常kill/wait，子自有SIGALRM限定父退出后的残留；TLS/noRedirect/80MiB/SHA/成员/LICENSE和原INTENT/UNKNOWN保持。新8+原11正式测试通过；真实官方下载56,749,972B/7.327秒/SHA013b与原资源契约一致。不是整个安装120秒或硬实时保证；POSIX路径，父SIGTERM后child可能剩自身最多120秒。
+- **默认安装目录修复已独审**：Windows原install有默认root，bind/start却缺必填root而失败；仅补同WSL用户HOME的 `.local/share/CrowdWorker` 默认参数，显式两种root与原发行版选择保留。真实Microsoft PowerShell7.5.3执行11离线fixture通过，wsl.exe是测试函数，不冒WSL实机安装；旧正式bind缺root exit2及旧PS RED保留。
+- **Windows实际新增证据**：已自行在ToDesk选中并连接Windows-H2J0L1，终端实际Win11家庭中文版build26300、主机名SIMONHU/用户simon（不是此前错误Mac）。实际wsl列表exit0显示Ubuntu/WSL2，启动原Ubuntu后uname x86_64、uid1000、HOME/home/simon、Python3.14.4、Git2.53.0。C另只读截图独立见证WSL/架构/用户/依赖；磁盘是guest报告，不是物理容量保证。无需重装WSL或重启。
+- **具体未通过/阻塞**：之后原生控制接口焦点在Windows终端、远程桌面与ToDesk主界面间跳变，出现windowNotFoundAtPosition、user-changed保护和旧剪贴板拼接。错误拼接行未提交；只读会话重置后短命令一度成功，但C见证后再次不能可靠选中终端。未绕保护换输入工具，未对另一台Mac执行命令。Windows尚无正式包下载/安装、独立配对、平台登录复用、自动领取、真实云ACK、故障恢复或停止证据，不能宣布Windows支持完成。
+- **保护/下一步**：本轮没有创建云任务/配对、修改SQL/Edge、重启Owner、替换原运行节点或MacOTA；原身份、进度、评分、outbox、旧native31 UNKNOWN及G137完成任务保持，48h/watchdog仍暂停。下一步先恢复可稳定选中的Windows终端输入，再用已发布通用包与原Ubuntu安装；x64 uv/Python/Node原固定官方合同和三公开归档摘要已核，可选缓存仅本机，不复制Mac身份/Cookie。合法Pro组件、Windows自己的浏览器登录/Bridge须单独实际核验。不得用G137 Linux96ACK替代本轮Windows验收。
+
+## 历史快照｜2026-10-23 01:29 CST｜Linux新安装、登录复用与断网云回执通过；Windows待正确远程窗口
 
 - **正式源码/发行**：本轮4路径源码 `959da4f48866aa9033567659a5bbb71fc2883e90` 已推原crowd-kol分支；原crowd-pages新增发行 `f5c7285bc89e275149f0b5931d1339d74366e929`，四件公网HTTP200/字节与哈希回验一致。最终147文件包525703B/SHA `27e414f1e6c67376c1f08aa13872048a6f7810bac2b0a5a08b7ef068891bf9c5`，相对实装0d1b包仅README/manifest更新，其余145同件、133运行时仍12d03。原Owner、Edge接口沿用G135，本轮没有部署SQL或改变Mac/OTA渠道，不称整个Git HEAD均在运行。
 - **依赖自动安装**：默认Debian源仅本次临时同源HTTPS副本，原Signed-By/系统源保留、自定义源不改、索引错误停止。APT索引180/安装600/单连接20秒；独立缺工具容器确认Git2.47.3/curl8.14.1/CA安装及工具检查成功；该次工具测试整体记录33.47秒，随后主动中止后续下载，整shell为exit2，不冒完整安装成功；原依赖再次检查1.04秒。uv/Python/Node邻接 `bootstrap-cache` 自动发现、显式参数优先；Node仍经原资源哈希/成员/许可证校验。无缓存Node的120秒仍仅网络读取期限，未修整个下载上界。

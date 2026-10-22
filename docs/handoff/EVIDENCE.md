@@ -1,5 +1,16 @@
 # 交接证据索引
 
+## 2026-10-23 02:11 CST｜G138正式安装器修复、发行与Windows只读实机
+
+证据根 `pro-participant-native-entry/`；非作者审查在 `G138-independent-review/`。源码b1b5814/pagesbb7bbdd已推原分支；无运行节点或云schema变更。
+
+- `G138-node-download-deadline/SOCKET-DRIP-RED.log`、FREEZE、OFFICIAL-UNCACHED-FINAL、FORMAL-TEST-FINAL/FORMAL-19.log：原滴流总超时失败、新8+原11正式通过、官方56,749,972B归档实际7.327秒/原SHA核对。C `NODE-DEADLINE-SOURCE-FINAL.json` SHA e4ad0a669fd483e6b98bb060d3f65e922b8b4c5ba600f8ac907a1e18b5c83dae。
+- `G138-wsl-dependency-entry/{SOURCE-MAP,FREEZE,ORIGINAL-RED,DOWNSTREAM-MISSING-ROOT-RED,TEST-GREEN}`：7行默认root接线，原显式参数保留，真实Mac PowerShell11case通过但wsl fixture。C `WSL-DEFAULT-ROOT-SOURCE-FINAL.json` SHA 6e428df3ce8b4f1506d9da203ec3a4c85bcfa610eadb0b3850dede9a67d29b78。
+- `G138-windows-acceptance/FORMAL-CAS.json`、正式源/新两测试及Git b1b5814：仅4路径211+/2-、cached diff check0；C `FORMAL-SOURCE-FINAL.json` SHA c147a7f978cb3e1d7faa0ff4c0af6aa80e18ca1cd59892d03317b85db6e6a5e8。
+- C `WINDOWS-WSL-PREFLIGHT-WITNESS.png` SHA961bab453082d62b8ae8a55ba4144d4de06b6a0dbdf83edce7e015d69cc657d3；`WINDOWS-WSL-PREFLIGHT-ACTUAL-WITNESS.json` SHAbe892e3dac113e74ac58dbb8a2f1f801da3d99f80ce00a4717100427f9707f4c：只读可见Ubuntu2/x86_64/simon/依赖；该帧未显示Windows版本/主机名，不冒C已见全部。操作失败与后续焦点保护见本会话CUA记录；没有Windows安装或来源/任务证明。
+- `G138-wsl-dependency-entry/PACKAGE-DOC-FINAL-FREEZE.json`、release四件、x64-public-cache/PUBLIC-CACHE.json；C `PACKAGE-FINAL.json` SHA2e32de363d2b64ceb5d267144cf65c752393b39bdefa111042664b005cf68d91、`PUBLICATION-PLAN-FINAL.json` SHA37394c179927324cf99bbea015192bb47de360de227dce2273d1d8a702dacac1。新147件包SHA31b2d6bb…/runtime63073；原SDK/Cookie/凭据不入包。
+- `G138-windows-acceptance/{PAGES-COPY.json,public-readback/VERIFIED.json}`与4个raw文件：HTTP200/长度/SHA exact=pagesbb7bbdd Gitblob=批准release。C `PUBLICATION-ACTUAL-CHECKPOINT-FINAL.json` SHA31cc999c8c3c06b2826dea662360b9c3224465f082b02a4d69091a44f4c8d138；不是只看bot发布自述。
+
 ## 2026-10-23 01:29 CST｜G137新机安装与真实回传闭环
 
 证据根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`；本轮 source959da4f、pagesf5c7285。PRIVATE/原Pro/浏览器凭据不公开；以下是保存的实际原件与非作者审查。
