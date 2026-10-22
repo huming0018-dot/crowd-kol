@@ -1,5 +1,24 @@
 # 交接证据索引
 
+## 2026-10-22 17:55 CST｜G129–G134 实际运行与独审
+
+证据根目录：`/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`。以下为原件及非作者审查，私有配置/正文不进仓库。源码提交986b0ed、9a29fa2、a711416及后续本轮G134检查点。
+
+| 项目 | 可复核原件与结果 | 独立审查 SHA256 |
+|---|---|---|
+| 连接复用 | G129-cloud-ack-throughput/SOURCE-FREEZE.json；47项HTTP/原Cloud及retry10通过；原55函数AST未变，重试fixture原基线失败留存 | HTTP-SOURCE-FINAL d7a70cc42bda976896b2f1cf3a109f314c529a1c813da805dbc8c924bfdbc21a |
+| 正常96云回执 | G130-throughput-live/ACK-PERFORMANCE.json、verification-v2/VERIFIED.json；SDK/SQL/normal GET/96ACK exact，ACK窗419.695849→173.984471秒，单次前后对照 | G130 ACTUAL-FINAL 7b968ce1d5a20d1ea4e83e43e94ea7a75a57a2a51aa0273efbf345c2a5108540 |
+| Linux依赖及首次身份 | G129-linux-worker-install实际install/check日志；G131-linux-owner-pair-plan/v3/execution正常pair/self/能力原件；Linuxarm64原uv.lock复制安装，独立身份、原官方账号自检 | G131 self ca25a9e3ad79156cdf83c52c7c9f1ff5051ac5813d078a44eb417f8dc221c69d；deps dc7725e6b633730f3bc547ad24d8872a54d8476db828bf143ee9fe9b284082fc |
+| Linux真实任务及断网 | G133-linux-live/observations、NETWORK-FAULT-RESULT.PRIVATE.json；同run/source1次/46API，80ACK16pending断网20.085秒→96ACK0pending，正文及95评论父链/24分页链exact，任务完成 | G133-ACTUAL-FINAL 94d396e43f9a66a6c983bccd5a22b84e198b107073b9bbe8e05fcce1abd27e0e |
+| 自有测试节点收尾 | G133 NODE-CLEANUP与G129 RELAY-V2-STOP原件；正常终止已idle自有进程，卷/身份保留，原Mac/Bridge不动；能力自然expired | cleanup b9db0e9b58a1ca0e275550883868f742d39aff94a00e7b6a5770a91969e84ef4 |
+| 两批素材原样恢复 | G132-material-result-read-bound/restore-v2；两个已完成job原result/publication及12项摘要不变，仅恢复原blocked状态和读入口，原队列自然2→0 | actual 3627e42632490bc9847d834efe09d7ea2c60f5d2c5f2b68221df1519506ad50f |
+| 稳定素材入口 | G134-material-read-deadlines/runtime-support；双模式bridge/worker可被原Python导入，cfg仅4路径/摘要字段、指针仅2字段变，不重建 | C actual 94bd9831d7311490bbdd525aa9d50ad730751a95498ec16ce7b1fba62ec315d6；B复核739331233a887e15dffcd61030cfc06505a9e529a1a202dd026a9f98f95e32fb |
+| 原Owner实际采用 | G134-material-read-deadlines/owner-adoption；PID77550，497仅dashboard变，锁内5库/2443文件保护，五原进程锁/会话锁保持，旧task31不动 | 94755d3216c7827ddc268ee469d376905fe09aeab8fc639734e30936c2049b47 |
+| 正常四格式 | G134-material-read-deadlines/user-path/HTTP-RESULT.json、FINAL.json及四下载原件；全部HTTP200、96条结构/原publication一致，HTML原renderer bytes exact，0source/build | C user-path 9095d14b64b3ae2da4b0869d302795580b127163a3ab54cf898eaa0f7552c79a |
+| 首次绑定入口 | G134-linux-first-bind/v2/FREEZE.json、FORMAL-CAS.json、PACKAGE-FINAL.json；G129-linux-worker-install/FIRST-BIND-ACTUAL-STATUS.json。145文件包SHA874bca6ceab6ad3cc1d179e16232633cb6cb068fb47b9239ed574f39a704aba6；status原身份不变/0HTTP | A source a95f8951136b7858c11a92644423506c8d566a3ed2ed09c07f6ef21d9cba6c54；实际/正式范围终审91f92db0bc7dddc160e284fabd074c4969abde0ce4c1f9aaeefc342635797709 |
+
+Windows宿主、物理Linux、原生Windows/手机/跨端OTA无实测证据；本轮媒体未启用，原G123同输入媒体证据不能冒本轮新媒体下载。机器回执reward_eligible=false，不等于参与者评分/奖励业务已验收。当前云Edge56和SQL未在本轮改变。
+
 ## 2026-10-22｜G126正式能力登记/Owner采用、G127规模测试及G128真实派单
 
 原件根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry`；私人SDK、数据库、完整来源URL及HTTP数据保本机，不随源码公开。无法访问原件者标未验证。

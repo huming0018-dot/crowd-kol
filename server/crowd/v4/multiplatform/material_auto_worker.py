@@ -94,7 +94,7 @@ def process(root,path,cfg):
     if result.returncode:raise ValueError('material_auto_jobs_failed')
     # Gate all publication bytes through the existing Consumer read CLI.
     read_cmd=[cfg['python'],'-B',cfg['bridge_path'],'--request',str(request_path),'--action','read','--format','json']
-    checked=subprocess.run(read_cmd,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=15,check=False)
+    checked=subprocess.run(read_cmd,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=60,check=False)
     if checked.returncode or len(checked.stdout)>16*1024*1024:raise ValueError('material_auto_read_failed')
     delivered=json.loads(checked.stdout)
     if len(delivered.get('items',[]))!=(len(snapshot['receipts'])if pro else len(snapshot['captures'])):raise ValueError('material_auto_read_failed')

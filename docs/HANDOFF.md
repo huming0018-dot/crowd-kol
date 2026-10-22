@@ -1,6 +1,15 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-22｜节点能力与Pro派单已正式接通；300模拟节点与本机真实回执已独审通过
+## 当前状态｜2026-10-22 17:55 CST｜96条回传提速已运行；Linux真实采集及断网恢复通过
+
+- **正式源码及运行**：`986b0ed` 连接复用、`9a29fa2` 素材结果读取界限、`a711416` Linux机器节点已推原分支。原45937现运行 `owner-material-read-deadline-7f34be3425b52b1e` / PID77550；本次497文件仅dashboard改读取期限，其余496保持，已采用的连接复用保留。稳定素材入口已接入；除素材入口配置4字段及指针2字段外，其余配置、五库、身份、进度、评分、知识、OTA和旧native31 unknown保留；未Stop或重放旧任务。G134首次绑定和读取期限源码以随后本轮提交及EVIDENCE为准。
+- **96条提速真实证据**：G130正常统一新任务 `37c33b5a-8fc0-4181-b8f1-3803ee7fdd00`，原Pro同输入31.564秒、46次API；1正文+95评论/回复，原SQLite、分页父链、normalized、中央GET和96个ACK逐值核对。服务端首末ACK窗419.695849→173.984471秒，缩短58.545%，2.412倍；根因是逐条请求反复建TLS连接，改为固定端点按线程复用，保留每条停止/续租/回执检查。单次同输入前后结果，不是网络受控benchmark或容量SLA；串行回传仍近3分钟。
+- **Linux实际闭环**：Linux/arm64 Docker按发行入口安装原Pro d32dd565及锁定依赖，正常worker_pair独立身份、原官方self复用登录、能力报告、统一自动领任务。G133任务 `0f139642-73df-478e-9ebb-0d2a4fc0a51a` 原Pro一次46API采得1正文+95评论，96份真实中央ACK。80ACK/16pending时仅断本测试容器网络20.085秒，同批同capture ID恢复到96ACK/0pending，completed/idle，无重采或手工回填。测试节点随后正常停止，命名卷/身份/outbox保留，能力报告自然过期；不是常驻生产Linux证明。
+- **消费页真实修复**：G128/G130两个完成任务的121511字节result被旧64KiB读取上限挡住；沿用既有8MiB上限恢复，不重建素材或采集。原Consumer实际读取18.83/18.88秒又超过旧15秒期限，工作台/自动处理器读取期限改60秒（构建150、父期限180及大小/哈希校验不变）。正常Owner四格式HTTP均200，96条JSON/JSONL/CSV与原publication逐项相同，HTML与原renderer逐字节相同；本次13.5–13.7秒/格式，不冒读取性能已优化。
+- **安装入口与边界**：新增普通机器节点首次绑定/只读状态命令、Windows已有WSL2 install/bind/check/start；原Linux节点实际status复用同SID/generation1，7身份配置SHA不变，0认证/采集/云调用。145文件轻量包不含私有SDK、Cookie或relay；原CookieBridge和合法Pro依赖仍需分别安装。Linux x64/物理Linux、Windows/WSL2宿主、原生Windows、手机、跨端自动OTA及所有平台尚未真实验收，不能宣称全面支持。当前精确已验scope仅XHS单篇正文+评论/回复、最多200、media=false。
+- **下一步**：在Windows WSL2和独立Linux设备用同一发行入口做安装→本机原Pro登录复用→自动领取→真实回执→断网恢复；没有对应宿主不能伪造验收。继续量测剩余串行中央延迟，任何批处理须先保持逐条幂等/停止/租约合同。原48h实验和watchdog仍暂停；普通参与者跨端OTA与业务验收未完成。每轮先读本入口，再按原模板更新实际证据。
+
+## 历史快照｜2026-10-22｜节点能力与Pro派单已正式接通；300模拟节点与本机真实回执已独审通过
 
 - **正式源码/部署/运行分开记录**：源码 `db1b39b1e55641d41d8c6433e89feeca8f67d48a` 已推原分支；迁移账本 `20261022060846_worker_readiness_registry` 已执行，原machine RPC OID31987保持、定义MD5变为 `0f93bd82da56e1b8758c6f63156e6fa5`，ACL/invoker/search_path/owner保持。Edge56 ACTIVE，32文件回读exact，仅core变化和新增worker_capabilities，其余30含真实认证入口不变。不是只改本地候选。
 - **原本机已采用**：正式45937切到 `owner-pro-readiness-d03bbc06933d6e37` / PID43043 / 497文件；7覆盖、旧490保持。原六锁及五库、身份配置、知识与native任务保护通过；原task31仍unknown/busytrue，不Stop、不重放。中央实际独审280a8b09…、Owner实际独审a3e228c6…通过。原普通参与者协议、评分和OTA未替换。

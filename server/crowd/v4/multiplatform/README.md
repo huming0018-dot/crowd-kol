@@ -309,3 +309,5 @@ Owner 标准 HTTP 接收队列容量为64，以承载并发导出及页面轮询
 运行前检查原本机私有 `pro-xhs-media.json`、已购源文件摘要、固定 Axios 依赖清单、便携 Node 及自有 `.mjs` 摘要；漏包或依赖漂移在来源请求前拒绝。普通安装/升级是否已接通这些依赖、真实平台及云回执是否通过，以固定 HANDOFF 为准，源码存在不等于已部署。原任务、账号、进度、评分和回执模型不变。
 
 可复跑的自有集成测试在 `tests/pro-xhs-images/`，只生成临时合成数据并禁止 socket；真实 Axios HTTP adapter 在测试专用 HTTPS 替身上运行，不能当作新平台采集。显式运行 `python3 tests/pro-xhs-images/run_tests.py /本机私有测试环境.json`。环境对象提供 `python`、`legacy_python`、`CROWD_XHS_MP`（本目录）、`CROWD_XHS_SDK`、`CROWD_XHS_AXIOS_ROOT`、`CROWD_PRO_DOWNLOAD_MANAGER`、`CROWD_PRO_NODE`；只填本机已合法安装文件的路径，不放 Cookie/密钥。缺少依赖失败退出，不跳过验证；原 83 项回归在正式源码目录运行。
+
+Linux / Windows WSL2 机器节点安装、精确已验范围及未验项见 [MACHINE_NODE.md](MACHINE_NODE.md)。

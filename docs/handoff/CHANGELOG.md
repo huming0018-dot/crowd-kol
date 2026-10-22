@@ -1,5 +1,14 @@
 # 交接变更日志
 
+## 2026-10-22 17:55 CST｜Codex root + 并行子代理｜G129–G134
+
+- 目标：定位96条回传7分钟，落地Linux/Windows入口并验证真实云回执与断网恢复。
+- 实际改动：cloud_sync固定端点按线程复用连接；material_bridge读完成结果沿用8MiB界限；dashboard/auto-worker读取期限60秒；worker-only机器入口、原锁定Linux依赖安装、首次绑定/只读状态和WSL2转交入口。原Pro采集核心不重写，参与者身份/评分/进度/OTA不改。
+- 版本：986b0ed、9a29fa2、a711416已推原分支；G134新增文件见随后提交。原45937实际owner-material-read-deadline-7f34be3425b52b1e/PID77550，素材稳定support入口已采用；未改云schema/Edge。
+- 实际验证：96条服务端ACK窗419.695849→173.984471秒；Linuxarm64Docker正常pair/self/自动领Pro任务，1正文95评论96真实ACK，20.085秒自有容器断网后同批恢复完成，随后正常停测试节点保留卷。正常Owner四格式HTTP200/96逐项一致/HTMLrenderer bytes exact。新期限与绑定合计13项测试通过。
+- 独审：A、B、C均审非本人实现；SOURCE/PLAN/ACTUAL分开，摘要及路径见EVIDENCE。发现并修复64KiB结果读取、15秒期限和CLI入口不可库导入问题；原失败证据保留，不靠重采消除问题。
+- 遗留与下一步：Windows/WSL2和独立Linux宿主未取得，现有证据不能替代实机；跨端OTA/手机/长期多用户未验，串行中央延迟仍约3分钟。原native31 unknown和旧身份/outbox保留；48h实验/watchdog仍暂停。
+
 ## 2026-10-22｜G126正式接通节点能力与Pro派单；G127/G128执行验收
 
 - **接力者/分工**：root正式发布、Owner采用、实页/真实派单与收据、Git及交接；central_steps中央合同/SQL与隔离测试器；knowledge_reuse_probe终端能力生产者/跨OS布局候选；未参与实现的native_diagnostics_review逐源、计划、中央/Owner实际独审。作者自检不算独审。

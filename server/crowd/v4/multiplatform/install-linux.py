@@ -33,5 +33,6 @@ def main():
     same_or_once(collector/'pro-executor.json',{'root':str(args.sdk_root.absolute()),'python':prepared['python']})
     same_or_once(collector/'pro-signer.json',{'source_root':str(args.signer_root.absolute()),'python':prepared['signer_python']})
     result=install(args.runtime,args.runtime_sha256,args.root,args.cloud_config,Path(sys.executable),args.sdk_root,[collector])
+    print('Next: start the separately installed original CookieBridge on 127.0.0.1:8274, then use bind-linux.sh with your local Client ID. See README.md.',file=sys.stderr)
     print(json.dumps({**result,'authenticated':False,'local_account_binding_required':True,'scheduler_started':False}));return 0
 if __name__=='__main__':raise SystemExit(main())

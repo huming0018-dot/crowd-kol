@@ -427,7 +427,7 @@ class Application:
             # Spool the existing CLI output; oversized batches do not fill parent RAM.
             with tempfile.TemporaryFile() as output:
                 result = subprocess.run(command(config, 'read', fmt), stdout=output,
-                                        stderr=subprocess.DEVNULL, timeout=15, check=False)
+                                        stderr=subprocess.DEVNULL, timeout=60, check=False)
                 size = output.tell()
                 if result.returncode or size > 16 * 1024 * 1024:
                     raise ValueError('material_delivery_unavailable')
