@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import fcntl
 import hashlib
+import http.client
 import json
 import logging
 import socket
@@ -163,6 +164,46 @@ def _log_publication_read_failure(stage, error):
         pass  # A logging handler must not change the existing request outcome.
 
 
+class _KeepAliveHTTP(urllib.request.BaseHandler):
+    """One fixed-endpoint connection per caller thread; never retries a request."""
+    handler_order = 400
+
+    def __init__(self, endpoint):
+        self.endpoint = urlsplit(endpoint)
+        self.local = threading.local()
+
+    def discard(self):
+        connection = getattr(self.local, 'connection', None)
+        self.local.connection = None
+        if connection is not None:
+            connection.close()
+
+    def _open(self, request):
+        url = urlsplit(request.full_url)
+        if (url.scheme, url.netloc) != (self.endpoint.scheme, self.endpoint.netloc):
+            raise CloudError('cloud_redirect_denied')
+        connection = getattr(self.local, 'connection', None)
+        if connection is None:
+            factory = http.client.HTTPSConnection if url.scheme == 'https' else http.client.HTTPConnection
+            connection = factory(request.host, timeout=request.timeout)
+            self.local.connection = connection
+        headers = dict(request.unredirected_hdrs)
+        headers.update({k:v for k,v in request.headers.items() if k not in headers})
+        headers = {name.title():value for name,value in headers.items()}
+        try:
+            connection.request(request.get_method(), request.selector, request.data, headers)
+            response = connection.getresponse()
+        except (OSError, http.client.HTTPException) as error:
+            self.discard()
+            raise urllib.error.URLError(error) from None
+        response.url = request.full_url
+        response.msg = response.reason
+        return response
+
+    http_open = _open
+    https_open = _open
+
+
 class CloudClient:
     def __init__(self, config_path, role='owner', allow_test_loopback=False):
         path = Path(config_path)
@@ -186,7 +227,8 @@ class CloudClient:
             raise CloudError('active_project_publishable_key_required')
         self.headers = {'Content-Type': 'application/json', 'apikey': project_key,
                         'X-Crowd-' + role.title() + '-Key': key}
-        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+        self._transport = _KeepAliveHTTP(self.endpoint)
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect(), self._transport)
 
     def call(self, action, payload=None):
         body = canonical({'action': action, 'payload': payload or {}}).encode('utf8')
@@ -217,7 +259,11 @@ class CloudClient:
                     code = result.get('error') if isinstance(result, dict) else None
                     raise CloudError(code if isinstance(code, str) and re.fullmatch(r'[a-z_]{1,80}', code) else 'invalid_cloud_response')
                 return result['result']
-            except (urllib.error.URLError, TimeoutError, OSError) as error:
+            except CloudError:
+                self._transport.discard()
+                raise
+            except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as error:
+                self._transport.discard()
                 if self.role == 'owner' and action == 'publication_get':
                     _log_publication_read_failure(read_stage, error)
                 if (attempt + 1 < attempts and not http_response

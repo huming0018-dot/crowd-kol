@@ -62,6 +62,8 @@ ASR需设置 `CROWD_LOCAL_ASR_MODEL`、`CROWD_LOCAL_ASR_PYTHON` 指向已有模�
 ## 可运行能力与边界
 
 机器节点能力登记沿用原 CloudWorker 的空闲领取周期，没有另一套调度器。
+中央 HTTP 连接按调用线程复用，继续逐条续租、校验并保存回执；连接或响应异常会丢弃连接，
+不会自动重发写请求。未知回传仍先按原 capture ID 查询回执，再按既有 outbox 协议恢复。
 `pro_source_readiness.py` 检查合法本地 Pro 安装、依赖和原账号绑定；
 `worker_readiness.py` 保存不可重复发送的上报意图，并经中央能力 RPC 取得回执。
 中央按最新声明、120 秒有效期、精确采集范围及原节点权限筛选新任务；

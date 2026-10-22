@@ -96,13 +96,19 @@ class RetryTests(unittest.TestCase):
 
     def test_both_lease_guards_deny_without_exhausting_payload_attempts(self):
         ids=self.stage(['good']);before=self.snapshot()
+        # A prior-attempt row takes receipt lookup and the second lease guard.
+        with self.box._db() as db:
+            db.execute('update capture_first_delivery set pristine=0 where id=?',(ids[0],))
         for deny_at in (1,2):
             for _ in range(7):
                 calls=[]
                 def guard():
                     calls.append(1)
                     if len(calls)==deny_at:raise DeliveryLeaseError('cloud_delivery_lease_denied')
+                first_call=len(self.cloud.calls)
                 with self.assertRaises(DeliveryLeaseError):self.box.flush(before_send=guard)
+                self.assertEqual([action for action,_ in self.cloud.calls[first_call:]],
+                                 [] if deny_at==1 else ['receipt'])
             with self.box._db() as db:
                 value=db.execute('select attempts,quarantined from capture_delivery where id=?',(ids[0],)).fetchone()
             self.assertIn(value,(None,(0,0)))
