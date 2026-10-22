@@ -1,6 +1,17 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-22｜分阶段验收：原Pro直采、本地SQLite与中央Postgres入库查回已实跑
+## 当前状态｜2026-10-22｜G123同样本数据门通过；进入中央派单隔离验收
+
+- **执行顺序**：当前仅验同一份小红书样本的Pro原生数据/SQL与导出；数据门通过后再验中央派单及终端桥接，不并行铺平台、OTA或新参与者任务。旧task31/G119候选保持，原身份、进度、评分、回执和OTA不改。48h实验/watchdog仍暂停。
+- **评论跨页实际通过**：原SDK d32dd565原main，独立新SQLite，唯一直采31.075秒/exit0/completed；根5页、回复15页（14链），全部15条分页链关联/推进并显式has_more=false。实际1正文、44根评、51回复共96行；95个评论ID/父链与全部响应（含内嵌回复）exact，SQLite integrity通过。当前声明95与SQL95；历史94不猜原因。C实际32ffb9a5…通过；普通CLI顶层managed flags仍false，未冒参与者任务成功。
+- **媒体实际通过**：同份唯一图片引用、无评论图/视频；复用Pro原DownloadManager与既有薄驱动，仅HEAD/GET两次，98878B，真实WEBP1080×1440/1帧，文件SHA64dad9b8…/像素SHA780b4765…，独立解码一致。原命名.png不冒PNG；仅本地下载，不冒图片云保存。C实际80f260bf…通过。
+- **同数据中央SQL实际通过**：固定快照ec50c944…不重建；正式NativeSavedBridge/原OwnerCloudClient唯一put+get，batch82d1d3f4-3829-4d15-9832-1d9727a74e86/hash698dd29f…，96条typedraw/父链/逐行重算SHA及回取exact，96个note_url显式去query/fragment保原row/URLhash；非参与者奖励/verified。C实际4e3d3fc1…通过。原G120 descriptor及云配置保持，Edge55/SQL迁移不改，未启动scheduler或重启45937。
+- **正式修复**：c371d85仅生产cloud_sync一行，使字典键不消耗值节点预算，与现JS一致；原5000值节点/12层深度、序列化字节/hash和键Unicode校验保持。真实96条原5115含键节点错误拒绝，改后2702值/HTTP2704合法。7新+55旧共62测试及C源码2cdfbff7…通过；旧超限fixture仅7→8子项以保持5202真实值超限与原assert，不删断言。
+- **四格式实际通过**：Pro/Vox无直接保真导出此固定SQLite的四格式入口，现Consumer要求task/参与者ACK，故只补native_saved薄导出组件；正式native_saved_export.py与8测试已采用并实际执行。HTML/JSON/JSONL/CSV各96完整typed行与真实中央GET逐项相同，原全文/父链/hash保持；清单绑定batch/snapshot及本地图元数据，图片字节未复制进导出或云存。C实际163b75eb…通过。文件在G123-native-pro-data-gates/four-formats，原45937 HTTP/UI/Consumer未接线采用。未来无query URL回执误判旧局限仍待修，本样本96URL均需脱敏不受影响。
+- **数百异构终端为交付要求**：Windows/macOS/Linux/VM及手机，不是两Mac链路；手机控制与本机采集分别验，后者未验证。能力协商、安装依赖、离线outbox、租约/幂等、并发领取、失联、跨版本OTA/回滚、逐节点诊断需单项通过。详见PRODUCT-PLAN1.1；300合成节点仅建议控制面压测目标，不是已测容量或300真设备。现有Mac证据不外推其他环境。
+- **下一步**：数据门已通过，仅进入中央派单隔离验收。代码只读初查证实现有平台/固定runtime筛选但缺OS/arch/账号细粒度能力合同，精确依据以下一阶段报告为准；不是数百异构调度已实现。先复用实际RPC建最小隔离SQL端到端，再验并发/故障与300合成矩阵；不以合成节点或Postgres16本机测试冒生产17.6容量/真设备。Docker Desktop本机可用，cached官方postgres16-alpine可作隔离功能测试，尚未启动新容器。桥接/安装/登录/OTA后续单独验；不重放旧unknown或自动启动实验。
+
+## 历史快照｜2026-10-22｜分阶段验收：原Pro直采、本地SQLite与中央Postgres入库查回已实跑
 
 - **顺序**：先原Pro数据能力与SQL，再派单，再桥接/参与者与OTA。当前不新增来源任务、不安装runtime、不Stop/Cancel31，48h实验/watchdog保持暂停。保留原身份、进度、评分、回执和既有升级通道。
 - **阶段1a**：原Pro clean d32dd565原CLI固定输入6.136秒，SQLite正文1、根评论1、回复1、15图片引用；独审494b86a2通过。原始has_more未保存，高评论跨页、媒体bytes与导出不能由此推定通过。

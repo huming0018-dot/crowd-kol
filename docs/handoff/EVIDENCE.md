@@ -1330,3 +1330,16 @@ C G80实际最终门：`review/g80-real-partial-independent/FINAL.json` SHA256 `
 - 工作台HTTP/UI未重启采用，非参与者奖励回执；未来无query URL局限及未验完整数据门见HANDOFF，不冒全面通过。
 
 中央实际独审：review/g121-native-saved-central-independent/ACTUAL-STAGE2-FINAL.json SHA256 99d1e5e58ae540ebfbca5736b0554df0d67875aec7d1c37f6fb85e0b2fc7d8c9；fresh Edge55/31件、真实SQL定义/ACL/append-only、精确batch3条及receipt与固定payload一致，限定阶段2PASS。
+
+## 2026-10-22｜G123同输入数据门及数百异构终端范围
+
+根目录沿runtime。原SDK/cookie凭据和完整URL不入Git；只引用本地PRIVATE原件，不公开内容。
+
+- 需求独审 review/g123-heterogeneous-requirements-independent/DOC-SCOPE-FINAL.json SHA a313c626b1426158fb8ebf58574d27b1c110fd3e9e4cb1c5e116b90e66a938db（另有“长期”改“交付”/Linux一句最终核）；不是规模实现/实测。
+- 原Pro跨页实际独审 review/g123-native-pagination-independent/ACTUAL-PAGINATION-FINAL.json SHA 32ffb9a50b2d577c04d61d1bee902c1596db81d1a8e3cb940dc40452b8eb6b3c：原SDK31.075s、20page、95comments/44root51reply精确入原SQLite。V1断链假阳性被C拦截，V3七tests及原反例过；原件都保留，未修改SDK。
+- 单图实际独审 review/g123-native-media-independent/ACTUAL-MEDIA-FINAL.json SHA 80f260bfb6e1d8b13735a3d4c27f4f35500c069c043944d9ee06bc4777d4cbab：2请求、98878B真实WEBP/1080×1440与文件/像素hash，原SQL/WAL及snapshot ec50…保持；无图云上传。
+- 节点预算源独审 review/g123-sql-budget-independent/SOURCE-FINAL.json SHA 2cdfbff7df3e465eb1a37b9e80abc4f8f1e98f898fed212b75caedd9680bf129；正式修复c371d85，62tests通过。G123/SQL-NODE-BUDGET-RED.json保原失败；sql-budget目录存before/after及JS同输入证据，5000/12不放宽。
+- 96条实际中央独审 review/g123-native-sql-independent/ACTUAL-STAGE2-FINAL.json SHA 4e3d3fc1383fa90e9c9849ab88fb97e324f09cd57997a134598cd41a02502498；G123/sql/ACTUAL-FINAL.json SHA 5eb7af358397918857989f3a21786ab1155772a4fc12155cefb2f25bb7c86b48，batch82d1…/hash698d…，唯一次正常put/get与精确96行重算SHA。未工作台UI采用或参与者奖励验收。
+- 四格式现成入口只读缺口报告 G123-native-pro-data-gates/FOUR-FORMAT-REUSE-READONLY.json SHA 6082e54ec18111c55ba164a53c93d28b89942382f5232b623a7ee1116d0b1fdf；此时仅候选准备，不宣实际导出通过。
+
+- 四格式源码独审 review/g123-native-export-independent/SOURCE-FINAL.json SHA ea941bdb44ed99531d8f3e89fd7d22e03e6bf43e28fa90d4b11ab23453c053f7；正式组件8tests0，产物实审 ACTUAL-EXPORT-FINAL.json SHA 163b75eb05dbedd3f0fd33523b7a72de967182f7dfc4291ce0686ca60cda4ac4。实际four-formats/native.{html,json,jsonl,csv}与manifest.json，各96行typedraw等真实centralGET；HTML277920B、JSON120438B、JSONL95233B、CSV114296B，完整四SHA见manifest（HTML0f341602…/JSON068d3a89…/JSONL02453527…/CSV546a080c…）。该样本数据门完整关闭，不冒UI/Consumer、数百异构终端或图字节云存通过。
