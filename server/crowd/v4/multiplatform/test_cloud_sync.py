@@ -352,7 +352,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(canonical(_strict_json('{"a":1.0}')), '{"a":1}')
         for text in ('{"x":1.0000000000000001}','{"x":9007199254740992}','{"x":1,"x":2}','{"x":"\\ud800"}'):
             with self.assertRaises(CloudError):_strict_json(text)
-        many=json.dumps({'tasks':[{'children':[{'state':'completed','contents':1} for _ in range(7)]} for _ in range(200)]})
+        many=json.dumps({'tasks':[{'children':[{'state':'completed','contents':1} for _ in range(8)]} for _ in range(200)]})
         self.assertEqual(len(_strict_json(many,max_nodes=100000)['tasks']),200)
         with self.assertRaises(CloudError):_strict_json(many)
 

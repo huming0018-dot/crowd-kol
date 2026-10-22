@@ -81,7 +81,7 @@ def canonical(value, depth=0, budget=None):
     if isinstance(value, list):
         return '[' + ','.join(canonical(v, depth + 1, budget) for v in value) + ']'
     if isinstance(value, dict) and all(isinstance(k, str) for k in value):
-        return '{' + ','.join(canonical(k, depth + 1, budget) + ':' + canonical(value[k], depth + 1, budget)
+        return '{' + ','.join(canonical(k, 0, [0, 1]) + ':' + canonical(value[k], depth + 1, budget)
                               for k in sorted(value)) + '}'
     raise CloudError('invalid_encoding')
 
