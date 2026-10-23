@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+class Element{constructor(tag,text=''){this.tag=tag;this.textContent=String(text);this.children=[];this.dataset={};this.hidden=false;}append(...v){this.children.push(...v);}prepend(...v){this.children.unshift(...v);}replaceChildren(...v){this.children=v;}get lastChild(){return this.children.at(-1);}scrollIntoView(){}setAttribute(){}querySelectorAll(){return[];}}
+const panel=new Element('section');const elements={analysis_panel:panel,result_tabs:new Element('div'),records:new Element('div')};const buttons=[];const calls=[];let handler;
+const context=vm.createContext({api:async(path,body)=>{assert.equal(path,'/api/analysis');calls.push(JSON.parse(JSON.stringify(body)));return handler(body);},selectedRun:{run_id:'saved-run'},idOf:r=>r.run_id,$:id=>elements[id],node:(tag,text)=>new Element(tag,text),button:(text,fn)=>{let b=new Element('button',text);b.onclick=fn;buttons.push(b);return b;},setTimeout:()=>1,clearTimeout:()=>{},guarded:fn=>fn(),download:()=>{throw Error('no export expected');},document:{activeElement:null},resultData:{records:[]},resultKind:'content'});
+vm.runInContext(fs.readFileSync(new URL('../multiplatform/analysis-ui.js',import.meta.url),'utf8'),context);const view=vm.runInContext('analysisView',context);
+const preview=(comments=1)=>({state:'not_started',snapshot_hash:'fixture-sha',input_summary:{comments,coverage:{excluded_comments:3,excluded_reasons:{unconfirmed_content_type:2,different_content_type:1}}}});
+handler=({action})=>action==='lookup'?preview():{state:'queued',job_id:'offline-placeholder'};
+await view.open({platform:'zhihu',kind:'content',content_id:'123',content_type:'answer'});
+assert.equal(calls.at(-1).payload.entity_ref,'zhihu:content:123:answer');
+assert.match(panel.children.map(n=>n.textContent).join('\n'),/已排除 2 条类型归属不明及 1 条其他类型评论/);
+await buttons.findLast(b=>b.textContent==='发送所选文字并分析').onclick();assert.equal(calls.at(-1).action,'start');assert.equal(calls.at(-1).payload.entity_ref,'zhihu:content:123:answer');assert.equal(calls.at(-1).payload.allow_model_transfer,true);
+await view.open({platform:'zhihu',kind:'content',content_id:'123',content_type:'article'});assert.equal(calls.at(-1).payload.entity_ref,'zhihu:content:123:article');
+await view.open({platform:'weibo',kind:'content',content_id:'123'});assert.equal('entity_ref' in calls.at(-1).payload,false);
+handler=()=>({state:'not_started',snapshot_hash:'fixture-sha',input_summary:{comments:4,coverage:{roots:3,replies:1,unknown_parent:0,excluded_comments:0}}});
+await view.open({platform:'weibo',kind:'content',content_id:'123'});assert.match(panel.children.map(n=>n.textContent).join('\n'),/一级评论 3 \/ 回复 1 \/ 父关系未知 0/);
+handler=()=>({state:'not_started',snapshot_hash:'old-sha',input_summary:{comments:4}});
+await view.open({platform:'weibo',kind:'content',content_id:'123'});assert.match(panel.children.map(n=>n.textContent).join('\n'),/一级评论 未提供 \/ 回复 未提供 \/ 父关系未知 未提供/);
+handler=()=>({state:'not_started',snapshot_hash:'partial-sha',input_summary:{comments:4,coverage:{roots:3,replies:true,unknown_parent:-1}}});
+await view.open({platform:'weibo',kind:'content',content_id:'123'});assert.match(panel.children.map(n=>n.textContent).join('\n'),/一级评论 3 \/ 回复 未提供 \/ 父关系未知 未提供/);
+handler=({action})=>action==='lookup'?preview():{state:'queued',job_id:'offline-placeholder'};
+await view.open({platform:'bilibili',kind:'dynamic',content_id:'123'});assert.equal(calls.at(-1).payload.entity_ref,'bilibili:dynamic:123');assert.equal(panel.children[0].textContent,'动态文字分析');assert.match(panel.children.map(n=>n.textContent).join('\n'),/不混入同数字 ID 的视频评论/);
+let resolve;handler=()=>new Promise(r=>resolve=r);const stale=view.open({platform:'zhihu',kind:'content',content_id:'123',content_type:'answer'});handler=()=>preview(0);await view.open({platform:'bilibili',kind:'dynamic',content_id:'123'});resolve(preview(99));await stale;assert.equal(panel.children[0].textContent,'动态文字分析');assert.doesNotMatch(panel.children.map(n=>n.textContent).join('\n'),/99 条评论/);
+const html=fs.readFileSync(new URL('../multiplatform/dashboard.html',import.meta.url),'utf8');const render=html.match(/^function renderResults\(\).*$/m)?.[0];const kind=html.match(/^function kindOf\(.*$/m)?.[0];assert.ok(render&&kind);
+context.resultData={records:[{platform:'bilibili',kind:'dynamic',content_id:'123',body:'原动态文字'}]};vm.runInContext(kind+'\n'+render,context);vm.runInContext('renderResults()',context);const dynamicButton=buttons.findLast(b=>b.textContent==='分析动态文字');assert.ok(dynamicButton);await dynamicButton.onclick();assert.equal(calls.at(-1).payload.entity_ref,'bilibili:dynamic:123');
+console.log(JSON.stringify({ok:true,cases:8,preview_comment_relationship_counts:true,missing_counts_not_fabricated:true,precise_lookup_start:true,dynamic_button_from_actual_HTML:true,legacy_selector_omitted:true,late_response_ignored:true,source_requests:0,model_calls:0,environment:'Node VM DOM substitute'}));

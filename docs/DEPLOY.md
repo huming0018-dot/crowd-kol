@@ -1,176 +1,87 @@
-# 众包美食家 v3.4 · 完整部署手册
+# 部署与回退
 
-> 版本：v3.4.6（队列竞态/死信词表/幂等重裁修复）· 2026-10-06
-> 读者：PM / 继任开发者。目标：**不看代码也能完成部署、发布、回滚、熔断**。
+当前版本、支持范围、产量核对和未闭环事项统一见 [V4_ITERATION.md](V4_ITERATION.md)。
+旧版部署手册保留在 Git 历史；其中运行环境反向同步、策略静默安装、低版本自动降级、缺失测试目录等步骤已从当前指引移除。
 
----
+## 1. 修改位置
 
-## 一、系统总览
+- 客户端：`crawler-extension/v4`。
+- v4 SQL：本仓 `server/crowd/v4/supabase/migrations`。
+- 私有安装包：`crowd-pages/v4`。
+- 原生产 SQL/cron 与 KOL：本仓 `server/crowd/sql`、`server/crowd/cron`、`server/kol`。
+- `china-travel-food` 是食品主项目与部署终点。不得从运行环境反向覆盖上述源码。
 
-```
-参与者端（Chrome 扩展 / 手机网页）          云端（全部 Supabase + GitHub Pages）
-┌──────────────────────────┐      ┌─────────────────────────────────────┐
-│ Chrome 扩展（桌面/狐猴）    │      │ Supabase 项目 bdwrhshgdeghgyzwpxnl   │
-│  · 自动领任务/采集/回传      │ RPC  │  · crowd_* 表 + security definer RPC │
-│  · 安全线 v2 类人节奏        │─────▶│  · Storage bucket crowd（产物托管）   │
-│  · crx 自动升级通道         │      │  · Edge 函数 crowd-page（备用静态页）  │
-│ 手机网页 submit.html       │      │ GitHub Pages（huming0018-dot/crowd-pages）│
-│  · 中枢分配目标/粘贴提交      │      │  · submit/status/install 页面正式托管  │
-└──────────────────────────┘      └─────────────────────────────────────┘
-```
+## 2. 验证与构建
 
-| 通道 | 托管位置 | 用途 |
-|---|---|---|
-| 插件 zip/crx/updates.xml | Supabase bucket `crowd` | 分发 + **自动升级** |
-| 手机页/状态页/安装引导 | **GitHub Pages** | 正式页面（bucket 的 HTML 是 text/plain 无法渲染，仅作下载镜像） |
-| 定时任务 | 腾讯云服务器 cron（ubuntu@49.234.35.92） | 回流监控（每小时 :07）、证据入库（06:30）、周结算（周一 09:00） |
+```sh
+# 在 crawler-extension 根目录；可选工具目录包含 Playwright、Chromium、PGlite。
+CROWD_TEST_TOOLS=/path/to/test-tools \
+CROWD_MIGRATIONS_DIR=/path/to/crowd-kol/server/crowd/v4/supabase/migrations \
+node v4/tests/run.cjs
+python3 v4/build.py --output /private/crowd-extension.zip
 
-## 一·五、代码真相源
+# 在 crowd-kol 根目录
+CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/observations-db.mjs
+CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/scheduling-db.mjs
+CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/safety-db.mjs
+CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/recovery-db.mjs
+CROWD_TEST_TOOLS=/path/to/test-tools node server/crowd/v4/tests/diagnostics-db.mjs
 
-**GitHub 主仓库 `huming0018-dot/china-travel-food` 已是正式真相源**（2026-10-06 起）：
-`crowd_extension/`（插件源码，当前 3.4.8）· `cloud/sql/crowd_fix_v3*.sql`（迁移链）·
-`cloud/crowd_tracking.py`、`cloud/health.py`（服务器脚本，与线上同步）· `crowd-test-harness/`（回归套件）。
-安装产物在 `huming0018-dot/crowd-pages` 的 Releases。改代码后：本地 crowd-platform 提交 → 同步主仓库。
-
-## 二、凭据索引（都不进 git）
-
-| 凭据 | 位置 | 用途 |
-|---|---|---|
-| anon/publishable key | 随包分发（src/config.js） | 参与者端 API 访问，公开 |
-| service_role key | `china-travel-food/app/.env.local`（SUPABASE_SERVICE_ROLE_KEY） | publish.sh 上传、PM 管理、沙盒 admin |
-| Management 令牌（sbp_） | `~/.food_atlas_credentials.md`（SBP_TOKEN=） | 执行 SQL 迁移（Management API） |
-| 扩展签名私钥 | `crowd_extension/key.pem`（gitignored） | **自动升级链的命根子，丢了全体参与者升级断链——立即备份！** |
-| GitHub | `~/.config/gh/hosts.yml`（oauth_token，账号 huming0018-dot） | Pages 发布 |
-| 服务器 | `~/.ssh/food_cloud_deploy`（ubuntu@49.234.35.92） | cron 与云端脚本 |
-
-## 三、首次部署（全新环境）
-
-```bash
-# 1. SQL 迁移（按序，全部幂等）——用 Management API 或 Supabase SQL Editor 依次执行：
-cloud/sql/crowd_tables.sql                 # 建表（基线）
-cloud/sql/crowd_rpc_security.sql           # RPC 权限层
-cloud/sql/crowd_harden_redteam.sql         # 红队加固
-cloud/sql/crowd_submit_proof_live_v2.sql   # （历史基线，线上已是更新版）
-cloud/sql/crowd_fix_v323_reconcile.sql     # v3.3 合并迁移（幂等回执/逐条裁决/去重口径）
-cloud/sql/crowd_fix_v330_resolve.sql       # 短链解析（pg_net）
-cloud/sql/crowd_fix_v330_assign.sql        # 中枢分配 crowd_next_target
-cloud/sql/crowd_fix_v330_status.sql        # 状态汇总 crowd_status_summary
-cloud/sql/crowd_fix_v340_pause.sql         # 全局暂停 + safety 下发
-cloud/sql/crowd_fix_v344_quota_replay.sql  # ⓪b 幂等层：quota_exceeded 旧回执删除重裁 + reset_at 下发
-cloud/sql/crowd_fix_v345_item_quota_replay.sql  # ⓪b 扩展到条目级配额拒收回执
-# 执行前备份：select pg_get_functiondef('public.crowd_submit_proof');（备份样例见 cloud/sql/backup-pre-v323-functions.sql）
-
-# 2. 发布插件 + 页面
-cd crowd_extension
-export CROWD_SERVICE_KEY=<service_role key>
-./publish.sh            # 打包 zip+crx、生成 updates.xml、上传 bucket 全部产物
-
-# 3. 发布 Pages 页面（submit/status/install*）
-#    推送到 GitHub 仓库 huming0018-dot/crowd-pages 的 main 分支即可（Pages 自动构建）
+# 在 crowd-pages 根目录，使用仍有效的原私有邀请
+python3 v4/test_release.py /path/to/crawler-extension/v4
+python3 v4/build_trial.py --source /private/crowd-extension.zip \
+  --invitation-file /private/mac-trial.json --output /private/Mac轻量内测.zip
 ```
 
-## 四、日常发版（改代码后）
+`release.json` 保存实际版本、源码摘要和交付摘要。私有邀请及产物不进 Git、Pages 或公开 Release。
 
-```bash
-# 1. 改版本号：manifest.json 的 version（三位递增，如 3.4.0 → 3.4.1）
-#    同步三个页面的 EXT_VERSION 常量：apply.html / install.html / install-mobile.html
-sed -i '' "s/旧版本/新版本/g" crowd_extension/{apply,install,install-mobile}.html
+## 3. 应用后端增量
 
-# 2. 回归测试（Puppeteer 实测插件，mock 服务端不碰生产）
-cd test-harness && npm install && node run-all.js && node run-extra.js && node run-extra2.js && node run-fixes.js
+先查 Supabase 项目 `bdwrhshgdeghgyzwpxnl` 的迁移历史，只应用尚未部署的 canonical 增量。
+已部署基线禁止重跑；`server/crowd/sql` 的旧链路文件也不是一个已验证的全新建库脚本。
+v4.1.0同时修改客户端与SQL，原RPC名与参数兼容旧客户端，新增观察与主页RPC。观察迁移在前，别名迁移在后。`functions/` 是需要可信配置渲染的模板，不可直接部署占位符。
+4.1.1追加已部署的 `20261008093900_crowd_v4_login_diagnostics`，兼容新旧客户端错误码，权限不变。
+4.1.2追加已部署的 `20261008103535_crowd_v4_navigation_recovery`，允许上一轮导航摘要与固定调度计数；仍只保存一条当前状态，关闭诊断清除。
+4.1.3追加已部署的 `20261008152415_crowd_v4_navigation_commit`，仅增加空白/待提交文档枚举与固定导航失败码，旧客户端兼容。
+4.2.0追加已部署的 `20261008155351_crowd_v4_trace_updates`，允许24个严格固定事件节点和更新状态，单个快照上限8192字节；无新授权。
+应用后核对函数定义、权限、数据库 advisors 和 `server/crowd/v4/health.sql`。
 
-# 3. 一键发布（校验签名密钥 → 打包 → 上传；已装插件自动升级）
-cd ../crowd_extension && ./publish.sh
+## 4. Mac 更新与验收
 
-# 4. 页面有改动则推 GitHub Pages（submit.html / status.html / install*.html）
-```
+保留原浏览器个人资料和插件安装目录。安装助手只准备/覆盖文件；本人仍需在扩展管理页加载或刷新并确认版本。
+不要卸载后重新报名，不要覆盖原生产 v3 个人资料，不要将 v4 接入根目录旧 `updates.xml`。两套系统的扩展公钥/ID相同，协议和身份不同。
+浏览器运行且参与者已同意并启动才会执行；系统睡眠时暂停。停止、登录失效和风控暂停都需要本人处理。
+验收以真实记录入库、正确字段、停止后不再执行及唤醒恢复为准，不能用打包成功替代。
 
-**注意：改了 `src/` 下的文件必须发版；只改页面只推 Pages。**
+## 5. 暂停与回退
 
-## 五、参与者安装（分发给别人）
+先辨认协议：原生产暂停用 `public.crowd_config` 的 `global_pause`；v4用已有服务端管理接口 `crowd_v4_admin('control', '{"paused":true}')`（仅 service_role）。两者不互相代替。
+v4 每次页面动作都经 guard，控制检查独立于领取任务。服务端不可用时停止新页面动作，待回传原证据保留。
 
-| 端 | 方式 | 入口 |
-|---|---|---|
-| Mac | 下载 `crowd-install-mac.command` 双击 → 输一次开机密码 → Chrome 自动装、自动升级 | 安装引导页 |
-| Windows | 下载 `crowd-install-win.bat` 双击 → UAC 点是 → 同上 | 同上 |
-| Android | 狐猴浏览器 → 本地加载 zip → 开「桌面版网站」 | install-mobile.html |
-| 任何手机 | 免安装网页提交（submit.html） | 邀请卡扫码 |
+客户端回退：把已验证逻辑作为更高补丁版本构建，再由原浏览器刷新；不承诺降低版本号可自动更新。
+SQL回退：用已审阅的补偿迁移恢复函数，不删除 proof/receipt/奖励，不重跑整个历史链。
+保留本次新增的调度列不会破坏旧 RPC；不能为回退清空参与身份或原始证据。
 
-线上地址（Pages）：`https://huming0018-dot.github.io/crowd-pages/{submit,status,install,install-mobile,apply}.html`
+凭据位置见 [HANDOFF.md](HANDOFF.md)，所有管理凭据仅用于服务端。
 
-## 六、运维操作
 
-```bash
-# 全局熔断（风控信号/舆情/任何异常）：全员下个心跳（≤3 分钟）即停
-update crowd_config set value='true' where key='global_pause';
-# 恢复：... value='false' ...
+## 4.2.4 KOL上线增量（2026-10-09）
 
-# 远程收紧安全线（只紧不松，插件端永不放宽本地基线）：
-update crowd_config set value='{"quota_day": 60, "gap_min": 180}' where key='safety_limits';  -- 不存在则先 insert
+服务端已通过连接器应用 `crowd_v4_kol_watchlist`，实际迁移历史版本为 `20261009011631`。本地迁移由CLI初始生成，发布后仅将文件名前缀对齐服务端实际版本；SQL内容SHA256保持 `41cbedb3a7468bfd1d506154436c8692779b44aa2723e99a78717b9cf9fb8a18`。不要再应用初始工作名20261009001246。
 
-# 看运行状态：手机打开 status.html，或：
-curl -s -X POST -H "apikey: <anon>" -H "Authorization: Bearer <anon>" -d '{}' \
-  https://bdwrhshgdeghgyzwpxnl.supabase.co/rest/v1/rpc/crowd_status_summary
+新增13张私有RLS表及经过身份/owner验证的 `public.crowd_v4_kol` RPC。匿名无执行权限。后端部署不启动采集，没有创建生产测试身份或证据；原参与身份、proof/reward和旧RPC保留。接口见 `server/crowd/v4/KOL_RPC.md`。
 
-# 单参与者日配额调整（默认 20，Mac 主力设备 P-6KSZWXEG 现为 50）：
-update crowd_participants set quota_day=50 where participant_id='P-XXXXXX';
+客户端4.2.4新增名单、CSV、周期/历史有界任务、XHS/B站适配、版本/评论实体、脱敏导出、本人账号导航核验与独立授权后处理。真实账号导航观测仍由客户端申报，不是服务端独立认证平台账号。周期执行依赖插件在线，不承诺完整历史、全评论或绝不封禁。
 
-# 参与者管理（服务器上）：python3 crowd_admin.py list|suspend|blacklist|stats
-```
+新增B站host权限和内容脚本，4.2.3更新助手会拒绝自动扩权。发布需要明确的新权限bootstrap，原浏览器本人刷新并确认。保持旧签名channel.json不变，另存本版签名清单供验证；不让所有旧设备反复遭遇permission_change，也不假称原设备已升级。后续同权限版本可沿原签名机制更新。
 
-## 七、回滚
+本机授权工具包括Vision OCR、公开CDN有界下载、TXT/VTT/SRT导入和有条件设备端语音识别。Speech缺本机模型或系统授权时停止，不用云端替代。模型/授权与真实平台数据质量属于发布后验收。
 
-| 场景 | 操作 |
-|---|---|
-| 插件出问题 | manifest 版本回退 → `./publish.sh`（updates.xml 指向旧 crx，全员自动降级）；或全局熔断先停 |
-| SQL 迁移出问题 | 函数备份在 `cloud/sql/backup-pre-v323-functions.sql`，用 Management API 恢复旧函数定义 |
-| Pages 页面坏 | GitHub 仓库 crowd-pages 回滚 commit，Pages 自动重建 |
+回退：先暂停新KOL来源任务，保留数据库及队列，继续接收合法既有准入结果；不得删除新schema、原身份或本地kol outbox。客户端问题用保留相同权限形状的更高补丁版本恢复逻辑；不降低版本、不重建身份。未达到源站长期验收前，不扩大设备/账号/采集量。
 
-## 八、已踩过的坑（ troubleshooting ）
 
-| 症状 | 根因 | 处置 |
-|---|---|---|
-| 插件按钮全灰/协议页点不动 | 内联脚本被 MV3 CSP 拦 | v3.1.1 起已抽离独立 js；新页面一律 `script src` |
-| 注册失败:{} | SW 拦截器误伤页面自身 API 请求 | v3.3.3 已修：SW 只接管分享目标 POST |
-| rpc_401 | importScripts 在 CONFIG 之后执行，SW 拿空 key | v3.3.4 起 key 硬编码进 CONFIG + importScripts 置顶 |
-| 改了代码插件没变化 | Chrome 缓存 SW 脚本（同版本号+同文件名=内容变了也不重读，重启浏览器都没用） | **每次发版同时改名 SW 文件**（background_vXXX.js）+ 升版本号，双保险 |
-| 队列卡死：重试永远拿到同一个 quota_exceeded | 幂等层把时效性拒绝当最终裁决永久缓存 | v344 起 quota 类回执重试时删除重裁；v345 扩展到条目级 |
-| "已上传的被认为没上传" | 插件读 results[].verdict，服务端发的字段是 gate，已收录条目本地永不确认 | v3.4.5 起双读 (verdict||gate)；**写契约注释时必须与实现对齐** |
-| 队列丢信封/假死 | 回传在途时新入队信封被旧快照覆盖（读-改-写竞态） | v3.4.6 写回前重读 merge；看门狗不再提前放锁 |
-| 永久错误无限重试 | 死信正则与服务端 reason 词表漂移 | v3.4.6 已对齐；**服务端新增 reason 时必须同步插件词表** |
-| bucket 托管的 HTML 打开是源码 | Supabase Storage 对 text/* 强制 text/plain | 页面一律走 GitHub Pages，bucket 只放下载物 |
-| **Chrome 策略安装/自动升级全断** | bucket 把 updates.xml 强制成 text/plain+nosniff，Chrome 更新客户端拒收（静默无任何提示）；连 crx 的 octet-stream 也难保 | **Chrome 更新通道（updates.xml+crx）一律走 GitHub Pages**（application/xml + x-chrome-extension 都是对的）；manifest update_url/安装器 UPDATE_URL 已迁；publish.sh 自动同步 Pages |
-| 策略写好也不装，chrome://policy 显示 [BLOCKED] | Chrome 官方：非企业机（无 MDM/域/Enterprise Core）强制安装非商店扩展一律拒绝——ExtensionInstallSources 白名单也救不了 | **策略通道已废弃**：v5 安装器走"手动挂载（chrome://extensions 加载未打包）+ 自更新器"，零管理员零密码 |
-| --load-extension 启动后插件不出现 | Chrome 154+ 拒绝该参数（extension_service.cc:423 官方日志），且 Secure Preferences 有 MAC 完整性校验无法脚本注入注册 | 手动挂载是唯一入口；v5 安装器预置 developer_mode + 自动打开扩展页给 4 步引导 |
-| 结算/入库 cron 静默失败 | 两脚本用相对路径 ./cloud/deploy.env（不存在），跟踪脚本用绝对路径 /home/ubuntu/food-cloud/deploy.env（存在） | 统一改绝对路径；结算取数改 coalesce(accepted_at, created_at)（submit_proof 此前从不忘 accepted_at） |
-| 匿名调新 RPC 报 PGRST202 | PostgREST schema 缓存未刷新 | 等 1 分钟或 `select pg_notify('pgrst','reload schema')` |
-| 短链解析超时 | anon 角色 statement_timeout 默认 3s | 已放宽到 40s（alter role anon） |
-| 状态页"最新 N 条"不对 | 同批插入 created_at 相同乱序 | 已改按自增 id 排序 |
-| Firefox 安卓装上即死 | manifest 改成 event page 但代码首行 importScripts 在 window 上下文不存在 → ReferenceError 后台全灭 | v3.4.8 双形态 manifest + importScripts 守卫；**改形态必须连代码一起改** |
-| iOS 快捷指令跑不通 | 手搓 plist 用了 6 层不存在的动作/键名 | 通道已下架（分发物料标记"已下架勿发"）；重建须用 cherri 等真实工具链 + 真机回归 |
-| GitHub token 推送 401 | ~/.config/gh/hosts.yml 里有多个 token，grep 第一个可能是旧 token | 用 `gh auth token` 取钥匙串里的活 token |
-| 状态页数字不更新 | 手机浏览器冻结后台标签的定时器 | 页面已加回到前台立即刷新 + no-store（2026-10-06） |
-| TG 通知停了 | deno 中转额度超限挂起 + api.telegram.org 在 CN 直连不通 | 已切 Supabase RPC 中继（crowd_notify_tg + pg_net 数据库直连 TG，密钥在 crowd_private_config，调用方需 ops_secret）；服务器 deploy.env 需有 CROWD_OPS_SECRET |
+## 4.2.5增量部署（2026-10-09）
 
-## 九、版本地图
+按生产历史先20261009040306_crowd_v4_kol_recovery，再20261009040629_crowd_v4_kol_diagnostics，均已应用。服务器保存SQL摘要与本地一致。原RPC保持兼容；新执行器、来源尝试与ACK检查点、明确交接、正常零新增周期、图片评论类型及脱敏KOL状态已接入。未知来源不重发，不清预算；完整覆盖保持未验证。测试见kol-recovery-db.mjs（19组）和kol-db.mjs（33组）。
 
-| 版本 | 内容 |
-|---|---|
-| v3.3.0 | 审计修复 + v3.2.3 对齐 + 自动升级分发 |
-| v3.3.1 | 移动端域名适配（m.xiaohongshu.com） |
-| v3.3.4 | SW 改名强刷 + key 硬编码 + 自动开搜索页（真·全自动） |
-| **v3.4.0** | **安全线 v2 类人调度（双层抖动/时段画像/warmup/风控状态机）+ 全局暂停** |
-| v3.4.1 | warmup 老设备豁免；标题软化（no_title 标记）+ 页面自动提取标题 |
-| v3.4.3 | quota_exceeded 语义：停采到配额重置 + 信封排队，不再无限重试 |
-| v3.4.4/3.4.5 | 幂等层 quota 回执重裁 + reset_at 精确排队；gate/verdict 字段双读；SW 改名强刷缓存 |
-| **v3.4.6** | **队列写回竞态修复 + 看门狗锁修正 + 死信词表对齐 + 风控信号透传 + 同意门收紧（点"不同意"不采集）+ 重试上限 8 次 + 孤儿标签清理；Puppeteer 回归 96/96（test-harness/）** |
-| v3.4.7 | 审计剩余项清零（agreed_at 门禁/last_sid 去重/401 熔断/warmup NaN 回退等）；独立回归 123/123 |
-| v3.4.8 | Firefox 双修（manifest 双形态 background + importScripts 守卫 + gecko update_url）+ publish.sh 自动打 xpi + Mozilla updates-firefox.json；网页五连修（UUID 兜底/存储防护/URL 规范化/标题必填/gate 中文分流）；M4 熔断收口网页通道（crowd_fix_v348_global_pause_web.sql） |
-| v3.4.9/3.4.10 | 弹窗未注册提示改可点直达注册页；注册/启动后立即开跑+清陈旧拦截提示 |
-| v3.4.11 | **配额 25±20% 设备抖动（注册定型）+ 七天平滑爬坡 ±10% 设备抖动 + 风控信号近 48h≥2 自动降额 30% + SERP 停留下限 + 排序 70/30 混合**（crowd_fix_v3411_quota_warmup.sql） |
-| v3.4.12 | 信封 6→12 + 服务端已见库(known_note_ids)客户端预过滤（同页多榨 2-3 倍，crowd_fix_v3412_envelope12.sql） |
-| v3.4.13 | 作者昵称日期剥离（content.js 净化 + 服务端存量清洗） |
-| v3.4.14 | **口味评分阶段一**：弹窗评分入口（1-5 星+理由）+ owner-rate.html（M0 owner 标尺端）+ crowd_score.py（S3：Beta 后验+BT 排名+CI，cloud/crowd_score.py）+ crowd_fix_v350_owner_taste.sql |
-| 安装器 v5 | **零管理员零密码**：手动挂载引导 + 自更新 LaunchAgent/任务计划（Chrome 策略通道被官方封死后唯一稳定通道） |
-| v7（沙盒中） | PM 后台自定义模糊关键词——`sandbox/v7-fuzzy-keywords` 分支，**未发布** |
-| Firefox 通道 | AMO 非公开签名（账号 huming0018@gmail.com，凭据在 ~/.food_atlas_credentials.md：AMO_PASSWORD / AMO_TOTP_SECRET / 恢复码）；签名包 crowd-extension-vX-firefox-signed.xpi 上传 bucket；Firefox 自动更新用 Mozilla 格式 update manifest（待做，当前 Firefox 端手动更新） |
+新bootstrap助手固定channel-kol.json，与旧channel.json隔离。不得直接替换旧通道以强推新权限。保留签名、SHA、sequence、权限检查、握手和回退。原设备一次明确迁移后才可接新通道；公开安装包不等于已经安装。更多平台、全量评论/历史、实机两条与长期质量仍单列。

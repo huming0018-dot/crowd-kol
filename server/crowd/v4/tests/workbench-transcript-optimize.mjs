@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync(new URL('../multiplatform/media-ui.js',import.meta.url),'utf8');
+const start=source.indexOf('  async function openOptimization('),end=source.indexOf('  async function openQuality(',start);
+let live=true,requests=[],buttons=[],pending=null,rendered=[];
+const node=(tag,text)=>({tag,text,children:[],append(...items){this.children.push(...items)}});
+const plan={result_sha256:'a'.repeat(64),plan_sha256:'b'.repeat(64),edits:[{segment_index:1,text:'源拼写'},{segment_index:2,remove_overlap_with:3}]};
+const context=vm.createContext({node,exportPanel:node('div'),generation:0,button:(text,onclick)=>{const b={text,onclick};buttons.push(b);return b},call:async(action,payload)=>{requests.push({action,payload});return action==='optimization_preview'?pending||plan:pending||{job_id:'new'}},render:value=>rendered.push(value),history:async()=>{}});
+vm.runInContext(source.slice(start,end)+'\nthis.open=openOptimization;',context);
+await context.open({job_id:'original'},()=>live);assert.equal(buttons.at(-1).disabled,false);
+let done;pending=new Promise(resolve=>done=resolve);const saving=buttons.at(-1).onclick();await buttons.at(-1).onclick();assert.equal(requests.filter(r=>r.action==='optimization_apply').length,1);
+assert.deepEqual(JSON.parse(JSON.stringify(requests.at(-1).payload)),{job_id:'original',expected_result_sha256:plan.result_sha256,expected_plan_sha256:plan.plan_sha256});
+live=false;done({job_id:'late'});await saving;pending=null;assert.equal(rendered.length,0);
+live=true;await context.open({job_id:'original'},()=>live);await buttons.at(-1).onclick();assert.equal(rendered.at(-1).job_id,'new');
+const oldCount=buttons.length;let finish;pending=new Promise(resolve=>finish=resolve);const preview=context.open({job_id:'original'},()=>live);live=false;finish(plan);await preview;assert.equal(buttons.length,oldCount);
+console.log(JSON.stringify({ok:true,cases:4,actual_ui_preview_apply:true,closed_late_and_double_click_guard:true,no_client_source_dictionary:true}));

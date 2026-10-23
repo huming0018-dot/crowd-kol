@@ -1,0 +1,81 @@
+"""Fixed 065 subprocess boundary for the existing local Owner workbench."""
+from pathlib import Path
+import json,os,stat,subprocess,tempfile,logging,time
+from material_bridge import parse_json
+from workbench_material_call import command as material_command
+
+
+READ_DIAGNOSTIC_ACTIONS=frozenset(('material_feedback_preview','material_releases'))
+READ_DIAGNOSTIC_CODES=frozenset(('cloud_read_unavailable','knowledge_service_unavailable',
+ 'knowledge_owner_principal_denied','knowledge_host_config_changed','knowledge_binding_changed',
+ 'knowledge_publication_config_changed','material_feedback_not_ready','material_feedback_read_unavailable',
+ 'material_feedback_current_changed','material_feedback_scope_mismatch','material_feedback_receipt_mismatch',
+ 'knowledge_read_unavailable','process_launch_failed','output_limit','output_invalid',
+ 'child_exit_unclassified','knowledge_result_invalid'))
+_READ_DIAGNOSTIC_LOG=logging.getLogger('crowd.workbench.knowledge_read')
+
+def log_read_failure(action,phase,started,code):
+ """Original private stderr only. Never include body, output, paths or raw errors."""
+ if action not in READ_DIAGNOSTIC_ACTIONS:return
+ try:
+  safe=code if type(code)is str and code in READ_DIAGNOSTIC_CODES else 'child_exit_unclassified'
+  event={'schema':'crowd-knowledge-read-failure-v1','action':action,'phase':phase,
+         'error_code':safe,'elapsed_ms':max(0,min(600000,int((time.monotonic()-started)*1000)))}
+  _READ_DIAGNOSTIC_LOG.warning(json.dumps(event,sort_keys=True,separators=(',',':')))
+ except Exception:pass # Logging cannot change the existing outcome/UNKNOWN contract.
+
+
+def call(config_path, cloud_config, body):
+    if type(body)is not dict or set(body)!={'action','payload'} or body['action'] not in ('target_prepare','target_prepare_status','proposal_choices','target_preview','target_decide','target_status','target_publication_preview','target_publication_release','target_publication_pin','target_publication_rollback','target_publication_status','target_publication_read','draft_preview','preview','decide','status','publication_preview','publication_release','publication_pin','publication_rollback','publication_status','publication_read','material_releases','material_release_resolve','material_feedback_preview','material_feedback_submit','material_feedback_status','material_feedback_inbox','material_feedback_gap_preview','material_feedback_gap_submit','material_feedback_gap_status','material_feedback_gap_list') or type(body['payload'])is not dict:
+        raise ValueError('knowledge_request_invalid')
+    action=body['action'][7:] if body['action'].startswith('target_') else body['action']
+    raw=json.dumps(body,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()
+    if len(raw)>32768:raise ValueError('knowledge_request_too_large')
+    path=Path(config_path)
+    if any(p.is_symlink()for p in (path,*path.parents)):raise ValueError('knowledge_runtime_unsafe')
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(fd,'rb')as f:
+        info=os.fstat(f.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.getuid() or info.st_mode&0o077 or info.st_size>65536:
+            raise ValueError('knowledge_runtime_requires_0600')
+        cfg=parse_json(f.read(65537))
+    # Reuse the already audited Python/script/request validation contract.
+    verified=material_command(cfg,'read','json')
+    argv=verified[:3]+['--service-config',cfg['request'],'--service-sha256',cfg['request_sha256'],'--cloud-config',str(cloud_config),'--body-fd','0']
+    env={'PATH':os.environ.get('PATH',''),'PYTHONPATH':str(Path(cfg['script']).parent),'PYTHONDONTWRITEBYTECODE':'1'}
+    with tempfile.TemporaryFile()as output:
+        started=time.monotonic()
+        try:
+            process=subprocess.run(argv,input=raw,stdout=output,stderr=subprocess.DEVNULL,env=env,timeout=25,close_fds=True)
+        except subprocess.TimeoutExpired:
+            log_read_failure(body['action'],'timeout',started,'knowledge_read_unavailable')
+            raise ValueError('knowledge_outcome_unknown'if action in ('prepare','decide','publication_release','publication_pin','publication_rollback','material_feedback_submit','material_feedback_gap_submit')else 'knowledge_read_unavailable')from None
+        except OSError:
+            log_read_failure(body['action'],'launch',started,'process_launch_failed')
+            raise
+        if os.fstat(output.fileno()).st_size>1024*1024:
+            log_read_failure(body['action'],'output_limit',started,'output_limit')
+            raise ValueError('knowledge_request_unavailable')
+        output.seek(0)
+        try:value=parse_json(output.read(1024*1024+1))
+        except (ValueError,TypeError,UnicodeError):
+            log_read_failure(body['action'],'output_parse',started,'output_invalid')
+            raise
+        prewrite={'knowledge_preview_expired','knowledge_decision_invalid','knowledge_decision_request_invalid','knowledge_preview_required','knowledge_owner_proposal_changed','knowledge_target_not_configured'}
+        feedback_prewrite={'material_feedback_journal_limit','material_feedback_request_invalid','material_feedback_not_ready','material_feedback_current_changed','material_feedback_scope_mismatch','material_feedback_record_changed','material_feedback_quote_mismatch','material_feedback_not_configured','material_feedback_request_conflict'}
+        gap_prewrite={'material_feedback_request_invalid','material_feedback_receipt_mismatch','material_feedback_gap_feedback_unsettled','material_feedback_gap_feedback_invalid','material_feedback_gap_feedback_changed','material_feedback_gap_receipt_mismatch','material_feedback_request_conflict','material_feedback_journal_limit','material_feedback_gap_feedback_not_found'}
+        if action=='material_feedback_gap_submit'and process.returncode==2 and type(value)is dict and set(value)=={'error'}and type(value.get('error'))is str and value['error']in gap_prewrite:
+            return {'state':'not_submitted','error_code':value['error']}
+        if action=='material_feedback_submit'and process.returncode==2 and type(value)is dict and set(value)=={'error'}and type(value['error'])is str and value['error']in feedback_prewrite:
+            return {'state':'not_submitted','error_code':value['error']}
+        if (action=='decide' and process.returncode==2 and type(value)is dict
+                and set(value)=={'error'} and type(value['error'])is str and value['error']in prewrite):
+            return {'state':'not_submitted','error_code':value['error'],'message':'本次决定未提交：预览已过期或输入未通过校验。请刷新提案，原理由可保留。'}
+        if process.returncode:
+            code=value.get('error')if type(value)is dict and set(value)=={'error'}else None
+            log_read_failure(body['action'],'child_exit',started,code)
+            raise ValueError('knowledge_request_unavailable')
+    if type(value)is not dict or 'error'in value:
+        log_read_failure(body['action'],'result_shape',started,'knowledge_result_invalid')
+        raise ValueError('knowledge_result_invalid')
+    return value

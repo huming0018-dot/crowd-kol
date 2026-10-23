@@ -1,0 +1,67 @@
+{
+  "repository": "huming0018-dot/china-travel-food",
+  "commit": "82cafb76d6b8c1f9709e1ecf53daf86ac4d50d67",
+  "purpose": "One-time baseline import. Future edits belong to this canonical repository.",
+  "files": [
+    {
+      "source": "cloud/supabase/migrations/20261007051154_crowd_v4_diagnostics.sql",
+      "destination": "supabase/migrations/20261007051154_crowd_v4_diagnostics.sql",
+      "sha256": "f55e50dd9e72ce734db90420c9eb766b2dec9af0e120f768252b81c8f8733dd3"
+    },
+    {
+      "source": "cloud/supabase/migrations/20261007100305_crowd_v4_navigation_diagnostics.sql",
+      "destination": "supabase/migrations/20261007100305_crowd_v4_navigation_diagnostics.sql",
+      "sha256": "89740407014a29677219738cefd475474047128bcbc309e4b3a534fc7eca31ae"
+    },
+    {
+      "source": "cloud/supabase/migrations/20261007120848_crowd_v4_view_count.sql",
+      "destination": "supabase/migrations/20261007120848_crowd_v4_view_count.sql",
+      "sha256": "0619a6f82b8d6b98155354435bf411a39857c398c246f562d0624193e658627d"
+    },
+    {
+      "source": "cloud/supabase/migrations/20261006145016_crowd_v4.sql",
+      "destination": "supabase/migrations/20261006145016_crowd_v4.sql",
+      "sha256": "36809a130a5c568d03a98129c52b433dc1e81de8dc281c27f4adce5fb586b44c"
+    },
+    {
+      "source": "cloud/supabase/migrations/20261006145030_crowd_v4_invites.sql",
+      "destination": "supabase/migrations/20261006145030_crowd_v4_invites.sql",
+      "sha256": "978c1bbc7fb601e8f625ac213e06bf78ecad8cda797206b4a3bb052dcb624291"
+    },
+    {
+      "source": "cloud/supabase/migrations/20261008014820_crowd_v4_safety.sql",
+      "destination": "supabase/migrations/20261008014820_crowd_v4_safety.sql",
+      "sha256": "b5ab5a55850efc18aaffe3e47850a699cc1182ea9ddd8f9f09aef3e7fa379a13"
+    },
+    {
+      "source": "crowd_extension/tests/safety-db.mjs",
+      "destination": "tests/safety-db.mjs",
+      "sha256": "623695abb66cf0eb77545783d5015e253f496e774e0199548469cdfc945a751d"
+    },
+    {
+      "source": "crowd_extension/tests/diagnostics-db.mjs",
+      "destination": "tests/diagnostics-db.mjs",
+      "sha256": "c37eb0f648ed8f75f59edbd5c67db53712337ce4499667a3299bf40e47deb666"
+    },
+    {
+      "source": "cloud/supabase/functions/crowd-access/index.ts",
+      "destination": "supabase/functions/crowd-access/index.ts",
+      "sha256": "a1656e1a7b23e78d05609dcd1078fa01e4b6612743bf80e88564580ebbe15b77"
+    },
+    {
+      "source": "cloud/supabase/functions/crowd-access/core.mjs",
+      "destination": "supabase/functions/crowd-access/core.mjs",
+      "sha256": "c62fee4d30f8de7eb7308802eee965dd103d1b2db1a36bd14bc195465388059e"
+    },
+    {
+      "source": "cloud/supabase/functions/crowd-gateway/index.ts",
+      "destination": "supabase/functions/crowd-gateway/index.ts",
+      "sha256": "ab92e1f951251c6164527e1aabe5cc9464510d45289ad11edbce01f97751c65e"
+    },
+    {
+      "source": "cloud/supabase/functions/crowd-gateway/core.mjs",
+      "destination": "supabase/functions/crowd-gateway/core.mjs",
+      "sha256": "8eff53ec72367c94c3e70511124f348d663aa20155fca57e8ac2dbbb373aeae2"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+cases:
+- id: original-ack
+  expectation: capture and receipt are exact original canonical strings; ID and envelope
+    hashes bind
+  fixture: WB-CAPTURE-SNAPSHOT.PRIVATE.json
+- id: no-taste
+  expectation: restaurant/taste/independent-diner unknowns remain; no claim of eaten
+    experience
+  fixture: WB-CAPTURE-SNAPSHOT.PRIVATE.json

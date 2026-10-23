@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "pointers": {
+    "/draft/title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 250
+    },
+    "/draft/text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500000
+    },
+    "/draft/entity_type": {
+      "type": "string",
+      "enum": [
+        "content",
+        "comment"
+      ]
+    }
+  }
+}

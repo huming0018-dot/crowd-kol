@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.crowd.authorized-speech</string><key>CFBundleName</key><string>Crowd Authorized Speech</string><key>NSSpeechRecognitionUsageDescription</key><string>仅在本机转录你明确选择且有权处理的音频。不会启用云端识别或麦克风录音。</string></dict></plist>

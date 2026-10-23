@@ -1,0 +1,46 @@
+{
+  "schema": "crowd-control-diagnostic-v1",
+  "required": [
+    "schema",
+    "kind",
+    "http_status",
+    "elapsed_ms",
+    "at_ms"
+  ],
+  "optional": [
+    "cause"
+  ],
+  "steps": [
+    "session",
+    "stop"
+  ],
+  "kinds": [
+    "timeout",
+    "cancelled",
+    "network_unknown",
+    "http_4xx",
+    "http_5xx",
+    "invalid_json",
+    "backend_error",
+    "policy_schema_invalid",
+    "policy_version_regression",
+    "response_slow",
+    "clock_regression",
+    "local_gate_failure",
+    "ok",
+    "terminal_response"
+  ],
+  "causes_for_local_gate_failure_only": [
+    "cancelled",
+    "task_reconciliation_required",
+    "admission_rejected",
+    "local_unknown"
+  ],
+  "http_status": "null or integer100..599; http_4xx nonnull400..499; http_5xx nonnull500..599",
+  "elapsed_ms": "null or integer0..300000",
+  "at_ms": "null or integer0..4102444800000 and <= enclosing event.at_ms",
+  "explicit_diagnostic_null": "reject when opted-in; absent remains legal",
+  "max_object_bytes": 512,
+  "no_new_error_code": true,
+  "after_definition_md5": "d0f3aa005cb277a06dce51981ab316f5"
+}
