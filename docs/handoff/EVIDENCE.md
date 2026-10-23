@@ -1,5 +1,11 @@
 # 交接证据索引
 
+## 2026-10-23 08:30 CST｜G140 Windows进程策略、私有目录与传输实际
+
+- `G140-windows-install-live/PRIVATE-INBOX-ACL.png` SHA58e3233c9d2969c73d3366266ad63fa9ac1f045a5c67e7c1710b9abf28f4cae0：真实原Windows/simon下新inbox、protected/当前SID+SYSTEM+Admin3条FC OI/CI非继承、正常prompt；C `G140-independent-review/PRIVATE-INBOX-ACL-ACTUAL-FINAL.json` SHA1400c9aa9536f8c901a004bb350b150a28713c255bd8364bf6b44d327153ec6e。
+- `G140-windows-install-live/SEVEN-FILES-TRANSFERRED.png` SHA931cfecbff49bdf54187d571832018a46a10d9562df908cd2d6f8b96680bb744、CHECKPOINT.json：正确Windows私目录7/7；C `SEVEN-FILES-TRANSFER-ACTUAL-LIMITED.json` SHA536183fa2f4741497d46525a431d56c62f9209e158501aaebb7c35b56999c62f。尚未远端SHA/ACL继承/Receive/安装，不用listing代替。
+- `G139-post-receive-plan/PLAN.md` FREEZE050549d3…，C `G140-independent-review/POST-RECEIVE-SEQUENCE-PLAN-FINAL.json` SHA9c3ae979…：原bootstrap-only、正常OwnerClient配对→独立config→install/check→原Bridge本设备登录→bind/start顺序，只计划无执行。G140 handoff-before保3文档原工作全文，不包含私SDK或凭据。
+
 ## 2026-10-23 03:16 CST｜G139 Windows原件、最小Bridge修复与私有安装准备
 
 证据根 `/Users/hubowen/Desktop/爬虫/outputs/runtime-2026-10-18/pro-participant-native-entry/`。

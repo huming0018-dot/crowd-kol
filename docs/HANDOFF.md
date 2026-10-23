@@ -1,6 +1,13 @@
 # 分布式采集系统｜固定交接入口
 
-## 当前状态｜2026-10-23 03:16 CST｜G139原Windows诊断完成；Bridge目录发现修复已提交；Windows脚本策略待确认
+## 当前状态｜2026-10-23 08:30 CST｜G140 Windows进程授权已执行、私有inbox及七件传输完成；远端校验/安装未执行
+
+- **授权已采用/真实Windows**：用户明确允许仅本次安装进程RemoteSigned。root在Windows-H2J0L1原simon用户执行已核SHA/已独审PrepareInbox，通过 `powershell -NoProfile -ExecutionPolicy RemoteSigned -File PrepareInbox.ps1` 正常返回；只新建 `C:\Users\simon\crowd-g139-inbox`，protected=true，当前SID1001/System/Admin三条Allow FullControl OI/CI非继承。没有设置系统/账户永久策略，也没改原Downloads/HOME ACL。C实际1400c9aa…独审通过。
+- **真实传输/边界**：已通过既有ToDesk私传7件至该新inbox：批准Pro私有kit4f096、公共包cf3cf9、原uv/Python/Node3x64归档及V2 Receive.ps1/receive.py。保存图见正确Windows/目录、7/7及成功列表，C536183fa…有限审通过；截图近似大小不替代远端精确大小/SHA。远端文件继承ACL、SHA、Receive执行/RECEIVED、依赖bootstrap和完整安装尚未核验；不称Windows安装通过。
+- **输入阻塞/保护**：传输后Windows终端出现无响应输入与连续窗口变更保护；重新getApp已明确选到另一个设备“Deuce的Mac mini”。root没有向该无关设备发命令，停止争抢前台，已问是否有用户/其他会话并发使用ToDesk并等待独占答复。此前空闲终端输入尝试未提交，没有重发未知安装。不能把焦点问题单因归为用户或工具。
+- **下一步/保留**：独占恢复后自行切正确Windows，先RO核Receive.ps1 SHA947a6e11…、原receiver1f88…及7件继承ACL，再正常V2接收至原计划唯一HOME目录，原install --bootstrap-only；正常新设备身份决策/Owner配对和独立worker-only配置后才完整install/check/bind。未新pair/task/云写、未启动采集或Bridge，原身份/进度/评分/outbox/旧UNKNOWN/MacOTA/Owner/Edge保持，48h/watchdog仍停。G139源码019b5bd和pages9103418已发布仍保留，不重复发布包或把Linux96ACK冒Windows回执。
+
+## 历史快照｜2026-10-23 03:16 CST｜G139原Windows诊断完成；Bridge目录发现修复已提交；Windows脚本策略待确认
 
 - **Windows真实新增证据**：用户确认结束并发ToDesk操作后，root重新接管Windows-H2J0L1；通过ToDesk文件传输将已审V1 helper和report包装送到原Windows Downloads，分别certutil SHA与批准81a0a423…/efa351b9…完全一致。已实际执行read-only helper，report退出0、1278B/SHA9d5b93a0825dbba6a7af83386b748df7a7d24e15ca17fb6585ec12187b40d2d0，回取文件同字节同SHA。原2Chrome资料无本产品storage、crowd-ext不存在；原Ubuntu默认CrowdWorker及5markers不存在，实际x86_64/uid1000/Python3.14.4/Git2.53.0。只覆盖固定位置，不等于全设备没有其他身份；无配对、任务、平台登录或云回执。C实际薄审d74061e3…通过。V1对Bridge目录标记有误，空候选列表不能推断Bridge不存在。
 - **故障定位纠正**：先前ToDesk窗口变化确有用户并发操作，64像素浮窗只是旧假设，未证明根因。独占后普通短键命令/文件传输实际可用，但重定向与部分组合键出现旧历史拼接；错误行均截图拦下、清空或关闭闲置终端，未提交执行。停止巨长终端payload，使用已审短脚本和文件传输。不能把输入尝试称安装完成。

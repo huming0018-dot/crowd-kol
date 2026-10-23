@@ -1,5 +1,13 @@
 # 交接变更日志
 
+## 2026-10-23 08:30 CST｜root实机 / A后续顺序 / C独审｜G140
+
+- 用户已明确允许仅本安装进程RemoteSigned；原Windows/simon实际运行PrepareInbox，新私目录创建、protected限定ACL核验成功，C1400c9通过。永久策略及原目录ACL保持。
+- 7件已审文件实际私传到新Windowsinbox，截图7/7；C536183有限审通过。文件清单近似大小不冒逐SHA/继承ACL；Receive、bootstrap、完整install、pair/bind/start/任务/云ACK均未执行。
+- 其后控制输入无响应与窗口变更保护，getApp实际已切到另一设备Deuce的Mac mini；未对此设备输入。已询问用户/其他会话并发使用、待独占，不争抢/不绕保护/不归未经证明根因。此前未提交的尝试未变远端安装状态。
+- 下一步正确Windows独占后ROhash/ACL→原V2receive→原bootstrap→正常身份配对config/fullinstall。原身份进度评分outbox旧UNKNOWN和OTA、原云服务保持；48h/watchdog停。无新增产品源修改或部署，沿G139已发布包cf3cf9/019b5bd/pages9103418。
+- 证据见EVIDENCE G140及G140-windows-install-live/CHECKPOINT.json；更新固定handoff并保旧working全文。只已验证项可称实际通过。
+
 ## 2026-10-23 03:16 CST｜root实机 / B目录发现与诊断 / A接收包 / C独审｜G139
 
 - 目标：Windows-H2J0L1新安装、原登录复用、自动领取/真实云回执/断网恢复/停止，沿Pro原链路，保原身份进度评分OTA。
