@@ -3,17 +3,35 @@
 当前暂停采集开发与部署。下方原 README、docs/DEPLOY.md 与 docs/HANDOFF.md 是历史说明，不是本轮执行指令；不据此安装、跑迁移、恢复定时任务或访问生产。
 
 ## 代码属性与去留
-| 范围 | 判断 |
-|---|---|
-| server/crowd/crowd_score.py | 口味评分项目规则，不是通用模型/工具。源码明确有校准、情感与先验演化 TODO；不能把统计函数可执行等同评分体系完整。未晋升共享核心。 |
-| server/crowd/crowd_tracking.py、cron | 项目播报与生产编排。结算/入库 cron 指向本仓没有的 cloud/crowd_settlement.py、cloud/crowd_store_ingest.py，需要美食项目环境；本仓不是独立完整交付。 |
-| server/kol/kol_*.py、_lib | 业务采集、实体匹配、信任分级和入库，依赖美食管线、数据库及外部接口。已有同名店首项吞并、否定情感误判、脱敏保留秘密正文等反例，不迁为通用工具。 |
-| SQL 迁移、设计/研究材料 | 项目数据契约与经验；完整迁移链及在线数据库未验证，不据文件齐全判为可运行核心。本次不执行或批量删除。 |
 
-**实际退出仅一份重复备份**：`server/crowd/sql/crowd_harden_redteam_v1_backup.sql` 与保留的 `crowd_harden_redteam.sql` 同 Git blob `f465734643f94010ff2b7660e55f04661ab56138`。备份没有独特内容，不需要活动副本。
-[完整恢复点](https://github.com/huming0018-dot/crowd-kol/tree/3b75121e18631acb4d30524d5feea8b1fe8ad277)。
+业务筛选基线：[0ce911159a4b2f6d78d9f19145deb958d4c5efd0](https://github.com/huming0018-dot/crowd-kol/tree/0ce911159a4b2f6d78d9f19145deb958d4c5efd0)。本批覆盖下表八个业务脚本；`kol_cross.py` 由另一批处理，SQL 链、线上服务和调度不在本批验收范围。
 
-本次没有迁出新的完整有价值核心；一次重复删除不等于全仓筛选或数据库验证完成。未修改线上分发、生产、采集或结算。
+完整性、价值与归属分别判断：以下有真实输入输出的项目核心保留；校准缺项或局部反例限制其承诺范围，不据此删除整套业务代码。所有保留项属**项目**，本批不新增模型、共享基建或通用工具资产。
+
+| 范围 | 完整性与保留价值 | 边界 |
+|---|---|---|
+| `server/crowd/crowd_score.py` | rating/owner/task → 证据池化、Beta 后验/CI、菜系内排名、输入版本；折扣和 owner 锚具有项目语义。保留离线计算核心。 | 校准恒等、note 不入池、all/owner BT 证据相同是源码明确的骨架范围；准入/发布产品未闭合。DELETE 后 POST 的远端写入非事务，不验收或恢复写库。 |
+| `server/kol/kol_monitor.py` | 餐厅索引保留多分店，唯一名/明确区线索可锚定，无消歧信息则留空；未知线索另路由，具有项目防错绑用途。 | 词表情感不是准确情感模型；已知 mid、结果缺 mid 仍会通过作者过滤，不能宣称严格身份核验完成。渠道可达性未测。 |
+| `server/kol/kol_post_ingest.py` | 唯一店名/别名最长匹配、归属窗口、帖子与提及载荷映射均有实际实现，保留项目机械归档核心。 | 同名店折为首项；“不好吃”判正；重复提及未逐次定位，会串配后续情感。不能作为可靠消歧/情感工具；两次归档请求不是原子事务。 |
+| `server/kol/kol_identity.py` | 搜索结果、已知 mid、公众号发布者 → handles 计划；同名多结果和 mid 冲突有真实拒绝分支，保留项目身份核对流程。 | `merged.update(new)` 会覆盖已有平台键，与文件承诺的“已写平台跳过”不符；不能宣称幂等保留既有绑定。未执行搜索或 PATCH。 |
+| `server/kol/kol_router.py` | 线索守卫、独立 KOL 聚合、可选地图核对与分级是项目发现规则，不直接建店或写 taste。 | `幸福饭店` 被尾缀规则全剥离后拒绝；地图适配不在仓内，缓存无保鲜。守卫是启发式，不等于实体真实性判定。 |
+| `server/kol/kol_trust_grade.py` | 人工精选池/别名 → trust 变更计划；S/A→high、B→mid 是完整的项目政策映射。 | 包含匹配只限制池名字数，“甲”可命中“甲作者”；不能作为身份认证或可信度模型。精选池内容未重新背书。 |
+| `server/kol/kol_context_backfill.py` | 精确店名 → 前后各 40 字；找不到留空。保留小型项目数据回填规则。 | 只定位首次原文精确出现，不承诺别名/语义匹配；数据库入口未运行。独立维护为通用库收益不足。 |
+| `server/crowd/crowd_tracking.py` | 三表 → 任务缺口、回流/活跃聚合、时区正确的 24h 窗口与报告；业务统计有用。 | notifier 为仓外依赖，通知/账本/cron 未验收或恢复；不能把聚合可测等同播报交付完成。 |
+| `_lib`、cron、SQL、设计/研究材料 | `_lib` 保留边界见 [已有报告](docs/KOL-LIB-BOUNDARY.md)；其余按项目运行编排/数据契约/历史材料保留待各自范围验收。 | 本批不重审 `_lib`，不执行 SQL；结算/入库 cron 仍依赖仓外入口，不据此声称整个项目独立闭合。 |
+
+本批不删除业务实现：其核心有项目用途，反例不足以证明整体无价值；不为整理而补做采集、身份、情感或评分功能开发。启发式经验不单独晋升共享实现。
+
+离线复验（只用合成输入，HTTP/通知边界隔离，不读本机凭据）：
+
+```bash
+python3 -B -m unittest discover -s tests -p test_project_core_contracts.py -v
+python3 -B server/crowd/crowd_score.py --dry-run
+```
+
+16 项新增检查验证正常契约，不掩盖上表反例；mock 仅替代外部 I/O，不证明真实渠道或数据库可用。KOL 各 CLI 即使默认 dry-run 也可能读库/搜索，不能当作离线检查命令运行。
+
+已合并退出范围：[PR2](https://github.com/huming0018-dot/crowd-kol/pull/2) 删除一份同 blob SQL 备份；[PR3](https://github.com/huming0018-dot/crowd-kol/pull/3) 裁剪 `_lib` 中的跨项目副本并保留实际依赖核心。[整理前恢复点](https://github.com/huming0018-dot/crowd-kol/tree/3b75121e18631acb4d30524d5feea8b1fe8ad277)。本批未修改业务源码、线上分发、生产、采集或结算；不宣称全仓或产品验收完成。
 
 ---
 
