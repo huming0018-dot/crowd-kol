@@ -1,3 +1,24 @@
+# 众包 / KOL 项目快照：整理期入口
+
+当前暂停采集开发与部署。下方原 README、docs/DEPLOY.md 与 docs/HANDOFF.md 是历史说明，不是本轮执行指令；不据此安装、跑迁移、恢复定时任务或访问生产。
+
+## 代码属性与去留
+| 范围 | 判断 |
+|---|---|
+| server/crowd/crowd_score.py | 口味评分项目规则，不是通用模型/工具。源码明确有校准、情感与先验演化 TODO；不能把统计函数可执行等同评分体系完整。未晋升共享核心。 |
+| server/crowd/crowd_tracking.py、cron | 项目播报与生产编排。结算/入库 cron 指向本仓没有的 cloud/crowd_settlement.py、cloud/crowd_store_ingest.py，需要美食项目环境；本仓不是独立完整交付。 |
+| server/kol/kol_*.py、_lib | 业务采集、实体匹配、信任分级和入库，依赖美食管线、数据库及外部接口。已有同名店首项吞并、否定情感误判、脱敏保留秘密正文等反例，不迁为通用工具。 |
+| SQL 迁移、设计/研究材料 | 项目数据契约与经验；完整迁移链及在线数据库未验证，不据文件齐全判为可运行核心。本次不执行或批量删除。 |
+
+**实际退出仅一份重复备份**：`server/crowd/sql/crowd_harden_redteam_v1_backup.sql` 与保留的 `crowd_harden_redteam.sql` 同 Git blob `f465734643f94010ff2b7660e55f04661ab56138`。备份没有独特内容，不需要活动副本。
+[完整恢复点](https://github.com/huming0018-dot/crowd-kol/tree/3b75121e18631acb4d30524d5feea8b1fe8ad277)。
+
+本次没有迁出新的完整有价值核心；一次重复删除不等于全仓筛选或数据库验证完成。未修改线上分发、生产、采集或结算。
+
+---
+
+## 历史 README（非当前操作指令）
+
 # crowd-kol · 众包采集 + KOL 采集协作仓库
 
 > 单一事实源（canonical）：众包采集系统的**服务端**与 **KOL 采集子系统**的协作主仓。
