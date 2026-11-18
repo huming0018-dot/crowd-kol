@@ -21,3 +21,14 @@
 只改 kol_cross.py、增加离线测试和本说明。保留的6函数AST前后一致；三空接口无仓内Python显式消费者（仓外动态调用未核）。历史probe只是2026-09-29记录，不是当前探活；未更改其CLI。
 4项新回归 + PR3既有6项，共10项通过；测试评分/窗口/标题指纹真实纯逻辑及API退出。反例使用无I/O纯函数与最小文本归一依赖；不假装真实网络测试。
 不运行众包、SQL、数据库、地图、通知或部署。旧占位可从固定Git源恢复；不改其他核心行为，缺陷不在此次整理中顺手开发。
+
+## SQL 与消费者边界（静态补审）
+
+基线 `dbcdb4b7db134de7698026afb0588826ce9b4cd7`。逐段审 KOL 的 011/013/016/023、crowd_tables、v350_owner_taste 共6份 SQL；对全仓23份 SQL、12个 server Python 文件做名称级交叉检查，另读3个 cron 入口。未执行 SQL、查询数据库或验证部署；不推断线上已应用哪些补丁，也不把名称扫描当全迁移链审计。
+
+- **保留项目契约**：011/013 的名单→帖子→提及、016 的 handles 均有现行消费者。023 的 **context 列由 kol_context_backfill 实际读写**；仅其新增的 food_kol_identity 表未见仓内 Python 消费者，身份脚本实际写 watchlist.handles。不能把整个023称为闲置，更不据此删除历史迁移。
+- **保留评分 schema 核心**：v350 的 owner评分表、评分RPC及结果表有明确项目语义；crowd_score.to_db_rows 的15个输出键全部对应结果表列，id/computed_at 有默认值。静态字段对应不等于数据库运行验收；RPC前端不在本仓，不宣称完整评分产品。
+- **未闭合依赖**：monitor/cross/identity 查询 watchlist.mid，但仓内23份SQL未见该列定义；013引用 restaurants(id)，仓内未见其建表。说明本仓不是可从空库独立重建的闭合包，不说明线上缺列或纯函数残缺。
+- **运行边界**：评分发布仍是两次请求 DELETE→POST，v350建表不提供跨请求事务；结算/入库cron指向仓外 crowd_settlement.py、crowd_store_ingest.py。crowd_tables 的两个 CREATE POLICY 无重复保护，不能因表有 IF NOT EXISTS 就宣称整个文件可任意重跑。
+- **处置**：上述均留项目及迁移历史，不抽通用基建/工具、不改SQL、不恢复任务。未来若恢复开发，先明确 mid 来源、餐厅表契约、评分发布原子性及仓外入口；本轮不为补齐依赖另造功能。
+
